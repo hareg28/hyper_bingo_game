@@ -113,6 +113,17 @@ export function checkFullHouseWin(marked: boolean[][]): boolean {
   return true;
 }
 
+export function countRemainingNumbers(marked: boolean[][]): number {
+  let remaining = 0;
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      if (r === 2 && c === 2) continue; // Free center
+      if (!marked[r][c]) remaining++;
+    }
+  }
+  return remaining;
+}
+
 export function formatETB(amount: number): string {
   return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,

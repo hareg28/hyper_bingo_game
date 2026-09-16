@@ -696,27 +696,16 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const game = games.find((g) => g.id === card.gameId);
     if (!game) return { success: false, message: 'Game not found' };
 
-    // Check pattern completeness
+    // Check pattern completeness - FULL HOUSE ONLY (No one-line bingo)
     const isFullHouse = checkFullHouseWin(card.marked);
-    const lineCount = countCompletedLines(card.marked);
-    const isLine = checkLineWin(card.marked);
 
-    if (!isLine && !isFullHouse) {
-      addNotification('❌ Invalid Bingo Claim', 'Your card does not have a completed line or pattern yet!', 'warning');
-      return { success: false, message: 'Pattern not complete yet.' };
+    if (!isFullHouse) {
+      addNotification('❌ Invalid Bingo Claim', 'In Hyper Bingo, you must complete the Full Card (ሙሉ ካርቴላ / Full House) to shout Bingo!', 'warning');
+      return { success: false, message: 'Full Card (Full House) required to win.' };
     }
 
-    let patternName = 'Line';
-    let prizeSharePercentage = 0.3; // 30% for single line
-
-    if (isFullHouse) {
-      patternName = 'Full House';
-      prizeSharePercentage = 0.7; // 70% for full house
-    } else if (lineCount >= 2) {
-      patternName = 'Two Lines';
-      prizeSharePercentage = 0.5; // 50% for two lines
-    }
-
+    const patternName = 'Full House (ሙሉ ካርቴላ)';
+    const prizeSharePercentage = 1.0; // 100% of prize pool for Full House winner!
     const calculatedPrize = Math.round(game.prizePool * prizeSharePercentage);
 
     // Record winner in game

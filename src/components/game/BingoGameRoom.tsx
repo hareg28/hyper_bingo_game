@@ -11,6 +11,7 @@ import {
   countCompletedLines, 
   checkLineWin, 
   checkFullHouseWin, 
+  countRemainingNumbers,
   playBingoVictoryFanfare 
 } from '../../lib/bingoUtils';
 import confetti from 'canvas-confetti';
@@ -40,8 +41,7 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
   const [claimStatus, setClaimStatus] = useState<{ success?: boolean; message?: string; prize?: number } | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'ALL' | 'SINGLE'>('SINGLE');
-  const [showFullBoard, setShowFullBoard] = useState(false);
+  const [viewMode, setViewMode] = useState<'ALL' | 'SINGLE'>('ALL');
 
   const currentGame = games.find((g) => g.id === gameId) || games[0];
   const activeGameCards = userCards.filter((c) => c.gameId === currentGame.id);
@@ -86,23 +86,19 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
     }
   };
 
-  // Win evaluation across ALL active cards of player (min 2, max 3)
+  // Win evaluation across ALL active cards of player (min 2, max 3) - FULL HOUSE ONLY (No 1-line bingo)
   const cardsWinData = activeGameCards.map((c) => {
-    const lines = countCompletedLines(c.marked);
-    const hasLine = checkLineWin(c.marked);
     const hasFullHouse = checkFullHouseWin(c.marked);
+    const remaining = countRemainingNumbers(c.marked);
     return {
       card: c,
-      lines,
-      hasLine,
+      remaining,
       hasFullHouse,
-      isWinner: hasLine || hasFullHouse,
+      isWinner: hasFullHouse,
     };
   });
 
-  const bestWinningItem = 
-    cardsWinData.find((cw) => cw.hasFullHouse) || 
-    cardsWinData.find((cw) => cw.hasLine);
+  const bestWinningItem = cardsWinData.find((cw) => cw.hasFullHouse);
   const isAnyWinning = Boolean(bestWinningItem);
 
   const handleClaimBingo = (cardId?: string) => {
@@ -123,9 +119,8 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
     }
   };
 
-  const lineCount = activeUserCard ? countCompletedLines(activeUserCard.marked) : 0;
-  const isLineWin = activeUserCard ? checkLineWin(activeUserCard.marked) : false;
   const isFullHouseWin = activeUserCard ? checkFullHouseWin(activeUserCard.marked) : false;
+  const remainingCount = activeUserCard ? countRemainingNumbers(activeUserCard.marked) : 24;
 
   const handleConfirmCardNumbers = (selectedCardNumbers: string[]) => {
     if (!user) {
@@ -204,179 +199,198 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
         </div>
       </div>
 
-      {/* Relaxed, Modern Number Tray */}
-      <div className="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3 shadow-xl relative overflow-hidden space-y-2.5">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-[11px] font-bold text-slate-300">
+      {/* 75-Ball Board & Master Table (Original Layout) */}
+      <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-3.5 text-center shadow-xl relative overflow-hidden space-y-3">
+        <div className="flex items-center justify-between text-xs text-slate-400">
+          <span className="font-bold text-slate-300">{t('drawn')}: {currentGame.drawnNumbers.length}</span>
+          <span className="text-amber-400 font-mono font-bold">
             {t('ball')} #{currentGame.drawnNumbers.length} / 75
           </span>
-          <span className="text-[10px] text-slate-400">
-            {currentGame.drawInterval}s draw interval
-          </span>
         </div>
 
-        {/* Center: Glowing Current Ball & Recent 4 Balls Stream */}
-        <div className="flex items-center justify-between gap-2 px-1">
-          <div className="flex items-center gap-2.5">
-            {/* Active Big Ball */}
-            {currentGame.currentBall ? (
+        {/* Big Active Ball */}
+        <div className="flex items-center justify-center my-1.5">
+          {currentGame.currentBall ? (
+            <div className="relative">
               <div
-                className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${getLetterColor(
+                className={`w-16 h-16 rounded-full bg-gradient-to-tr ${getLetterColor(
                   getBallLetter(currentGame.currentBall)
-                )} flex flex-col items-center justify-center shadow-xl ball-active-anim border-2 border-white/20 shrink-0`}
+                )} flex flex-col items-center justify-center shadow-2xl ball-active-anim border-2 border-white/20`}
               >
-                <span className="text-[9px] font-black tracking-widest opacity-90 leading-none">
+                <span className="text-[10px] font-black tracking-widest opacity-80 leading-none">
                   {getBallLetter(currentGame.currentBall)}
                 </span>
-                <span className="text-xl font-black leading-tight">{currentGame.currentBall}</span>
-              </div>
-            ) : (
-              <div className="w-14 h-14 rounded-2xl bg-slate-800/90 border-2 border-dashed border-slate-700 flex items-center justify-center text-slate-400 text-xs font-bold shrink-0">
-                {t('ready')}
-              </div>
-            )}
-
-            {/* Stream of Recent Balls */}
-            <div className="space-y-1">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Recent Balls</span>
-              <div className="flex items-center gap-1.5">
-                {currentGame.drawnNumbers.slice(-4).reverse().map((b, idx) => (
-                  <div
-                    key={idx}
-                    className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700/80 flex flex-col items-center justify-center text-[10px] font-bold text-slate-200 shadow-sm"
-                  >
-                    <span className="text-[7px] font-bold text-amber-400 leading-none">{getBallLetter(b)}</span>
-                    <span className="leading-tight">{b}</span>
-                  </div>
-                ))}
-                {currentGame.drawnNumbers.length === 0 && (
-                  <span className="text-[10px] text-slate-500 italic">Waiting to draw...</span>
-                )}
+                <span className="text-2xl font-black leading-tight">{currentGame.currentBall}</span>
               </div>
             </div>
-          </div>
-
-          {/* Quick Action Controls */}
-          <div className="flex flex-col gap-1 shrink-0">
-            <button
-              onClick={() => drawNextBall(currentGame.id)}
-              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] px-3 py-1 rounded-xl transition flex items-center justify-center gap-1 shadow"
-            >
-              <Zap className="w-3 h-3" /> Draw
-            </button>
-            <button
-              onClick={() => setIsAutoDrawing(!isAutoDrawing)}
-              className={`text-[11px] font-bold px-3 py-1 rounded-xl transition flex items-center justify-center gap-1 border ${
-                isAutoDrawing
-                  ? 'bg-rose-900/80 border-rose-500/60 text-rose-200 animate-pulse'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-              }`}
-            >
-              {isAutoDrawing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-              {isAutoDrawing ? 'Pause' : 'Auto'}
-            </button>
-          </div>
-        </div>
-
-        {/* Board Toggle Button */}
-        <div className="pt-1.5 border-t border-slate-800/70 flex items-center justify-between">
-          <button
-            onClick={() => setShowFullBoard(!showFullBoard)}
-            className="text-[11px] font-bold text-slate-400 hover:text-amber-300 flex items-center gap-1 transition"
-          >
-            <span>{showFullBoard ? '▲ Hide 75-Ball Board' : `▼ 📊 Show All 75 Balls (${currentGame.drawnNumbers.length}/75)`}</span>
-          </button>
-          <span className="text-[10px] text-slate-500">Tap cells to mark</span>
-        </div>
-
-        {/* Collapsible 75-BALL GRID BOARD */}
-        {showFullBoard && (
-          <div className="space-y-1 bg-slate-950/90 p-2 rounded-xl border border-slate-800/90 mt-1 transition-all">
-            {rows.map((row) => (
-              <div key={row.letter} className="flex items-center gap-1">
-                <div className={`w-5 h-5 rounded flex items-center justify-center font-black text-[9px] shrink-0 border ${row.border}`}>
-                  {row.letter}
-                </div>
-                <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
-                  {row.range.map((num) => {
-                    const isDrawn = drawnSet.has(num);
-                    const isCurrent = currentGame.currentBall === num;
-                    return (
-                      <div
-                        key={num}
-                        className={`h-5 rounded text-[9px] font-bold flex items-center justify-center transition-all ${
-                          isCurrent
-                            ? 'bg-amber-400 text-slate-950 font-black scale-105 shadow ring-1 ring-amber-300 z-10'
-                            : isDrawn
-                            ? `${row.color} shadow-sm`
-                            : 'bg-slate-800/60 text-slate-500 border border-slate-800'
-                        }`}
-                      >
-                        {num}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Sleek Game Info & Cards Bar */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-2.5 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <span className="text-xs font-bold text-slate-300 flex items-center gap-1 shrink-0">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            {t('bingoCards')} ({activeGameCards.length}):
-          </span>
-
-          {activeGameCards.length > 0 ? (
-            activeGameCards.map((card) => {
-              const isActive = activeUserCard?.id === card.id;
-              const lines = countCompletedLines(card.marked);
-              const isWin = checkLineWin(card.marked) || checkFullHouseWin(card.marked);
-
-              return (
-                <button
-                  key={card.id}
-                  onClick={() => {
-                    setSelectedCardId(card.id);
-                    setViewMode('SINGLE');
-                  }}
-                  className={`px-2.5 py-1 rounded-xl text-xs font-mono font-bold shrink-0 transition flex items-center gap-1 ${
-                    isActive
-                      ? 'bg-emerald-500 text-slate-950 font-black shadow'
-                      : isWin
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                  }`}
-                >
-                  #{card.cardNumber}
-                  {isWin ? ' 🏆' : lines > 0 ? ` (${lines}L)` : ''}
-                </button>
-              );
-            })
           ) : (
-            <span className="text-xs text-slate-500 italic">{t('noCardsChosen')}</span>
+            <div className="w-16 h-16 rounded-full bg-slate-800 border-2 border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-xs font-bold">
+              {t('ready')}
+            </div>
           )}
         </div>
 
-        <button
-          onClick={() => {
-            if (!user) {
-              openAuthModal('register');
-            } else {
-              setIsSelectorOpen(true);
-            }
-          }}
-          className="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold text-xs border border-emerald-500/30 transition flex items-center gap-1 shrink-0 cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" /> {t('pickCards')}
-        </button>
+        {/* 75-BALL GRID BOARD TABLE */}
+        <div className="space-y-1 bg-slate-950/80 p-2.5 rounded-2xl border border-slate-800/90">
+          {rows.map((row) => (
+            <div key={row.letter} className="flex items-center gap-1">
+              {/* Row Header Badge B/I/N/G/O */}
+              <div className={`w-6 h-6 rounded-lg flex items-center justify-center font-black text-xs shrink-0 border ${row.border}`}>
+                {row.letter}
+              </div>
+
+              {/* 15 Numbers in Row */}
+              <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
+                {row.range.map((num) => {
+                  const isDrawn = drawnSet.has(num);
+                  const isCurrent = currentGame.currentBall === num;
+
+                  return (
+                    <div
+                      key={num}
+                      className={`h-6 rounded text-[10px] font-bold flex items-center justify-center transition-all ${
+                        isCurrent
+                          ? 'bg-amber-400 text-slate-950 font-black scale-110 shadow-md ring-2 ring-amber-300 z-10'
+                          : isDrawn
+                          ? `${row.color} shadow-sm`
+                          : 'bg-slate-800/70 text-slate-400 border border-slate-700/50'
+                      }`}
+                      title={`Ball ${num} ${isDrawn ? '(Drawn)' : ''}`}
+                    >
+                      {num}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Action Controls */}
+        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-center gap-2">
+          <button
+            onClick={() => drawNextBall(currentGame.id)}
+            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-md cursor-pointer"
+          >
+            <Zap className="w-3.5 h-3.5" /> {t('drawBall')}
+          </button>
+
+          <button
+            onClick={() => setIsAutoDrawing(!isAutoDrawing)}
+            className={`text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 border cursor-pointer ${
+              isAutoDrawing
+                ? 'bg-rose-900/80 border-rose-500/60 text-rose-200 animate-pulse'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+            }`}
+          >
+            {isAutoDrawing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            {isAutoDrawing ? t('pauseAuto') : t('autoDraw')}
+          </button>
+        </div>
       </div>
 
-      {/* 🚨 PROMINENT FIRST BINGO CALLER BUTTON 🚨 */}
+      {/* BINGO CARD NUMBERS STATUS BAR (Original 3-Row Layout) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5 shadow-xl">
+        {/* Row 1: Bingo Cards */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{t('bingoCards')}:</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            {activeGameCards.length > 0 ? (
+              activeGameCards.map((card) => {
+                const isActive = activeUserCard?.id === card.id;
+                const isFull = checkFullHouseWin(card.marked);
+                const rem = countRemainingNumbers(card.marked);
+
+                return (
+                  <button
+                    key={card.id}
+                    onClick={() => {
+                      setSelectedCardId(card.id);
+                      setViewMode('SINGLE');
+                    }}
+                    className={`px-3 py-1 rounded-xl text-xs font-mono font-black transition flex items-center gap-1 shadow cursor-pointer ${
+                      isActive
+                        ? 'bg-emerald-600 text-white ring-2 ring-emerald-400 scale-105'
+                        : isFull
+                        ? 'bg-amber-500 text-slate-950 font-black animate-pulse'
+                        : 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-900'
+                    }`}
+                  >
+                    #{card.cardNumber}
+                    {isFull ? ' 🏆' : rem <= 2 ? ` (${rem})` : ''}
+                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>}
+                  </button>
+                );
+              })
+            ) : (
+              <span className="text-xs text-slate-500 italic">{t('noCardsChosen')}</span>
+            )}
+
+            {/* Button to Choose Card Numbers */}
+            <button
+              onClick={() => {
+                if (!user) {
+                  openAuthModal('register');
+                } else {
+                  setIsSelectorOpen(true);
+                }
+              }}
+              className="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold text-xs border border-emerald-500/30 transition flex items-center gap-1 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" /> {t('pickCards')}
+            </button>
+          </div>
+        </div>
+
+        {/* Row 2: Blocked */}
+        <div className="flex items-center justify-between border-t border-slate-800/60 pt-2">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+            <Ban className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>{t('blocked')}:</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {(currentGame.blockedCards || ['200']).map((blkNum) => (
+              <span
+                key={blkNum}
+                className="px-3 py-0.5 rounded-lg bg-rose-950/80 border border-rose-500/40 text-rose-300 font-mono font-bold text-xs shadow-sm"
+              >
+                {blkNum}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Row 3: Winners */}
+        <div className="flex items-center justify-between border-t border-slate-800/60 pt-2">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+            <Trophy className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>{t('winners')}:</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {activeGameCards.some((c) => checkFullHouseWin(c.marked)) ? (
+              activeGameCards.filter((c) => checkFullHouseWin(c.marked)).map((c) => (
+                <span
+                  key={c.id}
+                  className="px-3 py-0.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-mono font-black text-xs flex items-center gap-1 shadow animate-pulse"
+                >
+                  <Star className="w-3 h-3 fill-slate-950" />
+                  #{c.cardNumber} (FULL HOUSE)
+                </span>
+              ))
+            ) : (
+              <span className="text-xs text-slate-500 italic">{t('noneYet')} (Full House to Win)</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 🚨 PROMINENT FIRST FULL HOUSE BINGO CALLER BUTTON 🚨 */}
       {isAnyWinning && (
         <div className="p-1 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 shadow-2xl shadow-amber-500/50 animate-pulse">
           <button
@@ -386,44 +400,44 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
             <Flame className="w-6 h-6 text-red-600 animate-bounce" />
             <span>
               {language === 'am' 
-                ? `🎉 ቢንጎ በል! አሸናፊነትህን ይፋ አድርግ (ካርድ #${bestWinningItem?.card.cardNumber})`
-                : `🎉 SHOUT BINGO! CALL WIN FIRST (Card #${bestWinningItem?.card.cardNumber})`}
+                ? `🎉 ቢንጎ በል! ሙሉ ካርቴላ ሞልቷል (ካርድ #${bestWinningItem?.card.cardNumber})`
+                : `🎉 SHOUT BINGO! FULL HOUSE COMPLETED (Card #${bestWinningItem?.card.cardNumber})`}
             </span>
             <Trophy className="w-6 h-6 text-amber-950 animate-bounce" />
           </button>
         </div>
       )}
 
-      {/* Card Display View Mode Switcher (when player has 2 or 3 cards) */}
+      {/* Card Display View Mode Switcher (Multiple Cards vs Single Card) */}
       {activeGameCards.length > 1 && (
-        <div className="flex items-center justify-between bg-slate-900/80 px-3 py-2 rounded-xl border border-slate-800 text-xs">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between bg-slate-900/90 px-3.5 py-2.5 rounded-xl border border-slate-800 text-xs">
+          <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-amber-400" />
-            <span className="font-bold text-slate-300">
-              {language === 'am' ? `የእርስዎ ${activeGameCards.length} ካርዶች` : `Your ${activeGameCards.length} Cards (Min 2, Max 3)`}
+            <span className="font-bold text-slate-200">
+              {language === 'am' ? `የእርስዎ ${activeGameCards.length} ካርዶች` : `Multiple Cards (${activeGameCards.length})`}
             </span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => setViewMode('ALL')}
-              className={`px-3 py-1 rounded-lg font-bold text-xs transition ${
+              className={`px-3 py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ${
                 viewMode === 'ALL'
-                  ? 'bg-amber-500 text-slate-950 shadow'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow'
                   : 'bg-slate-800 text-slate-400 hover:text-slate-200'
               }`}
             >
-              {language === 'am' ? `ሁሉንም (${activeGameCards.length})` : `Show All (${activeGameCards.length})`}
+              {language === 'am' ? `ሁሉንም ካርዶች አሳይ (${activeGameCards.length})` : `Show All ${activeGameCards.length} Cards`}
             </button>
             <button
               onClick={() => setViewMode('SINGLE')}
-              className={`px-3 py-1 rounded-lg font-bold text-xs transition ${
+              className={`px-3 py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ${
                 viewMode === 'SINGLE'
-                  ? 'bg-amber-500 text-slate-950 shadow'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow'
                   : 'bg-slate-800 text-slate-400 hover:text-slate-200'
               }`}
             >
-              {language === 'am' ? 'አንድ' : 'Single Card'}
+              {language === 'am' ? 'አንድ ካርድ' : 'Single Card'}
             </button>
           </div>
         </div>
@@ -433,16 +447,14 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
       {viewMode === 'ALL' && activeGameCards.length > 1 ? (
         <div className="space-y-4">
           {activeGameCards.map((card, cardIndex) => {
-            const lines = countCompletedLines(card.marked);
-            const lineWin = checkLineWin(card.marked);
             const fullHouseWin = checkFullHouseWin(card.marked);
-            const isCardWin = lineWin || fullHouseWin;
+            const rem = countRemainingNumbers(card.marked);
 
             return (
               <div 
                 key={card.id} 
                 className={`glass-panel p-4 rounded-2xl shadow-2xl space-y-3 transition-all ${
-                  isCardWin 
+                  fullHouseWin 
                     ? 'border-2 border-amber-400 ring-2 ring-amber-400/30 bg-amber-950/20' 
                     : 'border-slate-800 hover:border-slate-700'
                 }`}
@@ -455,20 +467,24 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
                     <span className="text-[11px] text-slate-400">
                       Card {cardIndex + 1} of {activeGameCards.length}
                     </span>
-                    {lines > 0 && (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold">
-                        {lines} {lines === 1 ? t('lineCompleted') : t('linesCompleted')}
-                      </span>
-                    )}
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                      fullHouseWin
+                        ? 'bg-amber-500 text-slate-950 border-amber-300 font-black animate-pulse'
+                        : rem <= 2
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                        : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                    }`}>
+                      {fullHouseWin ? '🏆 FULL HOUSE!' : rem === 1 ? '🔥 1 TO GO!' : `${rem} TO FULL HOUSE`}
+                    </span>
                   </div>
 
-                  {isCardWin ? (
+                  {fullHouseWin ? (
                     <button
                       onClick={() => handleClaimBingo(card.id)}
-                      className="px-3 py-1 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:brightness-110 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow flex items-center gap-1 animate-pulse"
+                      className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:brightness-110 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow flex items-center gap-1.5 animate-bounce cursor-pointer"
                     >
-                      <Trophy className="w-3.5 h-3.5" />
-                      <span>{fullHouseWin ? 'FULL HOUSE BINGO!' : 'LINE BINGO!'}</span>
+                      <Trophy className="w-3.5 h-3.5 text-amber-950" />
+                      <span>🎉 SHOUT BINGO!</span>
                     </button>
                   ) : (
                     <span className="text-[10px] text-slate-500">{t('tapToDaub')}</span>
@@ -550,11 +566,15 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
               <span className="px-2.5 py-0.5 rounded-lg bg-emerald-600 text-white font-mono font-black text-xs">
                 {t('card')} #{activeUserCard.cardNumber}
               </span>
-              {lineCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold">
-                  {lineCount} {lineCount === 1 ? t('lineCompleted') : t('linesCompleted')}
-                </span>
-              )}
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                isFullHouseWin
+                  ? 'bg-amber-500 text-slate-950 border-amber-300 font-black animate-pulse'
+                  : remainingCount <= 2
+                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                  : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+              }`}>
+                {isFullHouseWin ? '🏆 FULL HOUSE!' : remainingCount === 1 ? '🔥 1 TO GO!' : `${remainingCount} TO FULL HOUSE`}
+              </span>
             </div>
 
             {/* Quick Card Pill Switcher */}
@@ -642,21 +662,21 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
             )}
           </div>
 
-          {/* CLAIM BINGO BUTTON */}
+          {/* CLAIM BINGO BUTTON - FULL HOUSE ONLY */}
           <div className="mt-4 pt-3 border-t border-slate-800">
             <button
               onClick={() => handleClaimBingo(activeUserCard.id)}
-              disabled={!isLineWin && !isFullHouseWin}
-              className={`w-full py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 shadow-xl ${
+              disabled={!isFullHouseWin}
+              className={`w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 shadow-xl ${
                 isFullHouseWin
-                  ? 'bg-gradient-to-r from-amber-400 via-amber-500 to-purple-600 text-slate-950 hover:brightness-110 animate-bounce cursor-pointer'
-                  : isLineWin
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 hover:brightness-110 cursor-pointer'
+                  ? 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 hover:brightness-110 animate-bounce cursor-pointer'
                   : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
               }`}
             >
               <Trophy className="w-5 h-5" />
-              {isFullHouseWin ? t('claimFullHouse') : isLineWin ? t('claimLineBingo') : t('daubToClaim')}
+              {isFullHouseWin 
+                ? (language === 'am' ? '🎉 ቢንጎ በል! ሙሉ ካርቴላ ሞልቷል' : '🎉 SHOUT BINGO! FULL HOUSE') 
+                : (language === 'am' ? `ቢንጎ ለመበል ${remainingCount} ቁጥሮች ቀርተዋል` : `SHOUT BINGO (${remainingCount} to Full House)`)}
             </button>
           </div>
         </div>
