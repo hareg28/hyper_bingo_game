@@ -138,6 +138,8 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
 
     let botResponseText = '';
     let buttons: { label: string; action: () => void; isPrimary?: boolean }[] = [];
+    let imageUrl: string | undefined = undefined;
+    let reaction: string | undefined = undefined;
 
     const lowerCmd = cmd.toLowerCase();
 

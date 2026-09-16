@@ -488,13 +488,13 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                         {w.status === 'PENDING' ? (
                           <div className="flex gap-1.5">
                             <button
-                              onClick={() => approveWithdrawal(w.id, user.username || 'admin')}
+                              onClick={() => approveWithdrawal(w.id, user?.username || 'admin')}
                               className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-bold"
                             >
                               {t('approve')}
                             </button>
                             <button
-                              onClick={() => rejectWithdrawal(w.id, user.username || 'admin')}
+                              onClick={() => rejectWithdrawal(w.id, user?.username || 'admin')}
                               className="px-2 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[10px] font-bold"
                             >
                               {t('reject')}
@@ -516,26 +516,30 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         {activeTab === 'users' && (
           <div className="glass-panel p-4 sm:p-5 rounded-2xl border-slate-800 space-y-3">
             <h3 className="text-xs sm:text-sm font-bold text-slate-200">{t('userManagement')}</h3>
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-200">@{user.username} ({user.name})</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  {user.role.toUpperCase()}
-                </span>
-              </div>
-              <div className="text-slate-400 text-[11px]">Telegram ID: {user.telegramId} • Phone: {user.phone}</div>
-              <div className="text-slate-400 text-[11px]">Referral Code: {user.referralCode} • Status: {user.status}</div>
-              {isAdminTelegramId(user.telegramId) && (
-                <div className="pt-2 border-t border-slate-800 flex justify-end">
-                  <button
-                    onClick={toggleUserRole}
-                    className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
-                  >
-                    {user.role === 'admin' ? t('switchToPlayer') : t('switchToAdmin')}
-                  </button>
+            {user ? (
+              <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-200">@{user.username} ({user.name})</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    {user.role.toUpperCase()}
+                  </span>
                 </div>
-              )}
-            </div>
+                <div className="text-slate-400 text-[11px]">Telegram ID: {user.telegramId} • Phone: {user.phone}</div>
+                <div className="text-slate-400 text-[11px]">Referral Code: {user.referralCode} • Status: {user.status}</div>
+                {isAdminTelegramId(user.telegramId) && (
+                  <div className="pt-2 border-t border-slate-800 flex justify-end">
+                    <button
+                      onClick={toggleUserRole}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
+                    >
+                      {user.role === 'admin' ? t('switchToPlayer') : t('switchToAdmin')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-slate-400 text-xs italic">No user profile active</div>
+            )}
           </div>
         )}
 
