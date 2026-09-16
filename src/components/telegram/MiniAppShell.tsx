@@ -137,52 +137,55 @@ export default function MiniAppShell({
         {activeTab === 'lobby' && (
           <div className="space-y-4">
             {/* Quick Bingo Featured Banner */}
-            <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-purple-600 p-4 rounded-2xl text-slate-950 shadow-xl relative overflow-hidden">
-              <div className="relative z-10 space-y-2">
+            {/* Quick Bingo Featured Banner - Sleek Luxury Dark Glass */}
+            <div className="bg-gradient-to-br from-amber-500/15 via-slate-900 to-purple-950/40 border border-amber-500/30 p-4 rounded-3xl text-slate-100 shadow-2xl relative overflow-hidden">
+              <div className="relative z-10 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="px-2.5 py-0.5 rounded-full bg-slate-950/80 text-amber-400 font-black text-[10px] uppercase tracking-wider flex items-center gap-1">
+                  <span className="px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1">
                     <Zap className="w-3 h-3 text-amber-400 fill-amber-400" /> {t('quickBingo')}
                   </span>
-                  <span className="text-xs font-mono font-bold bg-slate-950/20 px-2 py-0.5 rounded text-slate-950">
+                  <span className="text-xs font-mono font-bold text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-lg border border-slate-700/60">
                     {localizeGameTime(quickBingo.startTime, language)}
                   </span>
                 </div>
 
-                <h3 className="text-xl font-black tracking-tight leading-tight">
-                  {localizeGameName(quickBingo.name, language)}
-                </h3>
-
-                <div className="flex items-baseline gap-2">
-                  <span className="text-xs font-bold text-slate-900">{t('prizePool').toUpperCase()}:</span>
-                  <span className="text-2xl font-black text-slate-950">{formatETB(quickBingo.prizePool)}</span>
+                <div>
+                  <h3 className="text-lg font-black tracking-tight text-white">
+                    {localizeGameName(quickBingo.name, language)}
+                  </h3>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-xs text-slate-400">{t('prizePool')}:</span>
+                    <span className="text-2xl font-black text-amber-400 font-mono">{formatETB(quickBingo.prizePool)}</span>
+                  </div>
                 </div>
 
-                <div className="pt-2 flex gap-2">
+                <div className="pt-1 flex gap-2">
                   <button
                     onClick={() => {
                       joinGame(quickBingo.id);
                       setActiveTab('game');
                     }}
-                    className="flex-1 py-2.5 bg-slate-950 hover:bg-slate-900 text-amber-400 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition flex items-center justify-center gap-1.5"
+                    className="flex-1 py-3 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-400 hover:brightness-110 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg transition flex items-center justify-center gap-1.5 active:scale-98"
                   >
-                    {t('playNow')} ({quickBingo.entryPrice} ETB)
+                    <span>{t('playNow')} ({quickBingo.entryPrice} ETB)</span>
+                    <ArrowUpRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Available Games Section */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                  <Gamepad2 className="w-4 h-4 text-purple-400" />
+                  <Gamepad2 className="w-4 h-4 text-amber-400" />
                   {t('availableGames')} ({games.length})
                 </h3>
-                <span className="text-[10px] text-slate-500">{t('liveEngine')}</span>
+                <span className="text-[10px] text-slate-400 font-medium">Instant Payouts</span>
               </div>
 
-              {/* Game Tiers Filter Tabs */}
-              <div className="flex items-center gap-1.5 mb-3 overflow-x-auto no-scrollbar pb-1">
+              {/* Game Tiers Filter Tabs - Capsule Style */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                 {[
                   { id: 'ALL', label: t('allRooms') },
                   { id: 'LOTTERY', label: '🌟 Weekend Lottery' },
@@ -193,10 +196,10 @@ export default function MiniAppShell({
                   <button
                     key={tier.id}
                     onClick={() => setGameFilter(tier.id as any)}
-                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 transition border ${
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition ${
                       gameFilter === tier.id
-                        ? 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-md'
-                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                        ? 'bg-amber-400 text-slate-950 font-black shadow-md'
+                        : 'bg-slate-900/90 text-slate-400 border border-slate-800 hover:text-slate-200'
                     }`}
                   >
                     {tier.label}
@@ -204,8 +207,8 @@ export default function MiniAppShell({
                 ))}
               </div>
 
-              {/* Filtered Games List */}
-              <div className="space-y-2.5">
+              {/* Filtered Games List - Clean Modern Cards */}
+              <div className="space-y-2">
                 {games
                   .filter((g) => {
                     if (gameFilter === 'LOTTERY') return g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial;
@@ -217,33 +220,33 @@ export default function MiniAppShell({
                   .map((g) => (
                     <div
                       key={g.id}
-                      className="glass-panel p-3.5 rounded-xl flex items-center justify-between border-slate-800 hover:border-slate-700 transition"
+                      className="bg-slate-900/85 hover:bg-slate-900 p-3.5 rounded-2xl flex items-center justify-between border border-slate-800/80 hover:border-slate-700 transition shadow-sm"
                     >
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-bold text-sm text-slate-100">{localizeGameName(g.name, language)}</span>
                           {(g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) && (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded uppercase bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 shadow">
-                              🌟 Weekend Mega
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 shadow">
+                              🌟 Mega
                             </span>
                           )}
                           <span
-                            className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                            className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md uppercase ${
                               g.status === 'RUNNING'
                                 ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
                                 : g.status === 'STARTING'
                                 ? 'bg-amber-500/20 text-amber-300'
-                                : 'bg-blue-500/20 text-blue-300'
+                                : 'bg-emerald-500/15 text-emerald-300'
                             }`}
                           >
-                            {g.status === 'RUNNING' ? t('running') : g.status === 'STARTING' ? t('starting') : t('open')}
+                            {g.status === 'RUNNING' ? 'Live' : g.status === 'STARTING' ? 'Starting' : 'Open'}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-2.5 text-xs text-slate-400 flex-wrap">
-                          <span>{t('entry')}: <strong className="text-amber-400">{formatETB(g.entryPrice)}</strong></span>
-                          <span>{t('prize')}: <strong className="text-emerald-400">{formatETB(g.prizePool)}</strong></span>
-                          <span>👥 {g.currentPlayers} {t('players')}{g.minPlayers ? ` (min ${g.minPlayers})` : ''}</span>
+                        <div className="flex items-center gap-3 text-xs text-slate-400">
+                          <span>Entry: <strong className="text-slate-200">{formatETB(g.entryPrice)}</strong></span>
+                          <span>Prize: <strong className="text-emerald-400 font-bold">{formatETB(g.prizePool)}</strong></span>
+                          <span>👥 {g.currentPlayers}</span>
                         </div>
                       </div>
 
@@ -252,9 +255,10 @@ export default function MiniAppShell({
                           setActiveGameId(g.id);
                           setActiveTab('game');
                         }}
-                        className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow flex items-center gap-1"
+                        className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-100 font-bold text-xs transition border border-slate-700 hover:border-amber-400 shadow flex items-center gap-1"
                       >
-                        {t('enterGame')} <ChevronRight className="w-3.5 h-3.5" />
+                        <span>Play</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-amber-400 group-hover:text-slate-950" />
                       </button>
                     </div>
                   ))}

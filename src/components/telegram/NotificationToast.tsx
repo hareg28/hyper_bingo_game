@@ -10,13 +10,13 @@ export default function NotificationToast() {
   if (notifications.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
-      {notifications.slice(0, 3).map((n) => (
+    <div className="fixed top-14 left-4 right-4 z-40 flex flex-col gap-2 max-w-xs mx-auto pointer-events-none">
+      {notifications.slice(0, 2).map((n) => (
         <div
           key={n.id}
-          className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-xl border shadow-xl transition-all duration-300 transform translate-y-0 ${
+          className={`pointer-events-auto flex items-start gap-2.5 p-3 rounded-2xl border shadow-2xl backdrop-blur-md transition-all duration-300 transform translate-y-0 text-xs ${
             n.type === 'win'
-              ? 'bg-gradient-to-r from-amber-950 via-purple-950 to-amber-900 border-amber-500/50 text-amber-200'
+              ? 'bg-gradient-to-r from-amber-900/90 to-purple-900/90 border-amber-400/50 text-amber-200'
               : n.type === 'success'
               ? 'bg-slate-900/95 border-emerald-500/40 text-emerald-300'
               : n.type === 'warning'

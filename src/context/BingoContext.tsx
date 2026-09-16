@@ -100,25 +100,23 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const t = (key: keyof typeof translations['en']): string => {
     return translations[language][key] || translations['en'][key] || String(key);
   };
-  const [notifications, setNotifications] = useState<NotificationMessage[]>([
-    {
-      id: 'notif_init',
-      title: '🎉 Welcome to Hyper Bingo!',
-      body: 'Real-Time 75-Ball games with instant Telebirr & CBE Birr payouts.',
-      type: 'info',
-      timestamp: new Date().toLocaleTimeString(),
-    },
-  ]);
+  const [notifications, setNotifications] = useState<NotificationMessage[]>([]);
 
   const addNotification = (title: string, body: string, type: 'success' | 'info' | 'warning' | 'win' = 'info') => {
+    const id = `notif_${Date.now()}_${Math.random()}`;
     const notif: NotificationMessage = {
-      id: `notif_${Date.now()}_${Math.random()}`,
+      id,
       title,
       body,
       type,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
-    setNotifications((prev) => [notif, ...prev.slice(0, 15)]);
+    setNotifications((prev) => [notif, ...prev.slice(0, 5)]);
+
+    // Auto-dismiss after 4 seconds
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    }, 4000);
   };
 
   const dismissNotification = (id: string) => {
