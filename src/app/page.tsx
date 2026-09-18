@@ -88,8 +88,8 @@ export default function PublicWebsitePage() {
 
   if (isTelegramView) {
     return (
-      <div className="min-h-screen bg-[#0d111d] flex flex-col items-center justify-start text-slate-100 font-sans">
-        <div className="w-full max-w-[440px] min-h-screen">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-start text-slate-900 font-sans">
+        <div className="w-full max-w-[440px] min-h-screen bg-white">
           <MiniAppShell initialTab={miniAppTab} />
         </div>
       </div>

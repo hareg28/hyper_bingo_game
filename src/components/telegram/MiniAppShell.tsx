@@ -13,7 +13,13 @@ import WalletManager from '../wallet/WalletManager';
 import AdminPanel from '../admin/AdminPanel';
 import { isAdminTelegramId } from '../../lib/authUtils';
 
-export default function MiniAppShell({ onClose }: { onClose?: () => void }) {
+export default function MiniAppShell({ 
+  onClose,
+  initialTab = 'lobby'
+}: { 
+  onClose?: () => void;
+  initialTab?: 'lobby' | 'game' | 'wallet' | 'profile' | 'admin';
+}) {
   const { 
     games, 
     user, 
@@ -31,7 +37,7 @@ export default function MiniAppShell({ onClose }: { onClose?: () => void }) {
     toggleUserRole
   } = useBingo();
 
-  const [activeTab, setActiveTab] = useState<'lobby' | 'game' | 'wallet' | 'profile' | 'admin'>('lobby');
+  const [activeTab, setActiveTab] = useState<'lobby' | 'game' | 'wallet' | 'profile' | 'admin'>(initialTab);
   const [copiedRef, setCopiedRef] = useState(false);
   const [gameFilter, setGameFilter] = useState<'ALL' | 'SMALL' | 'HIGH' | 'LOTTERY'>('ALL');
 
