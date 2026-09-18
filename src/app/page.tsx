@@ -259,6 +259,31 @@ export default function PublicWebsitePage() {
             </p>
           </div>
 
+          {/* Weekend Hyper Announcement Banner */}
+          {games.some((g) => g.isWeekendSpecial || g.gameType === 'WEEKEND_LOTTERY') && (
+            <div className="overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-900/40 via-orange-900/20 to-amber-900/40 py-3 px-4 shadow-lg">
+              <div className="flex items-center gap-3">
+                <span className="text-amber-400 text-xs font-black shrink-0 uppercase tracking-wider whitespace-nowrap">
+                  🌟 WEEKEND HYPER:
+                </span>
+                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-0.5">
+                  {games
+                    .filter((g) => g.isWeekendSpecial || g.gameType === 'WEEKEND_LOTTERY')
+                    .map((g) => (
+                      <span
+                        key={g.id}
+                        className="shrink-0 px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-black whitespace-nowrap flex items-center gap-1.5"
+                      >
+                        <Zap className="w-3 h-3 text-amber-400" />
+                        Hyper {g.entryPrice} ETB
+                        {g.drawInterval <= 2 && <span className="text-orange-300 ml-0.5">· Fast</span>}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {games.map((g) => (
               <div

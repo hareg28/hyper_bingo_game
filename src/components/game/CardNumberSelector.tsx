@@ -21,7 +21,7 @@ export default function CardNumberSelector({
 }: CardNumberSelectorProps) {
   const { t, language } = useBingo();
   const [selectedNumbers, setSelectedNumbers] = useState<string[]>(() => {
-    if (initialCards && initialCards.length >= 2) {
+    if (initialCards && initialCards.length >= 1) {
       return initialCards.slice(0, 3);
     }
     return ['12608', '11302'];
@@ -29,7 +29,7 @@ export default function CardNumberSelector({
   const [inputNumber, setInputNumber] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const MIN_CARDS = 2;
+  const MIN_CARDS = 1;
   const MAX_CARDS = 3;
 
   if (!isOpen) return null;
@@ -141,7 +141,7 @@ export default function CardNumberSelector({
                 {language === 'am' ? 'የቢንጎ ካርዶችን ይምረጡ' : 'Choose Bingo Cards'}
               </h3>
               <p className="text-[11px] text-amber-400 font-bold">
-                {language === 'am' ? '⭐ አነስተኛ 2 ካርዶች • ከፍተኛ 3 ካርዶች' : '⭐ Min 2 Cards • Max 3 Cards Required'}
+                {language === 'am' ? '⭐ ከፍተኛው 3 ካርዶች (1-3 ካርዶች ይፈቀዳሉ)' : '⭐ Max 3 Slots / Cards (1-3 Allowed)'}
               </p>
             </div>
           </div>

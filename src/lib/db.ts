@@ -52,9 +52,9 @@ function rowToUser(row: any): User {
 function rowToWallet(row: any): Wallet {
   return {
     userId: row.user_id,
-    availableBalance: parseFloat(row.available_balance ?? '250'),
-    bonusBalance: parseFloat(row.bonus_balance ?? '50'),
-    winningBalance: parseFloat(row.winning_balance ?? '150'),
+    availableBalance: parseFloat(row.available_balance ?? '0'),
+    bonusBalance: parseFloat(row.bonus_balance ?? '20'),
+    winningBalance: parseFloat(row.winning_balance ?? '0'),
     totalDeposited: parseFloat(row.total_deposited ?? '0'),
     totalWithdrawn: parseFloat(row.total_withdrawn ?? '0'),
   };
@@ -242,8 +242,8 @@ const db = {
         }
 
         const inserted = await sql`
-          INSERT INTO users (id, telegram_id, name, username, phone, role, referral_code)
-          VALUES (${newId}, ${telegramId}, ${params.name}, ${username}, ${params.phone}, ${role}, ${referralCode})
+          INSERT INTO users (id, telegram_id, name, username, phone, role, referral_code, referred_by)
+          VALUES (${newId}, ${telegramId}, ${params.name}, ${username}, ${params.phone}, ${role}, ${referralCode}, ${params.referredBy || null})
           RETURNING *
         `;
         return rowToUser(inserted[0]);
@@ -263,6 +263,7 @@ const db = {
         phone: params.phone,
         username,
         role,
+        referredBy: params.referredBy || existing.referredBy,
       };
       usersMap.set(existing.id, updated);
       return updated;
@@ -277,6 +278,7 @@ const db = {
       role,
       status: 'active',
       referralCode,
+      referredBy: params.referredBy,
       createdAt: new Date().toISOString(),
     };
     usersMap.set(newUser.id, newUser);
@@ -653,6 +655,40 @@ const db = {
       totalWithdrawn: wallets.reduce((sum, w) => sum + w.totalWithdrawn, 0),
       pendingWithdrawals: pendingW.length,
     };
+  },
+
+  /**
+   * Credit 1% owner profit commission to referrer's bonus balance (play-only).
+   */
+  async creditReferrerCommission(referrerCode: string, amount: number): Promise<boolean> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const userRows = await sql`SELECT id FROM users WHERE referral_code = ${referrerCode} LIMIT 1`;
+        if (userRows.length > 0) {
+          const referrerUserId = userRows[0].id;
+          await sql`
+            UPDATE wallets
+            SET bonus_balance = bonus_balance + ${amount}
+            WHERE user_id = ${referrerUserId}
+          `;
+          return true;
+        }
+      } catch (e) {
+        console.error('Neon creditReferrerCommission error:', e);
+      }
+    }
+    // In-memory fallback
+    const referrer = [...usersMap.values()].find((u) => u.referralCode === referrerCode);
+    if (referrer) {
+      const wallet = walletsMap.get(referrer.id);
+      if (wallet) {
+        wallet.bonusBalance += amount;
+        walletsMap.set(referrer.id, wallet);
+      }
+      return true;
+    }
+    return false;
   },
 };
 

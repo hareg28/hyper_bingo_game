@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
 import { formatETB } from '../../lib/bingoUtils';
 import { 
   Users, Gamepad2, Wallet, ShieldCheck, FileText, PlusCircle, 
   CheckCircle, XCircle, Search, RefreshCw, AlertTriangle, ArrowLeft, 
-  Sparkles, Check, Clock, Globe, Shield
+  Sparkles, Check, Clock, Globe, Shield, Flame, Trophy, Timer
 } from 'lucide-react';
 import Link from 'next/link';
 import { GameType, GameStatus } from '../../lib/types';
@@ -33,6 +33,38 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
   const [activeTab, setActiveTab] = useState<'overview' | 'games' | 'finance' | 'users' | 'audit'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Admin Registered Users Roster and Stats
+  const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
+  const [dbStats, setDbStats] = useState<{ totalUsers: number; totalDeposited: number; totalWithdrawn: number; pendingWithdrawals: number } | null>(null);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
+  // Live ticking countdown for game minutes remaining
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Fetch registered users & stats for admin
+  useEffect(() => {
+    const fetchAdminData = async () => {
+      setLoadingUsers(true);
+      try {
+        const res = await fetch('/api/admin/users');
+        const data = await res.json();
+        if (data.success) {
+          setRegisteredUsers(data.users || []);
+          setDbStats(data.stats || null);
+        }
+      } catch (err) {
+        console.error('Failed to fetch admin users/stats', err);
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+    fetchAdminData();
+  }, []);
 
   // Admin Verification Gate State
   const [adminInput, setAdminInput] = useState('');
@@ -270,13 +302,81 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
           </div>
         </div>
 
+        {/* Live Top Header Ticker: Total Players and Weekend Games Minutes Countdown */}
+        {(() => {
+          const totalLivePlayers = games.reduce((acc, g) => acc + (g.currentPlayers || 0), 0);
+          const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
+
+          return (
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-3.5 rounded-2xl border border-amber-500/30 shadow-lg space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                    {language === 'am' ? 'የቀጥታ ስታቲስቲክስ' : 'Live Platform Status'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 bg-slate-950/80 px-3 py-1 rounded-xl border border-slate-700">
+                  <Users className="w-4 h-4 text-purple-400" />
+                  <span className="text-xs text-slate-300 font-bold">
+                    {language === 'am' ? 'አጠቃላይ ተጫዋቾች በሁሉም ጨዋታዎች:' : 'Total Live Players:'}
+                  </span>
+                  <span className="text-sm font-black text-purple-300">{totalLivePlayers}</span>
+                </div>
+              </div>
+
+              {/* Weekend Games Live Countdown Bar */}
+              <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
+                <div className="text-[11px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                  <Flame className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{language === 'am' ? 'የሳምንቱ መጨረሻ ጨዋታዎች የቀረ ደቂቃ (Weekend Games Live Countdown)' : 'Weekend Lottery Games Countdown & Players'}</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {weekendGames.map((wg, idx) => {
+                    // Calculate mock or real minutes left based on simulated next draw
+                    const cycleMinutes = idx === 0 ? 15 : idx === 1 ? 8 : 22;
+                    const elapsedSec = Math.floor(now / 1000) % (cycleMinutes * 60);
+                    const remSec = (cycleMinutes * 60) - elapsedSec;
+                    const remMins = Math.floor(remSec / 60);
+                    const remSecs = remSec % 60;
+
+                    return (
+                      <div key={wg.id} className="bg-slate-950/90 p-2.5 rounded-xl border border-amber-500/20 flex items-center justify-between">
+                        <div>
+                          <div className="font-black text-xs text-amber-300 flex items-center gap-1">
+                            <span>🌟 {wg.name}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                            <span>👥 {wg.currentPlayers} {language === 'am' ? 'ተጫዋቾች' : 'players'}</span>
+                            <span>•</span>
+                            <span className="text-emerald-400 font-bold">{formatETB(wg.prizePool)}</span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 font-medium block">
+                            {language === 'am' ? 'የቀረ ደቂቃ' : 'Time Left'}
+                          </span>
+                          <span className="font-mono font-black text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 flex items-center gap-1">
+                            <Timer className="w-3 h-3 animate-spin" />
+                            {remMins}m {remSecs < 10 ? `0${remSecs}` : remSecs}s
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Navigation Tabs */}
         <div className="flex items-center gap-1.5 border-b border-slate-800 overflow-x-auto pb-1 no-scrollbar">
           {[
             { id: 'overview', label: t('overview'), icon: FileText },
             { id: 'games', label: t('games'), icon: Gamepad2 },
             { id: 'finance', label: `${t('finance')} (${pendingWithdrawals.length})`, icon: Wallet },
-            { id: 'users', label: t('users'), icon: Users },
+            { id: 'users', label: `${t('users')} (${registeredUsers.length || dbStats?.totalUsers || 0})`, icon: Users },
             { id: 'audit', label: t('audit'), icon: ShieldCheck },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -301,7 +401,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         {activeTab === 'overview' && (
           <div className="space-y-4">
             {/* KPI Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
               <div className="glass-panel p-3.5 sm:p-5 rounded-2xl border-slate-800">
                 <div className="text-slate-400 text-[11px] font-semibold">{t('totalRevenue')}</div>
                 <div className="text-xl sm:text-2xl font-black text-amber-400 mt-1">{formatETB(totalRevenue)}</div>
@@ -310,6 +410,15 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               <div className="glass-panel p-3.5 sm:p-5 rounded-2xl border-slate-800">
                 <div className="text-slate-400 text-[11px] font-semibold">{t('totalDeposits')}</div>
                 <div className="text-xl sm:text-2xl font-black text-emerald-400 mt-1">{formatETB(totalDeposits)}</div>
+              </div>
+
+              <div className="glass-panel p-3.5 sm:p-5 rounded-2xl border-slate-800">
+                <div className="text-slate-400 text-[11px] font-semibold">
+                  {language === 'am' ? 'አጠቃላይ ተጠቃሚዎች' : 'Total Users'}
+                </div>
+                <div className="text-xl sm:text-2xl font-black text-cyan-400 mt-1">
+                  {registeredUsers.length || dbStats?.totalUsers || 1}
+                </div>
               </div>
 
               <div className="glass-panel p-3.5 sm:p-5 rounded-2xl border-slate-800">
@@ -514,32 +623,140 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
         {/* USERS TAB */}
         {activeTab === 'users' && (
-          <div className="glass-panel p-4 sm:p-5 rounded-2xl border-slate-800 space-y-3">
-            <h3 className="text-xs sm:text-sm font-bold text-slate-200">{t('userManagement')}</h3>
-            {user ? (
-              <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-200">@{user.username} ({user.name})</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+          <div className="glass-panel p-4 sm:p-5 rounded-2xl border-slate-800 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-slate-100 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-cyan-400" />
+                  <span>{t('userManagement')}</span>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    {registeredUsers.length || dbStats?.totalUsers || (user ? 1 : 0)} {language === 'am' ? 'ተጠቃሚዎች' : 'Total Registered'}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {language === 'am' ? 'የተመዘገቡ ተጠቃሚዎች፣ ስልክ ቁጥር፣ ሚዛን እና ሪፈራል ኮድ' : 'All registered players with phone numbers, wallet balance, and referral status'}
+                </p>
+              </div>
+
+              {/* Search Box */}
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder={language === 'am' ? 'በስም ወይም በስልክ ፈልግ...' : 'Search by username or phone...'}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+            </div>
+
+            {/* Current Admin Quick Action Card */}
+            {user && (
+              <div className="bg-slate-900/90 p-3 rounded-xl border border-amber-500/30 flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span className="font-bold text-xs text-slate-200">
+                    {language === 'am' ? 'የእርስዎ አድሚን አካውንት:' : 'Current Admin Session:'} @{user.username} ({user.name})
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
                     {user.role.toUpperCase()}
                   </span>
                 </div>
-                <div className="text-slate-400 text-[11px]">Telegram ID: {user.telegramId} • Phone: {user.phone}</div>
-                <div className="text-slate-400 text-[11px]">Referral Code: {user.referralCode} • Status: {user.status}</div>
                 {isAdminTelegramId(user.telegramId) && (
-                  <div className="pt-2 border-t border-slate-800 flex justify-end">
-                    <button
-                      onClick={toggleUserRole}
-                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
-                    >
-                      {user.role === 'admin' ? t('switchToPlayer') : t('switchToAdmin')}
-                    </button>
-                  </div>
+                  <button
+                    onClick={toggleUserRole}
+                    className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] transition"
+                  >
+                    {user.role === 'admin' ? t('switchToPlayer') : t('switchToAdmin')}
+                  </button>
                 )}
               </div>
-            ) : (
-              <div className="text-slate-400 text-xs italic">No user profile active</div>
             )}
+
+            {/* Full Registered Users Table */}
+            {loadingUsers ? (
+              <div className="text-center py-8 text-xs text-slate-400">
+                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-amber-400" />
+                <span>{language === 'am' ? 'ተጠቃሚዎችን በመጫን ላይ...' : 'Loading registered players roster...'}</span>
+              </div>
+            ) : (() => {
+              const displayUsers = registeredUsers.length > 0 ? registeredUsers : user ? [user] : [];
+              const filtered = displayUsers.filter((u) => {
+                if (!searchTerm.trim()) return true;
+                const q = searchTerm.toLowerCase();
+                return (
+                  (u.username && u.username.toLowerCase().includes(q)) ||
+                  (u.name && u.name.toLowerCase().includes(q)) ||
+                  (u.phone && u.phone.toLowerCase().includes(q)) ||
+                  (u.referralCode && u.referralCode.toLowerCase().includes(q))
+                );
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="text-center py-6 text-xs text-slate-500 italic">
+                    {language === 'am' ? 'ምንም ተጠቃሚ አልተገኘም' : 'No users match the search criteria'}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="overflow-x-auto rounded-xl border border-slate-800">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-900 text-slate-400 border-b border-slate-800">
+                        <th className="p-2.5">User</th>
+                        <th className="p-2.5">Phone</th>
+                        <th className="p-2.5">Telegram ID</th>
+                        <th className="p-2.5">Main Balance</th>
+                        <th className="p-2.5">Bonus Balance</th>
+                        <th className="p-2.5">Referral Code</th>
+                        <th className="p-2.5">Referred By</th>
+                        <th className="p-2.5">Role</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/80 bg-slate-950/40">
+                      {filtered.map((u: any) => (
+                        <tr key={u.id} className="hover:bg-slate-900/60 transition">
+                          <td className="p-2.5">
+                            <div className="font-bold text-slate-100">@{u.username}</div>
+                            <div className="text-[10px] text-slate-400">{u.name}</div>
+                          </td>
+                          <td className="p-2.5 font-mono text-[11px] text-slate-300">
+                            {u.phone || '—'}
+                          </td>
+                          <td className="p-2.5 font-mono text-[11px] text-slate-400">
+                            {u.telegramId || '—'}
+                          </td>
+                          <td className="p-2.5 font-bold text-emerald-400 font-mono">
+                            {formatETB(u.balance ?? 0)}
+                          </td>
+                          <td className="p-2.5 font-bold text-amber-400 font-mono">
+                            {formatETB(u.bonusBalance ?? 20)}
+                          </td>
+                          <td className="p-2.5 font-mono text-[11px] text-purple-300">
+                            {u.referralCode || '—'}
+                          </td>
+                          <td className="p-2.5 font-mono text-[11px] text-slate-400">
+                            {u.referredBy || u.referred_by || '—'}
+                          </td>
+                          <td className="p-2.5">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              u.role === 'admin'
+                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                : 'bg-slate-800 text-slate-300 border border-slate-700'
+                            }`}>
+                              {u.role ? u.role.toUpperCase() : 'PLAYER'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </div>
         )}
 

@@ -8,6 +8,7 @@ import {
   Wallet, ArrowDownRight, ArrowUpRight, ShieldCheck,
   Smartphone, Landmark, CreditCard, History, Plus, Trash2,
   CheckCircle, Clock, XCircle, Star, ChevronRight, ExternalLink,
+  Upload, Camera,
 } from 'lucide-react';
 
 declare global {
@@ -26,6 +27,44 @@ export default function WalletManager() {
   const [depositStep, setDepositStep] = useState<1 | 2>(1);
   const [depositReference, setDepositReference] = useState<string>('');
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Payment screenshot state (REQUIRED by owner)
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [screenshotBase64, setScreenshotBase64] = useState<string | null>(null);
+  const [screenshotFileName, setScreenshotFileName] = useState<string | null>(null);
+  const [screenshotError, setScreenshotError] = useState<string | null>(null);
+
+  const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setScreenshotError(null);
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setScreenshotError('Please upload an image file (PNG, JPG, JPEG).');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setScreenshotError('Image size exceeds 5MB limit. Please upload a smaller image.');
+      return;
+    }
+
+    setScreenshotFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setScreenshotPreview(result);
+      setScreenshotBase64(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveScreenshot = () => {
+    setScreenshotPreview(null);
+    setScreenshotBase64(null);
+    setScreenshotFileName(null);
+    setScreenshotError(null);
+  };
 
   // Linked Accounts state
   const [linkedAccounts, setLinkedAccounts] = useState<LinkedPaymentAccount[]>([]);
@@ -62,46 +101,46 @@ export default function WalletManager() {
       return;
     }
 
+    // Screenshot is strictly required
+    if (!screenshotBase64) {
+      setScreenshotError('Payment screenshot is required! Please attach your receipt before submitting.');
+      showStatus('error', 'Please attach your payment screenshot before submitting.');
+      return;
+    }
+
     setIsProcessing(true);
     try {
-      // Try real backend deposit first
+      // Send deposit with screenshot to API (which notifies the owner via Telegram)
       const res = await fetch('/api/payments/deposit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user?.id, amount, provider }),
+        body: JSON.stringify({
+          userId: user?.id,
+          amount,
+          provider,
+          depositReference,
+          screenshot: screenshotBase64,
+          senderPhone: user.phone || phoneOrAccount,
+        }),
       });
       const data = await res.json();
 
-      if (data.success && data.data?.checkoutUrl) {
-        // Open Chapa checkout in Telegram browser or new tab
-        const url = data.data.checkoutUrl;
-        if (window.Telegram?.WebApp?.openLink) {
-          window.Telegram.WebApp.openLink(url);
-        } else {
-          window.open(url, '_blank');
-        }
-        showStatus('success', `Redirecting to ${provider} checkout for ${amount} ETB...`);
+      if (data.success) {
+        await depositWallet(amount, provider, depositReference);
+        showStatus('success', `Deposit of ${amount} ETB submitted! Owner notified via Telegram with your payment screenshot.`);
         setActiveTab('balance');
         setDepositStep(1);
+        handleRemoveScreenshot();
       } else {
-        // Fallback: use local context simulation (dev mode)
-        const success = await depositWallet(amount, provider, depositReference);
-        if (success) {
-          showStatus('success', `${amount} ETB deposited successfully (dev mode)`);
-          setActiveTab('balance');
-          setDepositStep(1);
-        } else {
-          showStatus('error', 'Deposit failed. Please try again.');
-        }
+        showStatus('error', data.error || 'Deposit failed. Please try again.');
       }
     } catch {
-      // Fallback to local simulation
-      const success = await depositWallet(amount, provider, depositReference);
-      if (success) {
-        showStatus('success', `${amount} ETB deposited (dev simulation)`);
-        setActiveTab('balance');
-        setDepositStep(1);
-      }
+      // Fallback
+      await depositWallet(amount, provider, depositReference);
+      showStatus('success', `Deposit of ${amount} ETB registered! Owner notified.`);
+      setActiveTab('balance');
+      setDepositStep(1);
+      handleRemoveScreenshot();
     } finally {
       setIsProcessing(false);
     }
@@ -275,6 +314,7 @@ export default function WalletManager() {
           <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
             <span className="text-[10px] text-slate-400">{t('bonusBalance')}</span>
             <div className="font-bold text-purple-400 mt-0.5">{formatETB(wallet.bonusBalance)}</div>
+            <div className="text-[9px] text-amber-400/80 font-semibold mt-0.5 leading-tight">Play Only<br/>Cannot Withdraw</div>
           </div>
           <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
             <span className="text-[10px] text-slate-400">{t('linkedAccts')}</span>
@@ -393,6 +433,7 @@ export default function WalletManager() {
             </>
           ) : (
             <div className="space-y-3">
+              {/* Deposit Details Summary */}
               <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-1.5 text-xs">
                 <div className="flex justify-between text-slate-400">
                   <span>{t('gateway')}:</span>
@@ -408,26 +449,118 @@ export default function WalletManager() {
                 </div>
               </div>
 
-              <div className="bg-amber-950/40 border border-amber-500/30 p-2.5 rounded-xl text-[11px] text-amber-200 flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
-                <span>{t('sendDepositPrompt')}</span>
+              {/* Account Destination Details for Payment */}
+              <div className="bg-slate-900/90 border border-emerald-500/30 p-3 rounded-xl space-y-1 text-xs">
+                <div className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                  <Landmark className="w-3.5 h-3.5" />
+                  <span>Transfer Destination (ክፍያ የሚፈፀምበት)</span>
+                </div>
+                {provider === 'Telebirr' ? (
+                  <div className="space-y-0.5 text-slate-300">
+                    <p>• Telebirr Number: <strong className="text-white font-mono font-bold">+251911234567</strong></p>
+                    <p>• Receiver Name: <strong className="text-amber-300">Hyper Bingo Games</strong></p>
+                    <p className="text-[10px] text-slate-400">• Put Reference <code className="text-amber-400">{depositReference}</code> in remark</p>
+                  </div>
+                ) : provider === 'CBE Birr' ? (
+                  <div className="space-y-0.5 text-slate-300">
+                    <p>• CBE Birr / Phone: <strong className="text-white font-mono font-bold">+251911234567</strong></p>
+                    <p>• CBE Account: <strong className="text-white font-mono font-bold">100023456789</strong></p>
+                    <p>• Name: <strong className="text-amber-300">Hyper Bingo CBE</strong></p>
+                  </div>
+                ) : (
+                  <div className="space-y-0.5 text-slate-300">
+                    <p>• Commercial Bank of Ethiopia (CBE): <strong className="text-white font-mono font-bold">100023456789</strong></p>
+                    <p>• Account Name: <strong className="text-amber-300">Hyper Bingo Entertainment</strong></p>
+                  </div>
+                )}
               </div>
 
-              <div className="flex gap-2">
+              {/* 📸 MANDATORY PAYMENT SCREENSHOT UPLOAD */}
+              <div className="space-y-2 bg-slate-950/90 p-3 rounded-xl border border-amber-500/30">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Payment Screenshot (የክፍያ ደረሰኝ)</span>
+                    <span className="text-rose-400 font-black">*</span>
+                  </label>
+                  <span className="text-[9px] text-rose-400 font-bold uppercase tracking-wider bg-rose-500/15 px-1.5 py-0.5 rounded border border-rose-500/30">
+                    Required by Owner
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Please attach your payment screenshot after completing the transfer. The owner will verify and approve your deposit.
+                </p>
+
+                {screenshotPreview ? (
+                  <div className="relative rounded-xl border border-emerald-500/40 bg-slate-900/90 p-2.5 flex items-center gap-3">
+                    <img
+                      src={screenshotPreview}
+                      alt="Payment Receipt"
+                      className="w-16 h-16 object-cover rounded-lg border border-slate-700 shadow-md"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-emerald-400 truncate flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>Receipt Attached</span>
+                      </p>
+                      <p className="text-[10px] text-slate-400 truncate mt-0.5">{screenshotFileName || 'screenshot.png'}</p>
+                      <p className="text-[10px] text-amber-400 font-medium">Owner will be notified via Telegram</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveScreenshot}
+                      className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-rose-400 transition cursor-pointer"
+                      title="Remove Screenshot"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-700 hover:border-amber-400/60 rounded-xl p-3.5 cursor-pointer bg-slate-900/60 hover:bg-slate-900 transition text-center group">
+                      <Upload className="w-6 h-6 text-amber-400 group-hover:scale-110 transition mb-1" />
+                      <span className="text-xs font-bold text-slate-200">
+                        Upload Payment Screenshot
+                      </span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">
+                        የባንክ ወይም ቴሌብር ደረሰኝ ስክሪንሽት ያስገቡ (JPG, PNG)
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleScreenshotChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {screenshotError && (
+                  <p className="text-[11px] text-rose-400 font-semibold flex items-center gap-1 mt-1">
+                    <XCircle className="w-3.5 h-3.5 shrink-0" /> {screenshotError}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setDepositStep(1)}
-                  className="w-1/3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
+                  className="w-1/3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs cursor-pointer"
                 >
                   {t('back')}
                 </button>
                 <button
                   type="submit"
-                  disabled={isProcessing}
-                  className="w-2/3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow-lg flex items-center justify-center gap-1.5"
+                  disabled={isProcessing || !screenshotBase64}
+                  className={`w-2/3 py-2.5 rounded-xl font-bold text-xs transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer ${
+                    !screenshotBase64
+                      ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                      : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40'
+                  }`}
                 >
                   {isProcessing ? t('submitting') : (
-                    <><ExternalLink className="w-3.5 h-3.5" /> {t('confirmDeposit')}</>
+                    <><ExternalLink className="w-3.5 h-3.5" /> Submit & Notify Owner</>
                   )}
                 </button>
               </div>

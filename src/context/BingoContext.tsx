@@ -215,8 +215,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         const newUser: User = result.data.user;
         const newWallet: Wallet = result.data.wallet || {
           userId: newUser.id,
-          availableBalance: 50,
-          bonusBalance: 50,
+          availableBalance: 0,
+          bonusBalance: 20,
           winningBalance: 0,
           totalDeposited: 0,
           totalWithdrawn: 0,
@@ -230,7 +230,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         setIsAuthModalOpen(false);
         addNotification(
           '🎉 Account Created!',
-          `Welcome, ${newUser.name}! Your account is ready with a 50 ETB starter bonus.`,
+          `Welcome, ${newUser.name}! 20 ETB game bonus added. Welcome notification sent via Telegram & SMS!`,
           'success'
         );
         return { success: true };
@@ -553,23 +553,40 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const targetGame = games.find((g) => g.id === gameId);
     if (!targetGame) return false;
 
-    const cardsToCreate = chosenCardNumbers && chosenCardNumbers.length > 0 ? chosenCardNumbers : ['12608', '11302'];
+    // Slot max 3: cap cards to at most 3
+    const rawCards = chosenCardNumbers && chosenCardNumbers.length > 0 ? chosenCardNumbers : ['12608', '11302'];
+    const cardsToCreate = rawCards.slice(0, 3);
     const totalCost = targetGame.entryPrice * cardsToCreate.length;
 
-    if (wallet.availableBalance < totalCost) {
+    // Bonus balance is playable (can play but cannot withdraw)
+    const playableBalance = wallet.availableBalance + wallet.bonusBalance;
+    if (playableBalance < totalCost) {
       addNotification(
         '⚠️ Insufficient Balance',
-        `Required ${totalCost} ETB for ${cardsToCreate.length} card(s). Please deposit.`,
+        `Required ${totalCost} ETB for ${cardsToCreate.length} card(s). Playable balance: ${(playableBalance).toFixed(0)} ETB (inc. bonus).`,
         'warning'
       );
       return false;
     }
 
-    // Deduct total entry fee
-    const newBalance = wallet.availableBalance - totalCost;
+    // Deduct from bonus balance first, then available balance
+    let remCost = totalCost;
+    let newBonus = wallet.bonusBalance;
+    let newAvailable = wallet.availableBalance;
+
+    if (newBonus >= remCost) {
+      newBonus -= remCost;
+      remCost = 0;
+    } else {
+      remCost -= newBonus;
+      newBonus = 0;
+      newAvailable = Math.max(0, newAvailable - remCost);
+    }
+
     setWallet((prev) => ({
       ...prev,
-      availableBalance: newBalance,
+      availableBalance: newAvailable,
+      bonusBalance: newBonus,
     }));
 
     // Create entry transaction
@@ -579,10 +596,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       username: user.username,
       type: 'GAME_ENTRY',
       amount: -totalCost,
-      balanceAfter: newBalance,
+      balanceAfter: newAvailable,
       reference: `GM-${targetGame.id}`,
       status: 'COMPLETED',
-      description: `Entry ticket (${cardsToCreate.length} cards) for ${targetGame.name}`,
+      description: `Entry ticket (${cardsToCreate.length} cards, max 3 slots) for ${targetGame.name}`,
       createdAt: new Date().toISOString(),
     };
     setTransactions((prev) => [tx, ...prev]);
@@ -600,14 +617,14 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     addNotification(
       '🎟️ Cards Purchased!',
-      `You joined ${targetGame.name} with cards: ${cardsToCreate.join(', ')}. Good luck!`,
+      `You joined ${targetGame.name} with ${cardsToCreate.length} card(s) (Slots: ${cardsToCreate.join(', ')}). Good luck!`,
       'success'
     );
 
     return true;
   };
 
-  // Add individual card to existing game session
+  // Add individual card to existing game session (max 3 slots)
   const addCardToGame = (gameId: string, cardNumber: string): boolean => {
     if (!user) {
       openAuthModal('register');
@@ -618,20 +635,43 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const targetGame = games.find((g) => g.id === gameId);
     if (!targetGame) return false;
 
-    if (wallet.availableBalance < targetGame.entryPrice) {
+    // Slot max 3 check
+    const currentCardsCount = userCards.filter((c) => c.gameId === gameId).length;
+    if (currentCardsCount >= 3) {
+      addNotification('⚠️ Max 3 Slots', 'Maximum 3 cards/slots allowed per game.', 'warning');
+      return false;
+    }
+
+    const playableBalance = wallet.availableBalance + wallet.bonusBalance;
+    if (playableBalance < targetGame.entryPrice) {
       addNotification('⚠️ Insufficient Balance', `Card cost is ${targetGame.entryPrice} ETB.`, 'warning');
       return false;
     }
 
-    // Deduct cost
-    const newBalance = wallet.availableBalance - targetGame.entryPrice;
-    setWallet((prev) => ({ ...prev, availableBalance: newBalance }));
+    // Deduct cost from bonus first
+    let remCost = targetGame.entryPrice;
+    let newBonus = wallet.bonusBalance;
+    let newAvailable = wallet.availableBalance;
+
+    if (newBonus >= remCost) {
+      newBonus -= remCost;
+    } else {
+      remCost -= newBonus;
+      newBonus = 0;
+      newAvailable = Math.max(0, newAvailable - remCost);
+    }
+
+    setWallet((prev) => ({
+      ...prev,
+      availableBalance: newAvailable,
+      bonusBalance: newBonus,
+    }));
 
     // Generate new card
     const newCard = createNewBingoCard(gameId, user.id, cardNumber);
     setUserCards((prev) => [...prev, newCard]);
 
-    addNotification('🎟️ Card Added!', `Added card #${cardNumber} to active game.`, 'success');
+    addNotification('🎟️ Card Added!', `Added card #${cardNumber} (Slot ${currentCardsCount + 1}/3).`, 'success');
     return true;
   };
 
@@ -745,6 +785,50 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     };
     setTransactions((prev) => [tx, ...prev]);
+
+    // ── REFERRAL WIN COMMISSION (1% of Owner Profit to Inviter) ──
+    // When the user registered using a referral link and wins, the inviter receives
+    // 1% of the owner/house profit into their bonus balance (playable only, cannot withdraw).
+    const totalCollected = game.entryPrice * Math.max(1, game.currentPlayers);
+    const ownerProfit = Math.max(0, totalCollected - calculatedPrize) || Math.round(game.prizePool * 0.20);
+    const inviterCommission = Math.max(1, Math.round(ownerProfit * 0.01 * 100) / 100);
+
+    if (user.referredBy) {
+      const referrerCode = user.referredBy;
+      // Record transaction for referral win commission
+      const refTx: Transaction = {
+        id: `TX_REF_WIN_${Date.now().toString().slice(-5)}`,
+        userId: `ref_${referrerCode}`,
+        username: `Referrer (${referrerCode})`,
+        type: 'REFERRAL_BONUS',
+        amount: inviterCommission,
+        balanceAfter: inviterCommission,
+        reference: `REF-WIN-${game.id}`,
+        status: 'COMPLETED',
+        description: `1% Owner Profit Commission from referral @${user.username} win in ${game.name} (Playable Bonus Only)`,
+        createdAt: new Date().toISOString(),
+      };
+      setTransactions((prev) => [refTx, ...prev]);
+
+      // Call API to credit inviter's bonus wallet
+      fetch('/api/referrals/reward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          referrerCode,
+          referredUsername: user.username,
+          gameName: game.name,
+          ownerProfit,
+          commissionAmount: inviterCommission,
+        }),
+      }).catch((e) => console.error('[Referral Commission API] Error:', e));
+
+      addNotification(
+        '🎁 Inviter Commission Awarded!',
+        `Your inviter (${referrerCode}) received ${inviterCommission} ETB (1% of house profit) into their play-only bonus wallet!`,
+        'success'
+      );
+    }
 
     addNotification(
       '🏆 BINGO WINNER! 🏆',
