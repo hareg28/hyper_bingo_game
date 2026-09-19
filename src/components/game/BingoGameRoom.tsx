@@ -47,6 +47,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
   const [hintCardId, setHintCardId] = useState<string | null>(null);
   const [patternHint, setPatternHint] = useState<boolean[][] | null>(null);
   const [gameHitFeedback, setGameHitFeedback] = useState<string | null>(null);
+  const [showMoreNumbers, setShowMoreNumbers] = useState(false);
 
   const currentGame = games.find((g) => g.id === gameId) || games[0];
   const activeGameCards = userCards.filter((c) => c.gameId === currentGame.id);
@@ -383,9 +384,20 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
 
           {/* Last calls strip */}
           <div className="flex flex-col min-w-0">
-            <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400 leading-none mb-1">
-              {language === 'am' ? 'የቅርብ ጊዜ' : 'Last Calls'}
-            </span>
+            <div className="flex items-center gap-1.5 leading-none mb-1">
+              <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400">
+                {language === 'am' ? 'የቅርብ ጊዜ' : 'Last Calls'}
+              </span>
+              {currentGame.drawnNumbers.length > 3 && (
+                <button
+                  onClick={() => setShowMoreNumbers(!showMoreNumbers)}
+                  className="text-[8px] font-black text-amber-400 hover:text-amber-300 underline cursor-pointer"
+                >
+                  {showMoreNumbers ? (language === 'am' ? 'አሳንስ ▲' : 'Show Less ▲') : (language === 'am' ? `ተጨማሪ (+${currentGame.drawnNumbers.length - 3}) ▼` : `+${currentGame.drawnNumbers.length - 3} More ▼`)}
+                </button>
+              )}
+            </div>
+
             <div className="flex items-center gap-1 overflow-hidden">
               {currentGame.drawnNumbers.length > 0 ? (
                 currentGame.drawnNumbers.slice(-3).reverse().map((num, idx) => (
@@ -441,6 +453,53 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
           )}
         </div>
       </div>
+
+      {/* ── EXPANDED NUMBER DISPLAY (SHOW MORE / SHOW LESS TRAY) ───────── */}
+      {showMoreNumbers && (
+        <div className="bg-slate-950 border border-slate-800 rounded-2xl p-2 text-white shadow-xl space-y-1.5 shrink-0 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="flex items-center justify-between text-[10px]">
+            <span className="font-black text-amber-400 uppercase tracking-wider flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+              {language === 'am' ? 'ሁሉም የተጠሩ ቁጥሮች' : 'All Drawn Numbers'} ({currentGame.drawnNumbers.length}/75)
+            </span>
+            <button
+              onClick={() => setShowMoreNumbers(false)}
+              className="text-[10px] font-bold text-slate-400 hover:text-white px-2 py-0.5 rounded-md bg-slate-800 cursor-pointer"
+            >
+              {language === 'am' ? 'አሳንስ (Show Less) ▲' : 'Show Less ▲'}
+            </button>
+          </div>
+
+          {/* All called numbers tape */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            {currentGame.drawnNumbers.slice().reverse().map((num, idx) => {
+              const letter = getBallLetter(num);
+              const letterColor = 
+                letter === 'B' ? 'text-blue-400 border-blue-800/80 bg-blue-950/60' :
+                letter === 'I' ? 'text-red-400 border-red-800/80 bg-red-950/60' :
+                letter === 'N' ? 'text-amber-400 border-amber-800/80 bg-amber-950/60' :
+                letter === 'G' ? 'text-emerald-400 border-emerald-800/80 bg-emerald-950/60' :
+                'text-purple-400 border-purple-800/80 bg-purple-950/60';
+
+              return (
+                <div
+                  key={`${num}-${idx}`}
+                  className={`px-2 py-1 rounded-xl flex items-center gap-1 font-mono font-black text-xs shrink-0 border shadow-xs ${
+                    idx === 0
+                      ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-300/80 scale-105'
+                      : `${letterColor}`
+                  }`}
+                >
+                  <span className={`text-[8px] italic font-black ${idx === 0 ? 'text-slate-950' : ''}`}>
+                    {letter}
+                  </span>
+                  <span>{num}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── ROW 3: POLISHED CARD TABS ─────────────────────────────────── */}
       <div className="flex items-center justify-between px-0.5 shrink-0">
