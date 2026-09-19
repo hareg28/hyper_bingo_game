@@ -79,6 +79,11 @@ export async function POST(req: NextRequest) {
           `• የቀጥታ ቁጥሮች እጣ እና አሸናፊዎችን እኩል ማካፈል\n` +
           `• 100% አስተማማኝ እና ፈጣን የጨዋታ አሰራር\n\n` +
           `⚡ Play real-time 75-ball bingo, win ETB prizes, and cash out instantly!\n\n` +
+          `🌟 <b>Weekend Hyper Draw Schedule (ዊክኤንድ ጨዋታ ሰዓት):</b>\n` +
+          `  📅 Friday – Sunday (ዓርብ – እሑድ)\n` +
+          `  ⏰ Opens: <b>8:00 PM EAT</b> | Closes: <b>11:59 PM EAT</b>\n\n` +
+          `📞 <b>Support / ድጋፍ:</b> <a href="tel:+251911234567">+251 91 123 4567</a>\n` +
+          `💬 Telegram Support: @HyperBingoSupport\n\n` +
           `የእርስዎ ቴሌግራም መለያ (Your Telegram ID): <code>${userId}</code>` +
           (isAdmin ? `\n⭐ <b>(Admin Access Granted / የአስተዳዳሪ መዳረሻ ተሰጥቶዎታል)</b>` : '');
 
@@ -117,13 +122,21 @@ export async function POST(req: NextRequest) {
       await sendTelegramMessage({
         chat_id: chatId,
         parse_mode: 'HTML',
-        text: `🤖 <b>Hyper Bingo Bot</b>\n\nUse /start to open the game or /admin to access admin tools.\n\nጨዋታውን ለመጀመር /start ይጫኑ።`,
+        text: `🤖 <b>Hyper Bingo Bot</b>\n\nUse /start to open the game or /admin to access admin tools.\n\nጨዋታውን ለመጀመር /start ይጫኑ።\n\n` +
+              `🌟 <b>Weekend Hyper Draw:</b> Fri–Sun | Opens 8:00 PM EAT\n` +
+              `📞 Support: <a href="tel:+251911234567">+251 91 123 4567</a> | @HyperBingoSupport`,
         reply_markup: {
           inline_keyboard: [
             [
               {
                 text: '🎮 Play Hyper Bingo (ሚኒ አፕ ክፈት)',
                 web_app: { url: appUrl },
+              },
+            ],
+            [
+              {
+                text: '📞 Contact Support (+251 91 123 4567)',
+                url: 'tel:+251911234567',
               },
             ],
           ],

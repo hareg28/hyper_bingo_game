@@ -172,13 +172,14 @@ export default function MiniAppShell({
                 </span>
               </div>
 
-              {/* Weekend Hyper Announcement Banner - Show Birr amounts prominently */}
+              {/* Weekend Hyper Announcement Banner - Show exact open time */}
               {games.some((g) => g.isWeekendSpecial || g.gameType === 'WEEKEND_LOTTERY') && (
                 <div className="overflow-hidden rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 py-3 px-3 shadow-sm">
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex flex-col shrink-0">
                       <span className="text-slate-950 text-[11px] font-black uppercase tracking-wider leading-tight">🌟 WEEKEND</span>
                       <span className="text-slate-950 text-[10px] font-bold opacity-80">HYPER DRAWS</span>
+                      <span className="text-slate-950 text-[9px] font-black bg-slate-950/15 px-1.5 py-0.5 rounded mt-0.5 whitespace-nowrap">⏰ Fri–Sun 8:00 PM – 11:59 PM EAT</span>
                     </div>
                     <div className="overflow-x-auto no-scrollbar flex items-center gap-2 flex-1">
                       {games
@@ -286,6 +287,39 @@ export default function MiniAppShell({
                 </div>
               </div>
             )}
+
+            {/* Contact / Support Card */}
+            <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-3 text-white shadow-sm">
+              <div className="flex items-start gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-400 flex items-center justify-center shrink-0 text-slate-950 font-black text-base">
+                  📞
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-amber-400 leading-none mb-0.5">
+                    Support / ድጋፍ
+                  </p>
+                  <a
+                    href="tel:+251911234567"
+                    className="text-sm font-black text-white hover:text-amber-300 transition block leading-tight"
+                  >
+                    +251 91 123 4567
+                  </a>
+                  <a
+                    href="https://t.me/HyperBingoSupport"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-slate-300 hover:text-amber-300 transition block leading-tight mt-0.5"
+                  >
+                    @HyperBingoSupport
+                  </a>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[9px] text-slate-400 font-bold uppercase leading-none">Weekend Draw</p>
+                  <p className="text-[10px] text-amber-300 font-black whitespace-nowrap">Fri–Sun</p>
+                  <p className="text-[10px] text-white font-bold whitespace-nowrap">8:00 PM EAT</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
