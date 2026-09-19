@@ -657,62 +657,6 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
         )}
       </div>
 
-      {/* ── ROW 5: RECENT CALLED BALLS STRIP ──────────────────────────── */}
-      <div className="bg-white/90 backdrop-blur-xs border border-slate-200/90 rounded-xl p-2 shadow-2xs space-y-1 shrink-0">
-        <div className="flex items-center justify-between text-[10px]">
-          <div className="flex items-center gap-1 font-bold text-slate-600">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="uppercase tracking-wider font-black text-slate-700">
-              {language === 'am' ? 'የተጠሩ ቁጥሮች' : 'Recent Calls'}
-            </span>
-            <span className="font-mono text-slate-500">({drawnSet.size}/75)</span>
-          </div>
-
-          <button
-            onClick={() => setShowTableModal(true)}
-            className="text-[10px] font-black text-blue-600 hover:text-blue-700 flex items-center gap-0.5 cursor-pointer"
-          >
-            <Grid className="w-3 h-3 text-blue-600" />
-            <span>{language === 'am' ? 'ሙሉ ሰሌዳ' : 'View Board'}</span>
-          </button>
-        </div>
-
-        {/* Horizontal Ticker */}
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
-          {currentGame.drawnNumbers.length > 0 ? (
-            currentGame.drawnNumbers.slice(-8).reverse().map((num, idx) => {
-              const letter = getBallLetter(num);
-              const letterColor = 
-                letter === 'B' ? 'text-blue-600 bg-blue-50 border-blue-200' :
-                letter === 'I' ? 'text-red-600 bg-red-50 border-red-200' :
-                letter === 'N' ? 'text-amber-600 bg-amber-50 border-amber-200' :
-                letter === 'G' ? 'text-emerald-600 bg-emerald-50 border-emerald-200' :
-                'text-purple-600 bg-purple-50 border-purple-200';
-
-              return (
-                <div
-                  key={`${num}-${idx}`}
-                  className={`px-2 py-0.5 rounded-lg flex items-center gap-1 font-black text-xs shrink-0 border transition-all ${
-                    idx === 0
-                      ? 'bg-amber-400 text-slate-950 border-amber-500 ring-2 ring-amber-300 scale-105 shadow-xs'
-                      : `${letterColor} text-slate-800 shadow-2xs`
-                  }`}
-                >
-                  <span className={`text-[8px] font-black italic ${idx === 0 ? 'text-slate-950' : ''}`}>
-                    {letter}
-                  </span>
-                  <span className="font-mono">{num}</span>
-                </div>
-              );
-            })
-          ) : (
-            <div className="text-[10px] text-slate-400 italic py-0.5">
-              {language === 'am' ? 'ጨዋታው ሲጀመር የተጠሩ ኳሶች እዚህ ይመጣሉ...' : 'Balls will appear here as they are drawn...'}
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* ── 75-BALL MASTER TABLE POPUP MODAL (OPTIONAL TOGGLE) ──────────── */}
       {showTableModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
