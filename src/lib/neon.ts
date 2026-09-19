@@ -43,9 +43,9 @@ export async function initDatabaseSchema() {
     await sql`
       CREATE TABLE IF NOT EXISTS wallets (
         user_id VARCHAR(64) PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-        available_balance NUMERIC(12, 2) DEFAULT 250.00,
-        bonus_balance NUMERIC(12, 2) DEFAULT 50.00,
-        winning_balance NUMERIC(12, 2) DEFAULT 150.00,
+        available_balance NUMERIC(12, 2) DEFAULT 0.00,
+        bonus_balance NUMERIC(12, 2) DEFAULT 20.00,
+        winning_balance NUMERIC(12, 2) DEFAULT 0.00,
         total_deposited NUMERIC(12, 2) DEFAULT 0.00,
         total_withdrawn NUMERIC(12, 2) DEFAULT 0.00,
         updated_at TIMESTAMPTZ DEFAULT NOW()

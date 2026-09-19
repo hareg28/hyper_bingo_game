@@ -44,6 +44,7 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
   const [viewMode, setViewMode] = useState<'ALL' | 'SINGLE'>('ALL');
   const [hintCardId, setHintCardId] = useState<string | null>(null);
   const [patternHint, setPatternHint] = useState<boolean[][]| null>(null); // 5x5 hint overlay
+  const [gameHitFeedback, setGameHitFeedback] = useState<string | null>(null);
 
   const currentGame = games.find((g) => g.id === gameId) || games[0];
   const activeGameCards = userCards.filter((c) => c.gameId === currentGame.id);
@@ -53,6 +54,30 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
     activeGameCards.find((c) => c.id === selectedCardId) || 
     activeGameCards[0] || 
     userCards[0];
+
+  // ── Live Countdown Timer for Time Left to Finish the Game ──
+  const [secondsRemaining, setSecondsRemaining] = useState<number>(() => {
+    const ballsLeft = Math.max(0, 75 - (currentGame?.drawnNumbers?.length || 0));
+    return ballsLeft * (currentGame?.drawInterval || 3);
+  });
+
+  useEffect(() => {
+    const ballsLeft = Math.max(0, 75 - (currentGame?.drawnNumbers?.length || 0));
+    setSecondsRemaining(ballsLeft * (currentGame?.drawInterval || 3));
+  }, [currentGame?.drawnNumbers?.length, currentGame?.drawInterval]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsRemaining(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTimeRemaining = (totalSec: number): string => {
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   // Auto Draw interval timer simulation
   useEffect(() => {
@@ -68,7 +93,7 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
     return () => clearInterval(interval);
   }, [isAutoDrawing, currentGame, drawNextBall]);
 
-  // Auto-dismiss claim alerts after 5 seconds
+  // Auto-dismiss claim alerts after 6 seconds
   useEffect(() => {
     if (claimStatus) {
       const timer = setTimeout(() => {
@@ -156,14 +181,58 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
     return hint;
   };
 
-  const togglePatternHint = (card: typeof activeGameCards[0]) => {
-    if (hintCardId === card.id) {
-      setHintCardId(null);
-      setPatternHint(null);
-    } else {
-      setHintCardId(card.id);
-      setPatternHint(computePatternHint(card));
+  // 💡 LIGHT SYMBOL GAME HIT:
+  // When player presses 💡, it checks if any drawn balls match their card and automatically daubs them!
+  // If all drawn balls are already marked, it illuminates the closest winning line/pattern to BINGO!
+  const handleLightGameHit = (targetCard?: typeof activeGameCards[0]) => {
+    const card = targetCard || activeUserCard || activeGameCards[0];
+    if (!card) {
+      setGameHitFeedback(language === 'am' ? 'እባክዎ መጀመሪያ የቢንጎ ካርድ ይምረጡ!' : 'Please pick or select a bingo card first!');
+      setTimeout(() => setGameHitFeedback(null), 4000);
+      return;
     }
+
+    const drawnSet = new Set(currentGame.drawnNumbers);
+    let hitCount = 0;
+    let hitNumbers: number[] = [];
+
+    // Daub all drawn numbers on this card that player hasn't marked yet
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        if (r === 2 && c === 2) continue; // Free center
+        const val = card.numbers[r][c];
+        if (drawnSet.has(val) && !card.marked[r][c]) {
+          daubCell(card.id, r, c);
+          hitCount++;
+          hitNumbers.push(val);
+        }
+      }
+    }
+
+    // Illuminate the pattern hint overlay
+    setHintCardId(card.id);
+    const hint = computePatternHint(card);
+    setPatternHint(hint);
+
+    if (hitCount > 0) {
+      playBingoVictoryFanfare();
+      setGameHitFeedback(
+        language === 'am'
+          ? `💡 ፍንጭ (GAME HIT)! ${hitNumbers.length} የወጡ ቁጥሮች (${hitNumbers.join(', ')}) በካርድ #${card.cardNumber} ላይ ተሞልተዋል!`
+          : `💡 GAME HIT! ${hitNumbers.length} drawn ball${hitNumbers.length > 1 ? 's' : ''} (${hitNumbers.join(', ')}) hit & daubed on Card #${card.cardNumber}!`
+      );
+    } else {
+      const remaining = countRemainingNumbers(card.marked);
+      setGameHitFeedback(
+        language === 'am'
+          ? `💡 ፍንጭ በርቷል! የወጡ ኳሶች በሙሉ ተሞልተዋል። ለሙሉ ካርቴላ ${remaining} ቁጥሮች ብቻ ቀርተዎታል።`
+          : `💡 GAME HIT: All drawn balls daubed! You are only ${remaining} number${remaining > 1 ? 's' : ''} away from BINGO on Card #${card.cardNumber}!`
+      );
+    }
+
+    setTimeout(() => {
+      setGameHitFeedback(null);
+    }, 5000);
   };
 
   const bestWinningItem = cardsWinData.find((cw) => cw.hasFullHouse);
@@ -236,58 +305,99 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
   ];
 
   return (
-    <div className="space-y-3.5 max-w-lg mx-auto pb-16">
-      {/* ── TOP GAME ROOM HEADER ────────────────────────────────────────── */}
-      <div className="bg-white border border-slate-200 p-3.5 rounded-2xl flex items-center justify-between shadow-xs">
-        <div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300">
-              {currentGame.gameType.replace('_', ' ')}
-            </span>
-            {(currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.isWeekendSpecial) && (
-              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 shadow-xs">
-                🌟 Weekend Mega Lottery
+    <div className="space-y-3 max-w-lg mx-auto pb-16">
+      {/* ── TOP GAME ROOM HEADER WITH PLAYERS COUNT & TIME LEFT ─────────── */}
+      <div className="bg-white border-2 border-slate-200 p-3.5 rounded-2xl shadow-xs space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300">
+                {currentGame.gameType.replace('_', ' ')}
               </span>
-            )}
-            <span className="text-xs font-bold text-slate-600">{t('prizePool')}:</span>
+              {(currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.isWeekendSpecial) && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 shadow-xs">
+                  🌟 Weekend Mega
+                </span>
+              )}
+              <span className="text-xs font-bold text-slate-600">{t('prizePool')}:</span>
+              <h2 className="text-lg font-black text-amber-700">{formatETB(currentGame.prizePool)}</h2>
+            </div>
           </div>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <h2 className="text-xl font-black text-amber-700">{formatETB(currentGame.prizePool)}</h2>
-            {currentGame.minPlayers && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-800">
-                👥 {currentGame.currentPlayers}/{currentGame.minPlayers} {language === 'am' ? 'ተጫዋቾች' : 'min players'}
-              </span>
-            )}
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* 💡 Prominent Light Symbol Game Hit Button */}
+            <button
+              onClick={() => handleLightGameHit()}
+              className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs border border-amber-500 shadow-xs transition flex items-center gap-1.5 cursor-pointer animate-pulse"
+              title="Light Symbol: Press for Game Hit / የጨዋታ ፍንጭ"
+            >
+              <Lightbulb className="w-4 h-4 fill-slate-950 text-slate-950" />
+              <span>{language === 'am' ? '💡 ፍንጭ' : '💡 Game Hit'}</span>
+            </button>
+
+            {/* Sound toggle */}
+            <button
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition cursor-pointer"
+              title="Toggle Ball Sound"
+            >
+              {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+            </button>
+
+            {/* Auto daub toggle */}
+            <button
+              onClick={toggleAutoDaub}
+              className={`px-2 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border transition cursor-pointer ${
+                autoDaubEnabled
+                  ? 'bg-purple-100 border-purple-300 text-purple-900 shadow-xs'
+                  : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+              {autoDaubEnabled ? 'Auto' : 'Off'}
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Sound toggle */}
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition cursor-pointer"
-            title="Toggle Ball Sound"
-          >
-            {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
-          </button>
+        {/* 👥 LIVE PLAYERS COUNT & ⏱️ TIME LEFT TO FINISH THE GAME */}
+        <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+          {/* Number of Players */}
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 font-bold shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+              <span>👥 <strong>{currentGame.currentPlayers}</strong> {language === 'am' ? 'ተጫዋቾች' : 'Players'}</span>
+              {currentGame.minPlayers && (
+                <span className="text-[10px] text-blue-600 font-medium">(min {currentGame.minPlayers})</span>
+              )}
+            </span>
+          </div>
 
-          {/* Auto daub toggle */}
-          <button
-            onClick={toggleAutoDaub}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition cursor-pointer ${
-              autoDaubEnabled
-                ? 'bg-purple-100 border-purple-300 text-purple-900 shadow-xs'
-                : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-            {autoDaubEnabled ? t('autoDaubOn') : t('autoDaubOff')}
-          </button>
+          {/* Time Left to Finish the Game */}
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 font-mono font-black shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+              <span>⏱️ {secondsRemaining > 0 ? `${formatTimeRemaining(secondsRemaining)} Left` : 'FINISHING'}</span>
+              <span className="text-[10px] text-rose-700 font-bold hidden sm:inline">({language === 'am' ? 'የቀረ ጊዜ' : 'Time Left'})</span>
+            </span>
+          </div>
         </div>
       </div>
 
+      {/* 💡 GAME HIT FEEDBACK ALERT NOTIFICATION ────────────────────────── */}
+      {gameHitFeedback && (
+        <div className="p-3 rounded-2xl bg-amber-100 border-2 border-amber-400 text-amber-950 text-xs font-black shadow-md flex items-center justify-between gap-2 animate-bounce">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="w-5 h-5 fill-amber-500 text-amber-900 shrink-0" />
+            <span>{gameHitFeedback}</span>
+          </div>
+          <button onClick={() => setGameHitFeedback(null)} className="p-1 text-amber-800 hover:text-amber-950 cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* ── 75-BALL BOARD & MASTER TABLE (ALWAYS VISIBLE & OPEN) ─────────── */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-3.5 text-center shadow-xs space-y-3">
+      <div className="bg-white border-2 border-slate-200 rounded-2xl p-3.5 text-center shadow-xs space-y-3">
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 border border-amber-300 font-black font-mono">
@@ -407,7 +517,7 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
       </div>
 
       {/* ── BINGO CARD NUMBERS STATUS BAR (Cards, Blocked, Winners) ──────── */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-3.5 space-y-2.5 shadow-xs">
+      <div className="bg-white border-2 border-slate-200 rounded-2xl p-3.5 space-y-2.5 shadow-xs">
         {/* Row 1: Bingo Cards */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
@@ -636,19 +746,15 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
                       {fullHouseWin ? '🏆 FULL HOUSE!' : rem === 1 ? '🔥 1 TO GO!' : `${rem} TO FULL HOUSE`}
                     </span>
 
-                    {/* Light Symbol Pattern Hit Button */}
+                    {/* 💡 Light Symbol Game Hit Button on Card */}
                     <button
                       type="button"
-                      onClick={() => togglePatternHint(card)}
-                      className={`px-2 py-0.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-                        hintCardId === card.id
-                          ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 font-black ring-2 ring-amber-300 shadow-sm animate-pulse'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'
-                      }`}
-                      title="Pattern Hint"
+                      onClick={() => handleLightGameHit(card)}
+                      className="px-2.5 py-0.5 rounded-lg text-xs font-black transition flex items-center gap-1 cursor-pointer bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 border border-amber-500 shadow-xs hover:brightness-105 active:scale-95"
+                      title="Light Symbol: Press for Game Hit"
                     >
-                      <Lightbulb className={`w-3.5 h-3.5 ${hintCardId === card.id ? 'fill-slate-950 text-slate-950' : 'text-amber-600'}`} />
-                      <span>{hintCardId === card.id ? (language === 'am' ? '💡 ፍንጭ በርቷል' : '💡 Pattern Hit ON') : (language === 'am' ? '💡 ፍንጭ' : '💡 Pattern Hit')}</span>
+                      <Lightbulb className="w-3.5 h-3.5 fill-slate-950 text-slate-950" />
+                      <span>{language === 'am' ? '💡 ፍንጭ' : '💡 Hit'}</span>
                     </button>
                   </div>
 
@@ -758,19 +864,15 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
                 {isFullHouseWin ? '🏆 FULL HOUSE!' : remainingCount === 1 ? '🔥 1 TO GO!' : `${remainingCount} TO FULL HOUSE`}
               </span>
 
-              {/* Light Symbol Pattern Hit Button */}
+              {/* 💡 Light Symbol Game Hit Button on Card */}
               <button
                 type="button"
-                onClick={() => togglePatternHint(activeUserCard)}
-                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-                  hintCardId === activeUserCard.id
-                    ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 font-black ring-2 ring-amber-300 shadow-sm animate-pulse'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'
-                }`}
-                title="Pattern Hint"
+                onClick={() => handleLightGameHit(activeUserCard)}
+                className="px-2.5 py-0.5 rounded-lg text-xs font-black transition flex items-center gap-1 cursor-pointer bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 border border-amber-500 shadow-xs hover:brightness-105 active:scale-95"
+                title="Light Symbol: Press for Game Hit"
               >
-                <Lightbulb className={`w-3.5 h-3.5 ${hintCardId === activeUserCard.id ? 'fill-slate-950 text-slate-950' : 'text-amber-600'}`} />
-                <span>{hintCardId === activeUserCard.id ? (language === 'am' ? '💡 ፍንጭ በርቷል' : '💡 Pattern Hit ON') : (language === 'am' ? '💡 ፍንጭ' : '💡 Pattern Hit')}</span>
+                <Lightbulb className="w-3.5 h-3.5 fill-slate-950 text-slate-950" />
+                <span>{language === 'am' ? '💡 ፍንጭ' : '💡 Hit'}</span>
               </button>
             </div>
 

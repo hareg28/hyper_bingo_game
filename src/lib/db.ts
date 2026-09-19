@@ -305,9 +305,9 @@ const db = {
     if (walletsMap.has(userId)) return walletsMap.get(userId)!;
     const wallet: Wallet = {
       userId,
-      availableBalance: 250,
-      bonusBalance: 50,
-      winningBalance: 150,
+      availableBalance: 0,
+      bonusBalance: 20,
+      winningBalance: 0,
       totalDeposited: 0,
       totalWithdrawn: 0,
     };

@@ -19,11 +19,11 @@ export const INITIAL_USER: User = {
 
 export const INITIAL_WALLET: Wallet = {
   userId: 'usr_001',
-  availableBalance: 250,
-  bonusBalance: 50,
-  winningBalance: 150,
-  totalDeposited: 1200,
-  totalWithdrawn: 600,
+  availableBalance: 0,
+  bonusBalance: 20,
+  winningBalance: 0,
+  totalDeposited: 0,
+  totalWithdrawn: 0,
 };
 
 export const INITIAL_GAMES: Game[] = [
