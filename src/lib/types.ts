@@ -74,6 +74,7 @@ export type TransactionType =
   | 'GAME_ENTRY' 
   | 'GAME_WIN' 
   | 'REFERRAL_REWARD' 
+  | 'REFERRAL_BONUS'
   | 'PROMOTION_BONUS';
 
 export type TransactionStatus = 'PENDING' | 'APPROVED' | 'COMPLETED' | 'REJECTED' | 'FAILED';

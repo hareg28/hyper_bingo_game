@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     // Credit deposit to user wallet in DB
     try {
-      await db.creditDeposit(userId, amount, provider || 'Telebirr', txRef);
+      await db.creditDeposit(userId, amount, txRef, (provider || 'Telebirr'));
     } catch (dbErr) {
       console.error('[Deposit API] creditDeposit error:', dbErr);
     }

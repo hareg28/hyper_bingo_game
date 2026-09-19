@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { useBingo } from '../../context/BingoContext';
-import { formatETB, localizeGameName, localizeGameTime } from '../../lib/bingoUtils';
+import { formatETB } from '../../lib/bingoUtils';
+import { localizeGameName, localizeGameTime } from '../../lib/translations';
 import { 
   Gamepad2, Zap, Wallet, User as UserIcon, Shield, 
   ArrowUpRight, Share2, Copy, Check, LogOut, Sparkles, 

@@ -14,10 +14,10 @@ export async function GET(req: Request) {
         const wallet = await db.getWallet(u.id);
         return {
           ...u,
-          balance: wallet.balance,
-          bonusBalance: wallet.bonusBalance,
-          totalDeposited: wallet.totalDeposited,
-          totalWithdrawn: wallet.totalWithdrawn,
+          balance: wallet ? ((wallet.availableBalance || 0) + (wallet.winningBalance || 0)) : 0,
+          bonusBalance: wallet?.bonusBalance || 0,
+          totalDeposited: wallet?.totalDeposited || 0,
+          totalWithdrawn: wallet?.totalWithdrawn || 0,
         };
       })
     );
