@@ -503,7 +503,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
         {activeUserCard ? (
           <>
             {/* CARD TOP: 5 COLORED ROUNDED HEADERS B - I - N - G - O */}
-            <div className="px-1.5 pt-1.5 pb-0.5 shrink-0">
+            <div className="px-1.5 pt-1.5 pb-1 shrink-0">
               <div className="grid grid-cols-5 gap-1 text-center">
                 {[
                   { letter: 'B', bg: 'bg-[#2563eb]' },
@@ -514,7 +514,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                 ].map((col) => (
                   <div
                     key={col.letter}
-                    className={`${col.bg} h-6 rounded-md text-white font-black italic text-xs shadow-2xs leading-none flex items-center justify-center`}
+                    className={`${col.bg} h-7 sm:h-8 rounded-lg text-white font-black italic text-xs sm:text-sm shadow-2xs leading-none flex items-center justify-center`}
                   >
                     {col.letter}
                   </div>
@@ -522,7 +522,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               </div>
             </div>
 
-            {/* CARD BODY: 5x5 NUMBER TILES (COMPACT SIZED TO NEVER EXCEED SCREEN) */}
+            {/* CARD BODY: 5x5 NUMBER TILES (SPACIOUS AND COMFORTABLE TO TAP) */}
             <div className="px-1.5 pb-1 shrink-0">
               <div className="grid grid-cols-5 gap-1">
                 {activeUserCard.numbers.map((row, rIdx) =>
@@ -536,9 +536,9 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                       <button
                         key={`${rIdx}-${cIdx}`}
                         onClick={() => !isFree && daubCell(activeUserCard.id, rIdx, cIdx)}
-                        className={`h-7 sm:h-8 rounded-md font-black flex flex-col items-center justify-center text-xs sm:text-sm transition-all duration-100 relative border shadow-2xs cursor-pointer ${
+                        className={`h-9 sm:h-10 rounded-lg font-black flex flex-col items-center justify-center text-sm sm:text-base transition-all duration-100 relative border shadow-2xs cursor-pointer ${
                           isFree
-                            ? 'bg-[#10b981] border-[#059669] text-white' // Bright green with blue star exactly like photo!
+                            ? 'bg-[#10b981] border-[#059669] text-white'
                             : isMarked
                             ? 'bg-purple-600 text-white border-purple-500 scale-[0.97] font-black'
                             : isHint
@@ -549,17 +549,16 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                         }`}
                       >
                         {isFree ? (
-                          /* Center Blue Star ★ on Green tile */
-                          <Star className="w-3.5 h-3.5 text-[#2563eb] fill-[#2563eb] drop-shadow-2xs" />
+                          <Star className="w-4 h-4 sm:w-5 h-5 text-[#2563eb] fill-[#2563eb] drop-shadow-2xs" />
                         ) : (
                           <>
                             <span>{val}</span>
                             {isHint && (
-                              <span className="absolute top-0.5 right-0.5 text-[6px] leading-none">💡</span>
+                              <span className="absolute top-0.5 right-0.5 text-[7px] leading-none">💡</span>
                             )}
                             {isMarked && (
                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div className="w-3 h-3 rounded-full bg-white/30 border border-white animate-ping"></div>
+                                <div className="w-3.5 h-3.5 rounded-full bg-white/30 border border-white animate-ping"></div>
                               </div>
                             )}
                           </>
@@ -574,7 +573,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
             {/* CARD BOTTOM: BINGO! BUTTON EXACTLY LIKE THE PICTURE */}
             <button
               onClick={() => handleClaimBingo(activeUserCard.id)}
-              className={`w-full py-2 px-3 flex items-center justify-between transition-all duration-200 cursor-pointer shadow-md select-none shrink-0 ${
+              className={`w-full py-2.5 sm:py-3 px-3 flex items-center justify-between transition-all duration-200 cursor-pointer shadow-md select-none shrink-0 ${
                 isFullHouseWin
                   ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 animate-bounce ring-4 ring-amber-300'
                   : 'bg-[#2563eb] hover:bg-[#1d4ed8] active:brightness-95 text-white'
@@ -587,7 +586,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                 #{activeUserCard.cardNumber}
               </span>
 
-              <span className="text-lg sm:text-xl font-black italic tracking-widest drop-shadow-sm">
+              <span className="text-xl sm:text-2xl font-black italic tracking-widest drop-shadow-sm">
                 BINGO!
               </span>
 
@@ -631,6 +630,65 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
             </button>
           </div>
         )}
+      </div>
+
+      {/* ── ROW 5: LIVE CALLED BALLS & GAME INFO (UTILIZES UNUSED SPACE) ── */}
+      <div className="bg-white border border-slate-200 rounded-xl p-2 shadow-2xs space-y-1.5 shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">
+              {language === 'am' ? 'የተጠሩ ቁጥሮች' : 'Recent Called Balls'}
+            </span>
+            <span className="px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700 font-mono font-bold text-[10px]">
+              {drawnSet.size}/75
+            </span>
+          </div>
+
+          <button
+            onClick={() => setShowTableModal(true)}
+            className="text-[10px] font-black text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-lg border border-blue-200 transition cursor-pointer"
+          >
+            <Grid className="w-3 h-3 text-blue-600" />
+            <span>{language === 'am' ? 'ሰሌዳ ክፈት' : 'View Board'}</span>
+          </button>
+        </div>
+
+        {/* Horizontal Ticker of Recent Balls */}
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+          {currentGame.drawnNumbers.length > 0 ? (
+            currentGame.drawnNumbers.slice(-8).reverse().map((num, idx) => {
+              const letter = getBallLetter(num);
+              const letterColor = 
+                letter === 'B' ? 'text-blue-600 bg-blue-50 border-blue-200' :
+                letter === 'I' ? 'text-red-600 bg-red-50 border-red-200' :
+                letter === 'N' ? 'text-amber-600 bg-amber-50 border-amber-200' :
+                letter === 'G' ? 'text-emerald-600 bg-emerald-50 border-emerald-200' :
+                'text-purple-600 bg-purple-50 border-purple-200';
+
+              return (
+                <div
+                  key={`${num}-${idx}`}
+                  className={`px-2 py-1 rounded-lg flex items-center gap-1 font-black text-xs shrink-0 border transition-all ${
+                    idx === 0
+                      ? 'bg-amber-400 text-slate-950 border-amber-500 ring-2 ring-amber-300 scale-105 shadow-xs'
+                      : `${letterColor} text-slate-900 shadow-2xs`
+                  }`}
+                >
+                  <span className={`text-[9px] font-black italic ${idx === 0 ? 'text-slate-950' : ''}`}>
+                    {letter}
+                  </span>
+                  <span className="font-mono">{num}</span>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-[11px] text-slate-400 italic py-0.5 flex items-center gap-1">
+              <span>⏱️</span>
+              <span>{language === 'am' ? 'ጨዋታው ሲጀመር የተጠሩ ኳሶች እዚህ ይመጣሉ' : 'Balls will appear here as they are drawn...'}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── 75-BALL MASTER TABLE POPUP MODAL (OPTIONAL TOGGLE) ──────────── */}
