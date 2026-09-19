@@ -6,7 +6,7 @@ import { formatETB } from '../../lib/bingoUtils';
 import { 
   Users, Gamepad2, Wallet, ShieldCheck, FileText, PlusCircle, 
   CheckCircle, XCircle, Search, RefreshCw, AlertTriangle, ArrowLeft, 
-  Sparkles, Check, Clock, Globe, Shield, Flame, Trophy, Timer
+  Sparkles, Check, Clock, Globe, Shield, Flame, Trophy, Timer, Megaphone
 } from 'lucide-react';
 import Link from 'next/link';
 import { GameType, GameStatus } from '../../lib/types';
@@ -45,6 +45,42 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Weekend announcement state
+  const [announceChatId, setAnnounceChatId] = useState('');
+  const [announcing, setAnnouncing] = useState(false);
+  const [announceResult, setAnnounceResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const sendWeekendAnnouncement = async () => {
+    const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
+    if (weekendGames.length === 0) {
+      setAnnounceResult({ ok: false, msg: 'No weekend games found to announce.' });
+      return;
+    }
+    setAnnouncing(true);
+    setAnnounceResult(null);
+    try {
+      const res = await fetch('/api/admin/announce-weekend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminTelegramId: user?.telegramId || user?.username || '',
+          weekendGames,
+          chatId: announceChatId.trim() || user?.telegramId,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAnnounceResult({ ok: true, msg: 'Weekend games announced successfully on Telegram! ✅' });
+      } else {
+        setAnnounceResult({ ok: false, msg: data.error || 'Failed to send announcement.' });
+      }
+    } catch (e: any) {
+      setAnnounceResult({ ok: false, msg: e.message });
+    } finally {
+      setAnnouncing(false);
+    }
+  };
 
   // Fetch registered users & stats for admin
   useEffect(() => {
@@ -369,6 +405,49 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
             </div>
           );
         })()}
+
+        {/* Weekend Telegram Announcement Panel */}
+        {games.some(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) && (
+          <div className="bg-gradient-to-r from-purple-900/60 via-slate-900 to-purple-900/60 p-4 rounded-2xl border border-purple-500/30 shadow-lg space-y-3">
+            <div className="flex items-center gap-2">
+              <Megaphone className="w-4 h-4 text-purple-400" />
+              <span className="text-xs font-black uppercase tracking-wider text-purple-300">
+                {language === 'am' ? 'የሳምንቱ ጨዋታ ማስታወቂያ ላክ (Telegram)' : 'Announce Weekend Games on Telegram'}
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400">
+              {language === 'am'
+                ? 'ሁሉም የሳምንቱ ጨዋታዎች እና የብር መጠናቸው ወደ ቴሌግራም ቻናል/ቡድን ይላካሉ።'
+                : 'Sends all weekend lottery games with their ETB prize amounts to a Telegram chat/channel/group.'}
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder={language === 'am' ? 'Chat ID ወይም ቻናል (ባዶ ከሆነ ለእርስዎ ይላካል)' : 'Chat ID / @channel (blank = send to yourself)'}
+                value={announceChatId}
+                onChange={e => setAnnounceChatId(e.target.value)}
+                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 transition"
+              />
+              <button
+                onClick={sendWeekendAnnouncement}
+                disabled={announcing}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-black text-xs transition flex items-center gap-1.5 shrink-0 shadow-lg cursor-pointer"
+              >
+                <Megaphone className="w-3.5 h-3.5" />
+                {announcing ? 'Sending...' : (language === 'am' ? 'ላክ' : 'Send Announcement')}
+              </button>
+            </div>
+            {announceResult && (
+              <div className={`text-xs font-bold px-3 py-2 rounded-xl border ${
+                announceResult.ok
+                  ? 'bg-emerald-900/40 border-emerald-500/40 text-emerald-300'
+                  : 'bg-rose-900/40 border-rose-500/40 text-rose-300'
+              }`}>
+                {announceResult.msg}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Navigation Tabs */}
         <div className="flex items-center gap-1.5 border-b border-slate-800 overflow-x-auto pb-1 no-scrollbar">
