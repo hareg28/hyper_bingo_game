@@ -61,8 +61,9 @@ export default function MiniAppShell({
 
   return (
     <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200 min-h-screen">
-      {/* Telegram WebApp Frame Header - Clean White */}
-      <div className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+      {/* Telegram WebApp Frame Header - Clean White (Hidden in game for full screen) */}
+      {activeTab !== 'game' && (
+        <div className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between sticky top-0 z-30 shadow-xs">
         {user ? (
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-xs">
@@ -132,9 +133,10 @@ export default function MiniAppShell({
           )}
         </div>
       </div>
+      )}
 
       {/* Main Content Area */}
-      <div className={`flex-1 ${activeTab === 'game' ? 'overflow-hidden p-2 pb-16 sm:pb-2' : 'overflow-y-auto p-3 pb-24 space-y-3'} bg-slate-50/70`}>
+      <div className={`flex-1 ${activeTab === 'game' ? 'h-full overflow-hidden p-1 sm:p-2 flex flex-col' : 'overflow-y-auto p-3 pb-24 space-y-3'} bg-slate-50/70`}>
         {/* LOBBY TAB */}
         {activeTab === 'lobby' && (
           <div className="space-y-3">
@@ -234,11 +236,9 @@ export default function MiniAppShell({
                   return true;
                 });
 
-                const visibleGames = showAllGames ? filteredLiveGames : filteredLiveGames.slice(0, 4);
-
                 return (
                   <div className="space-y-2">
-                    {visibleGames.map((g) => (
+                    {filteredLiveGames.map((g) => (
                       <div
                         key={g.id}
                         className="bg-white p-3.5 rounded-2xl flex items-center justify-between border border-slate-200 shadow-xs hover:border-amber-400 transition"
@@ -271,26 +271,6 @@ export default function MiniAppShell({
                         </button>
                       </div>
                     ))}
-
-                    {/* Show More / Show Less Toggle Button */}
-                    {filteredLiveGames.length > 4 && (
-                      <button
-                        onClick={() => setShowAllGames(!showAllGames)}
-                        className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition border border-slate-300 flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-                      >
-                        {showAllGames ? (
-                          <>
-                            <ChevronUp className="w-4 h-4 text-slate-600" />
-                            <span>{language === 'am' ? 'አሳንስ (Show Less)' : 'Show Less'}</span>
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="w-4 h-4 text-slate-600" />
-                            <span>{language === 'am' ? `ተጨማሪ ጨዋታዎችን አሳይ (${filteredLiveGames.length - 4} ተጨማሪ)` : `Show More Games (${filteredLiveGames.length - 4} more)`}</span>
-                          </>
-                        )}
-                      </button>
-                    )}
                   </div>
                 );
               })()}
@@ -312,7 +292,7 @@ export default function MiniAppShell({
         )}
 
         {/* GAME ROOM TAB */}
-        {activeTab === 'game' && <BingoGameRoom gameId={activeGameId || games[0].id} />}
+        {activeTab === 'game' && <BingoGameRoom gameId={activeGameId || games[0].id} onBack={() => setActiveTab('lobby')} />}
 
         {/* WALLET TAB */}
         {activeTab === 'wallet' && <WalletManager />}
@@ -502,60 +482,62 @@ export default function MiniAppShell({
         )}
       </div>
 
-      {/* Bottom Sticky Telegram Navigation Bar - Clean White */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-[440px] mx-auto bg-white border-t border-slate-200 px-3 py-2 flex items-center justify-around z-30 shadow-md">
-        <button
-          onClick={() => setActiveTab('lobby')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
-            activeTab === 'lobby' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          <Gamepad2 className="w-5 h-5" />
-          {t('lobby')}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('game')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
-            activeTab === 'game' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          <Zap className="w-5 h-5" />
-          {t('liveRoom')}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('wallet')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
-            activeTab === 'wallet' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          <Wallet className="w-5 h-5" />
-          {t('wallet')}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('profile')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
-            activeTab === 'profile' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          <UserIcon className="w-5 h-5" />
-          {t('profile')}
-        </button>
-
-        {isUserAdmin && (
+      {/* Bottom Sticky Telegram Navigation Bar - Clean White (Hidden in game for full screen) */}
+      {activeTab !== 'game' && (
+        <div className="fixed bottom-0 left-0 right-0 max-w-[440px] mx-auto bg-white border-t border-slate-200 px-3 py-2 flex items-center justify-around z-30 shadow-md">
           <button
-            onClick={() => setActiveTab('admin')}
+            onClick={() => setActiveTab('lobby')}
             className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
-              activeTab === 'admin' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+              activeTab === 'lobby' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
             }`}
           >
-            <Shield className="w-5 h-5" />
-            {t('adminTab')}
+            <Gamepad2 className="w-5 h-5" />
+            {t('lobby')}
           </button>
-        )}
-      </div>
+
+          <button
+            onClick={() => setActiveTab('game')}
+            className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
+              activeTab === 'game' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Zap className="w-5 h-5" />
+            {t('liveRoom')}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('wallet')}
+            className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
+              activeTab === 'wallet' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Wallet className="w-5 h-5" />
+            {t('wallet')}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
+              activeTab === 'profile' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <UserIcon className="w-5 h-5" />
+            {t('profile')}
+          </button>
+
+          {isUserAdmin && (
+            <button
+              onClick={() => setActiveTab('admin')}
+              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
+                activeTab === 'admin' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <Shield className="w-5 h-5" />
+              {t('adminTab')}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

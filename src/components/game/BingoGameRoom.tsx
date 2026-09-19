@@ -3,9 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
 import { 
-  Trophy, Volume2, VolumeX, Sparkles, CheckCircle2, Play, Pause, Zap, 
-  Plus, Star, Hash, Flame, Lightbulb, AlertTriangle, X,
-  Grid
+  Trophy, Volume2, VolumeX, Sparkles, Zap, 
+  Plus, Star, Hash, Lightbulb, X, Grid, ChevronLeft, Pause, Play
 } from 'lucide-react';
 import { 
   formatETB, 
@@ -16,11 +15,15 @@ import {
 import confetti from 'canvas-confetti';
 import CardNumberSelector from './CardNumberSelector';
 
-export default function BingoGameRoom({ gameId }: { gameId: string }) {
+interface BingoGameRoomProps {
+  gameId: string;
+  onBack?: () => void;
+}
+
+export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
   const { 
     games, 
     userCards, 
-    activeGameId, 
     daubCell, 
     claimBingo, 
     drawNextBall, 
@@ -28,7 +31,6 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
     toggleAutoDaub,
     joinGame,
     addCardToGame,
-    wallet,
     user,
     openAuthModal,
     language,
@@ -92,12 +94,12 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
     return () => clearInterval(interval);
   }, [isAutoDrawing, currentGame, drawNextBall]);
 
-  // Auto-dismiss claim alerts after 5 seconds
+  // Auto-dismiss claim alerts after 4 seconds
   useEffect(() => {
     if (claimStatus) {
       const timer = setTimeout(() => {
         setClaimStatus(null);
-      }, 5000);
+      }, 4000);
       return () => clearTimeout(timer);
     }
   }, [claimStatus]);
@@ -202,21 +204,21 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
       playBingoVictoryFanfare();
       setGameHitFeedback(
         language === 'am'
-          ? `💡 ፍንጭ! ${hitNumbers.length} ቁጥሮች (${hitNumbers.join(', ')}) በካርድ #${card.cardNumber} ተሞልተዋል!`
-          : `💡 HIT! ${hitNumbers.length} number${hitNumbers.length > 1 ? 's' : ''} (${hitNumbers.join(', ')}) marked on Card #${card.cardNumber}!`
+          ? `💡 ፍንጭ! ${hitNumbers.length} የወጡ ቁጥሮች በካርድ #${card.cardNumber} ተሞሉ!`
+          : `💡 HIT! ${hitNumbers.length} number${hitNumbers.length > 1 ? 's' : ''} daubed on #${card.cardNumber}!`
       );
     } else {
       const remaining = countRemainingNumbers(card.marked);
       setGameHitFeedback(
         language === 'am'
-          ? `💡 የወጡ ኳሶች በሙሉ ተሞልተዋል። ለቢንጎ ${remaining} ቁጥሮች ብቻ ቀርተዋል!`
-          : `💡 All drawn balls marked! ${remaining} number${remaining > 1 ? 's' : ''} left on Card #${card.cardNumber}!`
+          ? `💡 የወጡ ኳሶች ተሞልተዋል። ${remaining} ቁጥሮች ቀርተዋል!`
+          : `💡 All marked! Only ${remaining} to BINGO on #${card.cardNumber}!`
       );
     }
 
     setTimeout(() => {
       setGameHitFeedback(null);
-    }, 4000);
+    }, 3500);
   };
 
   // Claim Bingo
@@ -239,8 +241,8 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
       setClaimStatus({
         success: false,
         message: language === 'am'
-          ? `ቢንጎ ለማለት ሙሉ ካርቴላ ያስፈልጋል! በካርድ #${targetCard.cardNumber} ላይ ${rem} ቁጥሮች ቀርተዎታል።`
-          : `Full House required to win! You have ${rem} number${rem > 1 ? 's' : ''} left on Card #${targetCard.cardNumber}.`
+          ? `ሙሉ ካርቴላ ያስፈልጋል! በካርድ #${targetCard.cardNumber} ላይ ${rem} ቁጥሮች ቀርተዎታል።`
+          : `Full House needed! You have ${rem} number${rem > 1 ? 's' : ''} left on #${targetCard.cardNumber}.`
       });
       return;
     }
@@ -287,96 +289,90 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
   ];
 
   return (
-    <div className="h-full flex flex-col justify-between max-w-sm sm:max-w-md mx-auto space-y-1.5 select-none overflow-hidden pb-1">
-      {/* ── ROW 1: ULTRA-COMPACT GAME HEADER BAR ─────────────────────── */}
-      <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-2xl shadow-2xs flex items-center justify-between gap-2 shrink-0">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
+    <div className="h-full w-full max-w-sm sm:max-w-md mx-auto flex flex-col justify-between select-none overflow-hidden p-1 sm:p-2 space-y-1">
+      {/* ── ROW 1: HEADER WITH ZERO OVERLAP ───────────────────────────── */}
+      <div className="bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs flex items-center justify-between gap-1.5 shrink-0">
+        {/* Left: Back button & Game Name */}
+        <div className="flex items-center gap-1 min-w-0 shrink">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer shrink-0"
+              title="Back to Lobby"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          )}
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 truncate max-w-[90px] sm:max-w-[130px]">
             {currentGame.name || currentGame.gameType.replace('_', ' ')}
           </span>
-          <span className="text-xs font-black text-amber-700 shrink-0">
-            🏆 {formatETB(currentGame.prizePool)}
+          <span className="text-[11px] font-black text-amber-700 shrink-0">
+            {formatETB(currentGame.prizePool)}
           </span>
         </div>
 
+        {/* Right: Sound, Auto, Light Hit */}
         <div className="flex items-center gap-1 shrink-0">
-          {/* Live Players & Timer */}
-          <span className="px-2 py-0.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-950 font-bold text-[10px] flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-            <span>👥 {currentGame.currentPlayers}</span>
-          </span>
-
-          <span className="px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 font-mono font-black text-[10px] flex items-center gap-1">
-            <span>⏱️ {formatTimeRemaining(secondsRemaining)}</span>
-          </span>
-
-          {/* 💡 Light Symbol Game Hit */}
           <button
             onClick={() => handleLightGameHit()}
-            className="p-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] border border-amber-500 transition shadow-2xs flex items-center gap-0.5 cursor-pointer animate-pulse"
-            title="Game Hit / የጨዋታ ፍንጭ"
+            className="px-2 py-0.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] border border-amber-500 transition shadow-2xs flex items-center gap-0.5 cursor-pointer animate-pulse"
+            title="Game Hit / ፍንጭ"
           >
-            <Lightbulb className="w-3.5 h-3.5 fill-slate-950" />
+            <Lightbulb className="w-3 h-3 fill-slate-950" />
+            <span className="hidden sm:inline">Hit</span>
           </button>
 
-          {/* Sound */}
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+            className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
             title="Toggle Sound"
           >
             {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-600" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
           </button>
 
-          {/* Auto daub */}
           <button
             onClick={toggleAutoDaub}
-            className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer flex items-center gap-0.5 ${
+            className={`px-1.5 py-0.5 rounded-lg text-[10px] font-bold border transition cursor-pointer flex items-center gap-0.5 ${
               autoDaubEnabled
                 ? 'bg-purple-100 border-purple-300 text-purple-900'
                 : 'bg-slate-100 border-slate-200 text-slate-600'
             }`}
           >
             <Sparkles className="w-3 h-3 text-purple-600" />
-            {autoDaubEnabled ? 'Auto' : 'Off'}
+            <span>{autoDaubEnabled ? 'Auto' : 'Off'}</span>
           </button>
         </div>
       </div>
 
-      {/* ── ROW 2: ULTRA-COMPACT BALL CALLER & CONTROLS ───────────────── */}
-      <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-2xl shadow-2xs flex items-center justify-between gap-2 shrink-0">
-        {/* Active Ball */}
-        <div className="flex items-center gap-2 shrink-0">
+      {/* ── ROW 2: CALLER, PLAYERS & TIMER (NEAT & SPACED) ─────────────── */}
+      <div className="bg-white border border-slate-200 px-2 py-1 rounded-xl shadow-2xs flex items-center justify-between gap-1.5 shrink-0">
+        {/* Active Ball & Recent Balls */}
+        <div className="flex items-center gap-1.5 min-w-0 shrink">
           {currentGame.currentBall ? (
-            <div className="relative">
-              <div
-                className={`w-11 h-11 rounded-full bg-gradient-to-tr ${getLetterColor(
-                  getBallLetter(currentGame.currentBall)
-                )} flex flex-col items-center justify-center shadow-md ring-2 ring-amber-400/50 ball-active-anim`}
-              >
-                <span className="text-[9px] font-black italic tracking-widest leading-none">
-                  {getBallLetter(currentGame.currentBall)}
-                </span>
-                <span className="text-base font-black leading-tight">{currentGame.currentBall}</span>
-              </div>
+            <div
+              className={`w-9 h-9 rounded-full bg-gradient-to-tr ${getLetterColor(
+                getBallLetter(currentGame.currentBall)
+              )} flex flex-col items-center justify-center shadow-md ring-2 ring-amber-400/50 shrink-0 leading-none`}
+            >
+              <span className="text-[8px] font-black italic">{getBallLetter(currentGame.currentBall)}</span>
+              <span className="text-sm font-black leading-tight">{currentGame.currentBall}</span>
             </div>
           ) : (
-            <div className="w-11 h-11 rounded-full bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-500 text-[10px] font-black">
+            <div className="w-9 h-9 rounded-full bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-500 text-[9px] font-black shrink-0">
               {t('ready')}
             </div>
           )}
 
           {/* Recent Balls */}
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-[140px] sm:max-w-[180px]">
-            {currentGame.drawnNumbers.slice(-4).reverse().map((num, idx) => (
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-[100px] sm:max-w-[130px]">
+            {currentGame.drawnNumbers.slice(-3).reverse().map((num, idx) => (
               <div
                 key={num}
-                className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border shadow-2xs ${
+                className={`w-5 h-5 rounded-full flex items-center justify-center font-black text-[9px] shrink-0 border ${
                   idx === 0
                     ? 'bg-amber-400 text-slate-950 border-amber-500 scale-105'
                     : 'bg-slate-800 text-white border-slate-700'
                 }`}
-                title={`Ball ${num}`}
               >
                 {num}
               </div>
@@ -384,40 +380,50 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* Players & Countdown Timer */}
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="px-1.5 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-950 font-bold text-[10px]">
+            👥 {currentGame.currentPlayers}
+          </span>
+          <span className="px-1.5 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-900 font-mono font-black text-[10px]">
+            ⏱️ {formatTimeRemaining(secondsRemaining)}
+          </span>
+        </div>
+
+        {/* Draw & 75# Table Controls */}
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => drawNextBall(currentGame.id)}
-            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 shadow-2xs cursor-pointer"
+            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-1 rounded-lg transition flex items-center gap-0.5 shadow-2xs cursor-pointer"
           >
-            <Zap className="w-3.5 h-3.5" />
-            <span>{t('drawBall')}</span>
+            <Zap className="w-3 h-3" />
+            <span>Draw</span>
           </button>
 
           <button
             onClick={() => setIsAutoDrawing(!isAutoDrawing)}
-            className={`text-[11px] font-bold px-2 py-1.5 rounded-xl transition flex items-center gap-1 border cursor-pointer ${
+            className={`text-[10px] font-bold p-1 rounded-lg transition border cursor-pointer ${
               isAutoDrawing
                 ? 'bg-rose-600 border-rose-600 text-white animate-pulse'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
             }`}
+            title="Auto draw"
           >
             {isAutoDrawing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
           </button>
 
-          {/* 75-Ball Board Modal Opener */}
           <button
             onClick={() => setShowTableModal(true)}
-            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[11px] font-bold transition flex items-center gap-0.5 cursor-pointer"
-            title="Open 75-Ball Master Table"
+            className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[10px] font-bold transition flex items-center gap-0.5 cursor-pointer"
+            title="75 Board"
           >
-            <Grid className="w-3.5 h-3.5 text-blue-600" />
-            <span className="text-[10px] font-mono">{drawnSet.size}/75</span>
+            <Grid className="w-3 h-3 text-blue-600" />
+            <span className="text-[9px] font-mono">{drawnSet.size}</span>
           </button>
         </div>
       </div>
 
-      {/* ── ROW 3: CARD SELECTOR & CARDS TABS STRIP (ONE-SCREEN PICKING) ─ */}
+      {/* ── ROW 3: CARD TABS & DIRECT NUMBER PICKER (ONE SCREEN) ───────── */}
       <div className="flex items-center justify-between px-1 shrink-0">
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           {activeGameCards.length > 0 ? (
@@ -430,11 +436,11 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
                 <button
                   key={c.id}
                   onClick={() => setSelectedCardId(c.id)}
-                  className={`px-2.5 py-1 rounded-xl text-xs font-mono font-black transition flex items-center gap-1 shadow-2xs cursor-pointer ${
+                  className={`px-2 py-0.5 rounded-lg text-xs font-mono font-black transition flex items-center gap-1 shadow-2xs cursor-pointer ${
                     isActive
-                      ? 'bg-blue-600 text-white ring-2 ring-blue-400 shadow-sm'
+                      ? 'bg-blue-600 text-white ring-2 ring-blue-400'
                       : isWin
-                      ? 'bg-amber-400 text-slate-950 animate-pulse font-black'
+                      ? 'bg-amber-400 text-slate-950 animate-pulse'
                       : 'bg-white text-slate-800 border border-slate-300 hover:bg-slate-100'
                   }`}
                 >
@@ -447,12 +453,12 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
             })
           ) : (
             <span className="text-xs text-slate-600 font-bold italic">
-              {language === 'am' ? 'ካርድ ይምረጡ:' : 'Pick cards to play:'}
+              {language === 'am' ? 'ካርድ ይምረጡ:' : 'Pick a card:'}
             </span>
           )}
         </div>
 
-        {/* ➕ Direct Pick Number / Cards Button — ALWAYS on screen! */}
+        {/* ➕ Direct Pick Number Button — Always visible without scrolling */}
         <button
           onClick={() => {
             if (!user) {
@@ -461,49 +467,44 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
               setIsSelectorOpen(true);
             }
           }}
-          className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition flex items-center gap-1 shadow-xs cursor-pointer shrink-0"
+          className="px-2.5 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition flex items-center gap-1 shadow-2xs cursor-pointer shrink-0"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>{language === 'am' ? 'ካርድ ምረጥ' : '+ Pick Number'}</span>
         </button>
       </div>
 
-      {/* ── TOAST / CLAIM ALERTS OVERLAY (NON-BLOCKING) ────────────────── */}
+      {/* ── TOAST ALERTS OVERLAY (AUTO-DISMISS) ─────────────────────────── */}
       {claimStatus && (
-        <div className={`px-3 py-1.5 rounded-xl border text-center text-xs font-bold shadow-md flex items-center justify-between gap-2 shrink-0 animate-in fade-in ${
+        <div className={`px-2.5 py-1 rounded-lg border text-center text-xs font-bold shadow-md flex items-center justify-between gap-1.5 shrink-0 animate-in fade-in ${
           claimStatus.success ? 'bg-emerald-100 border-emerald-400 text-emerald-950' : 'bg-amber-100 border-amber-400 text-amber-950'
         }`}>
-          <span>{claimStatus.message}</span>
+          <span className="truncate">{claimStatus.message}</span>
           <button onClick={() => setClaimStatus(null)} className="p-0.5 text-slate-700 hover:text-slate-950">
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3 h-3" />
           </button>
         </div>
       )}
 
       {gameHitFeedback && (
-        <div className="px-3 py-1.5 rounded-xl bg-amber-100 border border-amber-400 text-amber-950 text-xs font-bold shadow-md flex items-center justify-between gap-2 shrink-0 animate-bounce">
-          <div className="flex items-center gap-1.5">
-            <Lightbulb className="w-4 h-4 fill-amber-500 text-amber-900 shrink-0" />
-            <span>{gameHitFeedback}</span>
+        <div className="px-2.5 py-1 rounded-lg bg-amber-100 border border-amber-400 text-amber-950 text-xs font-bold shadow-md flex items-center justify-between gap-1.5 shrink-0 animate-bounce">
+          <div className="flex items-center gap-1 truncate">
+            <Lightbulb className="w-3.5 h-3.5 fill-amber-500 text-amber-900 shrink-0" />
+            <span className="truncate">{gameHitFeedback}</span>
           </div>
-          <button onClick={() => setGameHitFeedback(null)} className="p-0.5 text-amber-900">
-            <X className="w-3.5 h-3.5" />
+          <button onClick={() => setGameHitFeedback(null)} className="p-0.5 text-amber-900 shrink-0">
+            <X className="w-3 h-3" />
           </button>
         </div>
       )}
 
-      {/* ── ROW 4: THE BINGO CARD WITH THE ATTACHED BINGO! BUTTON ──────── */}
-      {/* Matches user's photo with 100% precision:
-          1. Colored rounded letter chips (B-Blue, I-Red, N-Yellow, G-Green, O-Purple)
-          2. Rounded tiles with bold numbers and centered Star ★ in Green free space
-          3. Attached vivid blue BINGO! button at the bottom with #cardNumber
-      */}
-      <div className="flex-1 flex flex-col justify-between min-h-0 bg-white rounded-3xl border-2 border-slate-200/90 shadow-md overflow-hidden relative">
+      {/* ── ROW 4: PHOTO-ACCURATE BINGO CARD WITH THE BLUE BINGO BUTTON ── */}
+      <div className="flex-1 flex flex-col justify-between min-h-0 bg-white rounded-2xl sm:rounded-3xl border-2 border-slate-200/90 shadow-md overflow-hidden relative">
         {activeUserCard ? (
           <>
             {/* CARD TOP: 5 COLORED ROUNDED HEADERS B - I - N - G - O */}
-            <div className="p-2.5 pb-1">
-              <div className="grid grid-cols-5 gap-1.5 text-center">
+            <div className="p-2 pb-0.5 shrink-0">
+              <div className="grid grid-cols-5 gap-1 text-center">
                 {[
                   { letter: 'B', bg: 'bg-[#2563eb]' },
                   { letter: 'I', bg: 'bg-[#dc2626]' },
@@ -513,7 +514,7 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
                 ].map((col) => (
                   <div
                     key={col.letter}
-                    className={`${col.bg} py-1 sm:py-1.5 rounded-xl text-white font-black italic text-lg sm:text-xl shadow-xs leading-none flex items-center justify-center`}
+                    className={`${col.bg} py-0.5 sm:py-1 rounded-lg sm:rounded-xl text-white font-black italic text-base sm:text-lg shadow-2xs leading-none flex items-center justify-center`}
                   >
                     {col.letter}
                   </div>
@@ -521,9 +522,9 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
               </div>
             </div>
 
-            {/* CARD BODY: 5x5 NUMBER TILES */}
-            <div className="px-2.5 pb-2 flex-1 flex flex-col justify-center">
-              <div className="grid grid-cols-5 gap-1.5">
+            {/* CARD BODY: 5x5 NUMBER TILES (COMPACT SIZED TO NEVER EXCEED SCREEN) */}
+            <div className="px-2 py-1 flex-1 flex flex-col justify-around min-h-0">
+              <div className="grid grid-cols-5 gap-1 h-full">
                 {activeUserCard.numbers.map((row, rIdx) =>
                   row.map((val, cIdx) => {
                     const isFree = rIdx === 2 && cIdx === 2;
@@ -535,13 +536,13 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
                       <button
                         key={`${rIdx}-${cIdx}`}
                         onClick={() => !isFree && daubCell(activeUserCard.id, rIdx, cIdx)}
-                        className={`aspect-square rounded-xl sm:rounded-2xl font-extrabold flex flex-col items-center justify-center text-base sm:text-xl transition-all duration-150 relative border shadow-2xs cursor-pointer ${
+                        className={`h-full min-h-[34px] sm:min-h-[44px] rounded-lg sm:rounded-xl font-extrabold flex flex-col items-center justify-center text-sm sm:text-lg transition-all duration-100 relative border shadow-2xs cursor-pointer ${
                           isFree
                             ? 'bg-[#10b981] border-[#059669] text-white' // Bright green with blue star exactly like photo!
                             : isMarked
-                            ? 'bg-purple-600 text-white border-purple-500 scale-[0.97] shadow-sm font-black'
+                            ? 'bg-purple-600 text-white border-purple-500 scale-[0.97] font-black'
                             : isHint
-                            ? 'bg-amber-100 text-slate-950 border-2 border-amber-400 ring-2 ring-amber-300 animate-pulse'
+                            ? 'bg-amber-100 text-slate-950 border-2 border-amber-400 ring-1 ring-amber-300 animate-pulse'
                             : isJustDrawn
                             ? 'bg-amber-100 text-slate-950 border-2 border-amber-500 animate-pulse'
                             : 'bg-[#f8fafc] text-slate-900 hover:bg-slate-100 border-slate-200'
@@ -549,16 +550,16 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
                       >
                         {isFree ? (
                           /* Center Blue Star ★ on Green tile */
-                          <Star className="w-5 h-5 sm:w-6 sm:h-6 text-[#2563eb] fill-[#2563eb] drop-shadow-xs" />
+                          <Star className="w-4 h-4 sm:w-5 sm:h-5 text-[#2563eb] fill-[#2563eb] drop-shadow-2xs" />
                         ) : (
                           <>
                             <span>{val}</span>
                             {isHint && (
-                              <span className="absolute top-0.5 right-0.5 text-[8px] leading-none">💡</span>
+                              <span className="absolute top-0.5 right-0.5 text-[7px] leading-none">💡</span>
                             )}
                             {isMarked && (
                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div className="w-6 h-6 rounded-full bg-white/20 border border-white/60 animate-ping"></div>
+                                <div className="w-4 h-4 rounded-full bg-white/20 border border-white/60 animate-ping"></div>
                               </div>
                             )}
                           </>
@@ -570,24 +571,29 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
               </div>
             </div>
 
-            {/* CARD BOTTOM: THE BINGO! BUTTON EXACTLY LIKE THE PICTURE! */}
-            {/* Full-width blue bar attached to the bottom of the card with #cardNumber in corner */}
+            {/* CARD BOTTOM: BINGO! BUTTON EXACTLY LIKE THE PICTURE */}
+            {/* The card number is in safe inset pill on both corners so it is NEVER cut off */}
             <button
               onClick={() => handleClaimBingo(activeUserCard.id)}
-              className={`w-full py-3.5 sm:py-4 px-4 flex items-center justify-center relative transition-all duration-200 cursor-pointer shadow-md select-none shrink-0 ${
+              className={`w-full py-2.5 sm:py-3.5 px-3 flex items-center justify-between transition-all duration-200 cursor-pointer shadow-md select-none shrink-0 ${
                 isFullHouseWin
                   ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 animate-bounce ring-4 ring-amber-300'
                   : 'bg-[#2563eb] hover:bg-[#1d4ed8] active:brightness-95 text-white'
               }`}
               title="Shout BINGO!"
             >
-              <span className="text-2xl sm:text-3xl font-black italic tracking-wider drop-shadow-sm">
+              <span className={`text-[11px] sm:text-xs font-mono font-black px-2 py-0.5 rounded-md shrink-0 ${
+                isFullHouseWin ? 'bg-amber-600/30 text-slate-950' : 'bg-blue-700/60 text-blue-100'
+              }`}>
+                #{activeUserCard.cardNumber}
+              </span>
+
+              <span className="text-xl sm:text-2xl font-black italic tracking-widest drop-shadow-sm">
                 BINGO!
               </span>
 
-              {/* Card number in bottom right corner (e.g. #115) */}
-              <span className={`absolute right-4 text-xs sm:text-sm font-bold font-mono ${
-                isFullHouseWin ? 'text-slate-900' : 'text-blue-200'
+              <span className={`text-[11px] sm:text-xs font-mono font-black px-2 py-0.5 rounded-md shrink-0 ${
+                isFullHouseWin ? 'bg-amber-600/30 text-slate-950' : 'bg-blue-700/60 text-blue-100'
               }`}>
                 #{activeUserCard.cardNumber}
               </span>
@@ -595,13 +601,13 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
           </>
         ) : (
           /* When player hasn't picked any card yet: Immediate one-screen pick prompt */
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
-            <div className="w-16 h-16 rounded-3xl bg-blue-50 border-2 border-blue-200 flex items-center justify-center text-blue-600 shadow-sm">
-              <Hash className="w-8 h-8" />
+          <div className="flex-1 flex flex-col items-center justify-center p-4 text-center space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-blue-50 border-2 border-blue-200 flex items-center justify-center text-blue-600 shadow-sm">
+              <Hash className="w-7 h-7" />
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-lg font-black text-slate-900">
+              <h3 className="text-base font-black text-slate-900">
                 {language === 'am' ? 'የቢንጎ ካርድ ይምረጡ' : 'Select Your Bingo Card'}
               </h3>
               <p className="text-xs text-slate-600 max-w-xs">
@@ -619,7 +625,7 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
                   setIsSelectorOpen(true);
                 }
               }}
-              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white font-black text-sm uppercase tracking-wider transition shadow-md flex items-center gap-2 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>{language === 'am' ? 'ካርድ ቁጥር ይምረጡ' : '+ Pick Bingo Cards'}</span>
@@ -630,12 +636,12 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
 
       {/* ── 75-BALL MASTER TABLE POPUP MODAL (OPTIONAL TOGGLE) ──────────── */}
       {showTableModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-slate-200 rounded-3xl p-4 max-w-md w-full space-y-3 shadow-2xl animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
+          <div className="bg-white border-2 border-slate-200 rounded-3xl p-4 max-w-sm w-full space-y-3 shadow-2xl animate-in fade-in duration-200">
             <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <div className="flex items-center gap-2">
                 <Grid className="w-4 h-4 text-blue-600" />
-                <h3 className="font-black text-slate-900 text-sm">
+                <h3 className="font-black text-slate-900 text-xs">
                   {language === 'am' ? 'የቢንጎ 75-ኳስ ሰንጠረዥ' : '75-Ball Master Board'}
                 </h3>
                 <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black">
@@ -654,7 +660,7 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
             <div className="space-y-1 bg-slate-50 p-2 rounded-xl border border-slate-200">
               {rows.map((row) => (
                 <div key={row.letter} className="flex items-center gap-1">
-                  <div className={`w-6 h-6 rounded-md flex items-center justify-center font-black text-xs shrink-0 ${row.color}`}>
+                  <div className={`w-5 h-5 rounded-md flex items-center justify-center font-black text-[10px] shrink-0 ${row.color}`}>
                     {row.letter}
                   </div>
                   <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
@@ -665,7 +671,7 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
                       return (
                         <div
                           key={num}
-                          className={`h-5 rounded text-[9px] font-bold flex items-center justify-center transition-all ${
+                          className={`h-4 rounded text-[8px] font-bold flex items-center justify-center transition-all ${
                             isCurrent
                               ? 'bg-amber-400 text-slate-950 font-black scale-110 shadow-xs ring-1 ring-amber-400'
                               : isDrawn
