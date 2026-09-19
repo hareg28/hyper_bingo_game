@@ -244,41 +244,41 @@ export default function WalletManager() {
   };
 
   const statusIcon = (s: string) => {
-    if (s === 'VERIFIED') return <CheckCircle className="w-3 h-3 text-emerald-400" />;
-    if (s === 'REJECTED') return <XCircle className="w-3 h-3 text-rose-400" />;
-    return <Clock className="w-3 h-3 text-amber-400" />;
+    if (s === 'VERIFIED') return <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />;
+    if (s === 'REJECTED') return <XCircle className="w-3.5 h-3.5 text-rose-600" />;
+    return <Clock className="w-3.5 h-3.5 text-amber-600" />;
   };
 
   return (
-    <div className="space-y-4 max-w-lg mx-auto">
+    <div className="space-y-3.5 max-w-lg mx-auto pb-16">
       {/* Status Message */}
       {statusMsg && (
-        <div className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
+        <div className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs ${
           statusMsg.type === 'success'
-            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-            : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+            ? 'bg-emerald-100 text-emerald-950 border border-emerald-300'
+            : 'bg-rose-100 text-rose-950 border border-rose-300'
         }`}>
-          {statusMsg.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+          {statusMsg.type === 'success' ? <CheckCircle className="w-4 h-4 text-emerald-700" /> : <XCircle className="w-4 h-4 text-rose-700" />}
           {statusMsg.text}
         </div>
       )}
 
       {/* Guest Mode Banner */}
       {!user && (
-        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border border-amber-500/30 flex items-center justify-between gap-3 shadow-lg">
+        <div className="p-3.5 rounded-2xl bg-amber-50 border-2 border-amber-300 flex items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-amber-200 border border-amber-400 flex items-center justify-center text-amber-900 shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-xs font-black text-amber-300">Open an Account to Transact</div>
-              <div className="text-[11px] text-slate-400">Register with your Ethiopian phone to deposit & withdraw real ETB</div>
+              <div className="text-xs font-black text-slate-900">Open an Account to Transact</div>
+              <div className="text-[11px] text-slate-600 font-medium">Register with your Ethiopian phone to deposit & withdraw real ETB</div>
             </div>
           </div>
           <button
             type="button"
             onClick={() => openAuthModal('register')}
-            className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-lg shrink-0 cursor-pointer"
+            className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-xs shrink-0 cursor-pointer"
           >
             Register
           </button>
@@ -286,39 +286,39 @@ export default function WalletManager() {
       )}
 
       {/* Wallet Balance Card */}
-      <div className="glass-panel p-4 rounded-2xl border-amber-500/20 shadow-2xl relative overflow-hidden">
+      <div className="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-xs relative overflow-hidden">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400">
+            <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center">
               <Wallet className="w-4 h-4" />
             </div>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">{t('walletETB')}</span>
+            <span className="text-xs font-black uppercase tracking-wider text-slate-800">{t('walletETB')}</span>
           </div>
-          <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-300">
             {t('active')}
           </span>
         </div>
 
         <div className="mt-3">
-          <div className="text-[11px] text-slate-400">{t('availableBalance')}</div>
-          <div className="text-3xl font-black text-amber-400 tracking-tight mt-0.5">
+          <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">{t('availableBalance')}</div>
+          <div className="text-3xl font-black text-amber-700 tracking-tight mt-0.5">
             {formatETB(wallet.availableBalance)}
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800 text-xs">
-          <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-            <span className="text-[10px] text-slate-400">{t('winningBalance')}</span>
-            <div className="font-bold text-emerald-400 mt-0.5">{formatETB(wallet.winningBalance)}</div>
+        <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-200 text-xs">
+          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <span className="text-[10px] text-slate-600 font-bold block">{t('winningBalance')}</span>
+            <div className="font-black text-emerald-700 text-sm mt-0.5">{formatETB(wallet.winningBalance)}</div>
           </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-            <span className="text-[10px] text-slate-400">{t('bonusBalance')}</span>
-            <div className="font-bold text-purple-400 mt-0.5">{formatETB(wallet.bonusBalance)}</div>
-            <div className="text-[9px] text-amber-400/80 font-semibold mt-0.5 leading-tight">Play Only<br/>Cannot Withdraw</div>
+          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <span className="text-[10px] text-slate-600 font-bold block">{t('bonusBalance')}</span>
+            <div className="font-black text-purple-700 text-sm mt-0.5">{formatETB(wallet.bonusBalance)}</div>
+            <div className="text-[9px] text-amber-800 font-bold mt-0.5 leading-tight">Play Only<br/>Non-withdrawable</div>
           </div>
-          <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-            <span className="text-[10px] text-slate-400">{t('linkedAccts')}</span>
-            <div className="font-bold text-blue-400 mt-0.5">{linkedAccounts.length}</div>
+          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <span className="text-[10px] text-slate-600 font-bold block">{t('linkedAccts')}</span>
+            <div className="font-black text-blue-700 text-sm mt-0.5">{linkedAccounts.length}</div>
           </div>
         </div>
       </div>
@@ -326,20 +326,20 @@ export default function WalletManager() {
       {/* Tab Navigation */}
       <div className="grid grid-cols-4 gap-1.5">
         {([
-          { id: 'deposit', label: t('depositTab'), icon: ArrowDownRight, color: 'text-emerald-400' },
-          { id: 'withdraw', label: t('withdrawTab'), icon: ArrowUpRight, color: 'text-amber-400' },
-          { id: 'accounts', label: t('accountsTab'), icon: Landmark, color: 'text-blue-400' },
-          { id: 'history', label: t('historyTab'), icon: History, color: 'text-purple-400' },
+          { id: 'deposit', label: t('depositTab'), icon: ArrowDownRight, color: 'text-emerald-600' },
+          { id: 'withdraw', label: t('withdrawTab'), icon: ArrowUpRight, color: 'text-amber-600' },
+          { id: 'accounts', label: t('accountsTab'), icon: Landmark, color: 'text-blue-600' },
+          { id: 'history', label: t('historyTab'), icon: History, color: 'text-purple-600' },
         ] as const).map(tab => {
           const Icon = tab.icon;
           return (
             <button
               key={tab.id}
               onClick={() => { setActiveTab(tab.id as any); setDepositStep(1); }}
-              className={`py-3 px-1 rounded-xl text-[10px] font-bold transition flex flex-col items-center gap-1 border shadow ${
+              className={`py-3 px-1 rounded-xl text-[10px] font-bold transition flex flex-col items-center gap-1 border shadow-xs cursor-pointer ${
                 activeTab === tab.id
-                  ? 'bg-slate-700 border-slate-500 text-white'
-                  : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-800'
+                  ? 'bg-slate-950 border-slate-950 text-white shadow-sm'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
               }`}
             >
               <Icon className={`w-4 h-4 ${tab.color}`} />
@@ -351,27 +351,27 @@ export default function WalletManager() {
 
       {/* ── DEPOSIT FORM ─────────────────────────────────────────────────────── */}
       {activeTab === 'deposit' && (
-        <form onSubmit={handleDepositSubmit} className="glass-panel p-4 rounded-2xl space-y-4 border-emerald-500/30">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-              <ArrowDownRight className="w-4 h-4" /> {t('depositFunds')}
+        <form onSubmit={handleDepositSubmit} className="bg-white p-4 rounded-2xl space-y-4 border-2 border-emerald-300 shadow-xs">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <h3 className="text-xs font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+              <ArrowDownRight className="w-4 h-4 text-emerald-600" /> {t('depositFunds')}
             </h3>
-            <span className="text-[10px] text-slate-400">{t('stepOf')} {depositStep} {t('of')} 2</span>
+            <span className="text-[10px] font-bold text-slate-600">{t('stepOf')} {depositStep} {t('of')} 2</span>
           </div>
 
           {depositStep === 1 ? (
             <>
               {/* Payment Provider */}
               <div>
-                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block mb-2">
+                <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-2">
                   {t('selectPaymentMethod')}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {([
-                    { name: 'Telebirr', icon: Smartphone, color: 'text-blue-400', desc: t('telecomDesc') },
-                    { name: 'CBE Birr', icon: Landmark, color: 'text-purple-400', desc: t('cbeDesc') },
-                    { name: 'Chapa', icon: CreditCard, color: 'text-emerald-400', desc: t('chapaDesc') },
-                    { name: 'Bank Transfer', icon: Landmark, color: 'text-amber-400', desc: t('bankDesc') },
+                    { name: 'Telebirr', icon: Smartphone, color: 'text-blue-600', desc: t('telecomDesc') },
+                    { name: 'CBE Birr', icon: Landmark, color: 'text-purple-600', desc: t('cbeDesc') },
+                    { name: 'Chapa', icon: CreditCard, color: 'text-emerald-600', desc: t('chapaDesc') },
+                    { name: 'Bank Transfer', icon: Landmark, color: 'text-amber-600', desc: t('bankDesc') },
                   ] as const).map((p) => {
                     const Icon = p.icon;
                     return (
@@ -379,16 +379,16 @@ export default function WalletManager() {
                         key={p.name}
                         type="button"
                         onClick={() => setProvider(p.name as PaymentProvider)}
-                        className={`p-3 rounded-xl border flex items-center gap-2.5 transition text-left ${
+                        className={`p-3 rounded-xl border-2 flex items-center gap-2.5 transition text-left cursor-pointer ${
                           provider === p.name
-                            ? 'bg-slate-800 border-amber-400 shadow-md'
-                            : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                            ? 'bg-amber-50 border-amber-500 shadow-xs ring-1 ring-amber-400'
+                            : 'bg-slate-50 border-slate-200 hover:border-slate-300'
                         }`}
                       >
-                        <Icon className={`w-4 h-4 ${p.color}`} />
+                        <Icon className={`w-5 h-5 ${p.color}`} />
                         <div>
-                          <div className="text-xs font-bold text-slate-200">{p.name}</div>
-                          <div className="text-[10px] text-slate-500">{p.desc}</div>
+                          <div className="text-xs font-black text-slate-900">{p.name}</div>
+                          <div className="text-[10px] text-slate-600 font-medium">{p.desc}</div>
                         </div>
                       </button>
                     );
@@ -398,7 +398,7 @@ export default function WalletManager() {
 
               {/* Amount */}
               <div>
-                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block mb-2">
+                <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-2">
                   {t('amountETB')}
                 </label>
                 <div className="grid grid-cols-4 gap-1.5 mb-2">
@@ -407,10 +407,10 @@ export default function WalletManager() {
                       key={amt}
                       type="button"
                       onClick={() => setAmount(amt)}
-                      className={`py-2 rounded-xl text-xs font-bold border transition ${
+                      className={`py-2 rounded-xl text-xs font-black border transition cursor-pointer ${
                         amount === amt
-                          ? 'bg-emerald-600 text-white border-emerald-400'
-                          : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200'
                       }`}
                     >
                       {amt}
@@ -422,94 +422,94 @@ export default function WalletManager() {
                   value={amount}
                   onChange={(e) => setAmount(Number(e.target.value))}
                   min={10}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 font-mono font-bold focus:bg-white focus:outline-none focus:border-emerald-600"
                   placeholder={t('customAmountPlaceholder')}
                 />
               </div>
 
-              <button type="submit" className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider transition shadow-lg">
+              <button type="submit" className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer">
                 {t('proceedToCheckout')} ({provider.toUpperCase()}) →
               </button>
             </>
           ) : (
             <div className="space-y-3">
               {/* Deposit Details Summary */}
-              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-1.5 text-xs">
-                <div className="flex justify-between text-slate-400">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5 text-xs">
+                <div className="flex justify-between text-slate-700 font-semibold">
                   <span>{t('gateway')}:</span>
-                  <span className="font-bold text-emerald-400">{provider}</span>
+                  <span className="font-black text-emerald-800">{provider}</span>
                 </div>
-                <div className="flex justify-between text-slate-400">
+                <div className="flex justify-between text-slate-700 font-semibold">
                   <span>{t('amountETB')}:</span>
-                  <span className="font-bold text-white">{amount} ETB</span>
+                  <span className="font-black text-slate-950">{amount} ETB</span>
                 </div>
-                <div className="flex justify-between text-slate-400">
+                <div className="flex justify-between text-slate-700 font-semibold">
                   <span>{t('depositReference')}:</span>
-                  <span className="font-mono text-amber-400 text-[10px] truncate max-w-[150px]">{depositReference}</span>
+                  <span className="font-mono font-bold text-amber-800 text-[11px] truncate max-w-[150px]">{depositReference}</span>
                 </div>
               </div>
 
               {/* Account Destination Details for Payment */}
-              <div className="bg-slate-900/90 border border-emerald-500/30 p-3 rounded-xl space-y-1 text-xs">
-                <div className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                  <Landmark className="w-3.5 h-3.5" />
+              <div className="bg-slate-50 border border-emerald-300 p-3 rounded-xl space-y-1.5 text-xs">
+                <div className="text-[11px] font-black text-emerald-900 uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                  <Landmark className="w-3.5 h-3.5 text-emerald-700" />
                   <span>Transfer Destination (ክፍያ የሚፈፀምበት)</span>
                 </div>
                 {provider === 'Telebirr' ? (
-                  <div className="space-y-0.5 text-slate-300">
-                    <p>• Telebirr Number: <strong className="text-white font-mono font-bold">+251911234567</strong></p>
-                    <p>• Receiver Name: <strong className="text-amber-300">Hyper Bingo Games</strong></p>
-                    <p className="text-[10px] text-slate-400">• Put Reference <code className="text-amber-400">{depositReference}</code> in remark</p>
+                  <div className="space-y-1 text-slate-800 font-medium">
+                    <p>• Telebirr Number: <strong className="text-slate-950 font-mono font-black">+251911234567</strong></p>
+                    <p>• Receiver Name: <strong className="text-amber-800 font-black">Hyper Bingo Games</strong></p>
+                    <p className="text-[10px] text-slate-600">• Put Reference <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">{depositReference}</code> in remark</p>
                   </div>
                 ) : provider === 'CBE Birr' ? (
-                  <div className="space-y-0.5 text-slate-300">
-                    <p>• CBE Birr / Phone: <strong className="text-white font-mono font-bold">+251911234567</strong></p>
-                    <p>• CBE Account: <strong className="text-white font-mono font-bold">100023456789</strong></p>
-                    <p>• Name: <strong className="text-amber-300">Hyper Bingo CBE</strong></p>
+                  <div className="space-y-1 text-slate-800 font-medium">
+                    <p>• CBE Birr / Phone: <strong className="text-slate-950 font-mono font-black">+251911234567</strong></p>
+                    <p>• CBE Account: <strong className="text-slate-950 font-mono font-black">100023456789</strong></p>
+                    <p>• Name: <strong className="text-amber-800 font-black">Hyper Bingo CBE</strong></p>
                   </div>
                 ) : (
-                  <div className="space-y-0.5 text-slate-300">
-                    <p>• Commercial Bank of Ethiopia (CBE): <strong className="text-white font-mono font-bold">100023456789</strong></p>
-                    <p>• Account Name: <strong className="text-amber-300">Hyper Bingo Entertainment</strong></p>
+                  <div className="space-y-1 text-slate-800 font-medium">
+                    <p>• Commercial Bank of Ethiopia (CBE): <strong className="text-slate-950 font-mono font-black">100023456789</strong></p>
+                    <p>• Account Name: <strong className="text-amber-800 font-black">Hyper Bingo Entertainment</strong></p>
                   </div>
                 )}
               </div>
 
               {/* 📸 MANDATORY PAYMENT SCREENSHOT UPLOAD */}
-              <div className="space-y-2 bg-slate-950/90 p-3 rounded-xl border border-amber-500/30">
+              <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-amber-300">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
-                    <Camera className="w-3.5 h-3.5 text-amber-400" />
+                  <label className="text-[11px] font-black text-slate-900 flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-amber-700" />
                     <span>Payment Screenshot (የክፍያ ደረሰኝ)</span>
-                    <span className="text-rose-400 font-black">*</span>
+                    <span className="text-rose-600 font-black">*</span>
                   </label>
-                  <span className="text-[9px] text-rose-400 font-bold uppercase tracking-wider bg-rose-500/15 px-1.5 py-0.5 rounded border border-rose-500/30">
+                  <span className="text-[9px] text-rose-800 font-bold uppercase tracking-wider bg-rose-100 px-2 py-0.5 rounded border border-rose-300">
                     Required by Owner
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400">
+                <p className="text-[10px] text-slate-600 font-medium">
                   Please attach your payment screenshot after completing the transfer. The owner will verify and approve your deposit.
                 </p>
 
                 {screenshotPreview ? (
-                  <div className="relative rounded-xl border border-emerald-500/40 bg-slate-900/90 p-2.5 flex items-center gap-3">
+                  <div className="relative rounded-xl border border-emerald-300 bg-white p-2.5 flex items-center gap-3 shadow-xs">
                     <img
                       src={screenshotPreview}
                       alt="Payment Receipt"
-                      className="w-16 h-16 object-cover rounded-lg border border-slate-700 shadow-md"
+                      className="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-xs"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-emerald-400 truncate flex items-center gap-1">
-                        <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                      <p className="text-xs font-bold text-emerald-800 truncate flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
                         <span>Receipt Attached</span>
                       </p>
-                      <p className="text-[10px] text-slate-400 truncate mt-0.5">{screenshotFileName || 'screenshot.png'}</p>
-                      <p className="text-[10px] text-amber-400 font-medium">Owner will be notified via Telegram</p>
+                      <p className="text-[10px] text-slate-500 truncate mt-0.5">{screenshotFileName || 'screenshot.png'}</p>
+                      <p className="text-[10px] text-amber-800 font-bold">Owner will be notified via Telegram</p>
                     </div>
                     <button
                       type="button"
                       onClick={handleRemoveScreenshot}
-                      className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-rose-400 transition cursor-pointer"
+                      className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:text-rose-600 transition cursor-pointer"
                       title="Remove Screenshot"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -517,12 +517,12 @@ export default function WalletManager() {
                   </div>
                 ) : (
                   <div>
-                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-700 hover:border-amber-400/60 rounded-xl p-3.5 cursor-pointer bg-slate-900/60 hover:bg-slate-900 transition text-center group">
-                      <Upload className="w-6 h-6 text-amber-400 group-hover:scale-110 transition mb-1" />
-                      <span className="text-xs font-bold text-slate-200">
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-xl p-3.5 cursor-pointer bg-white hover:bg-slate-50 transition text-center group">
+                      <Upload className="w-6 h-6 text-amber-600 group-hover:scale-110 transition mb-1" />
+                      <span className="text-xs font-black text-slate-800">
                         Upload Payment Screenshot
                       </span>
-                      <span className="text-[10px] text-slate-400 mt-0.5">
+                      <span className="text-[10px] text-slate-500 mt-0.5">
                         የባንክ ወይም ቴሌብር ደረሰኝ ስክሪንሽት ያስገቡ (JPG, PNG)
                       </span>
                       <input
@@ -536,7 +536,7 @@ export default function WalletManager() {
                 )}
 
                 {screenshotError && (
-                  <p className="text-[11px] text-rose-400 font-semibold flex items-center gap-1 mt-1">
+                  <p className="text-[11px] text-rose-700 font-bold flex items-center gap-1 mt-1">
                     <XCircle className="w-3.5 h-3.5 shrink-0" /> {screenshotError}
                   </p>
                 )}
@@ -546,17 +546,17 @@ export default function WalletManager() {
                 <button
                   type="button"
                   onClick={() => setDepositStep(1)}
-                  className="w-1/3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs cursor-pointer"
+                  className="w-1/3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 cursor-pointer"
                 >
                   {t('back')}
                 </button>
                 <button
                   type="submit"
                   disabled={isProcessing || !screenshotBase64}
-                  className={`w-2/3 py-2.5 rounded-xl font-bold text-xs transition shadow-lg flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`w-2/3 py-2.5 rounded-xl font-black text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer ${
                     !screenshotBase64
-                      ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
-                      : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40'
+                      ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed'
+                      : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20'
                   }`}
                 >
                   {isProcessing ? t('submitting') : (
@@ -571,18 +571,18 @@ export default function WalletManager() {
 
       {/* ── WITHDRAWAL FORM ──────────────────────────────────────────────────── */}
       {activeTab === 'withdraw' && (
-        <form onSubmit={handleWithdrawSubmit} className="glass-panel p-4 rounded-2xl space-y-4 border-amber-500/30">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-              <ArrowUpRight className="w-4 h-4" /> {t('withdrawWinnings')}
+        <form onSubmit={handleWithdrawSubmit} className="bg-white p-4 rounded-2xl space-y-4 border-2 border-amber-300 shadow-xs">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <h3 className="text-xs font-black uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+              <ArrowUpRight className="w-4 h-4 text-amber-600" /> {t('withdrawWinnings')}
             </h3>
-            <span className="text-[10px] text-slate-400">{t('winningBalance')}: {formatETB(wallet.winningBalance)}</span>
+            <span className="text-[10px] font-bold text-slate-600">{t('winningBalance')}: {formatETB(wallet.winningBalance)}</span>
           </div>
 
           {/* Use linked account shortcut */}
           {linkedAccounts.filter(a => a.status === 'VERIFIED').length > 0 && (
             <div>
-              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block mb-2">
+              <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-2">
                 {t('linkedAccounts')}
               </label>
               <div className="space-y-1.5">
@@ -595,20 +595,20 @@ export default function WalletManager() {
                       setAccountName(acc.accountName);
                       setProvider(acc.type === 'TELEBIRR' ? 'Telebirr' : acc.type === 'CBE_BIRR' ? 'CBE Birr' : 'Bank Transfer');
                     }}
-                    className={`w-full p-2.5 rounded-xl border flex items-center justify-between text-left transition ${
+                    className={`w-full p-2.5 rounded-xl border flex items-center justify-between text-left transition cursor-pointer ${
                       phoneOrAccount === acc.accountNumber
-                        ? 'border-amber-400 bg-slate-800'
-                        : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
+                        ? 'border-amber-500 bg-amber-50'
+                        : 'border-slate-200 bg-slate-50 hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      {acc.isDefault && <Star className="w-3 h-3 text-amber-400" />}
+                      {acc.isDefault && <Star className="w-3 h-3 text-amber-500" />}
                       <div>
-                        <div className="text-xs font-bold text-slate-200">{acc.accountName}</div>
-                        <div className="text-[10px] text-slate-400">{accountTypeLabel[acc.type]} • {acc.accountNumber}</div>
+                        <div className="text-xs font-black text-slate-900">{acc.accountName}</div>
+                        <div className="text-[10px] text-slate-600 font-semibold">{accountTypeLabel[acc.type]} • {acc.accountNumber}</div>
                       </div>
                     </div>
-                    <ChevronRight className="w-3 h-3 text-slate-500" />
+                    <ChevronRight className="w-3 h-3 text-slate-400" />
                   </button>
                 ))}
               </div>
@@ -616,11 +616,11 @@ export default function WalletManager() {
           )}
 
           <div>
-            <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block mb-1">{t('selectPaymentMethod')}</label>
+            <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-1">{t('selectPaymentMethod')}</label>
             <select
               value={provider}
               onChange={(e) => setProvider(e.target.value as PaymentProvider)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+              className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 font-bold focus:bg-white focus:outline-none focus:border-amber-500"
             >
               <option value="Telebirr">Telebirr Wallet</option>
               <option value="CBE Birr">CBE Birr Account</option>
@@ -630,7 +630,7 @@ export default function WalletManager() {
           </div>
 
           <div>
-            <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block mb-1">
+            <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-1">
               {t('withdrawalAmount')}
             </label>
             <input
@@ -639,12 +639,12 @@ export default function WalletManager() {
               onChange={(e) => setAmount(Number(e.target.value))}
               max={wallet.winningBalance + wallet.availableBalance}
               min={50}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+              className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 font-mono font-bold focus:bg-white focus:outline-none focus:border-amber-500"
             />
           </div>
 
           <div>
-            <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block mb-1">
+            <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-1">
               {t('phoneNumberOrAccount')}
             </label>
             <input
@@ -652,12 +652,12 @@ export default function WalletManager() {
               value={phoneOrAccount}
               onChange={(e) => setPhoneOrAccount(e.target.value)}
               placeholder="+251911234567"
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-mono"
+              className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 font-mono font-bold focus:bg-white"
             />
           </div>
 
           <div>
-            <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block mb-1">
+            <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-1">
               {t('accountHolderName')}
             </label>
             <input
@@ -665,17 +665,17 @@ export default function WalletManager() {
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
               placeholder="Full legal name"
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100"
+              className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 font-bold focus:bg-white"
             />
           </div>
 
           <button
             type="submit"
             disabled={isProcessing || amount < 50}
-            className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition shadow-lg ${
+            className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer ${
               amount >= 50
                 ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-                : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
             }`}
           >
             {isProcessing ? t('submitting') : t('submitWithdrawal')}
@@ -685,14 +685,14 @@ export default function WalletManager() {
 
       {/* ── LINKED BANK ACCOUNTS ─────────────────────────────────────────────── */}
       {activeTab === 'accounts' && (
-        <div className="glass-panel p-4 rounded-2xl space-y-4 border-blue-500/30">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
-              <Landmark className="w-4 h-4" /> {t('linkedAccounts')}
+        <div className="bg-white p-4 rounded-2xl space-y-4 border-2 border-blue-300 shadow-xs">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <h3 className="text-xs font-black uppercase tracking-wider text-blue-800 flex items-center gap-1.5">
+              <Landmark className="w-4 h-4 text-blue-600" /> {t('linkedAccounts')}
             </h3>
             <button
               onClick={() => setShowAddAccount(v => !v)}
-              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] flex items-center gap-1"
+              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] flex items-center gap-1 cursor-pointer"
             >
               <Plus className="w-3 h-3" /> {t('addAccount')}
             </button>
@@ -700,13 +700,13 @@ export default function WalletManager() {
 
           {/* Add Account Form */}
           {showAddAccount && (
-            <form onSubmit={handleAddAccount} className="bg-slate-900 p-3 rounded-xl border border-slate-700 space-y-3">
+            <form onSubmit={handleAddAccount} className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 block mb-1">{t('accountType')}</label>
+                <label className="text-[10px] font-black text-slate-700 block mb-1">{t('accountType')}</label>
                 <select
                   value={newAccountType}
                   onChange={e => setNewAccountType(e.target.value as LinkedAccountType)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-950 font-bold"
                 >
                   <option value="TELEBIRR">Telebirr (+2519XXXXXXXX)</option>
                   <option value="CBE_BIRR">CBE Birr</option>
@@ -715,7 +715,7 @@ export default function WalletManager() {
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 block mb-1">
+                <label className="text-[10px] font-black text-slate-700 block mb-1">
                   {newAccountType === 'TELEBIRR' ? 'Telebirr Phone Number' : t('accountNumber')}
                 </label>
                 <input
@@ -723,18 +723,18 @@ export default function WalletManager() {
                   value={newAccountNumber}
                   onChange={e => setNewAccountNumber(e.target.value)}
                   placeholder={newAccountType === 'TELEBIRR' ? '+251911234567' : 'Account number'}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 font-mono"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-950 font-mono font-bold"
                   required
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 block mb-1">{t('accountHolderName')}</label>
+                <label className="text-[10px] font-black text-slate-700 block mb-1">{t('accountHolderName')}</label>
                 <input
                   type="text"
                   value={newAccountName}
                   onChange={e => setNewAccountName(e.target.value)}
                   placeholder="Full legal name"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-950 font-bold"
                   required
                 />
               </div>
@@ -742,14 +742,14 @@ export default function WalletManager() {
                 <button
                   type="button"
                   onClick={() => setShowAddAccount(false)}
-                  className="w-1/3 py-2 rounded-lg bg-slate-800 text-slate-400 font-bold text-xs"
+                  className="w-1/3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 cursor-pointer"
                 >
                   {t('cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={addingAccount}
-                  className="w-2/3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs"
+                  className="w-2/3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-black text-xs cursor-pointer"
                 >
                   {addingAccount ? t('submitting') : t('linkAccountBtn')}
                 </button>
@@ -761,23 +761,23 @@ export default function WalletManager() {
           <div className="space-y-2">
             {linkedAccounts.length === 0 ? (
               <div className="text-center py-8 text-slate-500 text-xs">
-                <Landmark className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <Landmark className="w-8 h-8 mx-auto mb-2 opacity-30 text-slate-400" />
                 {t('noAccountsLinked')}
               </div>
             ) : (
               linkedAccounts.map(acc => (
-                <div key={acc.id} className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                <div key={acc.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between shadow-xs">
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1">
                       {statusIcon(acc.status)}
-                      {acc.isDefault && <Star className="w-3 h-3 text-amber-400" />}
+                      {acc.isDefault && <Star className="w-3 h-3 text-amber-500" />}
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-slate-200">{acc.accountName}</div>
-                      <div className="text-[10px] text-slate-400">{accountTypeLabel[acc.type]} • {acc.accountNumber}</div>
-                      <div className={`text-[10px] font-semibold ${
-                        acc.status === 'VERIFIED' ? 'text-emerald-400' :
-                        acc.status === 'REJECTED' ? 'text-rose-400' : 'text-amber-400'
+                      <div className="text-xs font-black text-slate-900">{acc.accountName}</div>
+                      <div className="text-[10px] text-slate-600 font-semibold">{accountTypeLabel[acc.type]} • {acc.accountNumber}</div>
+                      <div className={`text-[10px] font-bold ${
+                        acc.status === 'VERIFIED' ? 'text-emerald-700' :
+                        acc.status === 'REJECTED' ? 'text-rose-700' : 'text-amber-700'
                       }`}>
                         {acc.status.replace('_', ' ')}
                       </div>
@@ -785,7 +785,7 @@ export default function WalletManager() {
                   </div>
                   <button
                     onClick={() => handleDeleteAccount(acc.id)}
-                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/40 text-slate-500 hover:text-rose-400 transition"
+                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 transition cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -798,36 +798,36 @@ export default function WalletManager() {
 
       {/* ── TRANSACTION HISTORY ──────────────────────────────────────────────── */}
       {activeTab === 'history' && (
-        <div className="glass-panel p-4 rounded-2xl space-y-3 border-purple-500/30">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5 border-b border-slate-800 pb-2">
-            <History className="w-4 h-4" /> {t('recentTransactions')}
+        <div className="bg-white p-4 rounded-2xl space-y-3 border-2 border-purple-300 shadow-xs">
+          <h3 className="text-xs font-black uppercase tracking-wider text-purple-800 flex items-center gap-1.5 border-b border-slate-200 pb-2">
+            <History className="w-4 h-4 text-purple-600" /> {t('recentTransactions')}
           </h3>
           <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
             {transactions.length === 0 ? (
               <div className="text-center py-8 text-slate-500 text-xs">{t('noTransactionsYet')}</div>
             ) : (
               transactions.map(tx => (
-                <div key={tx.id} className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                <div key={tx.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between text-xs shadow-xs">
                   <div>
-                    <div className="font-bold text-slate-200 flex items-center gap-1.5">
+                    <div className="font-bold text-slate-900 flex items-center gap-1.5">
                       <span>{tx.description}</span>
-                      <span className={`px-1.5 text-[9px] font-semibold rounded ${
-                        tx.status === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-300' :
-                        tx.status === 'PENDING' ? 'bg-amber-500/20 text-amber-300' :
-                        'bg-rose-500/20 text-rose-300'
+                      <span className={`px-1.5 text-[9px] font-black rounded ${
+                        tx.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                        tx.status === 'PENDING' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+                        'bg-rose-100 text-rose-800 border border-rose-300'
                       }`}>
                         {tx.status}
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">
-                      <span className="font-mono">{tx.reference}</span> • {new Date(tx.createdAt).toLocaleDateString()}
+                    <div className="text-[10px] text-slate-600 font-medium mt-0.5">
+                      <span className="font-mono font-bold text-slate-700">{tx.reference}</span> • {new Date(tx.createdAt).toLocaleDateString()}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className={`font-black font-mono ${tx.amount > 0 ? 'text-emerald-400' : 'text-slate-300'}`}>
+                    <div className={`font-black font-mono text-sm ${tx.amount > 0 ? 'text-emerald-700' : 'text-slate-800'}`}>
                       {tx.amount > 0 ? `+${tx.amount}` : tx.amount} ETB
                     </div>
-                    <div className="text-[9px] text-slate-500">Bal: {formatETB(tx.balanceAfter)}</div>
+                    <div className="text-[10px] text-slate-600 font-semibold">Bal: {formatETB(tx.balanceAfter)}</div>
                   </div>
                 </div>
               ))
