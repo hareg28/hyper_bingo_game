@@ -179,7 +179,7 @@ export default function MiniAppShell({
                     <div className="flex flex-col shrink-0">
                       <span className="text-slate-950 text-[11px] font-black uppercase tracking-wider leading-tight">🌟 WEEKEND</span>
                       <span className="text-slate-950 text-[10px] font-bold opacity-80">HYPER DRAWS</span>
-                      <span className="text-slate-950 text-[9px] font-black bg-slate-950/15 px-1.5 py-0.5 rounded mt-0.5 whitespace-nowrap">⏰ Fri–Sun 8:00 PM – 11:59 PM EAT</span>
+                      <span className="text-slate-950 text-[9px] font-black bg-slate-950/15 px-1.5 py-0.5 rounded mt-0.5 whitespace-nowrap">⏰ Fri–Sun Opens at 10:00 PM (ማታ 4:00)</span>
                     </div>
                     <div className="overflow-x-auto no-scrollbar flex items-center gap-2 flex-1">
                       {games
@@ -316,7 +316,7 @@ export default function MiniAppShell({
                 <div className="text-right shrink-0">
                   <p className="text-[9px] text-slate-400 font-bold uppercase leading-none">Weekend Draw</p>
                   <p className="text-[10px] text-amber-300 font-black whitespace-nowrap">Fri–Sun</p>
-                  <p className="text-[10px] text-white font-bold whitespace-nowrap">8:00 PM EAT</p>
+                  <p className="text-[10px] text-white font-bold whitespace-nowrap">10:00 PM EAT</p>
                 </div>
               </div>
             </div>
@@ -382,6 +382,10 @@ export default function MiniAppShell({
                   >
                     {language === 'am' ? 'አካውንት አለኝ • ግባ' : 'Already have an account? Sign In'}
                   </button>
+                  <div className="pt-2 text-center text-[11px] text-slate-500">
+                    <span>📞 {language === 'am' ? 'ጥያቄ ካለዎት:' : 'Need help?'} </span>
+                    <a href="tel:+251911234567" className="font-bold text-amber-600 hover:underline">+251 91 123 4567</a>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -495,6 +499,34 @@ export default function MiniAppShell({
                     ) : (
                       <p className="text-xs text-slate-400 italic">No referrals yet. Share your link above!</p>
                     )}
+                  </div>
+                </div>
+
+                {/* Customer Support Contact */}
+                <div className="bg-slate-900 text-white p-3.5 rounded-2xl space-y-2 border border-slate-800 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>📞</span> {language === 'am' ? 'የደንበኞች አገልግሎት እና ድጋፍ' : 'Customer Support & Help'}
+                    </span>
+                    <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded-full font-bold">24/7 Live</span>
+                  </div>
+                  <div className="text-xs space-y-1.5">
+                    <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
+                      <span className="text-slate-400 text-[11px] font-medium">ስልክ (Phone):</span>
+                      <a href="tel:+251911234567" className="font-bold text-amber-300 hover:underline">
+                        +251 91 123 4567
+                      </a>
+                    </div>
+                    <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
+                      <span className="text-slate-400 text-[11px] font-medium">ቴሌግራም (Telegram):</span>
+                      <a href="https://t.me/HyperBingoSupport" target="_blank" rel="noopener noreferrer" className="font-bold text-amber-300 hover:underline">
+                        @HyperBingoSupport
+                      </a>
+                    </div>
+                    <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
+                      <span className="text-slate-400 text-[11px] font-medium">የዊክኤንድ ጨዋታ (Weekend Draw):</span>
+                      <span className="font-bold text-emerald-300 text-[11px]">Fri–Sun 10:00 PM (ማታ 4:00)</span>
+                    </div>
                   </div>
                 </div>
 
