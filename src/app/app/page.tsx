@@ -24,8 +24,8 @@ export default function DedicatedMiniAppPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-start text-slate-900 font-sans">
-      <div className="w-full max-w-[440px] min-h-screen bg-white">
+    <div className="h-[100dvh] max-h-[100dvh] bg-white flex flex-col items-center justify-start text-slate-900 font-sans overflow-hidden">
+      <div className="w-full max-w-[440px] h-full max-h-[100dvh] bg-white flex flex-col overflow-hidden">
         <MiniAppShell initialTab="lobby" />
       </div>
     </div>

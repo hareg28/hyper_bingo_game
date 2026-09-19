@@ -60,10 +60,9 @@ export default function MiniAppShell({
   };
 
   return (
-    <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200 min-h-screen">
-      {/* Telegram WebApp Frame Header - Clean White (Hidden in game for full screen) */}
-      {activeTab !== 'game' && (
-        <div className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+    <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200 h-full max-h-[100dvh] overflow-hidden">
+      {/* Telegram WebApp Frame Header - Clean White */}
+      <div className="bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between sticky top-0 z-30 shadow-xs shrink-0">
         {user ? (
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-xs">
@@ -133,10 +132,9 @@ export default function MiniAppShell({
           )}
         </div>
       </div>
-      )}
 
       {/* Main Content Area */}
-      <div className={`flex-1 ${activeTab === 'game' ? 'h-full overflow-hidden p-1 sm:p-2 flex flex-col' : 'overflow-y-auto p-3 pb-24 space-y-3'} bg-slate-50/70`}>
+      <div className={`flex-1 ${activeTab === 'game' ? 'overflow-hidden p-1 pb-16 flex flex-col justify-start' : 'overflow-y-auto p-3 pb-24 space-y-3'} bg-slate-50/70`}>
         {/* LOBBY TAB */}
         {activeTab === 'lobby' && (
           <div className="space-y-3">
@@ -482,62 +480,60 @@ export default function MiniAppShell({
         )}
       </div>
 
-      {/* Bottom Sticky Telegram Navigation Bar - Clean White (Hidden in game for full screen) */}
-      {activeTab !== 'game' && (
-        <div className="fixed bottom-0 left-0 right-0 max-w-[440px] mx-auto bg-white border-t border-slate-200 px-3 py-2 flex items-center justify-around z-30 shadow-md">
+      {/* Bottom Sticky Telegram Navigation Bar - Clean White */}
+      <div className="fixed bottom-0 left-0 right-0 max-w-[440px] mx-auto bg-white border-t border-slate-200 px-3 py-1.5 flex items-center justify-around z-30 shadow-md shrink-0">
+        <button
+          onClick={() => setActiveTab('lobby')}
+          className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
+            activeTab === 'lobby' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Gamepad2 className="w-5 h-5" />
+          {t('lobby')}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('game')}
+          className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
+            activeTab === 'game' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Zap className="w-5 h-5" />
+          {t('liveRoom')}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('wallet')}
+          className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
+            activeTab === 'wallet' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Wallet className="w-5 h-5" />
+          {t('wallet')}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
+            activeTab === 'profile' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <UserIcon className="w-5 h-5" />
+          {t('profile')}
+        </button>
+
+        {isUserAdmin && (
           <button
-            onClick={() => setActiveTab('lobby')}
+            onClick={() => setActiveTab('admin')}
             className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
-              activeTab === 'lobby' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+              activeTab === 'admin' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
             }`}
           >
-            <Gamepad2 className="w-5 h-5" />
-            {t('lobby')}
+            <Shield className="w-5 h-5" />
+            {t('adminTab')}
           </button>
-
-          <button
-            onClick={() => setActiveTab('game')}
-            className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
-              activeTab === 'game' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <Zap className="w-5 h-5" />
-            {t('liveRoom')}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('wallet')}
-            className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
-              activeTab === 'wallet' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <Wallet className="w-5 h-5" />
-            {t('wallet')}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
-              activeTab === 'profile' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <UserIcon className="w-5 h-5" />
-            {t('profile')}
-          </button>
-
-          {isUserAdmin && (
-            <button
-              onClick={() => setActiveTab('admin')}
-              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
-                activeTab === 'admin' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <Shield className="w-5 h-5" />
-              {t('adminTab')}
-            </button>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

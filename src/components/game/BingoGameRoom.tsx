@@ -289,10 +289,10 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
   ];
 
   return (
-    <div className="h-full w-full max-w-sm sm:max-w-md mx-auto flex flex-col justify-between select-none overflow-hidden p-1 sm:p-2 space-y-1">
+    <div className="w-full max-w-sm sm:max-w-md mx-auto flex flex-col justify-start select-none overflow-hidden p-1 space-y-1">
       {/* ── ROW 1: HEADER WITH ZERO OVERLAP ───────────────────────────── */}
-      <div className="bg-white border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs flex items-center justify-between gap-1.5 shrink-0">
-        {/* Left: Back button & Game Name */}
+      <div className="bg-white border border-slate-200 px-2 py-1 rounded-xl shadow-2xs flex items-center justify-between gap-1.5 shrink-0">
+        {/* Left: Back button, Game Name & Prize */}
         <div className="flex items-center gap-1 min-w-0 shrink">
           {onBack && (
             <button
@@ -300,13 +300,13 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer shrink-0"
               title="Back to Lobby"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             </button>
           )}
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 truncate max-w-[90px] sm:max-w-[130px]">
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 truncate max-w-[95px] sm:max-w-[130px]">
             {currentGame.name || currentGame.gameType.replace('_', ' ')}
           </span>
-          <span className="text-[11px] font-black text-amber-700 shrink-0">
+          <span className="text-[10px] sm:text-[11px] font-black text-amber-700 whitespace-nowrap">
             {formatETB(currentGame.prizePool)}
           </span>
         </div>
@@ -319,7 +319,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
             title="Game Hit / ፍንጭ"
           >
             <Lightbulb className="w-3 h-3 fill-slate-950" />
-            <span className="hidden sm:inline">Hit</span>
+            <span>Hit</span>
           </button>
 
           <button
@@ -345,32 +345,32 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
       </div>
 
       {/* ── ROW 2: CALLER, PLAYERS & TIMER (NEAT & SPACED) ─────────────── */}
-      <div className="bg-white border border-slate-200 px-2 py-1 rounded-xl shadow-2xs flex items-center justify-between gap-1.5 shrink-0">
+      <div className="bg-white border border-slate-200 px-2 py-1 rounded-xl shadow-2xs flex items-center justify-between gap-1 shrink-0">
         {/* Active Ball & Recent Balls */}
-        <div className="flex items-center gap-1.5 min-w-0 shrink">
+        <div className="flex items-center gap-1 min-w-0">
           {currentGame.currentBall ? (
             <div
-              className={`w-9 h-9 rounded-full bg-gradient-to-tr ${getLetterColor(
+              className={`w-8 h-8 rounded-full bg-gradient-to-tr ${getLetterColor(
                 getBallLetter(currentGame.currentBall)
               )} flex flex-col items-center justify-center shadow-md ring-2 ring-amber-400/50 shrink-0 leading-none`}
             >
-              <span className="text-[8px] font-black italic">{getBallLetter(currentGame.currentBall)}</span>
-              <span className="text-sm font-black leading-tight">{currentGame.currentBall}</span>
+              <span className="text-[7px] font-black italic">{getBallLetter(currentGame.currentBall)}</span>
+              <span className="text-xs font-black leading-tight">{currentGame.currentBall}</span>
             </div>
           ) : (
-            <div className="w-9 h-9 rounded-full bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-500 text-[9px] font-black shrink-0">
+            <div className="w-8 h-8 rounded-full bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-500 text-[8px] font-black shrink-0">
               {t('ready')}
             </div>
           )}
 
           {/* Recent Balls */}
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-[100px] sm:max-w-[130px]">
-            {currentGame.drawnNumbers.slice(-3).reverse().map((num, idx) => (
+          <div className="flex items-center gap-0.5 overflow-hidden max-w-[65px] sm:max-w-[100px]">
+            {currentGame.drawnNumbers.slice(-2).reverse().map((num, idx) => (
               <div
                 key={num}
                 className={`w-5 h-5 rounded-full flex items-center justify-center font-black text-[9px] shrink-0 border ${
                   idx === 0
-                    ? 'bg-amber-400 text-slate-950 border-amber-500 scale-105'
+                    ? 'bg-amber-400 text-slate-950 border-amber-500'
                     : 'bg-slate-800 text-white border-slate-700'
                 }`}
               >
@@ -382,10 +382,10 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
 
         {/* Players & Countdown Timer */}
         <div className="flex items-center gap-1 shrink-0">
-          <span className="px-1.5 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-950 font-bold text-[10px]">
+          <span className="px-1.5 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-950 font-bold text-[9px] whitespace-nowrap">
             👥 {currentGame.currentPlayers}
           </span>
-          <span className="px-1.5 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-900 font-mono font-black text-[10px]">
+          <span className="px-1.5 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-900 font-mono font-black text-[9px] whitespace-nowrap">
             ⏱️ {formatTimeRemaining(secondsRemaining)}
           </span>
         </div>
@@ -394,7 +394,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => drawNextBall(currentGame.id)}
-            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-1 rounded-lg transition flex items-center gap-0.5 shadow-2xs cursor-pointer"
+            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-lg transition flex items-center gap-0.5 shadow-2xs cursor-pointer"
           >
             <Zap className="w-3 h-3" />
             <span>Draw</span>
@@ -458,7 +458,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
           )}
         </div>
 
-        {/* ➕ Direct Pick Number Button — Always visible without scrolling */}
+        {/* ➕ Direct Pick Number Button */}
         <button
           onClick={() => {
             if (!user) {
@@ -467,7 +467,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               setIsSelectorOpen(true);
             }
           }}
-          className="px-2.5 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition flex items-center gap-1 shadow-2xs cursor-pointer shrink-0"
+          className="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition flex items-center gap-1 shadow-2xs cursor-pointer shrink-0"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>{language === 'am' ? 'ካርድ ምረጥ' : '+ Pick Number'}</span>
@@ -498,12 +498,12 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
         </div>
       )}
 
-      {/* ── ROW 4: PHOTO-ACCURATE BINGO CARD WITH THE BLUE BINGO BUTTON ── */}
-      <div className="flex-1 flex flex-col justify-between min-h-0 bg-white rounded-2xl sm:rounded-3xl border-2 border-slate-200/90 shadow-md overflow-hidden relative">
+      {/* ── ROW 4: COMPACT PHOTO-ACCURATE BINGO CARD WITH BLUE BINGO BUTTON ── */}
+      <div className="w-full bg-white rounded-xl sm:rounded-2xl border-2 border-slate-200 shadow-sm overflow-hidden shrink-0 flex flex-col">
         {activeUserCard ? (
           <>
             {/* CARD TOP: 5 COLORED ROUNDED HEADERS B - I - N - G - O */}
-            <div className="p-2 pb-0.5 shrink-0">
+            <div className="px-1.5 pt-1.5 pb-0.5 shrink-0">
               <div className="grid grid-cols-5 gap-1 text-center">
                 {[
                   { letter: 'B', bg: 'bg-[#2563eb]' },
@@ -514,7 +514,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                 ].map((col) => (
                   <div
                     key={col.letter}
-                    className={`${col.bg} py-0.5 sm:py-1 rounded-lg sm:rounded-xl text-white font-black italic text-base sm:text-lg shadow-2xs leading-none flex items-center justify-center`}
+                    className={`${col.bg} h-6 rounded-md text-white font-black italic text-xs shadow-2xs leading-none flex items-center justify-center`}
                   >
                     {col.letter}
                   </div>
@@ -523,8 +523,8 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
             </div>
 
             {/* CARD BODY: 5x5 NUMBER TILES (COMPACT SIZED TO NEVER EXCEED SCREEN) */}
-            <div className="px-2 py-1 flex-1 flex flex-col justify-around min-h-0">
-              <div className="grid grid-cols-5 gap-1 h-full">
+            <div className="px-1.5 pb-1 shrink-0">
+              <div className="grid grid-cols-5 gap-1">
                 {activeUserCard.numbers.map((row, rIdx) =>
                   row.map((val, cIdx) => {
                     const isFree = rIdx === 2 && cIdx === 2;
@@ -536,7 +536,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                       <button
                         key={`${rIdx}-${cIdx}`}
                         onClick={() => !isFree && daubCell(activeUserCard.id, rIdx, cIdx)}
-                        className={`h-full min-h-[34px] sm:min-h-[44px] rounded-lg sm:rounded-xl font-extrabold flex flex-col items-center justify-center text-sm sm:text-lg transition-all duration-100 relative border shadow-2xs cursor-pointer ${
+                        className={`h-7 sm:h-8 rounded-md font-black flex flex-col items-center justify-center text-xs sm:text-sm transition-all duration-100 relative border shadow-2xs cursor-pointer ${
                           isFree
                             ? 'bg-[#10b981] border-[#059669] text-white' // Bright green with blue star exactly like photo!
                             : isMarked
@@ -550,16 +550,16 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                       >
                         {isFree ? (
                           /* Center Blue Star ★ on Green tile */
-                          <Star className="w-4 h-4 sm:w-5 sm:h-5 text-[#2563eb] fill-[#2563eb] drop-shadow-2xs" />
+                          <Star className="w-3.5 h-3.5 text-[#2563eb] fill-[#2563eb] drop-shadow-2xs" />
                         ) : (
                           <>
                             <span>{val}</span>
                             {isHint && (
-                              <span className="absolute top-0.5 right-0.5 text-[7px] leading-none">💡</span>
+                              <span className="absolute top-0.5 right-0.5 text-[6px] leading-none">💡</span>
                             )}
                             {isMarked && (
                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div className="w-4 h-4 rounded-full bg-white/20 border border-white/60 animate-ping"></div>
+                                <div className="w-3 h-3 rounded-full bg-white/30 border border-white animate-ping"></div>
                               </div>
                             )}
                           </>
@@ -572,27 +572,26 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
             </div>
 
             {/* CARD BOTTOM: BINGO! BUTTON EXACTLY LIKE THE PICTURE */}
-            {/* The card number is in safe inset pill on both corners so it is NEVER cut off */}
             <button
               onClick={() => handleClaimBingo(activeUserCard.id)}
-              className={`w-full py-2.5 sm:py-3.5 px-3 flex items-center justify-between transition-all duration-200 cursor-pointer shadow-md select-none shrink-0 ${
+              className={`w-full py-2 px-3 flex items-center justify-between transition-all duration-200 cursor-pointer shadow-md select-none shrink-0 ${
                 isFullHouseWin
                   ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 animate-bounce ring-4 ring-amber-300'
                   : 'bg-[#2563eb] hover:bg-[#1d4ed8] active:brightness-95 text-white'
               }`}
               title="Shout BINGO!"
             >
-              <span className={`text-[11px] sm:text-xs font-mono font-black px-2 py-0.5 rounded-md shrink-0 ${
+              <span className={`text-[10px] sm:text-xs font-mono font-black px-2 py-0.5 rounded-md shrink-0 ${
                 isFullHouseWin ? 'bg-amber-600/30 text-slate-950' : 'bg-blue-700/60 text-blue-100'
               }`}>
                 #{activeUserCard.cardNumber}
               </span>
 
-              <span className="text-xl sm:text-2xl font-black italic tracking-widest drop-shadow-sm">
+              <span className="text-lg sm:text-xl font-black italic tracking-widest drop-shadow-sm">
                 BINGO!
               </span>
 
-              <span className={`text-[11px] sm:text-xs font-mono font-black px-2 py-0.5 rounded-md shrink-0 ${
+              <span className={`text-[10px] sm:text-xs font-mono font-black px-2 py-0.5 rounded-md shrink-0 ${
                 isFullHouseWin ? 'bg-amber-600/30 text-slate-950' : 'bg-blue-700/60 text-blue-100'
               }`}>
                 #{activeUserCard.cardNumber}
