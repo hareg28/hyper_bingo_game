@@ -83,7 +83,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [wallet, setWallet] = useState<Wallet>(EMPTY_WALLET);
   const [games, setGames] = useState<Game[]>(INITIAL_GAMES);
-  const [activeGameId, setActiveGameId] = useState<string | null>('gm_001');
+  const [activeGameId, setActiveGameId] = useState<string | null>('gm_small_05');
   const [userCards, setUserCards] = useState<BingoCard[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>(INITIAL_WITHDRAWALS);
@@ -418,7 +418,17 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
 
     if (wallet.availableBalance < amount) {
-      addNotification('⚠️ Insufficient Balance', `You need at least ${amount} ETB available.`, 'warning');
+      // Check if they only have bonus balance to give a helpful message
+      const totalBalance = wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance;
+      if (totalBalance >= amount && wallet.bonusBalance > 0) {
+        addNotification(
+          '⚠️ Cannot Withdraw Bonus',
+          `Your 20 ETB welcome bonus is play-only and cannot be withdrawn. Please deposit real ETB to withdraw.`,
+          'warning'
+        );
+      } else {
+        addNotification('⚠️ Insufficient Balance', `You need at least ${amount} ETB available to withdraw. Current available: ${wallet.availableBalance.toFixed(0)} ETB.`, 'warning');
+      }
       return false;
     }
 

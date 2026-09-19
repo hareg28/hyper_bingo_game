@@ -7,7 +7,7 @@ import { localizeGameName, localizeGameTime } from '../../lib/translations';
 import { 
   Gamepad2, Zap, Wallet, User as UserIcon, Shield, 
   ArrowUpRight, Share2, Copy, Check, LogOut, Sparkles, 
-  ChevronRight, Gift, Globe, X 
+  ChevronRight, ChevronDown, ChevronUp, Gift, Globe, X 
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
 import WalletManager from '../wallet/WalletManager';
@@ -40,7 +40,8 @@ export default function MiniAppShell({
 
   const [activeTab, setActiveTab] = useState<'lobby' | 'game' | 'wallet' | 'profile' | 'admin'>(initialTab);
   const [copiedRef, setCopiedRef] = useState(false);
-  const [gameFilter, setGameFilter] = useState<'ALL' | 'SMALL' | 'HIGH' | 'LOTTERY'>('ALL');
+  const [gameFilter, setGameFilter] = useState<'ALL' | 'SMALL' | 'HIGH'>('ALL');
+  const [showAllGames, setShowAllGames] = useState(false);
 
   const quickBingo = games.find((g) => g.gameType === 'QUICK_BINGO') || games[0];
   const isUserAdmin = Boolean(
@@ -133,7 +134,7 @@ export default function MiniAppShell({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-3 pb-24 space-y-3 bg-slate-50/70">
+      <div className={`flex-1 ${activeTab === 'game' ? 'overflow-hidden p-2 pb-16 sm:pb-2' : 'overflow-y-auto p-3 pb-24 space-y-3'} bg-slate-50/70`}>
         {/* LOBBY TAB */}
         {activeTab === 'lobby' && (
           <div className="space-y-3">
@@ -164,42 +165,45 @@ export default function MiniAppShell({
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
                   <Gamepad2 className="w-3.5 h-3.5 text-amber-500" />
-                  {t('availableGames')} ({games.length})
+                  {t('availableGames')} ({games.filter(g => g.gameType !== 'WEEKEND_LOTTERY' && !g.isWeekendSpecial).length} Live)
                 </h3>
                 <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  Live Rooms
+                  🟢 Live Now
                 </span>
               </div>
 
-              {/* Weekend Hyper Announcement Banner */}
+              {/* Weekend Hyper Announcement Banner - Show Birr amounts prominently */}
               {games.some((g) => g.isWeekendSpecial || g.gameType === 'WEEKEND_LOTTERY') && (
-                <div className="overflow-hidden rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 py-2.5 px-3 shadow-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="text-amber-800 text-[11px] font-black shrink-0 uppercase tracking-wider">🌟 WEEKEND:</span>
-                    <div className="overflow-x-auto no-scrollbar flex items-center gap-2.5">
+                <div className="overflow-hidden rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 py-3 px-3 shadow-sm">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex flex-col shrink-0">
+                      <span className="text-slate-950 text-[11px] font-black uppercase tracking-wider leading-tight">🌟 WEEKEND</span>
+                      <span className="text-slate-950 text-[10px] font-bold opacity-80">HYPER DRAWS</span>
+                    </div>
+                    <div className="overflow-x-auto no-scrollbar flex items-center gap-2 flex-1">
                       {games
                         .filter((g) => g.isWeekendSpecial || g.gameType === 'WEEKEND_LOTTERY')
                         .map((g) => (
-                          <span
+                          <button
                             key={g.id}
-                            className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-black whitespace-nowrap"
+                            onClick={() => { setActiveGameId(g.id); setActiveTab('game'); }}
+                            className="shrink-0 px-3 py-1.5 rounded-xl bg-slate-950 text-white text-[11px] font-black whitespace-nowrap flex flex-col items-center shadow-xs hover:bg-slate-800 transition cursor-pointer"
                           >
-                            ⚡ Hyper {g.entryPrice} ETB
-                            {g.drawInterval <= 2 ? ' · Fast' : ''}
-                          </span>
+                            <span className="text-amber-400">⚡ {g.entryPrice} ETB Entry</span>
+                            <span className="text-emerald-400 text-[10px]">Prize: {formatETB(g.prizePool)}</span>
+                          </button>
                         ))}
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Filter Pills */}
+              {/* Filter Pills — Weekend games are EXCLUDED from Live Room */}
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
                 {[
-                  { id: 'ALL', label: 'All Live Games' },
-                  { id: 'LOTTERY', label: '🌟 Weekend Lottery' },
-                  { id: 'SMALL', label: 'Small (5-30 ETB)' },
-                  { id: 'HIGH', label: t('highStakes') },
+                  { id: 'ALL', label: '🎮 All Live Games' },
+                  { id: 'SMALL', label: '💰 Small (5-30 ETB)' },
+                  { id: 'HIGH', label: `🔥 ${t('highStakes')}` },
                 ].map((tier) => (
                   <button
                     key={tier.id}
@@ -215,56 +219,81 @@ export default function MiniAppShell({
                 ))}
               </div>
 
-              {/* Game List: in Live Room (ALL), show ALL games EXCEPT weekend games */}
-              <div className="space-y-2">
-                {games
-                  .filter((g) => {
-                    if (gameFilter === 'LOTTERY') {
-                      return g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial;
-                    }
-                    if (gameFilter === 'SMALL') {
-                      return g.entryPrice <= 30 && g.gameType !== 'WEEKEND_LOTTERY' && !g.isWeekendSpecial;
-                    }
-                    if (gameFilter === 'HIGH') {
-                      return g.entryPrice >= 100 && g.gameType !== 'WEEKEND_LOTTERY' && !g.isWeekendSpecial;
-                    }
-                    // DEFAULT / ALL: show all games EXCEPT weekend games
-                    return g.gameType !== 'WEEKEND_LOTTERY' && !g.isWeekendSpecial;
-                  })
-                  .map((g) => (
-                    <div
-                      key={g.id}
-                      className="bg-white p-3.5 rounded-2xl flex items-center justify-between border border-slate-200 shadow-xs hover:border-amber-400 transition"
-                    >
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-bold text-sm text-slate-900">{localizeGameName(g.name, language)}</span>
-                          {(g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) && (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-slate-950">🌟 WEEKEND MEGA</span>
-                          )}
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                            g.status === 'RUNNING' ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                            : g.status === 'STARTING' ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                          }`}>
-                            {g.status === 'RUNNING' ? '● LIVE' : g.status === 'STARTING' ? 'STARTING' : 'OPEN'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-500">
-                          <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
-                          <span>Prize: <strong className="text-emerald-600 font-bold">{formatETB(g.prizePool)}</strong></span>
-                          <span>👥 {g.currentPlayers}{g.minPlayers ? ` (min ${g.minPlayers})` : ''}</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => { setActiveGameId(g.id); setActiveTab('game'); }}
-                        className="ml-3 px-3.5 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-black text-xs transition shrink-0 flex items-center gap-1 shadow-xs cursor-pointer"
+              {/* Game List: Live Room ALWAYS excludes Weekend Lottery games */}
+              {(() => {
+                const filteredLiveGames = games.filter((g) => {
+                  // Weekend lottery games are NEVER shown in the Live Room
+                  if (g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) return false;
+                  if (gameFilter === 'SMALL') {
+                    return g.entryPrice <= 30;
+                  }
+                  if (gameFilter === 'HIGH') {
+                    return g.entryPrice >= 100;
+                  }
+                  // DEFAULT / ALL: all non-weekend games
+                  return true;
+                });
+
+                const visibleGames = showAllGames ? filteredLiveGames : filteredLiveGames.slice(0, 4);
+
+                return (
+                  <div className="space-y-2">
+                    {visibleGames.map((g) => (
+                      <div
+                        key={g.id}
+                        className="bg-white p-3.5 rounded-2xl flex items-center justify-between border border-slate-200 shadow-xs hover:border-amber-400 transition"
                       >
-                        PLAY <ChevronRight className="w-3.5 h-3.5" />
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-sm text-slate-900">{localizeGameName(g.name, language)}</span>
+                            {(g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) && (
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-slate-950">🌟 WEEKEND MEGA</span>
+                            )}
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                              g.status === 'RUNNING' ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                              : g.status === 'STARTING' ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            }`}>
+                              {g.status === 'RUNNING' ? '● LIVE' : g.status === 'STARTING' ? 'STARTING' : 'OPEN'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-slate-500">
+                            <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
+                            <span>Prize: <strong className="text-emerald-600 font-bold">{formatETB(g.prizePool)}</strong></span>
+                            <span>👥 {g.currentPlayers}{g.minPlayers ? ` (min ${g.minPlayers})` : ''}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => { setActiveGameId(g.id); setActiveTab('game'); }}
+                          className="ml-3 px-3.5 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-black text-xs transition shrink-0 flex items-center gap-1 shadow-xs cursor-pointer"
+                        >
+                          PLAY <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Show More / Show Less Toggle Button */}
+                    {filteredLiveGames.length > 4 && (
+                      <button
+                        onClick={() => setShowAllGames(!showAllGames)}
+                        className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition border border-slate-300 flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                      >
+                        {showAllGames ? (
+                          <>
+                            <ChevronUp className="w-4 h-4 text-slate-600" />
+                            <span>{language === 'am' ? 'አሳንስ (Show Less)' : 'Show Less'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-4 h-4 text-slate-600" />
+                            <span>{language === 'am' ? `ተጨማሪ ጨዋታዎችን አሳይ (${filteredLiveGames.length - 4} ተጨማሪ)` : `Show More Games (${filteredLiveGames.length - 4} more)`}</span>
+                          </>
+                        )}
                       </button>
-                    </div>
-                  ))}
-              </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Promotions */}

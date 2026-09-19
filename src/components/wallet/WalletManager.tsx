@@ -579,6 +579,20 @@ export default function WalletManager() {
             <span className="text-[10px] font-bold text-slate-600">{t('winningBalance')}: {formatETB(wallet.winningBalance)}</span>
           </div>
 
+          {/* Warning: Bonus balance cannot be withdrawn */}
+          {wallet.availableBalance === 0 && wallet.bonusBalance > 0 && (
+            <div className="p-3 rounded-xl bg-amber-50 border-2 border-amber-300 flex items-start gap-2.5">
+              <span className="text-lg shrink-0">⚠️</span>
+              <div>
+                <div className="text-xs font-black text-amber-900">Welcome Bonus is Play-Only</div>
+                <p className="text-[11px] text-amber-800 font-medium leading-relaxed mt-0.5">
+                  Your <strong>{formatETB(wallet.bonusBalance)}</strong> welcome bonus cannot be withdrawn — it is for playing games only. 
+                  To withdraw real ETB, please deposit funds first.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Use linked account shortcut */}
           {linkedAccounts.filter(a => a.status === 'VERIFIED').length > 0 && (
             <div>

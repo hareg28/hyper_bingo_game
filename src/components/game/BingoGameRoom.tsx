@@ -4,12 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
 import { 
   Trophy, Volume2, VolumeX, Sparkles, CheckCircle2, Play, Pause, Zap, 
-  Plus, Ban, Star, Hash, User as UserIcon, Flame, Layers, Lightbulb, AlertTriangle, X 
+  Plus, Star, Hash, Flame, Lightbulb, AlertTriangle, X,
+  Grid
 } from 'lucide-react';
 import { 
   formatETB, 
-  countCompletedLines, 
-  checkLineWin, 
   checkFullHouseWin, 
   countRemainingNumbers,
   playBingoVictoryFanfare 
@@ -41,21 +40,21 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
   const [claimStatus, setClaimStatus] = useState<{ success?: boolean; message?: string; prize?: number } | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'ALL' | 'SINGLE'>('ALL');
+  const [showTableModal, setShowTableModal] = useState(false);
   const [hintCardId, setHintCardId] = useState<string | null>(null);
-  const [patternHint, setPatternHint] = useState<boolean[][]| null>(null); // 5x5 hint overlay
+  const [patternHint, setPatternHint] = useState<boolean[][] | null>(null);
   const [gameHitFeedback, setGameHitFeedback] = useState<string | null>(null);
 
   const currentGame = games.find((g) => g.id === gameId) || games[0];
   const activeGameCards = userCards.filter((c) => c.gameId === currentGame.id);
   
-  // Set default active card if not set
+  // Active card
   const activeUserCard = 
     activeGameCards.find((c) => c.id === selectedCardId) || 
     activeGameCards[0] || 
     userCards[0];
 
-  // ── Live Countdown Timer for Time Left to Finish the Game ──
+  // Live Countdown Timer
   const [secondsRemaining, setSecondsRemaining] = useState<number>(() => {
     const ballsLeft = Math.max(0, 75 - (currentGame?.drawnNumbers?.length || 0));
     return ballsLeft * (currentGame?.drawInterval || 3);
@@ -93,12 +92,12 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
     return () => clearInterval(interval);
   }, [isAutoDrawing, currentGame, drawNextBall]);
 
-  // Auto-dismiss claim alerts after 6 seconds
+  // Auto-dismiss claim alerts after 5 seconds
   useEffect(() => {
     if (claimStatus) {
       const timer = setTimeout(() => {
         setClaimStatus(null);
-      }, 6000);
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [claimStatus]);
@@ -115,27 +114,15 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
   const getLetterColor = (letter: string): string => {
     switch (letter) {
       case 'B': return 'from-blue-600 to-blue-500 text-white';
-      case 'I': return 'from-rose-600 to-rose-500 text-white';
-      case 'N': return 'from-amber-500 to-amber-400 text-slate-950';
+      case 'I': return 'from-red-600 to-red-500 text-white';
+      case 'N': return 'from-amber-400 to-amber-500 text-slate-950';
       case 'G': return 'from-emerald-600 to-emerald-500 text-white';
       case 'O': return 'from-purple-600 to-purple-500 text-white';
       default: return 'from-slate-700 to-slate-600 text-white';
     }
   };
 
-  // Win evaluation across ALL active cards of player (min 2, max 3) - FULL HOUSE ONLY
-  const cardsWinData = activeGameCards.map((c) => {
-    const hasFullHouse = checkFullHouseWin(c.marked);
-    const remaining = countRemainingNumbers(c.marked);
-    return {
-      card: c,
-      remaining,
-      hasFullHouse,
-      isWinner: hasFullHouse,
-    };
-  });
-
-  // Pattern Hint Logic: find the row/col/diag with most marks
+  // Pattern Hint Logic
   const computePatternHint = (card: typeof activeGameCards[0]): boolean[][] => {
     const hint = Array.from({ length: 5 }, () => Array(5).fill(false));
     let bestScore = -1;
@@ -181,14 +168,12 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
     return hint;
   };
 
-  // 💡 LIGHT SYMBOL GAME HIT:
-  // When player presses 💡, it checks if any drawn balls match their card and automatically daubs them!
-  // If all drawn balls are already marked, it illuminates the closest winning line/pattern to BINGO!
+  // 💡 LIGHT SYMBOL GAME HIT
   const handleLightGameHit = (targetCard?: typeof activeGameCards[0]) => {
     const card = targetCard || activeUserCard || activeGameCards[0];
     if (!card) {
       setGameHitFeedback(language === 'am' ? 'እባክዎ መጀመሪያ የቢንጎ ካርድ ይምረጡ!' : 'Please pick or select a bingo card first!');
-      setTimeout(() => setGameHitFeedback(null), 4000);
+      setTimeout(() => setGameHitFeedback(null), 3000);
       return;
     }
 
@@ -209,7 +194,6 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
       }
     }
 
-    // Illuminate the pattern hint overlay
     setHintCardId(card.id);
     const hint = computePatternHint(card);
     setPatternHint(hint);
@@ -218,38 +202,36 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
       playBingoVictoryFanfare();
       setGameHitFeedback(
         language === 'am'
-          ? `💡 ፍንጭ (GAME HIT)! ${hitNumbers.length} የወጡ ቁጥሮች (${hitNumbers.join(', ')}) በካርድ #${card.cardNumber} ላይ ተሞልተዋል!`
-          : `💡 GAME HIT! ${hitNumbers.length} drawn ball${hitNumbers.length > 1 ? 's' : ''} (${hitNumbers.join(', ')}) hit & daubed on Card #${card.cardNumber}!`
+          ? `💡 ፍንጭ! ${hitNumbers.length} ቁጥሮች (${hitNumbers.join(', ')}) በካርድ #${card.cardNumber} ተሞልተዋል!`
+          : `💡 HIT! ${hitNumbers.length} number${hitNumbers.length > 1 ? 's' : ''} (${hitNumbers.join(', ')}) marked on Card #${card.cardNumber}!`
       );
     } else {
       const remaining = countRemainingNumbers(card.marked);
       setGameHitFeedback(
         language === 'am'
-          ? `💡 ፍንጭ በርቷል! የወጡ ኳሶች በሙሉ ተሞልተዋል። ለሙሉ ካርቴላ ${remaining} ቁጥሮች ብቻ ቀርተዎታል።`
-          : `💡 GAME HIT: All drawn balls daubed! You are only ${remaining} number${remaining > 1 ? 's' : ''} away from BINGO on Card #${card.cardNumber}!`
+          ? `💡 የወጡ ኳሶች በሙሉ ተሞልተዋል። ለቢንጎ ${remaining} ቁጥሮች ብቻ ቀርተዋል!`
+          : `💡 All drawn balls marked! ${remaining} number${remaining > 1 ? 's' : ''} left on Card #${card.cardNumber}!`
       );
     }
 
     setTimeout(() => {
       setGameHitFeedback(null);
-    }, 5000);
+    }, 4000);
   };
 
-  const bestWinningItem = cardsWinData.find((cw) => cw.hasFullHouse);
-  const isAnyWinning = Boolean(bestWinningItem);
-
+  // Claim Bingo
   const handleClaimBingo = (cardId?: string) => {
     if (activeGameCards.length === 0) {
       setClaimStatus({
         success: false,
         message: language === 'am'
           ? 'እባክዎ መጀመሪያ የቢንጎ ካርድ ይምረጡ!'
-          : 'Please choose or pick bingo cards first to play and shout Bingo!'
+          : 'Please pick a bingo card first to play!'
       });
       return;
     }
 
-    const targetCardId = cardId || bestWinningItem?.card.id || activeUserCard?.id;
+    const targetCardId = cardId || activeUserCard?.id || activeGameCards[0]?.id;
     const targetCard = activeGameCards.find(c => c.id === targetCardId) || activeGameCards[0];
 
     if (targetCard && !checkFullHouseWin(targetCard.marked)) {
@@ -258,7 +240,7 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
         success: false,
         message: language === 'am'
           ? `ቢንጎ ለማለት ሙሉ ካርቴላ ያስፈልጋል! በካርድ #${targetCard.cardNumber} ላይ ${rem} ቁጥሮች ቀርተዎታል።`
-          : `Full House required to shout BINGO! You have ${rem} number${rem > 1 ? 's' : ''} left on Card #${targetCard.cardNumber}. Keep marking drawn numbers!`
+          : `Full House required to win! You have ${rem} number${rem > 1 ? 's' : ''} left on Card #${targetCard.cardNumber}.`
       });
       return;
     }
@@ -272,7 +254,7 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
         particleCount: 180,
         spread: 100,
         origin: { y: 0.5 },
-        colors: ['#fbbf24', '#8b5cf6', '#10b981', '#ffffff', '#ec4899'],
+        colors: ['#2563eb', '#dc2626', '#f59e0b', '#16a34a', '#9333ea'],
       });
     }
   };
@@ -294,270 +276,341 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
     }
   };
 
-  // Build 75-Ball Board Data
+  // 75-Ball rows for popup board
   const drawnSet = new Set(currentGame.drawnNumbers);
   const rows = [
-    { letter: 'B', range: Array.from({ length: 15 }, (_, i) => i + 1), color: 'bg-blue-600 text-white', border: 'border-blue-500' },
-    { letter: 'I', range: Array.from({ length: 15 }, (_, i) => i + 16), color: 'bg-rose-600 text-white', border: 'border-rose-500' },
-    { letter: 'N', range: Array.from({ length: 15 }, (_, i) => i + 31), color: 'bg-amber-500 text-slate-950', border: 'border-amber-500' },
-    { letter: 'G', range: Array.from({ length: 15 }, (_, i) => i + 46), color: 'bg-emerald-600 text-white', border: 'border-emerald-500' },
-    { letter: 'O', range: Array.from({ length: 15 }, (_, i) => i + 61), color: 'bg-purple-600 text-white', border: 'border-purple-500' },
+    { letter: 'B', range: Array.from({ length: 15 }, (_, i) => i + 1), color: 'bg-blue-600 text-white' },
+    { letter: 'I', range: Array.from({ length: 15 }, (_, i) => i + 16), color: 'bg-red-600 text-white' },
+    { letter: 'N', range: Array.from({ length: 15 }, (_, i) => i + 31), color: 'bg-amber-400 text-slate-950' },
+    { letter: 'G', range: Array.from({ length: 15 }, (_, i) => i + 46), color: 'bg-emerald-600 text-white' },
+    { letter: 'O', range: Array.from({ length: 15 }, (_, i) => i + 61), color: 'bg-purple-600 text-white' },
   ];
 
   return (
-    <div className="space-y-3 max-w-lg mx-auto pb-16">
-      {/* ── TOP GAME ROOM HEADER WITH PLAYERS COUNT & TIME LEFT ─────────── */}
-      <div className="bg-white border-2 border-slate-200 p-3.5 rounded-2xl shadow-xs space-y-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300">
-                {currentGame.gameType.replace('_', ' ')}
-              </span>
-              {(currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.isWeekendSpecial) && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 shadow-xs">
-                  🌟 Weekend Mega
-                </span>
-              )}
-              <span className="text-xs font-bold text-slate-600">{t('prizePool')}:</span>
-              <h2 className="text-lg font-black text-amber-700">{formatETB(currentGame.prizePool)}</h2>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* 💡 Prominent Light Symbol Game Hit Button */}
-            <button
-              onClick={() => handleLightGameHit()}
-              className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs border border-amber-500 shadow-xs transition flex items-center gap-1.5 cursor-pointer animate-pulse"
-              title="Light Symbol: Press for Game Hit / የጨዋታ ፍንጭ"
-            >
-              <Lightbulb className="w-4 h-4 fill-slate-950 text-slate-950" />
-              <span>{language === 'am' ? '💡 ፍንጭ' : '💡 Game Hit'}</span>
-            </button>
-
-            {/* Sound toggle */}
-            <button
-              onClick={() => setSoundEnabled(!soundEnabled)}
-              className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition cursor-pointer"
-              title="Toggle Ball Sound"
-            >
-              {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
-            </button>
-
-            {/* Auto daub toggle */}
-            <button
-              onClick={toggleAutoDaub}
-              className={`px-2 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border transition cursor-pointer ${
-                autoDaubEnabled
-                  ? 'bg-purple-100 border-purple-300 text-purple-900 shadow-xs'
-                  : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-              {autoDaubEnabled ? 'Auto' : 'Off'}
-            </button>
-          </div>
-        </div>
-
-        {/* 👥 LIVE PLAYERS COUNT & ⏱️ TIME LEFT TO FINISH THE GAME */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-          {/* Number of Players */}
-          <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 font-bold shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-              <span>👥 <strong>{currentGame.currentPlayers}</strong> {language === 'am' ? 'ተጫዋቾች' : 'Players'}</span>
-              {currentGame.minPlayers && (
-                <span className="text-[10px] text-blue-600 font-medium">(min {currentGame.minPlayers})</span>
-              )}
-            </span>
-          </div>
-
-          {/* Time Left to Finish the Game */}
-          <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 font-mono font-black shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-              <span>⏱️ {secondsRemaining > 0 ? `${formatTimeRemaining(secondsRemaining)} Left` : 'FINISHING'}</span>
-              <span className="text-[10px] text-rose-700 font-bold hidden sm:inline">({language === 'am' ? 'የቀረ ጊዜ' : 'Time Left'})</span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 💡 GAME HIT FEEDBACK ALERT NOTIFICATION ────────────────────────── */}
-      {gameHitFeedback && (
-        <div className="p-3 rounded-2xl bg-amber-100 border-2 border-amber-400 text-amber-950 text-xs font-black shadow-md flex items-center justify-between gap-2 animate-bounce">
-          <div className="flex items-center gap-2">
-            <Lightbulb className="w-5 h-5 fill-amber-500 text-amber-900 shrink-0" />
-            <span>{gameHitFeedback}</span>
-          </div>
-          <button onClick={() => setGameHitFeedback(null)} className="p-1 text-amber-800 hover:text-amber-950 cursor-pointer">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* ── 75-BALL BOARD & MASTER TABLE (ALWAYS VISIBLE & OPEN) ─────────── */}
-      <div className="bg-white border-2 border-slate-200 rounded-2xl p-3.5 text-center shadow-xs space-y-3">
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 border border-amber-300 font-black font-mono">
-              {drawnSet.size} / 75 {t('drawn')}
-            </span>
-            <span className="font-bold text-slate-900">
-              {language === 'am' ? 'የቢንጎ ሰንጠረዥ (75 ኳሶች)' : '75-Ball Master Table'}
-            </span>
-          </div>
-          <span className="text-slate-900 font-mono font-bold bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 text-xs">
-            {t('ball')} #{currentGame.drawnNumbers.length} / 75
+    <div className="h-full flex flex-col justify-between max-w-sm sm:max-w-md mx-auto space-y-1.5 select-none overflow-hidden pb-1">
+      {/* ── ROW 1: ULTRA-COMPACT GAME HEADER BAR ─────────────────────── */}
+      <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-2xl shadow-2xs flex items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
+            {currentGame.name || currentGame.gameType.replace('_', ' ')}
+          </span>
+          <span className="text-xs font-black text-amber-700 shrink-0">
+            🏆 {formatETB(currentGame.prizePool)}
           </span>
         </div>
 
-        {/* Big Active Ball & Recent Drawn Row */}
-        <div className="flex items-center justify-center gap-4 my-1">
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Live Players & Timer */}
+          <span className="px-2 py-0.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-950 font-bold text-[10px] flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+            <span>👥 {currentGame.currentPlayers}</span>
+          </span>
+
+          <span className="px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 font-mono font-black text-[10px] flex items-center gap-1">
+            <span>⏱️ {formatTimeRemaining(secondsRemaining)}</span>
+          </span>
+
+          {/* 💡 Light Symbol Game Hit */}
+          <button
+            onClick={() => handleLightGameHit()}
+            className="p-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] border border-amber-500 transition shadow-2xs flex items-center gap-0.5 cursor-pointer animate-pulse"
+            title="Game Hit / የጨዋታ ፍንጭ"
+          >
+            <Lightbulb className="w-3.5 h-3.5 fill-slate-950" />
+          </button>
+
+          {/* Sound */}
+          <button
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+            title="Toggle Sound"
+          >
+            {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-600" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
+          </button>
+
+          {/* Auto daub */}
+          <button
+            onClick={toggleAutoDaub}
+            className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition cursor-pointer flex items-center gap-0.5 ${
+              autoDaubEnabled
+                ? 'bg-purple-100 border-purple-300 text-purple-900'
+                : 'bg-slate-100 border-slate-200 text-slate-600'
+            }`}
+          >
+            <Sparkles className="w-3 h-3 text-purple-600" />
+            {autoDaubEnabled ? 'Auto' : 'Off'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── ROW 2: ULTRA-COMPACT BALL CALLER & CONTROLS ───────────────── */}
+      <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-2xl shadow-2xs flex items-center justify-between gap-2 shrink-0">
+        {/* Active Ball */}
+        <div className="flex items-center gap-2 shrink-0">
           {currentGame.currentBall ? (
             <div className="relative">
               <div
-                className={`w-16 h-16 rounded-full bg-gradient-to-tr ${getLetterColor(
+                className={`w-11 h-11 rounded-full bg-gradient-to-tr ${getLetterColor(
                   getBallLetter(currentGame.currentBall)
-                )} flex flex-col items-center justify-center shadow-lg ball-active-anim ring-4 ring-amber-400/40`}
+                )} flex flex-col items-center justify-center shadow-md ring-2 ring-amber-400/50 ball-active-anim`}
               >
-                <span className="text-[11px] font-black tracking-widest opacity-90 leading-none">
+                <span className="text-[9px] font-black italic tracking-widest leading-none">
                   {getBallLetter(currentGame.currentBall)}
                 </span>
-                <span className="text-2xl font-black leading-tight">{currentGame.currentBall}</span>
+                <span className="text-base font-black leading-tight">{currentGame.currentBall}</span>
               </div>
             </div>
           ) : (
-            <div className="w-16 h-16 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-600 text-xs font-bold">
+            <div className="w-11 h-11 rounded-full bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-500 text-[10px] font-black">
               {t('ready')}
             </div>
           )}
 
-          {/* Quick Recent Balls Trail */}
-          {currentGame.drawnNumbers.length > 0 && (
-            <div className="flex flex-col items-start gap-1">
-              <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider">
-                {language === 'am' ? 'የቅርብ ኳሶች:' : 'Recent Balls:'}
-              </span>
-              <div className="flex items-center gap-1.5 overflow-x-auto max-w-[200px] no-scrollbar">
-                {currentGame.drawnNumbers.slice(-5).reverse().map((num, idx) => (
-                  <div
-                    key={num}
-                    className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-xs shrink-0 border shadow-xs ${
-                      idx === 0
-                        ? 'bg-amber-400 text-slate-950 border-amber-500 ring-2 ring-amber-300 scale-105'
-                        : 'bg-slate-800 text-white border-slate-700'
-                    }`}
-                  >
-                    {num}
-                  </div>
-                ))}
+          {/* Recent Balls */}
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-[140px] sm:max-w-[180px]">
+            {currentGame.drawnNumbers.slice(-4).reverse().map((num, idx) => (
+              <div
+                key={num}
+                className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-[10px] shrink-0 border shadow-2xs ${
+                  idx === 0
+                    ? 'bg-amber-400 text-slate-950 border-amber-500 scale-105'
+                    : 'bg-slate-800 text-white border-slate-700'
+                }`}
+                title={`Ball ${num}`}
+              >
+                {num}
               </div>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
 
-        {/* THE COMPLETE 75-BALL TABLE (B, I, N, G, O) */}
-        <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-          {rows.map((row) => (
-            <div key={row.letter} className="flex items-center gap-1">
-              {/* Column Letter Badge */}
-              <div className={`w-7 h-6 rounded-md flex items-center justify-center font-black text-xs shrink-0 ${row.color} shadow-xs`}>
-                {row.letter}
-              </div>
-
-              {/* 15 Numbers in Column */}
-              <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
-                {row.range.map((num) => {
-                  const isDrawn = drawnSet.has(num);
-                  const isCurrent = currentGame.currentBall === num;
-
-                  return (
-                    <div
-                      key={num}
-                      className={`h-6 rounded text-[10px] font-bold flex items-center justify-center transition-all ${
-                        isCurrent
-                          ? 'bg-amber-400 text-slate-950 font-black scale-110 shadow-md ring-2 ring-amber-400 z-10'
-                          : isDrawn
-                          ? `${row.color} shadow-xs font-black`
-                          : 'bg-white text-slate-800 border border-slate-200 font-semibold'
-                      }`}
-                      title={`Ball ${num} ${isDrawn ? '(Drawn)' : ''}`}
-                    >
-                      {num}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Draw & Auto Draw Controls */}
-        <div className="pt-2 border-t border-slate-200 flex items-center justify-center gap-2">
+        {/* Controls */}
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => drawNextBall(currentGame.id)}
-            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 shadow-2xs cursor-pointer"
           >
-            <Zap className="w-3.5 h-3.5" /> {t('drawBall')}
+            <Zap className="w-3.5 h-3.5" />
+            <span>{t('drawBall')}</span>
           </button>
 
           <button
             onClick={() => setIsAutoDrawing(!isAutoDrawing)}
-            className={`text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 border cursor-pointer ${
+            className={`text-[11px] font-bold px-2 py-1.5 rounded-xl transition flex items-center gap-1 border cursor-pointer ${
               isAutoDrawing
-                ? 'bg-rose-600 border-rose-600 text-white animate-pulse shadow-xs'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+                ? 'bg-rose-600 border-rose-600 text-white animate-pulse'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
             }`}
           >
-            {isAutoDrawing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-            {isAutoDrawing ? t('pauseAuto') : t('autoDraw')}
+            {isAutoDrawing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+          </button>
+
+          {/* 75-Ball Board Modal Opener */}
+          <button
+            onClick={() => setShowTableModal(true)}
+            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[11px] font-bold transition flex items-center gap-0.5 cursor-pointer"
+            title="Open 75-Ball Master Table"
+          >
+            <Grid className="w-3.5 h-3.5 text-blue-600" />
+            <span className="text-[10px] font-mono">{drawnSet.size}/75</span>
           </button>
         </div>
       </div>
 
-      {/* ── BINGO CARD NUMBERS STATUS BAR (Cards, Blocked, Winners) ──────── */}
-      <div className="bg-white border-2 border-slate-200 rounded-2xl p-3.5 space-y-2.5 shadow-xs">
-        {/* Row 1: Bingo Cards */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{t('bingoCards')}:</span>
+      {/* ── ROW 3: CARD SELECTOR & CARDS TABS STRIP (ONE-SCREEN PICKING) ─ */}
+      <div className="flex items-center justify-between px-1 shrink-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          {activeGameCards.length > 0 ? (
+            activeGameCards.map((c) => {
+              const isActive = activeUserCard?.id === c.id;
+              const isWin = checkFullHouseWin(c.marked);
+              const rem = countRemainingNumbers(c.marked);
+
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCardId(c.id)}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-mono font-black transition flex items-center gap-1 shadow-2xs cursor-pointer ${
+                    isActive
+                      ? 'bg-blue-600 text-white ring-2 ring-blue-400 shadow-sm'
+                      : isWin
+                      ? 'bg-amber-400 text-slate-950 animate-pulse font-black'
+                      : 'bg-white text-slate-800 border border-slate-300 hover:bg-slate-100'
+                  }`}
+                >
+                  <span>#{c.cardNumber}</span>
+                  <span className={`text-[10px] ${isActive ? 'text-blue-100' : 'text-slate-500'}`}>
+                    {isWin ? '🏆' : `(${rem})`}
+                  </span>
+                </button>
+              );
+            })
+          ) : (
+            <span className="text-xs text-slate-600 font-bold italic">
+              {language === 'am' ? 'ካርድ ይምረጡ:' : 'Pick cards to play:'}
+            </span>
+          )}
+        </div>
+
+        {/* ➕ Direct Pick Number / Cards Button — ALWAYS on screen! */}
+        <button
+          onClick={() => {
+            if (!user) {
+              openAuthModal('register');
+            } else {
+              setIsSelectorOpen(true);
+            }
+          }}
+          className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition flex items-center gap-1 shadow-xs cursor-pointer shrink-0"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>{language === 'am' ? 'ካርድ ምረጥ' : '+ Pick Number'}</span>
+        </button>
+      </div>
+
+      {/* ── TOAST / CLAIM ALERTS OVERLAY (NON-BLOCKING) ────────────────── */}
+      {claimStatus && (
+        <div className={`px-3 py-1.5 rounded-xl border text-center text-xs font-bold shadow-md flex items-center justify-between gap-2 shrink-0 animate-in fade-in ${
+          claimStatus.success ? 'bg-emerald-100 border-emerald-400 text-emerald-950' : 'bg-amber-100 border-amber-400 text-amber-950'
+        }`}>
+          <span>{claimStatus.message}</span>
+          <button onClick={() => setClaimStatus(null)} className="p-0.5 text-slate-700 hover:text-slate-950">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {gameHitFeedback && (
+        <div className="px-3 py-1.5 rounded-xl bg-amber-100 border border-amber-400 text-amber-950 text-xs font-bold shadow-md flex items-center justify-between gap-2 shrink-0 animate-bounce">
+          <div className="flex items-center gap-1.5">
+            <Lightbulb className="w-4 h-4 fill-amber-500 text-amber-900 shrink-0" />
+            <span>{gameHitFeedback}</span>
           </div>
+          <button onClick={() => setGameHitFeedback(null)} className="p-0.5 text-amber-900">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            {activeGameCards.length > 0 ? (
-              activeGameCards.map((card) => {
-                const isActive = activeUserCard?.id === card.id;
-                const isFull = checkFullHouseWin(card.marked);
-                const rem = countRemainingNumbers(card.marked);
-
-                return (
-                  <button
-                    key={card.id}
-                    onClick={() => {
-                      setSelectedCardId(card.id);
-                      setViewMode('SINGLE');
-                    }}
-                    className={`px-3 py-1 rounded-xl text-xs font-mono font-black transition flex items-center gap-1 shadow-xs cursor-pointer ${
-                      isActive
-                        ? 'bg-emerald-600 text-white ring-2 ring-emerald-400 scale-105'
-                        : isFull
-                        ? 'bg-amber-400 text-slate-950 font-black animate-pulse'
-                        : 'bg-slate-100 text-slate-800 border border-slate-300 hover:bg-slate-200'
-                    }`}
+      {/* ── ROW 4: THE BINGO CARD WITH THE ATTACHED BINGO! BUTTON ──────── */}
+      {/* Matches user's photo with 100% precision:
+          1. Colored rounded letter chips (B-Blue, I-Red, N-Yellow, G-Green, O-Purple)
+          2. Rounded tiles with bold numbers and centered Star ★ in Green free space
+          3. Attached vivid blue BINGO! button at the bottom with #cardNumber
+      */}
+      <div className="flex-1 flex flex-col justify-between min-h-0 bg-white rounded-3xl border-2 border-slate-200/90 shadow-md overflow-hidden relative">
+        {activeUserCard ? (
+          <>
+            {/* CARD TOP: 5 COLORED ROUNDED HEADERS B - I - N - G - O */}
+            <div className="p-2.5 pb-1">
+              <div className="grid grid-cols-5 gap-1.5 text-center">
+                {[
+                  { letter: 'B', bg: 'bg-[#2563eb]' },
+                  { letter: 'I', bg: 'bg-[#dc2626]' },
+                  { letter: 'N', bg: 'bg-[#f59e0b]' },
+                  { letter: 'G', bg: 'bg-[#16a34a]' },
+                  { letter: 'O', bg: 'bg-[#9333ea]' },
+                ].map((col) => (
+                  <div
+                    key={col.letter}
+                    className={`${col.bg} py-1 sm:py-1.5 rounded-xl text-white font-black italic text-lg sm:text-xl shadow-xs leading-none flex items-center justify-center`}
                   >
-                    #{card.cardNumber}
-                    {isFull ? ' 🏆' : rem <= 2 ? ` (${rem})` : ''}
-                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>}
-                  </button>
-                );
-              })
-            ) : (
-              <span className="text-xs text-slate-500 italic">{t('noCardsChosen')}</span>
-            )}
+                    {col.letter}
+                  </div>
+                ))}
+              </div>
+            </div>
 
-            {/* Button to Choose Card Numbers */}
+            {/* CARD BODY: 5x5 NUMBER TILES */}
+            <div className="px-2.5 pb-2 flex-1 flex flex-col justify-center">
+              <div className="grid grid-cols-5 gap-1.5">
+                {activeUserCard.numbers.map((row, rIdx) =>
+                  row.map((val, cIdx) => {
+                    const isFree = rIdx === 2 && cIdx === 2;
+                    const isMarked = activeUserCard.marked[rIdx][cIdx];
+                    const isJustDrawn = currentGame.currentBall === val;
+                    const isHint = hintCardId === activeUserCard.id && patternHint && patternHint[rIdx][cIdx] && !isMarked && !isFree;
+
+                    return (
+                      <button
+                        key={`${rIdx}-${cIdx}`}
+                        onClick={() => !isFree && daubCell(activeUserCard.id, rIdx, cIdx)}
+                        className={`aspect-square rounded-xl sm:rounded-2xl font-extrabold flex flex-col items-center justify-center text-base sm:text-xl transition-all duration-150 relative border shadow-2xs cursor-pointer ${
+                          isFree
+                            ? 'bg-[#10b981] border-[#059669] text-white' // Bright green with blue star exactly like photo!
+                            : isMarked
+                            ? 'bg-purple-600 text-white border-purple-500 scale-[0.97] shadow-sm font-black'
+                            : isHint
+                            ? 'bg-amber-100 text-slate-950 border-2 border-amber-400 ring-2 ring-amber-300 animate-pulse'
+                            : isJustDrawn
+                            ? 'bg-amber-100 text-slate-950 border-2 border-amber-500 animate-pulse'
+                            : 'bg-[#f8fafc] text-slate-900 hover:bg-slate-100 border-slate-200'
+                        }`}
+                      >
+                        {isFree ? (
+                          /* Center Blue Star ★ on Green tile */
+                          <Star className="w-5 h-5 sm:w-6 sm:h-6 text-[#2563eb] fill-[#2563eb] drop-shadow-xs" />
+                        ) : (
+                          <>
+                            <span>{val}</span>
+                            {isHint && (
+                              <span className="absolute top-0.5 right-0.5 text-[8px] leading-none">💡</span>
+                            )}
+                            {isMarked && (
+                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <div className="w-6 h-6 rounded-full bg-white/20 border border-white/60 animate-ping"></div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* CARD BOTTOM: THE BINGO! BUTTON EXACTLY LIKE THE PICTURE! */}
+            {/* Full-width blue bar attached to the bottom of the card with #cardNumber in corner */}
+            <button
+              onClick={() => handleClaimBingo(activeUserCard.id)}
+              className={`w-full py-3.5 sm:py-4 px-4 flex items-center justify-center relative transition-all duration-200 cursor-pointer shadow-md select-none shrink-0 ${
+                isFullHouseWin
+                  ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 animate-bounce ring-4 ring-amber-300'
+                  : 'bg-[#2563eb] hover:bg-[#1d4ed8] active:brightness-95 text-white'
+              }`}
+              title="Shout BINGO!"
+            >
+              <span className="text-2xl sm:text-3xl font-black italic tracking-wider drop-shadow-sm">
+                BINGO!
+              </span>
+
+              {/* Card number in bottom right corner (e.g. #115) */}
+              <span className={`absolute right-4 text-xs sm:text-sm font-bold font-mono ${
+                isFullHouseWin ? 'text-slate-900' : 'text-blue-200'
+              }`}>
+                #{activeUserCard.cardNumber}
+              </span>
+            </button>
+          </>
+        ) : (
+          /* When player hasn't picked any card yet: Immediate one-screen pick prompt */
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
+            <div className="w-16 h-16 rounded-3xl bg-blue-50 border-2 border-blue-200 flex items-center justify-center text-blue-600 shadow-sm">
+              <Hash className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-slate-900">
+                {language === 'am' ? 'የቢንጎ ካርድ ይምረጡ' : 'Select Your Bingo Card'}
+              </h3>
+              <p className="text-xs text-slate-600 max-w-xs">
+                {language === 'am'
+                  ? 'ለመጫወት የካርድ ቁጥር ይምረጡ (ከ1-3 ካርዶች ይፈቀዳሉ)'
+                  : 'Choose card numbers to enter the game (1-3 cards allowed)'}
+              </p>
+            </div>
+
             <button
               onClick={() => {
                 if (!user) {
@@ -566,470 +619,80 @@ export default function BingoGameRoom({ gameId }: { gameId: string }) {
                   setIsSelectorOpen(true);
                 }
               }}
-              className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-300 transition flex items-center gap-1 cursor-pointer"
+              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white font-black text-sm uppercase tracking-wider transition shadow-md flex items-center gap-2 cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" /> {t('pickCards')}
+              <Plus className="w-4 h-4" />
+              <span>{language === 'am' ? 'ካርድ ቁጥር ይምረጡ' : '+ Pick Bingo Cards'}</span>
             </button>
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Row 2: Blocked */}
-        <div className="flex items-center justify-between border-t border-slate-200 pt-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
-            <Ban className="w-4 h-4 text-rose-500 shrink-0" />
-            <span>{t('blocked')}:</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            {(currentGame.blockedCards || ['200']).map((blkNum) => (
-              <span
-                key={blkNum}
-                className="px-2.5 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 font-mono font-bold text-xs"
-              >
-                {blkNum}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Row 3: Winners */}
-        <div className="flex items-center justify-between border-t border-slate-200 pt-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
-            <Trophy className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>{t('winners')}:</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            {activeGameCards.some((c) => checkFullHouseWin(c.marked)) ? (
-              activeGameCards.filter((c) => checkFullHouseWin(c.marked)).map((c) => (
-                <span
-                  key={c.id}
-                  className="px-2.5 py-0.5 rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-mono font-black text-xs flex items-center gap-1 shadow-xs animate-pulse"
-                >
-                  <Star className="w-3 h-3 fill-slate-950" />
-                  #{c.cardNumber} (FULL HOUSE)
+      {/* ── 75-BALL MASTER TABLE POPUP MODAL (OPTIONAL TOGGLE) ──────────── */}
+      {showTableModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-slate-200 rounded-3xl p-4 max-w-md w-full space-y-3 shadow-2xl animate-in fade-in duration-200">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <div className="flex items-center gap-2">
+                <Grid className="w-4 h-4 text-blue-600" />
+                <h3 className="font-black text-slate-900 text-sm">
+                  {language === 'am' ? 'የቢንጎ 75-ኳስ ሰንጠረዥ' : '75-Ball Master Board'}
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black">
+                  {drawnSet.size} / 75
                 </span>
-              ))
-            ) : (
-              <span className="text-xs text-slate-500 italic">{t('noneYet')} (Full House to Win)</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── 🚨 ALWAYS-VISIBLE PROMINENT BINGO CALLER BUTTON 🚨 ──────────── */}
-      {/* Any player can press this when they finish first to register their win */}
-      <div className={`p-1 rounded-2xl shadow-md transition-all duration-300 ${
-        isAnyWinning || isFullHouseWin
-          ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 ring-4 ring-amber-400/50 animate-pulse'
-          : 'bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500'
-      }`}>
-        <button
-          onClick={() => handleClaimBingo()}
-          className={`w-full py-4 px-4 rounded-xl font-black text-base sm:text-lg uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-sm transform active:scale-95 transition cursor-pointer ${
-            isAnyWinning || isFullHouseWin
-              ? 'bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-slate-950 animate-bounce'
-              : 'bg-slate-950 hover:bg-slate-900 text-amber-300 border border-amber-400/40'
-          }`}
-        >
-          <Flame className={`w-6 h-6 ${isAnyWinning || isFullHouseWin ? 'text-red-600 animate-bounce' : 'text-amber-400'}`} />
-          <span>
-            {isAnyWinning || isFullHouseWin
-              ? (language === 'am' ? '🎉 ቢንጎ በል! ሙሉ ካርቴላ ሞልቷል (BINGO!)' : '🎉 SHOUT BINGO! FULL HOUSE READY!')
-              : (language === 'am' ? '🏆 ቢንጎ በል! (ቀድመው ከጨረሱ ይጫኑ)' : '🏆 SHOUT BINGO! (PRESS IF YOU FINISH FIRST)')}
-          </span>
-          <Trophy className={`w-6 h-6 ${isAnyWinning || isFullHouseWin ? 'text-amber-950 animate-bounce' : 'text-amber-400'}`} />
-        </button>
-      </div>
-
-      {/* ── CLAIM RESULT / FEEDBACK ALERT (BOTH SUCCESS & INCOMPLETE) ───── */}
-      {claimStatus && (
-        <div className={`p-3.5 rounded-2xl border text-center space-y-1.5 animate-fade-in shadow-md relative ${
-          claimStatus.success
-            ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
-            : 'bg-amber-50 border-amber-300 text-amber-950'
-        }`}>
-          <button
-            onClick={() => setClaimStatus(null)}
-            className="absolute top-2.5 right-2.5 text-slate-500 hover:text-slate-900 p-1 cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-          <div className="flex items-center justify-center gap-1.5 font-black text-sm">
-            {claimStatus.success ? (
-              <>
-                <Sparkles className="w-5 h-5 text-emerald-600 animate-spin" />
-                <span className="text-emerald-900">{t('winnerConfirmed')}</span>
-              </>
-            ) : (
-              <>
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
-                <span className="text-amber-900">{language === 'am' ? 'ቢንጎ ገና አልሞላም!' : 'Bingo Not Completed Yet!'}</span>
-              </>
-            )}
-          </div>
-          <p className="text-xs font-semibold">{claimStatus.message}</p>
-          {claimStatus.prize && (
-            <p className="text-xs text-emerald-800 font-mono font-black">
-              +{claimStatus.prize} {t('creditedToWallet')}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* ── VIEW MODE SWITCHER (MULTI-CARD VS SINGLE CARD) ─────────────── */}
-      {activeGameCards.length > 1 && (
-        <div className="flex items-center justify-between bg-white px-3.5 py-2 rounded-xl border border-slate-200 text-xs shadow-xs">
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-amber-600" />
-            <span className="font-bold text-slate-900">
-              {language === 'am' ? `የእርስዎ ${activeGameCards.length} ካርዶች` : `Multiple Cards (${activeGameCards.length})`}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setViewMode('ALL')}
-              className={`px-3 py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ${
-                viewMode === 'ALL'
-                  ? 'bg-slate-950 text-white font-black shadow-xs'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-              }`}
-            >
-              {language === 'am' ? `ሁሉንም አሳይ (${activeGameCards.length})` : `All ${activeGameCards.length} Cards`}
-            </button>
-            <button
-              onClick={() => setViewMode('SINGLE')}
-              className={`px-3 py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ${
-                viewMode === 'SINGLE'
-                  ? 'bg-slate-950 text-white font-black shadow-xs'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-              }`}
-            >
-              {language === 'am' ? 'አንድ ካርድ' : 'Single Card'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── BINGO CARDS DISPLAY ─────────────────────────────────────────── */}
-      {viewMode === 'ALL' && activeGameCards.length > 1 ? (
-        <div className="space-y-4">
-          {activeGameCards.map((card, cardIndex) => {
-            const fullHouseWin = checkFullHouseWin(card.marked);
-            const rem = countRemainingNumbers(card.marked);
-
-            return (
-              <div 
-                key={card.id} 
-                className={`bg-white p-4 rounded-2xl shadow-xs space-y-3 transition-all border-2 ${
-                  fullHouseWin 
-                    ? 'border-amber-400 ring-2 ring-amber-400/30 bg-amber-50/20' 
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2.5 py-0.5 rounded-lg bg-emerald-600 text-white font-mono font-black text-xs">
-                      {t('card')} #{card.cardNumber}
-                    </span>
-                    <span className="text-[11px] text-slate-600 font-semibold">
-                      Card {cardIndex + 1} of {activeGameCards.length}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                      fullHouseWin
-                        ? 'bg-amber-400 text-slate-950 border-amber-500 font-black animate-pulse'
-                        : rem <= 2
-                        ? 'bg-rose-100 text-rose-900 border-rose-300 animate-pulse'
-                        : 'bg-emerald-100 border-emerald-300 text-emerald-900'
-                    }`}>
-                      {fullHouseWin ? '🏆 FULL HOUSE!' : rem === 1 ? '🔥 1 TO GO!' : `${rem} TO FULL HOUSE`}
-                    </span>
-
-                    {/* 💡 Light Symbol Game Hit Button on Card */}
-                    <button
-                      type="button"
-                      onClick={() => handleLightGameHit(card)}
-                      className="px-2.5 py-0.5 rounded-lg text-xs font-black transition flex items-center gap-1 cursor-pointer bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 border border-amber-500 shadow-xs hover:brightness-105 active:scale-95"
-                      title="Light Symbol: Press for Game Hit"
-                    >
-                      <Lightbulb className="w-3.5 h-3.5 fill-slate-950 text-slate-950" />
-                      <span>{language === 'am' ? '💡 ፍንጭ' : '💡 Hit'}</span>
-                    </button>
-                  </div>
-
-                  {/* Individual Card BINGO Button */}
-                  <button
-                    onClick={() => handleClaimBingo(card.id)}
-                    className={`px-3 py-1.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-xs flex items-center gap-1.5 cursor-pointer ${
-                      fullHouseWin
-                        ? 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:brightness-110 text-slate-950 animate-bounce ring-2 ring-amber-300'
-                        : 'bg-slate-950 hover:bg-slate-800 text-amber-300 border border-amber-400/40'
-                    }`}
-                    title={fullHouseWin ? 'Claim Bingo Win!' : `Shout Bingo (${rem} to go)`}
-                  >
-                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{fullHouseWin ? '🎉 BINGO!' : (language === 'am' ? 'ቢንጎ በል!' : 'SHOUT BINGO!')}</span>
-                  </button>
-                </div>
-
-                {/* B-I-N-G-O Headers */}
-                <div className="grid grid-cols-5 gap-1.5 text-center font-black text-xs sm:text-sm">
-                  {['B', 'I', 'N', 'G', 'O'].map((l, i) => (
-                    <div
-                      key={l}
-                      className={`py-1 rounded-lg text-white font-black shadow-xs ${
-                        i === 0
-                          ? 'bg-blue-600'
-                          : i === 1
-                          ? 'bg-rose-600'
-                          : i === 2
-                          ? 'bg-amber-500 text-slate-950'
-                          : i === 3
-                          ? 'bg-emerald-600'
-                          : 'bg-purple-600'
-                      }`}
-                    >
-                      {l}
-                    </div>
-                  ))}
-                </div>
-
-                {/* 5x5 Matrix Grid */}
-                <div className="grid grid-cols-5 gap-1.5">
-                  {card.numbers.map((row, rIdx) =>
-                    row.map((val, cIdx) => {
-                      const isFree = rIdx === 2 && cIdx === 2;
-                      const isMarked = card.marked[rIdx][cIdx];
-                      const isJustDrawn = currentGame.currentBall === val;
-                      const isHint = hintCardId === card.id && patternHint && patternHint[rIdx][cIdx] && !isMarked && !isFree;
-
-                      return (
-                        <button
-                          key={`${rIdx}-${cIdx}`}
-                          onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
-                          className={`aspect-square rounded-xl font-black flex flex-col items-center justify-center text-xs sm:text-sm transition-all duration-200 relative overflow-hidden border-2 shadow-xs ${
-                            isFree
-                              ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 border-amber-500'
-                              : isMarked
-                              ? 'bg-purple-600 text-white border-purple-500 shadow-purple-900/30 scale-[0.98]'
-                              : isHint
-                              ? 'bg-amber-100 text-amber-950 border-2 border-amber-400 ring-2 ring-amber-300 animate-pulse'
-                              : isJustDrawn
-                              ? 'bg-amber-100 text-amber-950 border-2 border-amber-500 animate-pulse'
-                              : 'bg-white text-slate-950 hover:bg-slate-100 border-slate-300'
-                          }`}
-                        >
-                          {isFree ? (
-                            <div className="flex flex-col items-center">
-                              <Star className="w-3.5 h-3.5 text-slate-950 fill-slate-950 mb-0.5" />
-                              <span className="text-[9px] uppercase tracking-tighter font-black">{t('free')}</span>
-                            </div>
-                          ) : (
-                            <>
-                              <span>{val}</span>
-                              {isHint && (
-                                <span className="absolute top-0.5 right-0.5 text-[8px] leading-none">💡</span>
-                              )}
-                              {isMarked && (
-                                <div className="absolute inset-0 bg-purple-500/10 flex items-center justify-center">
-                                  <div className="w-5 h-5 rounded-full bg-white/20 border border-white/60 animate-ping"></div>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
               </div>
-            );
-          })}
-        </div>
-      ) : activeUserCard ? (
-        <div className="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-lg bg-emerald-600 text-white font-mono font-black text-xs">
-                {t('card')} #{activeUserCard.cardNumber}
-              </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                isFullHouseWin
-                  ? 'bg-amber-400 text-slate-950 border-amber-500 font-black animate-pulse'
-                  : remainingCount <= 2
-                  ? 'bg-rose-100 text-rose-900 border-rose-300 animate-pulse'
-                  : 'bg-emerald-100 border-emerald-300 text-emerald-900'
-              }`}>
-                {isFullHouseWin ? '🏆 FULL HOUSE!' : remainingCount === 1 ? '🔥 1 TO GO!' : `${remainingCount} TO FULL HOUSE`}
-              </span>
-
-              {/* 💡 Light Symbol Game Hit Button on Card */}
               <button
-                type="button"
-                onClick={() => handleLightGameHit(activeUserCard)}
-                className="px-2.5 py-0.5 rounded-lg text-xs font-black transition flex items-center gap-1 cursor-pointer bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 border border-amber-500 shadow-xs hover:brightness-105 active:scale-95"
-                title="Light Symbol: Press for Game Hit"
+                onClick={() => setShowTableModal(false)}
+                className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
               >
-                <Lightbulb className="w-3.5 h-3.5 fill-slate-950 text-slate-950" />
-                <span>{language === 'am' ? '💡 ፍንጭ' : '💡 Hit'}</span>
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Quick Card Pill Switcher */}
-            {activeGameCards.length > 1 && (
-              <div className="flex items-center gap-1">
-                {activeGameCards.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setSelectedCardId(c.id)}
-                    className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-bold transition ${
-                      activeUserCard.id === c.id
-                        ? 'bg-amber-400 text-slate-950 font-black'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-                    }`}
-                  >
-                    #{c.cardNumber}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+            {/* 75-Ball Board Grid */}
+            <div className="space-y-1 bg-slate-50 p-2 rounded-xl border border-slate-200">
+              {rows.map((row) => (
+                <div key={row.letter} className="flex items-center gap-1">
+                  <div className={`w-6 h-6 rounded-md flex items-center justify-center font-black text-xs shrink-0 ${row.color}`}>
+                    {row.letter}
+                  </div>
+                  <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
+                    {row.range.map((num) => {
+                      const isDrawn = drawnSet.has(num);
+                      const isCurrent = currentGame.currentBall === num;
 
-          {/* B-I-N-G-O Headers */}
-          <div className="grid grid-cols-5 gap-1.5 text-center font-black text-xs sm:text-sm">
-            {['B', 'I', 'N', 'G', 'O'].map((l, i) => (
-              <div
-                key={l}
-                className={`py-1.5 rounded-lg text-white font-black shadow-xs ${
-                  i === 0
-                    ? 'bg-blue-600'
-                    : i === 1
-                    ? 'bg-rose-600'
-                    : i === 2
-                    ? 'bg-amber-500 text-slate-950'
-                    : i === 3
-                    ? 'bg-emerald-600'
-                    : 'bg-purple-600'
-                }`}
-              >
-                {l}
-              </div>
-            ))}
-          </div>
+                      return (
+                        <div
+                          key={num}
+                          className={`h-5 rounded text-[9px] font-bold flex items-center justify-center transition-all ${
+                            isCurrent
+                              ? 'bg-amber-400 text-slate-950 font-black scale-110 shadow-xs ring-1 ring-amber-400'
+                              : isDrawn
+                              ? `${row.color} font-black`
+                              : 'bg-white text-slate-700 border border-slate-200'
+                          }`}
+                        >
+                          {num}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
 
-          {/* 5x5 Matrix */}
-          <div className="grid grid-cols-5 gap-1.5">
-            {activeUserCard.numbers.map((row, rIdx) =>
-              row.map((val, cIdx) => {
-                const isFree = rIdx === 2 && cIdx === 2;
-                const isMarked = activeUserCard.marked[rIdx][cIdx];
-                const isJustDrawn = currentGame.currentBall === val;
-                const isHint = hintCardId === activeUserCard.id && patternHint && patternHint[rIdx][cIdx] && !isMarked && !isFree;
-
-                return (
-                  <button
-                    key={`${rIdx}-${cIdx}`}
-                    onClick={() => !isFree && daubCell(activeUserCard.id, rIdx, cIdx)}
-                    className={`aspect-square rounded-xl font-black flex flex-col items-center justify-center text-xs sm:text-sm transition-all duration-200 relative overflow-hidden border-2 shadow-xs ${
-                      isFree
-                        ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 border-amber-500'
-                        : isMarked
-                        ? 'bg-purple-600 text-white border-purple-500 shadow-purple-900/30 scale-[0.98]'
-                        : isHint
-                        ? 'bg-amber-100 text-amber-950 border-2 border-amber-400 ring-2 ring-amber-300 animate-pulse'
-                        : isJustDrawn
-                        ? 'bg-amber-100 text-amber-950 border-2 border-amber-500 animate-pulse'
-                        : 'bg-white text-slate-950 hover:bg-slate-100 border-slate-300'
-                    }`}
-                  >
-                    {isFree ? (
-                      <div className="flex flex-col items-center">
-                        <Star className="w-3.5 h-3.5 text-slate-950 fill-slate-950 mb-0.5" />
-                        <span className="text-[9px] uppercase tracking-tighter font-black">{t('free')}</span>
-                      </div>
-                    ) : (
-                      <>
-                        <span>{val}</span>
-                        {isHint && (
-                          <span className="absolute top-0.5 right-0.5 text-[8px] leading-none">💡</span>
-                        )}
-                        {isMarked && (
-                          <div className="absolute inset-0 bg-purple-500/10 flex items-center justify-center">
-                            <div className="w-6 h-6 rounded-full bg-white/20 border border-white/60 animate-ping"></div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </button>
-                );
-              })
-            )}
-          </div>
-
-          {/* Direct BINGO Button at bottom of card */}
-          <div className="mt-3 pt-3 border-t border-slate-200">
             <button
-              onClick={() => handleClaimBingo(activeUserCard.id)}
-              className={`w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 shadow-sm cursor-pointer ${
-                isFullHouseWin
-                  ? 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 hover:brightness-110 animate-bounce ring-2 ring-amber-300'
-                  : 'bg-slate-950 hover:bg-slate-900 text-amber-300 border border-amber-400/40'
-              }`}
+              onClick={() => setShowTableModal(false)}
+              className="w-full py-2 rounded-xl bg-slate-950 text-white font-bold text-xs cursor-pointer"
             >
-              <Trophy className={`w-5 h-5 ${isFullHouseWin ? 'text-slate-950' : 'text-amber-400'}`} />
-              {isFullHouseWin 
-                ? (language === 'am' ? '🎉 ቢንጎ በል! ሙሉ ካርቴላ ሞልቷል' : '🎉 SHOUT BINGO! FULL HOUSE') 
-                : (language === 'am' ? `🎉 ቢንጎ በል! (${remainingCount} ቁጥሮች ቀርተዋል)` : `🎉 SHOUT BINGO! (${remainingCount} to Full House)`)}
+              {language === 'am' ? 'ዝጋ (Close)' : 'Close Board'}
             </button>
           </div>
         </div>
-      ) : !user ? (
-        /* Guest Open Account Prompt Card */
-        <div className="bg-white border-2 border-amber-300 p-6 rounded-2xl text-center space-y-4 shadow-sm">
-          <div className="w-14 h-14 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center mx-auto text-amber-700">
-            <Sparkles className="w-7 h-7" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-black text-slate-900">
-              {language === 'am' ? 'የቢንጎ ካርድ ለመምረጥ አካውንት ይክፈቱ' : 'Open an Account to Choose Cards & Play'}
-            </h3>
-            <p className="text-xs text-slate-600 max-w-xs mx-auto">
-              {language === 'am'
-                ? 'በ75-ኳስ የቢንጎ ውድድር ለመሳተፍ እና ያሸነፉትን በቴሌብር እና ሲቢኢ ለማውጣት በስልክ ቁጥርዎ ይመዝገቡ።'
-                : 'Register your Ethiopian phone number to pick cards, enter live draws, and withdraw real ETB cash prizes.'}
-            </p>
-          </div>
-
-          <button
-            onClick={() => openAuthModal('register')}
-            className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 hover:brightness-105 transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>{language === 'am' ? 'አካውንት ክፈት (20 ብር ቦነስ)' : 'Open Account (20 ETB Bonus)'}</span>
-          </button>
-        </div>
-      ) : (
-        /* Choose Cards Prompt */
-        <div className="bg-white border-2 border-slate-200 p-6 rounded-2xl text-center space-y-4 shadow-xs">
-          <Hash className="w-12 h-12 text-amber-600 mx-auto" />
-          <div>
-            <h3 className="text-base font-black text-slate-900">{t('chooseCardNumbersAndJoin')}</h3>
-            <p className="text-xs text-slate-600 mt-1">
-              {t('chooseCardNumbersDesc')}
-            </p>
-          </div>
-
-          <button
-            onClick={() => setIsSelectorOpen(true)}
-            className="w-full py-3 rounded-xl font-black text-sm bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:brightness-105 transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Hash className="w-4 h-4" /> {t('chooseCardNumbersBtn')}
-          </button>
-        </div>
       )}
 
-      {/* Card Selector Modal */}
+      {/* ── CARD SELECTOR MODAL ────────────────────────────────────────── */}
       <CardNumberSelector
         isOpen={isSelectorOpen}
         onClose={() => setIsSelectorOpen(false)}
