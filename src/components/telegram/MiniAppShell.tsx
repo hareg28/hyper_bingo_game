@@ -80,45 +80,45 @@ export default function MiniAppShell({
   };
 
   return (
-    <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200 h-full max-h-[100dvh] overflow-hidden">
+    <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200" style={{height:'100dvh',maxHeight:'100dvh',overflow:'hidden'}}>
       {/* Telegram WebApp Frame Header - Clean White */}
-      <div className="bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between sticky top-0 z-30 shadow-xs shrink-0">
+      <div className="bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between sticky top-0 z-30 shadow-xs shrink-0 min-w-0 overflow-hidden">
         {user ? (
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-xs">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-xs shrink-0">
               {user.name.charAt(0)}
             </div>
-            <div>
-              <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1">
+            <div className="min-w-0">
+              <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1 truncate">
                 @{user.username}
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
               </h3>
-              <span className="text-[10px] text-slate-500 font-bold">{t('telegramMiniApp')} v3.0 (Hyper Mode)</span>
+              <span className="text-[10px] text-slate-500 font-bold block truncate">{t('telegramMiniApp')} v4.0</span>
             </div>
           </div>
         ) : (
           <button
             onClick={() => openAuthModal('register')}
-            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-xs flex items-center gap-1.5 transition cursor-pointer"
+            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
           >
             <UserIcon className="w-3.5 h-3.5" />
             <span>{language === 'am' ? 'አካውንት ክፈት' : 'Open Account'}</span>
           </button>
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 shrink-0 ml-1">
           {/* Admin Header Shortcut (Only for Admins) */}
           {isUserAdmin && (
             <button
               onClick={() => setActiveTab('admin')}
-              className={`px-2.5 py-1 rounded-xl font-bold text-xs border transition flex items-center gap-1 cursor-pointer ${
+              className={`px-2 py-1 rounded-xl font-bold text-[10px] border transition flex items-center gap-0.5 cursor-pointer ${
                 activeTab === 'admin'
                   ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-xs'
                   : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
               }`}
               title={t('adminDashboard')}
             >
-              <Shield className="w-3.5 h-3.5 text-purple-700" />
+              <Shield className="w-3 h-3 text-purple-700" />
               {t('adminTab')}
             </button>
           )}
@@ -126,20 +126,20 @@ export default function MiniAppShell({
           {/* Language Switcher */}
           <button
             onClick={() => setLanguage(language === 'en' ? 'am' : 'en')}
-            className="px-2 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 transition flex items-center gap-1 cursor-pointer"
+            className="px-1.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] border border-slate-300 transition flex items-center gap-0.5 cursor-pointer"
             title="Switch Language / ቋንቋ ይምረጡ"
           >
-            <Globe className="w-3.5 h-3.5 text-slate-600" />
+            <Globe className="w-3 h-3 text-slate-600" />
             {language === 'en' ? '🇪🇹 አማ' : '🇬🇧 EN'}
           </button>
 
           {/* Wallet Balance Chip */}
           <button
             onClick={() => setActiveTab('wallet')}
-            className="px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 font-mono font-black text-xs hover:bg-emerald-100 transition flex items-center gap-1 cursor-pointer"
+            className="px-2 py-1 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 font-mono font-black text-[10px] hover:bg-emerald-100 transition flex items-center gap-0.5 cursor-pointer"
           >
-            <Wallet className="w-3.5 h-3.5 text-emerald-600" />
-            {formatETB(wallet.availableBalance)}
+            <Wallet className="w-3 h-3 text-emerald-600 shrink-0" />
+            <span className="truncate max-w-[52px]">{formatETB(wallet.availableBalance)}</span>
           </button>
 
           {onClose && (
@@ -154,7 +154,7 @@ export default function MiniAppShell({
       </div>
 
       {/* Main Content Area */}
-      <div className={`flex-1 min-h-0 ${activeTab === 'game' ? 'overflow-hidden p-1 pb-16 flex flex-col justify-start' : 'overflow-y-auto overscroll-contain p-3 pb-36 space-y-3'} bg-slate-50/70`}>
+      <div className={`flex-1 min-h-0 overflow-x-hidden ${activeTab === 'game' ? 'overflow-y-hidden p-1 pb-16 flex flex-col justify-start' : 'overflow-y-auto overscroll-contain p-3 pb-24 space-y-3'} bg-slate-50/70`}>
         {/* LOBBY TAB */}
         {activeTab === 'lobby' && (
           <div className="space-y-3">
@@ -582,7 +582,7 @@ export default function MiniAppShell({
       </div>
 
       {/* Bottom Sticky Telegram Navigation Bar - Clean White */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-[440px] mx-auto bg-white border-t border-slate-200 px-3 py-1.5 flex items-center justify-around z-30 shadow-md shrink-0">
+      <div className="bg-white border-t border-slate-200 px-3 py-1.5 flex items-center justify-around z-30 shadow-md shrink-0 w-full">
         <button
           onClick={() => setActiveTab('lobby')}
           className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${

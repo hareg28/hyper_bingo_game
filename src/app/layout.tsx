@@ -8,6 +8,13 @@ import AuthModal from '../components/auth/AuthModal';
 export const metadata: Metadata = {
   title: 'Hyper Bingo - Telegram + Web Real-Money Bingo Platform',
   description: 'Digital Hyper Bingo platform with Telegram Bot, Telegram Mini App, Real-Time 75-Ball Game Engine, Telebirr & CBE Birr Wallet integration.',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover',
+  other: {
+    'theme-color': '#ffffff',
+    'mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-capable': 'yes',
+    'format-detection': 'telephone=no',
+  },
 };
 
 export default function RootLayout({

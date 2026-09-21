@@ -19,6 +19,9 @@
     color: #0f172a;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     overflow-x: hidden;
+    overflow-y: hidden;
+    max-width: 100vw;
+    width: 100%;
   }
 }
 
@@ -66,12 +69,17 @@
 /* Telegram Mini App Container styling */
 .tg-container {
   max-width: 440px;
+  width: 100%;
   margin: 0 auto;
-  min-height: 100vh;
+  min-height: 100dvh;
+  height: 100dvh;
   background: #ffffff;
   color: #0f172a;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
   position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Light styling for game panels inside Mini App */
