@@ -35,8 +35,8 @@ export default function PublicWebsitePage() {
   }, []);
 
   return (
-    <div className="h-[100dvh] max-h-[100dvh] bg-slate-100 flex flex-col items-center justify-start text-slate-900 font-sans overflow-hidden">
-      <div className="w-full max-w-[440px] h-full max-h-[100dvh] bg-white shadow-xl flex flex-col overflow-hidden">
+    <div className="h-[100dvh] max-h-[100dvh] w-full bg-slate-100 flex flex-col items-center justify-start text-slate-900 font-sans overflow-hidden">
+      <div className="w-full max-w-[440px] h-full max-h-[100dvh] bg-white shadow-xl flex flex-col overflow-hidden relative">
         <MiniAppShell initialTab={miniAppTab} />
       </div>
     </div>

@@ -452,11 +452,31 @@ export const GAME_NAME_TRANSLATIONS: Record<string, { en: string; am: string }> 
 };
 
 export function localizeGameName(name: string, lang: Language): string {
-  if (lang === 'en') return name;
+  if (!name) return '';
+
+  // Standardize any legacy name
+  let cleanName = name;
+  if (name.includes('Penny Bingo Express') || name.includes('Penny Bingo')) cleanName = '⚡ Hyper 5';
+  else if (name.includes('Mini Birr Starter') || name.includes('Mini Birr')) cleanName = '⚡ Hyper 10';
+  else if (name.includes('Casual 20 ETB') || name.includes('Casual 20')) cleanName = '🎲 Hyper 20';
+  else if (name.includes('Hyper 30 Quick') || name.includes('Hyper 30')) cleanName = '🎯 Hyper 30';
+  else if (name.includes('Weekend Hyper 35')) cleanName = '🌟 Weekend Hyper 35';
+  else if (name.includes('Weekend Hyper 50')) cleanName = '🌟 Weekend Hyper 50';
+  else if (name.includes('Weekend Hyper 100')) cleanName = '🌟 Weekend Hyper 100';
+  else if (name.includes('Hyper 100 High') || name.includes('Hyper 100 Arena') || name.includes('High Stakes Arena')) cleanName = '🔥 Hyper 100';
+  else if (name.includes('Hyper 200')) cleanName = '💎 Hyper 200';
+  else if (name.includes('Hyper 300')) cleanName = '🏅 Hyper 300';
+  else if (name.includes('Hyper 500') || name.includes('VIP Mega Jackpot')) cleanName = '👑 Hyper 500';
+  else if (name.includes('Hyper 1000') || name.includes('Grand Champions')) cleanName = '🏆 Hyper 1000';
+
+  if (lang === 'en') return cleanName;
+  if (GAME_NAME_TRANSLATIONS[cleanName]) {
+    return GAME_NAME_TRANSLATIONS[cleanName].am;
+  }
   if (GAME_NAME_TRANSLATIONS[name]) {
     return GAME_NAME_TRANSLATIONS[name].am;
   }
-  return name;
+  return cleanName;
 }
 
 export function localizeGameTime(time: string, lang: Language): string {
