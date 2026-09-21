@@ -59,6 +59,7 @@ interface BingoContextType {
   updateGameStatus: (gameId: string, status: GameStatus) => void;
   daubCell: (cardId: string, row: number, col: number) => void;
   claimBingo: (cardId: string) => { success: boolean; message: string; prize?: number };
+  blockCard: (gameId: string, cardNumber: string) => void;
   drawNextBall: (gameId: string) => number | null;
   dismissNotification: (id: string) => void;
   addNotification: (title: string, body: string, type?: 'success' | 'info' | 'warning' | 'win') => void;
@@ -731,6 +732,19 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         return { ...card, marked: newMarked };
       })
     );
+  // 8b. BLOCK CARD (Penalty for false bingo claims)
+  const blockCard = (gameId: string, cardNumber: string) => {
+    setGames((prev) =>
+      prev.map((g) => {
+        if (g.id !== gameId) return g;
+        const currentBlocked = g.blockedCards || [];
+        if (currentBlocked.includes(cardNumber)) return g;
+        return {
+          ...g,
+          blockedCards: [...currentBlocked, cardNumber],
+        };
+      })
+    );
   };
 
   // 9. CLAIM BINGO
@@ -746,30 +760,58 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const game = games.find((g) => g.id === card.gameId);
     if (!game) return { success: false, message: 'Game not found' };
 
+    // Check if card is already blocked
+    if (game.blockedCards?.includes(card.cardNumber)) {
+      return {
+        success: false,
+        message: `🚫 Card #${card.cardNumber} is blocked in this round due to an invalid claim.`,
+      };
+    }
+
     // Check pattern completeness - FULL HOUSE ONLY (No one-line bingo)
     const isFullHouse = checkFullHouseWin(card.marked);
 
     if (!isFullHouse) {
-      addNotification('❌ Invalid Bingo Claim', 'In Hyper Bingo, you must complete the Full Card (ሙሉ ካርቴላ / Full House) to shout Bingo!', 'warning');
-      return { success: false, message: 'Full Card (Full House) required to win.' };
+      // Automatically BLOCK this card for false / premature Bingo claim!
+      blockCard(game.id, card.cardNumber);
+
+      addNotification(
+        '🚫 BLOCKED! Disqualified for False Bingo',
+        `Card #${card.cardNumber} shouted Bingo without completing the Full House (ሙሉ ካርቴላ). This card is now BLOCKED!`,
+        'warning'
+      );
+      return {
+        success: false,
+        message: `🚫 BLOCKED! Card #${card.cardNumber} is now blocked for shouting Bingo without completing the game.`,
+      };
     }
 
     const patternName = 'Full House (ሙሉ ካርቴላ)';
     const prizeSharePercentage = 1.0; // 100% of prize pool for Full House winner!
     const calculatedPrize = Math.round(game.prizePool * prizeSharePercentage);
+    const winBall = game.currentBall || (game.drawnNumbers.length > 0 ? game.drawnNumbers[game.drawnNumbers.length - 1] : 75);
 
-    // Record winner in game
+    // Record winner in game with card number & winning ball
     const winRecord: WinnerRecord = {
       userId: user.id,
       username: user.username,
+      cardNumber: card.cardNumber,
+      winningBall: winBall,
       pattern: patternName,
       prizeWon: calculatedPrize,
       claimedAt: new Date().toISOString(),
     };
 
-
     setGames((prev) =>
-      prev.map((g) => (g.id === game.id ? { ...g, winners: [...g.winners, winRecord] } : g))
+      prev.map((g) =>
+        g.id === game.id
+          ? {
+              ...g,
+              status: 'COMPLETED',
+              winners: [...g.winners, winRecord],
+            }
+          : g
+      )
     );
 
     // Update user wallet & transaction record
@@ -791,7 +833,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       balanceAfter: newAvailableBalance,
       reference: `WIN-${patternName.toUpperCase()}`,
       status: 'COMPLETED',
-      description: `BINGO Winner! ${patternName} in ${game.name}`,
+      description: `BINGO Winner! ${patternName} with Card #${card.cardNumber} in ${game.name}`,
       createdAt: new Date().toISOString(),
     };
     setTransactions((prev) => [tx, ...prev]);
@@ -842,11 +884,15 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     addNotification(
       '🏆 BINGO WINNER! 🏆',
-      `Congratulations! You claimed ${patternName} and won ${calculatedPrize} ETB!`,
+      `Congratulations! You claimed ${patternName} with Card #${card.cardNumber} and won ${calculatedPrize} ETB!`,
       'win'
     );
 
-    return { success: true, message: `BINGO! You won ${calculatedPrize} ETB (${patternName})!`, prize: calculatedPrize };
+    return {
+      success: true,
+      message: `🎉 BINGO! Card #${card.cardNumber} won ${calculatedPrize} ETB (${patternName})!`,
+      prize: calculatedPrize,
+    };
   };
 
   // 10. REAL-TIME DRAW NEXT BALL
@@ -927,6 +973,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         updateGameStatus,
         daubCell,
         claimBingo,
+        blockCard,
         drawNextBall,
         dismissNotification,
         addNotification,

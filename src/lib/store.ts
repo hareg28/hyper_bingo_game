@@ -30,7 +30,7 @@ export const INITIAL_GAMES: Game[] = [
   // ===== SMALL GAMES (5 – 30 ETB) =====
   {
     id: 'gm_small_05',
-    name: '\u{1F3C9} Penny Bingo Express',
+    name: '⚡ Hyper 5',
     gameType: 'TURBO_EXPRESS',
     entryPrice: 5,
     maxPlayers: 100,
@@ -47,7 +47,7 @@ export const INITIAL_GAMES: Game[] = [
   },
   {
     id: 'gm_small_10',
-    name: '\u26A1 Mini Birr Starter',
+    name: '⚡ Hyper 10',
     gameType: 'QUICK_BINGO',
     entryPrice: 10,
     maxPlayers: 200,
@@ -63,7 +63,7 @@ export const INITIAL_GAMES: Game[] = [
   },
   {
     id: 'gm_small_20',
-    name: '\u{1F3B2} Casual 20 ETB Arena',
+    name: '🎲 Hyper 20',
     gameType: 'CLASSIC_75',
     entryPrice: 20,
     maxPlayers: 150,
@@ -78,7 +78,7 @@ export const INITIAL_GAMES: Game[] = [
   },
   {
     id: 'gm_small_30',
-    name: '\u{1F3AF} Hyper 30 Quick Round',
+    name: '🎯 Hyper 30',
     gameType: 'QUICK_BINGO',
     entryPrice: 30,
     maxPlayers: 120,
@@ -92,10 +92,10 @@ export const INITIAL_GAMES: Game[] = [
     createdAt: '2026-09-15T20:30:00Z',
   },
 
-  // ===== WEEKEND LOTTERY — Hyper 35 / Hyper 50 / Hyper 100 / Hyper Fast (Fri–Sun) =====
+  // ===== WEEKEND LOTTERY — Hyper 35 / Hyper 50 / Hyper 100 (Fri–Sun) =====
   {
     id: 'gm_weekend_35',
-    name: '\u{1F31F} Weekend Hyper 35 — Hyper Fast',
+    name: '🌟 Weekend Hyper 35',
     gameType: 'WEEKEND_LOTTERY',
     entryPrice: 35,
     minPlayers: 15,
@@ -114,7 +114,7 @@ export const INITIAL_GAMES: Game[] = [
   },
   {
     id: 'gm_weekend_50',
-    name: '\u{1F31F} Weekend Hyper 50 Blitz',
+    name: '🌟 Weekend Hyper 50',
     gameType: 'WEEKEND_LOTTERY',
     entryPrice: 50,
     minPlayers: 10,
@@ -131,7 +131,7 @@ export const INITIAL_GAMES: Game[] = [
   },
   {
     id: 'gm_weekend_100',
-    name: '\u{1F31F} Weekend Hyper 100 Jackpot',
+    name: '🌟 Weekend Hyper 100',
     gameType: 'WEEKEND_LOTTERY',
     entryPrice: 100,
     minPlayers: 8,
@@ -150,7 +150,7 @@ export const INITIAL_GAMES: Game[] = [
   // ===== HIGH STAKES GAMES (100 / 200 / 300 / 500 / 1000 ETB) =====
   {
     id: 'gm_high_100',
-    name: '\u{1F525} Hyper 100 High Arena',
+    name: '🔥 Hyper 100',
     gameType: 'HIGH_STAKES',
     entryPrice: 100,
     minPlayers: 20,
@@ -166,7 +166,7 @@ export const INITIAL_GAMES: Game[] = [
   },
   {
     id: 'gm_high_200',
-    name: '\u{1F48E} Hyper 200 Elite Room',
+    name: '💎 Hyper 200',
     gameType: 'HIGH_STAKES',
     entryPrice: 200,
     minPlayers: 15,
@@ -182,7 +182,7 @@ export const INITIAL_GAMES: Game[] = [
   },
   {
     id: 'gm_high_300',
-    name: '\u{1F3C5} Hyper 300 Champion Room',
+    name: '🏅 Hyper 300',
     gameType: 'HIGH_STAKES',
     entryPrice: 300,
     minPlayers: 12,
@@ -198,7 +198,7 @@ export const INITIAL_GAMES: Game[] = [
   },
   {
     id: 'gm_large_500',
-    name: '\u{1F451} Hyper 500 VIP Jackpot',
+    name: '👑 Hyper 500',
     gameType: 'HIGH_STAKES',
     entryPrice: 500,
     minPlayers: 10,
@@ -214,7 +214,7 @@ export const INITIAL_GAMES: Game[] = [
   },
   {
     id: 'gm_large_1000',
-    name: '\u{1F3C6} Hyper 1000 Grand Champions',
+    name: '🏆 Hyper 1000',
     gameType: 'HIGH_STAKES',
     entryPrice: 1000,
     minPlayers: 5,

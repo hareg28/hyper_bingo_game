@@ -29,6 +29,8 @@ export type GameType = 'QUICK_BINGO' | 'CLASSIC_75' | 'HIGH_STAKES' | 'TURBO_EXP
 export interface WinnerRecord {
   userId: string;
   username: string;
+  cardNumber?: string;      // Winning card number e.g. '12608'
+  winningBall?: number;     // The ball on which Bingo was completed e.g. 42
   pattern: string; // e.g. 'Line', 'Two Lines', 'Full House'
   prizeWon: number; // ETB
   claimedAt: string;

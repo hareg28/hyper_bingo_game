@@ -256,10 +256,15 @@ export default function MiniAppShell({
                               {g.status === 'RUNNING' ? '● LIVE' : g.status === 'STARTING' ? 'STARTING' : 'OPEN'}
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-slate-500">
+                          <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                             <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
                             <span>Prize: <strong className="text-emerald-600 font-bold">{formatETB(g.prizePool)}</strong></span>
                             <span>👥 {g.currentPlayers}{g.minPlayers ? ` (min ${g.minPlayers})` : ''}</span>
+                            {g.blockedCards && g.blockedCards.length > 0 && (
+                              <span className="text-rose-600 font-bold flex items-center gap-0.5">
+                                🚫 {g.blockedCards.length} {language === 'am' ? 'የታገዱ' : 'Blocked'}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <button

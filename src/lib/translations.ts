@@ -428,6 +428,19 @@ export const translations = {
 };
 
 export const GAME_NAME_TRANSLATIONS: Record<string, { en: string; am: string }> = {
+  '⚡ Hyper 5': { en: '⚡ Hyper 5', am: '⚡ ሃይፐር 5' },
+  '⚡ Hyper 10': { en: '⚡ Hyper 10', am: '⚡ ሃይፐር 10' },
+  '🎲 Hyper 20': { en: '🎲 Hyper 20', am: '🎲 ሃይፐር 20' },
+  '🎯 Hyper 30': { en: '🎯 Hyper 30', am: '🎯 ሃይፐር 30' },
+  '🌟 Weekend Hyper 35': { en: '🌟 Weekend Hyper 35', am: '🌟 የሳምንት መጨረሻ ሃይፐር 35' },
+  '🌟 Weekend Hyper 50': { en: '🌟 Weekend Hyper 50', am: '🌟 የሳምንት መጨረሻ ሃይፐር 50' },
+  '🌟 Weekend Hyper 100': { en: '🌟 Weekend Hyper 100', am: '🌟 የሳምንት መጨረሻ ሃይፐር 100' },
+  '🔥 Hyper 100': { en: '🔥 Hyper 100', am: '🔥 ሃይፐር 100' },
+  '💎 Hyper 200': { en: '💎 Hyper 200', am: '💎 ሃይፐር 200' },
+  '🏅 Hyper 300': { en: '🏅 Hyper 300', am: '🏅 ሃይፐር 300' },
+  '👑 Hyper 500': { en: '👑 Hyper 500', am: '👑 ሃይፐር 500' },
+  '🏆 Hyper 1000': { en: '🏆 Hyper 1000', am: '🏆 ሃይፐር 1000' },
+  // Legacy / fallback names
   '🥉 Penny Bingo Express': { en: '🥉 Penny Bingo Express', am: '🥉 ፔኒ ቢንጎ ኤክስፕረስ' },
   '⚡ Mini Birr Starter': { en: '⚡ Mini Birr Starter', am: '⚡ ሚኒ ብር ጀማሪ' },
   '🎲 Casual 20 ETB Arena': { en: '🎲 Casual 20 ETB Arena', am: '🎲 20 ብር አሬና' },
