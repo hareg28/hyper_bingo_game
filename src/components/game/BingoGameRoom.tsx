@@ -52,6 +52,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
   const [currentTime, setCurrentTime] = useState<string>('');
   const [showBlockedModal, setShowBlockedModal] = useState(false);
   const [showWinnerModal, setShowWinnerModal] = useState(false);
+  const [showPatternHintModal, setShowPatternHintModal] = useState(false);
 
   const currentGame = games.find((g) => g.id === gameId) || games[0];
   const activeGameCards = userCards.filter((c) => c.gameId === currentGame.id);
@@ -215,12 +216,11 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
     return hint;
   };
 
-  // 💡 LIGHT SYMBOL GAME HIT
+  // 💡 LIGHT SYMBOL GAME HIT / PATTERN HINTS
   const handleLightGameHit = (targetCard?: typeof activeGameCards[0]) => {
+    setShowPatternHintModal(true);
     const card = targetCard || activeUserCard || activeGameCards[0];
     if (!card) {
-      setGameHitFeedback(language === 'am' ? 'እባክዎ መጀመሪያ የቢንጎ ካርድ ይምረጡ!' : 'Please pick or select a bingo card first!');
-      setTimeout(() => setGameHitFeedback(null), 3000);
       return;
     }
 
@@ -833,6 +833,95 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
           entryPrice={currentGame.entryPrice}
           initialCards={activeGameCards.map((c) => c.cardNumber)}
         />
+
+        {/* ── PATTERN HINTS MODAL ── */}
+        {showPatternHintModal && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center gap-2 px-5 pt-5 pb-3">
+                <Lightbulb className="w-5 h-5 text-blue-500 fill-blue-100" />
+                <h3 className="text-base font-black text-slate-900">Pattern hints</h3>
+              </div>
+
+              {/* Description */}
+              <p className="px-5 pb-4 text-xs text-slate-600 leading-relaxed">
+                Correct (green) and wrong (red) bingo patterns for the game &ldquo;{currentGame.name || `⚡ Hyper ${currentGame.entryPrice}`}&rdquo;.
+              </p>
+
+              {/* 3 Pattern Grids */}
+              <div className="px-4 pb-4 grid grid-cols-3 gap-3">
+                {/* Grid 1: Correct (full diagonal top-left to bottom-right) */}
+                {[
+                  { label: 'Correct', isCorrect: true, pattern: [
+                    [true, false, false, false, false],
+                    [false, true, false, false, false],
+                    [false, false, true, false, false],
+                    [false, false, false, true, false],
+                    [false, false, false, false, true],
+                  ]},
+                  { label: 'Correct', isCorrect: true, pattern: [
+                    [true, true, true, true, true],
+                    [false, false, false, false, false],
+                    [false, false, true, false, false],
+                    [false, false, false, false, false],
+                    [false, false, false, false, false],
+                  ]},
+                  { label: 'Wrong', isCorrect: false, pattern: [
+                    [false, false, true, true, false],
+                    [false, true, false, false, true],
+                    [false, false, true, false, false],
+                    [false, true, false, false, true],
+                    [false, false, true, true, false],
+                  ]},
+                ].map((grid, gIdx) => (
+                  <div key={gIdx} className="flex flex-col items-center gap-1">
+                    <span className={`text-[11px] font-black ${grid.isCorrect ? 'text-emerald-600' : 'text-rose-500'}`}>
+                      {grid.label}
+                    </span>
+                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                      {grid.pattern.map((row, rIdx) => (
+                        <div key={rIdx} className="flex">
+                          {row.map((filled, cIdx) => {
+                            const isFreeCell = rIdx === 2 && cIdx === 2;
+                            return (
+                              <div
+                                key={cIdx}
+                                className={`w-7 h-7 border border-slate-100 flex items-center justify-center text-[8px] font-black ${
+                                  isFreeCell
+                                    ? grid.isCorrect
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : 'bg-rose-100 text-rose-400'
+                                    : filled
+                                    ? grid.isCorrect
+                                      ? 'bg-emerald-400'
+                                      : 'bg-rose-300'
+                                    : 'bg-white'
+                                }`}
+                              >
+                                {isFreeCell ? 'FREE' : ''}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Close button */}
+              <div className="flex justify-end px-5 pb-5">
+                <button
+                  onClick={() => setShowPatternHintModal(false)}
+                  className="text-blue-600 font-black text-sm hover:text-blue-800 transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1462,6 +1551,94 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
             >
               {language === 'am' ? 'ተቀበል (Continue)' : 'Awesome! Continue'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── PATTERN HINTS MODAL ────────────────────────────────────────── */}
+      {showPatternHintModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center gap-2 px-5 pt-5 pb-3">
+              <Lightbulb className="w-5 h-5 text-blue-500 fill-blue-100" />
+              <h3 className="text-base font-black text-slate-900">Pattern hints</h3>
+            </div>
+
+            {/* Description */}
+            <p className="px-5 pb-4 text-xs text-slate-600 leading-relaxed">
+              Correct (green) and wrong (red) bingo patterns for the game &ldquo;{currentGame.name || `⚡ Hyper ${currentGame.entryPrice}`}&rdquo;.
+            </p>
+
+            {/* 3 Pattern Grids */}
+            <div className="px-4 pb-4 grid grid-cols-3 gap-3">
+              {[
+                { label: 'Correct', isCorrect: true, pattern: [
+                  [true, false, false, false, false],
+                  [false, true, false, false, false],
+                  [false, false, true, false, false],
+                  [false, false, false, true, false],
+                  [false, false, false, false, true],
+                ]},
+                { label: 'Correct', isCorrect: true, pattern: [
+                  [true, true, true, true, true],
+                  [false, false, false, false, false],
+                  [false, false, true, false, false],
+                  [false, false, false, false, false],
+                  [false, false, false, false, false],
+                ]},
+                { label: 'Wrong', isCorrect: false, pattern: [
+                  [false, false, true, true, false],
+                  [false, true, false, false, true],
+                  [false, false, true, false, false],
+                  [false, true, false, false, true],
+                  [false, false, true, true, false],
+                ]},
+              ].map((grid, gIdx) => (
+                <div key={gIdx} className="flex flex-col items-center gap-1">
+                  <span className={`text-[11px] font-black ${grid.isCorrect ? 'text-emerald-600' : 'text-rose-500'}`}>
+                    {grid.label}
+                  </span>
+                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    {grid.pattern.map((row, rIdx) => (
+                      <div key={rIdx} className="flex">
+                        {row.map((filled, cIdx) => {
+                          const isFreeCell = rIdx === 2 && cIdx === 2;
+                          return (
+                            <div
+                              key={cIdx}
+                              className={`w-7 h-7 border border-slate-100 flex items-center justify-center text-[8px] font-black ${
+                                isFreeCell
+                                  ? grid.isCorrect
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-rose-100 text-rose-400'
+                                  : filled
+                                  ? grid.isCorrect
+                                    ? 'bg-emerald-400'
+                                    : 'bg-rose-300'
+                                  : 'bg-white'
+                              }`}
+                            >
+                              {isFreeCell ? 'FREE' : ''}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Close button */}
+            <div className="flex justify-end px-5 pb-5">
+              <button
+                onClick={() => setShowPatternHintModal(false)}
+                className="text-blue-600 font-black text-sm hover:text-blue-800 transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
