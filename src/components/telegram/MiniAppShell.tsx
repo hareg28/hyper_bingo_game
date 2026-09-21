@@ -592,56 +592,56 @@ export default function MiniAppShell({
       </div>
 
       {/* Bottom Sticky Telegram Navigation Bar - Clean White */}
-      <div className="bg-white border-t border-slate-200 px-3 py-1.5 flex items-center justify-around z-30 shadow-md shrink-0 w-full">
+      <div className="bg-white border-t border-slate-200 px-2 py-1.5 flex items-center justify-around z-30 shadow-md shrink-0 w-full">
         <button
           onClick={() => setActiveTab('lobby')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
+          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-1 ${
             activeTab === 'lobby' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
           }`}
         >
           <Gamepad2 className="w-5 h-5" />
-          {t('lobby')}
+          Lobby
         </button>
 
         <button
           onClick={() => setActiveTab('game')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
+          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-1 ${
             activeTab === 'game' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
           }`}
         >
           <Zap className="w-5 h-5" />
-          {t('liveRoom')}
+          Live
         </button>
 
         <button
           onClick={() => setActiveTab('wallet')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
+          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-1 ${
             activeTab === 'wallet' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
           }`}
         >
           <Wallet className="w-5 h-5" />
-          {t('wallet')}
+          Wallet
         </button>
 
         <button
           onClick={() => setActiveTab('profile')}
-          className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
+          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-1 ${
             activeTab === 'profile' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
           }`}
         >
           <UserIcon className="w-5 h-5" />
-          {t('profile')}
+          Profile
         </button>
 
         {isUserAdmin && (
           <button
             onClick={() => setActiveTab('admin')}
-            className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition cursor-pointer ${
+            className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-1 ${
               activeTab === 'admin' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             <Shield className="w-5 h-5" />
-            {t('adminTab')}
+            Admin
           </button>
         )}
       </div>

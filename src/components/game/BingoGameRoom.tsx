@@ -367,7 +367,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
   })();
 
   const gameShortId = (currentGame.id || 'game').slice(0, 8);
-  const gamePrizeDisplay = (currentGame.prizePool ?? 0) * 220; // approximate fake multiplier like screenshot $22000
+  const gamePrizeDisplay = Math.round((currentGame.entryPrice || 0) * 1000);
 
   // =========================================================================
   // 🔽 SINGLE UNIFIED RENDER (used for both weekend & regular games)
@@ -376,8 +376,8 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
     <div className="w-full max-w-sm sm:max-w-md mx-auto flex flex-col select-none overflow-hidden" style={{ minHeight: '100%' }}>
 
       {/* ================================================================
-          1. TOP HEADER: Purple/blue gradient bar (matches screenshot 2 top)
-             Time + BINGO + undo/redo/settings/grid/menu icons
+          1. TOP HEADER: Purple/blue gradient bar — clean minimal (no icons)
+             (matches screenshot 2 top but with useless icons REMOVED)
           ================================================================ */}
       <div className="bg-gradient-to-r from-blue-800 via-purple-800 to-indigo-900 px-3 py-2.5 flex items-center justify-between shrink-0 shadow-md">
         {/* Left: Back + time + BINGO */}
@@ -399,46 +399,6 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               BINGO
             </span>
           </div>
-        </div>
-
-        {/* Right: icon actions */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => handleLightGameHit()}
-            className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
-            title="Hint / Auto-daub"
-          >
-            <Undo2 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={toggleAutoDaub}
-            className={`w-8 h-8 rounded-xl flex items-center justify-center transition cursor-pointer ${
-              autoDaubEnabled ? 'bg-amber-400 text-slate-950' : 'bg-white/10 hover:bg-white/20 text-white'
-            }`}
-            title="Auto Daub"
-          >
-            <Redo2 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
-            title="Sound"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setShowTableModal(true)}
-            className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
-            title="75-Ball Board (Zoom)"
-          >
-            <Grid className="w-4 h-4" />
-          </button>
-          <button
-            className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
-            title="Menu"
-          >
-            <Menu className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
@@ -473,7 +433,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                 <span className="text-blue-700 shrink-0 mt-0.5" title="Game">
                   <Grid className="w-4 h-4" />
                 </span>
-                <div className="min-w-0">
+                  <div className="min-w-0">
                   <span className="text-sm font-black text-slate-900 leading-snug">
                     {currentGame.name || (
                       isWeekendGame
@@ -481,12 +441,15 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                         : ('⚡ Hyper ' + currentGame.entryPrice)
                     )}
                   </span>
-                  {(language === 'am' || isWeekendGame) && (
+                  {((language === 'am' || isWeekendGame) || true) && (
                     <span className="block text-[11px] text-slate-600 leading-tight mt-0.5">
                       {isWeekendGame
                         ? (language === 'am' ? 'የሚኒሱ መስመር ያለው 2 ፍሪ የማይነኩ መስመሮች' : '2 free pattern lines in weekend draw')
                         : 'Full House pattern - all 24 numbers'
                       }
+                      <span className="block mt-0.5 text-emerald-700 font-bold">
+                        💎 Rule: Prize = ${currentGame.entryPrice || 10} × 1000 = ${gamePrizeDisplay.toLocaleString()}
+                      </span>
                     </span>
                   )}
                 </div>
@@ -1053,7 +1016,21 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
       )}
 
       {/* WINNER CELEBRATION MODAL */}
-      {showWinnerModal && currentGame.winners && currentGame.winners.length > 0 && (
+      {showWinnerModal && currentGame.winners && currentGame.winners.length > 0 && (() => {
+        const latestWinner = currentGame.winners[currentGame.winners.length - 1];
+        const winningCard = activeGameCards.find((c) => c.cardNumber === latestWinner.cardNumber);
+        const winningNumbers: number[] = [];
+        if (winningCard) {
+          winningCard.rows.forEach((row) => {
+            row.forEach((cell) => {
+              if ((cell.isMarked || cell.isDrawn) && !cell.isFree && cell.number) {
+                winningNumbers.push(cell.number);
+              }
+            });
+          });
+        }
+        winningNumbers.sort((a, b) => a - b);
+        return (
         <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-200">
           <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 border-2 border-amber-400 rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-white text-center relative overflow-hidden">
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-400/20 rounded-full blur-2xl pointer-events-none"></div>
@@ -1068,28 +1045,46 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                 {language === 'am' ? '🎉 ቢንጎ አሸናፊ ይፋ ሆነ! 🎉' : '🎉 BINGO WINNER ANNOUNCED! 🎉'}
               </h3>
               <p className="text-xl font-black text-white">
-                @{currentGame.winners[currentGame.winners.length - 1].username}
+                @{latestWinner.username}
               </p>
             </div>
 
-            <div className="bg-white/10 rounded-2xl p-3 border border-white/15 space-y-2">
+            <div className="bg-white/10 rounded-2xl p-3 border border-white/15 space-y-2 text-left">
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                 <span className="text-slate-300 font-bold">{language === 'am' ? 'የአሸናፊ ካርድ ቁጥር:' : 'Winning Card #:'}</span>
                 <span className="font-mono font-black text-amber-300 text-base">
-                  #{currentGame.winners[currentGame.winners.length - 1].cardNumber || '108'}
+                  #{latestWinner.cardNumber || '108'}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                 <span className="text-slate-300 font-bold">{language === 'am' ? 'የተሸለመው ገንዘብ:' : 'Prize Won:'}</span>
                 <span className="font-black text-emerald-400 text-base">
-                  {formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)}
+                  {formatETB(latestWinner.prizeWon)}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                 <span className="text-slate-300 font-bold">{language === 'am' ? 'ያሸነፈበት ኳስ:' : 'Winning Ball:'}</span>
                 <span className="font-black text-amber-400 text-sm">
-                  #{currentGame.winners[currentGame.winners.length - 1].winningBall || currentGame.currentBall || 75}
+                  #{latestWinner.winningBall || currentGame.currentBall || 75}
                 </span>
+              </div>
+              <div className="text-xs">
+                <span className="text-slate-300 font-bold block mb-1.5">
+                  {language === 'am' ? 'የአሸናፊ ቁጥሮች (Winning Numbers):' : 'Winning Numbers on Card:'}
+                </span>
+                {winningNumbers.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 justify-start">
+                    {winningNumbers.map((n, i) => (
+                      <span key={i} className="inline-block px-1.5 py-0.5 rounded-md bg-red-600 font-mono font-black text-[10px] text-white ring-1 ring-red-400/50">
+                        {n}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-slate-400 font-mono text-[10px]">
+                    {language === 'am' ? 'ሙሉ ካርቴላ — 24 ቁጥሮች ተሟልተዋል' : 'Full House — All 24 numbers daubed'}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -1101,7 +1096,8 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
             </button>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* PATTERN HINTS MODAL (matches screenshot 1 popup exactly) */}
       {showPatternHintModal && (

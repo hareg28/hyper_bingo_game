@@ -687,10 +687,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   };
 
 
-  // 6. CREATE GAME (ADMIN)
+  // 6. CREATE GAME (ADMIN) — Universal rule: Prize Pool ALWAYS = Entry Price × 1000
   const createGame = (gameData: Omit<Game, 'id' | 'currentPlayers' | 'drawnNumbers' | 'winners' | 'createdAt'>) => {
+    const enforcedPrize = Math.round((gameData.entryPrice || 0) * 1000);
     const newGame: Game = {
       ...gameData,
+      prizePool: enforcedPrize,
       id: `gm_${Date.now().toString().slice(-4)}`,
       currentPlayers: 1,
       drawnNumbers: [],
@@ -711,7 +713,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     };
     setAuditLogs((prev) => [audit, ...prev]);
 
-    addNotification('🎮 New Game Configured', `Created ${newGame.name} with ${newGame.prizePool} ETB Prize Pool.`, 'info');
+    addNotification(
+      '🎮 New Game Configured',
+      `Created ${newGame.name} with $${newGame.entryPrice} entry → $${newGame.prizePool.toLocaleString()} Prize (×1000 rule).`,
+      'info'
+    );
   };
 
   // 7. UPDATE GAME STATUS (ADMIN)

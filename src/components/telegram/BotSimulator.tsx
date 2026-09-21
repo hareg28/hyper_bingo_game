@@ -78,9 +78,9 @@ ${isWeekend ? '\n🌟 **የሳምንቱ መጨረሻ ልዩ አሸናፊ ሎተ�
 ${isWeekend ? '\n🌟 **Weekend Special Win Lottery (Fri, Sat, Sun) is LIVE!** 50,000 ETB Jackpot for 50 ETB!\n' : ''}
 Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Birr & Chapa. Win live jackpots!`;
 
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
-    createWeekendBroadcastMessage('initial', '2:13 PM'),
-    {
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>(() => {
+    // Wrap in lazy init so `handleCommand` does not need to exist yet
+    const welcomeMsg: ChatMessage = {
       id: 'msg_welcome',
       sender: 'bot',
       text: initialWelcomeText,
@@ -97,8 +97,9 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
         { label: '❓ Help / እርዳታ', action: () => handleCommand('/help') },
       ],
       time: '2:14 PM',
-    },
-  ]);
+    };
+    return [createWeekendBroadcastMessage('initial', '2:13 PM'), welcomeMsg];
+  });
 
   const triggerBroadcastNow = () => {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
