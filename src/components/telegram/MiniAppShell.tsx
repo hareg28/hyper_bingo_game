@@ -14,6 +14,26 @@ import WalletManager from '../wallet/WalletManager';
 import AdminPanel from '../admin/AdminPanel';
 import { isAdminTelegramId } from '../../lib/authUtils';
 
+// Dynamic reliable display title formatter
+function getGameDisplayName(g: { entryPrice: number; gameType?: string; isWeekendSpecial?: boolean; name?: string }, lang: string): string {
+  if (g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) {
+    return lang === 'am' ? `🌟 የሳምንት መጨረሻ ሃይፐር ${g.entryPrice}` : `🌟 Weekend Hyper ${g.entryPrice}`;
+  }
+  const icons: Record<number, string> = {
+    5: '⚡',
+    10: '⚡',
+    20: '🎲',
+    30: '🎯',
+    100: '🔥',
+    200: '💎',
+    300: '🏅',
+    500: '👑',
+    1000: '🏆'
+  };
+  const icon = icons[g.entryPrice] || '⚡';
+  return lang === 'am' ? `${icon} ሃይፐር ${g.entryPrice}` : `${icon} Hyper ${g.entryPrice}`;
+}
+
 export default function MiniAppShell({ 
   onClose,
   initialTab = 'lobby'
@@ -73,7 +93,7 @@ export default function MiniAppShell({
                 @{user.username}
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               </h3>
-              <span className="text-[10px] text-slate-500">{t('telegramMiniApp')} v2.5</span>
+              <span className="text-[10px] text-slate-500 font-bold">{t('telegramMiniApp')} v3.0 (Hyper Mode)</span>
             </div>
           </div>
         ) : (
@@ -148,7 +168,7 @@ export default function MiniAppShell({
                   {localizeGameTime(quickBingo.startTime, language)}
                 </span>
               </div>
-              <h3 className="text-lg font-black">{localizeGameName(quickBingo.name, language)}</h3>
+              <h3 className="text-lg font-black">{getGameDisplayName(quickBingo, language)}</h3>
               <p className="text-xs font-semibold opacity-90 mb-3">
                 {t('prizePool')}: <strong className="text-base font-black">{formatETB(quickBingo.prizePool)}</strong>
               </p>
@@ -172,29 +192,39 @@ export default function MiniAppShell({
                 </span>
               </div>
 
-              {/* Weekend Hyper Announcement Banner - Show exact open time */}
+              {/* Weekend Hyper Announcement Banner - 3-Column Responsive Grid */}
               {games.some((g) => g.isWeekendSpecial || g.gameType === 'WEEKEND_LOTTERY') && (
-                <div className="overflow-hidden rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 py-3 px-3 shadow-sm">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="flex flex-col shrink-0">
-                      <span className="text-slate-950 text-[11px] font-black uppercase tracking-wider leading-tight">🌟 WEEKEND</span>
-                      <span className="text-slate-950 text-[10px] font-bold opacity-80">HYPER DRAWS</span>
-                      <span className="text-slate-950 text-[9px] font-black bg-slate-950/15 px-1.5 py-0.5 rounded mt-0.5 whitespace-nowrap">⏰ Fri–Sun Opens at 10:00 PM (ማታ 4:00)</span>
+                <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 p-3.5 shadow-sm space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base">🌟</span>
+                      <div className="flex flex-col">
+                        <span className="text-slate-950 text-xs font-black uppercase tracking-wider leading-none">
+                          {language === 'am' ? 'የሳምንት መጨረሻ ሃይፐር ድራው' : 'WEEKEND HYPER DRAWS'}
+                        </span>
+                        <span className="text-slate-900 text-[10px] font-bold opacity-80 mt-0.5">
+                          {language === 'am' ? 'ዓርብ–እሑድ ማታ 4:00 (10:00 PM)' : 'Fri–Sun Opens at 10:00 PM (ማታ 4:00)'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="overflow-x-auto no-scrollbar flex items-center gap-2 flex-1">
-                      {games
-                        .filter((g) => g.isWeekendSpecial || g.gameType === 'WEEKEND_LOTTERY')
-                        .map((g) => (
-                          <button
-                            key={g.id}
-                            onClick={() => { setActiveGameId(g.id); setActiveTab('game'); }}
-                            className="shrink-0 px-3 py-1.5 rounded-xl bg-slate-950 text-white text-[11px] font-black whitespace-nowrap flex flex-col items-center shadow-xs hover:bg-slate-800 transition cursor-pointer"
-                          >
-                            <span className="text-amber-400">⚡ {g.entryPrice} ETB Entry</span>
-                            <span className="text-emerald-400 text-[10px]">Prize: {formatETB(g.prizePool)}</span>
-                          </button>
-                        ))}
-                    </div>
+                    <span className="text-[9px] font-black bg-slate-950 text-amber-300 px-2 py-0.5 rounded-full uppercase shadow-xs">
+                      Mega
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+                    {games
+                      .filter((g) => g.isWeekendSpecial || g.gameType === 'WEEKEND_LOTTERY')
+                      .map((g) => (
+                        <button
+                          key={g.id}
+                          onClick={() => { setActiveGameId(g.id); setActiveTab('game'); }}
+                          className="p-2 rounded-xl bg-slate-950 text-white flex flex-col items-center justify-center shadow-xs hover:bg-slate-800 transition cursor-pointer text-center"
+                        >
+                          <span className="text-amber-400 text-xs font-black leading-tight">⚡ {g.entryPrice} ETB</span>
+                          <span className="text-emerald-400 text-[9px] font-bold leading-tight mt-0.5">{formatETB(g.prizePool)}</span>
+                        </button>
+                      ))}
                   </div>
                 </div>
               )}
@@ -244,7 +274,7 @@ export default function MiniAppShell({
                       >
                         <div className="flex-1 min-w-0 space-y-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-bold text-sm text-slate-900">{localizeGameName(g.name, language)}</span>
+                            <span className="font-bold text-sm text-slate-900">{getGameDisplayName(g, language)}</span>
                             {(g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) && (
                               <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-400 text-slate-950">🌟 WEEKEND MEGA</span>
                             )}

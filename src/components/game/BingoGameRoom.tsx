@@ -857,7 +857,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
           )}
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-xs font-black text-slate-900 truncate">
-              {currentGame.name ? currentGame.name.replace(/^[^\w\s]+/, '').trim() : currentGame.gameType}
+              {currentGame.name || `⚡ Hyper ${currentGame.entryPrice}`}
             </span>
             <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black text-[10px] shadow-2xs whitespace-nowrap">
               🏆 {formatETB(currentGame.prizePool)}
