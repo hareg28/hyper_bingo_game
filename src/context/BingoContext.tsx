@@ -732,6 +732,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         return { ...card, marked: newMarked };
       })
     );
+  };
+
   // 8b. BLOCK CARD (Penalty for false bingo claims)
   const blockCard = (gameId: string, cardNumber: string) => {
     setGames((prev) =>

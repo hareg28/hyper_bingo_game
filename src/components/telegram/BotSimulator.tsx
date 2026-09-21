@@ -21,11 +21,13 @@ type Lang = 'en' | 'am';
 export default function BotSimulator({ 
   isOpen, 
   onClose, 
-  onOpenMiniApp 
+  onOpenMiniApp,
+  embedded = false
 }: { 
   isOpen: boolean; 
-  onClose: () => void; 
-  onOpenMiniApp: (tab?: string) => void 
+  onClose: () => void;
+  onOpenMiniApp: (tab?: string) => void;
+  embedded?: boolean;
 }) {
   const { user, wallet, games, promotions, language, setLanguage, t } = useBingo();
   const [inputText, setInputText] = useState('');
@@ -298,11 +300,19 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
 
   if (!isOpen) return null;
 
+  const outerWrapperClass = embedded
+    ? ''
+    : 'fixed inset-0 z-50 flex items-center justify-end bg-black/70 backdrop-blur-sm p-4 sm:p-6';
+
+  const innerContainerClass = embedded
+    ? 'w-full h-full bg-slate-900 flex flex-col overflow-hidden rounded-none border-0'
+    : 'w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col h-[680px] max-h-[92vh] overflow-hidden';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/70 backdrop-blur-sm p-4 sm:p-6">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col h-[680px] max-h-[92vh] overflow-hidden">
+    <div className={outerWrapperClass}>
+      <div className={innerContainerClass}>
         {/* Telegram Header */}
-        <div className="bg-slate-800/90 border-b border-slate-700 px-4 py-3 flex items-center justify-between">
+        <div className="bg-slate-800/90 border-b border-slate-700 px-4 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-md">
               <Bot className="w-6 h-6 text-white" />
@@ -420,7 +430,7 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
         </div>
 
         {/* Input Bar */}
-        <form onSubmit={handleSend} className="bg-slate-800 border-t border-slate-700 p-2.5 flex items-center gap-2">
+        <form onSubmit={handleSend} className="bg-slate-800 border-t border-slate-700 p-2.5 flex items-center gap-2 shrink-0">
           <input
             type="text"
             value={inputText}

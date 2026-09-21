@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
 import { formatETB } from '../../lib/bingoUtils';
 import { localizeGameName, localizeGameTime } from '../../lib/translations';
@@ -36,10 +36,12 @@ function getGameDisplayName(g: { entryPrice: number; gameType?: string; isWeeken
 
 export default function MiniAppShell({ 
   onClose,
-  initialTab = 'lobby'
+  initialTab = 'lobby',
+  embedded = false
 }: { 
   onClose?: () => void;
   initialTab?: 'lobby' | 'game' | 'wallet' | 'profile' | 'admin';
+  embedded?: boolean;
 }) {
   const { 
     games, 
@@ -63,6 +65,10 @@ export default function MiniAppShell({
   const [gameFilter, setGameFilter] = useState<'ALL' | 'SMALL' | 'HIGH'>('ALL');
   const [showAllGames, setShowAllGames] = useState(false);
 
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
   const quickBingo = games.find((g) => g.gameType === 'QUICK_BINGO') || games[0];
   const isUserAdmin = Boolean(
     user && 
@@ -79,8 +85,12 @@ export default function MiniAppShell({
     setTimeout(() => setCopiedRef(false), 2000);
   };
 
+  const heightStyle = embedded
+    ? { height: '100%', maxHeight: '100%', overflow: 'hidden' as const }
+    : { height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' as const };
+
   return (
-    <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200" style={{height:'100dvh',maxHeight:'100dvh',overflow:'hidden'}}>
+    <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200" style={heightStyle}>
       {/* Telegram WebApp Frame Header - Clean White */}
       <div className="bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between sticky top-0 z-30 shadow-xs shrink-0 min-w-0 overflow-hidden">
         {user ? (
