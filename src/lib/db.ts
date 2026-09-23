@@ -53,7 +53,7 @@ function rowToWallet(row: any): Wallet {
   return {
     userId: row.user_id,
     availableBalance: parseFloat(row.available_balance ?? '0'),
-    bonusBalance: parseFloat(row.bonus_balance ?? '20'),
+    bonusBalance: parseFloat(row.bonus_balance ?? '0'),
     winningBalance: parseFloat(row.winning_balance ?? '0'),
     totalDeposited: parseFloat(row.total_deposited ?? '0'),
     totalWithdrawn: parseFloat(row.total_withdrawn ?? '0'),
@@ -306,7 +306,7 @@ const db = {
     const wallet: Wallet = {
       userId,
       availableBalance: 0,
-      bonusBalance: 20,
+      bonusBalance: 0,
       winningBalance: 0,
       totalDeposited: 0,
       totalWithdrawn: 0,

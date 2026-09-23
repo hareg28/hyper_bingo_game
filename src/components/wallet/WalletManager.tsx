@@ -21,7 +21,7 @@ export default function WalletManager() {
   const [activeTab, setActiveTab] = useState<'balance' | 'deposit' | 'withdraw' | 'accounts' | 'history'>('balance');
   const [provider, setProvider] = useState<PaymentProvider>('Telebirr');
   const [amount, setAmount] = useState<number>(500);
-  const [phoneOrAccount, setPhoneOrAccount] = useState<string>('+251911234567');
+  const [phoneOrAccount, setPhoneOrAccount] = useState<string>(() => user?.phone || '');
   const [accountName, setAccountName] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [depositStep, setDepositStep] = useState<1 | 2>(1);

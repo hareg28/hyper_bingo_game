@@ -214,7 +214,7 @@ export default function MiniAppShell({
                           {language === 'am' ? 'የሳምንት መጨረሻ ሃይፐር ድራው' : 'WEEKEND HYPER DRAWS'}
                         </span>
                         <span className="text-slate-600 text-[10px] font-bold opacity-90 mt-0.5">
-                          {language === 'am' ? 'ዓርብ–እሑድ ማታ 4:00 (10:00 PM)' : 'Fri–Sun Opens at 10:00 PM (ማታ 4:00)'}
+                          {language === 'am' ? 'ዓርብ–እሑድ 8:00፣ 11:00 እና 1:00' : 'Fri–Sun: 2:00 PM, 5:00 PM & 7:00 PM'}
                         </span>
                       </div>
                     </div>
@@ -360,7 +360,7 @@ export default function MiniAppShell({
                 <div className="text-right shrink-0">
                   <p className="text-[9px] text-slate-400 font-bold uppercase leading-none">Weekend Draw</p>
                   <p className="text-[10px] text-amber-300 font-black whitespace-nowrap">Fri–Sun</p>
-                  <p className="text-[10px] text-white font-bold whitespace-nowrap">10:00 PM EAT</p>
+                  <p className="text-[10px] text-white font-bold whitespace-nowrap">2:00, 5:00 & 7:00 PM</p>
                 </div>
               </div>
             </div>
@@ -592,7 +592,7 @@ export default function MiniAppShell({
                     </div>
                     <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
                       <span className="text-slate-400 text-[11px] font-medium">የዊክኤንድ ጨዋታ (Weekend Draw):</span>
-                      <span className="font-bold text-emerald-300 text-[11px]">Fri–Sun 10:00 PM (ማታ 4:00)</span>
+                      <span className="font-bold text-emerald-300 text-[11px]">Fri–Sun 2:00 PM, 5:00 PM & 7:00 PM</span>
                     </div>
                   </div>
                 </div>
@@ -796,7 +796,7 @@ function WeekendLotteryNumberPicker({
               <span>{isAm ? 'የሳምንት መጨረሻ ሃይፐር ሎተሪ' : 'Weekend Hyper Lottery'}</span>
             </h3>
             <span className="text-[10px] text-slate-500 font-bold">
-              {isAm ? 'አርብ · ቅዳሜ · እሑድ ማታ 4:00 (10 PM)' : 'Fri · Sat · Sun 10:00 PM'}
+              {isAm ? 'አርብ · ቅዳሜ · እሑድ 8:00፣ 11:00 እና 1:00' : 'Fri · Sat · Sun: 2 PM, 5 PM & 7 PM'}
             </span>
           </div>
         </div>

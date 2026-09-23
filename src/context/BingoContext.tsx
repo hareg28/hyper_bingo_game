@@ -149,6 +149,13 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return;
 
     try {
+      // Clear legacy mock test balances so all user accounts start with real 0 ETB
+      const cleanRealBalance = localStorage.getItem('hyper_bingo_real_balance_v1');
+      if (!cleanRealBalance) {
+        localStorage.removeItem('hyper_bingo_wallet');
+        localStorage.setItem('hyper_bingo_real_balance_v1', 'true');
+      }
+
       const savedUserStr = localStorage.getItem('hyper_bingo_user');
       const savedWalletStr = localStorage.getItem('hyper_bingo_wallet');
       if (savedUserStr) {
@@ -162,6 +169,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         } else {
           setWallet({ ...INITIAL_WALLET, userId: savedUser.id });
         }
+      } else {
+        setWallet(INITIAL_WALLET);
       }
     } catch (e) {
       console.error('Error restoring session from localStorage:', e);
@@ -237,7 +246,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         const newWallet: Wallet = result.data.wallet || {
           userId: newUser.id,
           availableBalance: 0,
-          bonusBalance: 20,
+          bonusBalance: 0,
           winningBalance: 0,
           totalDeposited: 0,
           totalWithdrawn: 0,

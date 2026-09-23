@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
           `⚡ Play real-time 75-ball bingo, win ETB prizes, and cash out instantly!\n\n` +
           `🌟 <b>Weekend Hyper Draw Schedule (ዊክኤንድ ጨዋታ ሰዓት):</b>\n` +
           `  📅 Friday – Sunday (ዓርብ – እሑድ)\n` +
-          `  ⏰ Opens: <b>10:00 PM EAT (ማታ 4:00 ሰዓት)</b>\n\n` +
+          `  ⏰ Opens: <b>2:00 PM, 5:00 PM & 7:00 PM EAT (8:00፣ 11:00 እና 1:00 ሰዓት)</b>\n\n` +
           `📞 <b>Customer Support / ደንበኞች አገልግሎት:</b>\n` +
           `  📱 Phone: <a href="tel:+251911234567">+251 91 123 4567</a>\n` +
           `  💬 Telegram: @HyperBingoSupport\n\n` +
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
         chat_id: chatId,
         parse_mode: 'HTML',
         text: `🤖 <b>Hyper Bingo Bot</b>\n\nUse /start to open the game or /admin to access admin tools.\n\nጨዋታውን ለመጀመር /start ይጫኑ።\n\n` +
-              `🌟 <b>Weekend Hyper Draw:</b> Fri–Sun | Opens 10:00 PM EAT (ማታ 4:00)\n` +
+              `🌟 <b>Weekend Hyper Draw:</b> Fri–Sun | 2:00 PM, 5:00 PM & 7:00 PM EAT\n` +
               `📞 Support: <a href="tel:+251911234567">+251 91 123 4567</a> | @HyperBingoSupport`,
         reply_markup: {
           inline_keyboard: [

@@ -45,7 +45,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
     t
   } = useBingo();
 
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const [isAutoDrawing, setIsAutoDrawing] = useState(false);
   const [claimStatus, setClaimStatus] = useState<{ success?: boolean; message?: string; prize?: number } | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -432,10 +432,26 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
           </span>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <span className="font-mono font-black text-slate-800 text-xs bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
             {currentTime}
           </span>
+          <button
+            type="button"
+            onClick={() => setSoundEnabled((prev) => !prev)}
+            className={`w-6 h-6 rounded-lg flex items-center justify-center transition cursor-pointer border ${
+              soundEnabled
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                : 'bg-slate-100 text-slate-400 border-slate-200 hover:text-slate-600'
+            }`}
+            title={soundEnabled ? (language === 'am' ? 'ድምፅ አጥፋ' : 'Mute Call Voice') : (language === 'am' ? 'ድምፅ አብራ' : 'Turn On Call Voice')}
+          >
+            {soundEnabled ? (
+              <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
+            ) : (
+              <VolumeX className="w-3.5 h-3.5 text-slate-400" />
+            )}
+          </button>
           <button
             onClick={() => setShowPatternHintModal(true)}
             className="w-6 h-6 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 flex items-center justify-center transition cursor-pointer border border-amber-200"
@@ -547,7 +563,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               <span className="text-[11px] font-black text-slate-900 font-mono">{currentGame.drawnNumbers.length}/75</span>
             </div>
 
-            {/* Caller Controls: Auto-Call toggle + Manual Call */}
+            {/* Caller Controls: Auto-Call toggle + Manual Call + Voice Sound Toggle */}
             <div className="flex items-center gap-1">
               <button
                 type="button"
@@ -580,6 +596,29 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               >
                 <Zap className="w-3 h-3 fill-slate-950" />
                 <span>{language === 'am' ? 'ኳስ ጥራ' : 'Call Ball'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSoundEnabled((prev) => !prev)}
+                className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg transition flex items-center gap-0.5 cursor-pointer shadow-xs border ${
+                  soundEnabled
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                    : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-400'
+                }`}
+                title={soundEnabled ? (language === 'am' ? 'ድምፅ አጥፋ' : 'Mute Voice') : (language === 'am' ? 'ድምፅ አብራ' : 'Turn On Voice')}
+              >
+                {soundEnabled ? (
+                  <>
+                    <Volume2 className="w-3 h-3 text-emerald-600" />
+                    <span>{language === 'am' ? 'ድምፅ' : 'Voice'}</span>
+                  </>
+                ) : (
+                  <>
+                    <VolumeX className="w-3 h-3 text-slate-400" />
+                    <span>{language === 'am' ? 'ድምፅ የለም' : 'Mute'}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

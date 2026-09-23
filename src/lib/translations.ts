@@ -493,6 +493,15 @@ export function localizeGameTime(time: string, lang: Language): string {
     const t = time.replace('Tomorrow ', '');
     return `ነገ ${t}`;
   }
+  if (time.includes('2:00 PM')) {
+    return 'ዓርብ–እሑድ ከሰዓት 8:00 (2:00 PM)';
+  }
+  if (time.includes('5:00 PM')) {
+    return 'ዓርብ–እሑድ ከሰዓት 11:00 (5:00 PM)';
+  }
+  if (time.includes('7:00 PM')) {
+    return 'ዓርብ–እሑድ ማታ 1:00 (7:00 PM)';
+  }
   if (time.includes('10:00 PM')) {
     return 'ዓርብ–እሑድ ማታ 4:00 (10:00 PM)';
   }
