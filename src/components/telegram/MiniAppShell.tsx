@@ -777,7 +777,6 @@ function WeekendLotteryNumberPicker({
   const regCode = user ? user.referralCode?.toUpperCase() || '---' : '---';
 
   return (
-  return (
     <div className="h-full flex flex-col min-h-0 overflow-y-auto overscroll-contain bg-slate-100 pb-36 select-none">
       {/* Sticky Header with Back button, Title & Balance */}
       <div className="bg-white border-b border-slate-200 px-3 py-2.5 flex items-center justify-between shrink-0 shadow-xs sticky top-0 z-30">

@@ -5,7 +5,8 @@ import { useBingo } from '../../context/BingoContext';
 import { 
   Volume2, VolumeX, Sparkles, Zap, 
   Plus, Star, Hash, Lightbulb, X, Grid, ChevronLeft,
-  Undo2, Redo2, Settings, Menu, ShieldAlert, Trophy
+  Undo2, Redo2, Settings, Menu, ShieldAlert, Trophy,
+  Trash2, Maximize2
 } from 'lucide-react';
 import { 
   formatETB, 
@@ -37,6 +38,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
     toggleAutoDaub,
     joinGame,
     addCardToGame,
+    removeCard,
     user,
     openAuthModal,
     language,
@@ -49,6 +51,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [showTableModal, setShowTableModal] = useState(false);
+  const [expandCardModal, setExpandCardModal] = useState(false);
   const [hintCardId, setHintCardId] = useState<string | null>(null);
   const [patternHint, setPatternHint] = useState<boolean[][] | null>(null);
   const [gameHitFeedback, setGameHitFeedback] = useState<string | null>(null);
@@ -57,7 +60,6 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
   const [showBlockedModal, setShowBlockedModal] = useState(false);
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [showPatternHintModal, setShowPatternHintModal] = useState(false);
-  // 🔽 NEW: "Show More / Show Less" for 3-row game info section (matches reference screenshots red toggle)
   const [showGameInfo, setShowGameInfo] = useState(true);
 
   const currentGame = games.find((g) => g.id === gameId) || games[0];
@@ -638,148 +640,193 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
         </div>
       )}
 
+
       {/* ================================================================
-          6. BINGO CARDS GRID — all cards shown, no inner scroll needed
+          6. BINGO CARDS — single full-width card, tabs to switch
           ================================================================ */}
-      <div className="p-2 bg-slate-100">
-        {activeGameCards.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2">
-            {activeGameCards.map((card) => {
-              const cardIsWin = checkFullHouseWin(card.marked);
-              const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
-              const cardDrawnSet = new Set(currentGame.drawnNumbers);
-              const cardIsHint = hintCardId === card.id;
+      <div className="p-2 pb-4 bg-slate-100 flex flex-col gap-2">
+        {activeGameCards.length > 0 ? (() => {
+          // Resolve which card is currently visible
+          const visibleCard =
+            activeGameCards.find((c) => c.id === selectedCardId) ||
+            activeGameCards[0];
+          const cardIsWin = checkFullHouseWin(visibleCard.marked);
+          const cardIsBlocked = currentGame.blockedCards?.includes(visibleCard.cardNumber);
+          const cardDrawnSet = new Set(currentGame.drawnNumbers);
+          const cardIsHint = hintCardId === visibleCard.id;
 
-              return (
-                <div
-                  key={card.id}
-                  className={`bg-white rounded-2xl overflow-hidden shadow-md border-2 transition-all ${
-                    cardIsBlocked
-                      ? 'border-rose-400 ring-2 ring-rose-200'
-                      : cardIsWin
-                      ? 'border-amber-400 ring-2 ring-amber-300 shadow-amber-200'
-                      : 'border-slate-200'
-                  }`}
-                >
-                  {/* 🔤 B I N G O HEADER ROW (colors matching screenshot 2) */}
-                  <div className="grid grid-cols-5 gap-0">
-                    {[
-                      { letter: 'B', bg: 'bg-blue-600' },
-                      { letter: 'I', bg: 'bg-red-600' },
-                      { letter: 'N', bg: 'bg-teal-600' },
-                      { letter: 'G', bg: 'bg-emerald-600' },
-                      { letter: 'O', bg: 'bg-orange-500' },
-                    ].map((col) => (
-                      <div
-                        key={col.letter}
-                        className={`${col.bg} h-6 flex items-center justify-center font-black text-white text-xs italic leading-none`}
+          return (
+            <>
+              {/* ── Card Tabs (shown only when >1 card) ── */}
+              {activeGameCards.length > 1 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                  {activeGameCards.map((c) => {
+                    const isActive = c.id === visibleCard.id;
+                    const isBlk = currentGame.blockedCards?.includes(c.cardNumber);
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => setSelectedCardId(c.id)}
+                        className={`shrink-0 px-3 py-1 rounded-xl font-black text-[11px] border transition cursor-pointer ${
+                          isActive
+                            ? isBlk
+                              ? 'bg-rose-700 border-rose-500 text-white'
+                              : 'bg-blue-600 border-blue-500 text-white shadow-sm'
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'
+                        }`}
                       >
-                        {col.letter}
-                      </div>
-                    ))}
-                  </div>
+                        #{c.cardNumber}
+                        {isBlk && <span className="ml-1 text-[9px]">🚫</span>}
+                      </button>
+                    );
+                  })}
+                  {activeGameCards.length < 3 && (
+                    <button
+                      onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
+                      className="shrink-0 px-2 py-1 rounded-xl font-black text-[11px] border border-dashed border-emerald-400 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 transition cursor-pointer"
+                    >
+                      + Add
+                    </button>
+                  )}
+                </div>
+              )}
 
-                  {/* 🔢 5x5 NUMBER GRID */}
-                  <div className="grid grid-cols-5 gap-0 bg-slate-50">
-                    {card.numbers.map((row, rIdx) =>
-                      row.map((val, cIdx) => {
-                        const isFree = rIdx === 2 && cIdx === 2;
-                        const isDrawn = !isFree && cardDrawnSet.has(val);
-                        const isMarked = card.marked[rIdx][cIdx];
-                        const isCurrent = currentGame.currentBall === val && !isFree;
-                        const isHintCell = cardIsHint && patternHint && patternHint[rIdx][cIdx] && !isMarked && !isFree;
-
-                        return (
-                          <button
-                            key={`${rIdx}-${cIdx}`}
-                            onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
-                            className={`h-8 sm:h-8.5 flex items-center justify-center font-bold border border-slate-100 transition-all relative cursor-pointer ${
-                              isFree
-                                ? 'bg-green-500'
-                                : isMarked || isDrawn
-                                ? 'bg-red-600 shadow-inner'
-                                : isCurrent
-                                ? 'bg-amber-300 ring-1 ring-amber-500'
-                                : isHintCell
-                                ? 'bg-amber-100 ring-1 ring-amber-400 animate-pulse'
-                                : 'bg-white hover:bg-slate-100'
-                            }`}
-                          >
-                            {isFree ? (
-                              <span className="text-white font-black text-[11px] italic">F</span>
-                            ) : (
-                              <span className={`font-black text-xs sm:text-sm ${
-                                isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950' : 'text-slate-800'
-                              }`}>
-                                {val}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })
+              {/* ── Full-Width Card ── */}
+              <div
+                className={`bg-white rounded-2xl overflow-hidden shadow-md border-2 transition-all ${
+                  cardIsBlocked
+                    ? 'border-rose-400 ring-2 ring-rose-200'
+                    : cardIsWin
+                    ? 'border-amber-400 ring-2 ring-amber-300 shadow-amber-200'
+                    : 'border-slate-200'
+                }`}
+              >
+                {/* Card header: number + full-screen + delete (no bulky dark blue bar) */}
+                <div className={`${cardIsBlocked ? 'bg-rose-800 text-white' : 'bg-slate-900 text-white'} flex items-center justify-between px-3 py-1.5`}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] opacity-80">📋</span>
+                    <span className="font-black font-mono text-base">#{visibleCard.cardNumber}</span>
+                    {cardIsBlocked && (
+                      <span className="text-[9px] font-black bg-rose-600 text-white px-1.5 py-0.5 rounded uppercase">
+                        BLOCKED
+                      </span>
                     )}
                   </div>
-
-                  {/* 🔵 BLUE CARD # BAR + close X */}
-                  <div className={`${cardIsBlocked ? 'bg-rose-800' : 'bg-blue-600'} flex items-center justify-between px-2 py-1`}>
-                    <div className="flex items-center gap-1">
-                      <span className="text-white text-[10px]">📋</span>
-                      <span className="text-white font-black font-mono text-sm">{card.cardNumber}</span>
-                      {cardIsBlocked && (
-                        <span className="ml-1 text-[9px] font-black bg-white text-rose-700 px-1 rounded uppercase">
-                          BLOCKED
-                        </span>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-1.5">
                     <button
-                      className="text-white/70 hover:text-white transition cursor-pointer p-0.5"
-                      title="Close card"
+                      onClick={() => setExpandCardModal(true)}
+                      className="text-white hover:bg-white/20 transition cursor-pointer px-2 py-1 rounded-lg bg-white/10 text-xs font-bold flex items-center gap-1"
+                      title="View fullscreen"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <Maximize2 className="w-3.5 h-3.5" />
+                      <span className="text-[11px]">{language === 'am' ? 'ሙሉ ሰሌዳ' : 'Fullscreen'}</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const remaining = activeGameCards.filter((c) => c.id !== visibleCard.id);
+                        setSelectedCardId(remaining[0]?.id ?? null);
+                        removeCard(visibleCard.id);
+                      }}
+                      className="text-rose-300 hover:text-white hover:bg-rose-600 rounded-lg px-2 py-1 transition cursor-pointer text-xs font-bold flex items-center gap-1 bg-rose-500/20"
+                      title="Remove this card"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span className="text-[11px]">{language === 'am' ? 'ሰርዝ' : 'Delete'}</span>
                     </button>
                   </div>
-
-                  {/* 🔽 BOTTOM GREEN BINGO BUTTON (duplicate per screenshot 2) */}
-                  <button
-                    disabled={cardIsBlocked}
-                    onClick={() => !cardIsBlocked && handleClaimBingo(card.id)}
-                    className={`w-full py-1.5 font-black text-sm tracking-widest italic transition cursor-pointer ${
-                      cardIsBlocked
-                        ? 'bg-rose-900 text-rose-300 cursor-not-allowed'
-                        : cardIsWin
-                        ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse border-t-2 border-amber-300'
-                        : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-400 hover:to-emerald-500 border-t-2 border-green-700/30'
-                    }`}
-                  >
-                    {cardIsBlocked ? '🚫 BLOCKED' : 'Bingo'}
-                  </button>
                 </div>
-              );
-            })}
 
-            {/* ➕ Add card placeholder slot (if < 3 cards) */}
-            {activeGameCards.length < 3 && (
-              <button
-                onClick={() => {
-                  if (!user) {
-                    openAuthModal('register');
-                  } else {
-                    setIsSelectorOpen(true);
-                  }
-                }}
-                className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center gap-2 py-6 text-slate-500 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50/30 transition cursor-pointer min-h-[200px]"
-              >
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                  <Plus className="w-5 h-5 text-emerald-600" />
+                {/* 5x5 NUMBER GRID (no B-I-N-G-O header row — removed to save space) */}
+                <div className="grid grid-cols-5 gap-0 bg-slate-50">
+                  {visibleCard.numbers.map((row, rIdx) =>
+                    row.map((val, cIdx) => {
+                      const isFree = rIdx === 2 && cIdx === 2;
+                      const isDrawn = !isFree && cardDrawnSet.has(val);
+                      const isMarked = visibleCard.marked[rIdx][cIdx];
+                      const isCurrent = currentGame.currentBall === val && !isFree;
+                      const isHintCell = cardIsHint && patternHint && patternHint[rIdx][cIdx] && !isMarked && !isFree;
+
+                      return (
+                        <button
+                          key={`${rIdx}-${cIdx}`}
+                          onClick={() => !isFree && daubCell(visibleCard.id, rIdx, cIdx)}
+                          className={`h-14 sm:h-16 flex items-center justify-center font-bold border border-slate-100 transition-all relative cursor-pointer ${
+                            isFree
+                              ? 'bg-green-500'
+                              : isMarked || isDrawn
+                              ? 'bg-red-600 shadow-inner'
+                              : isCurrent
+                              ? 'bg-amber-300 ring-1 ring-amber-500'
+                              : isHintCell
+                              ? 'bg-amber-100 ring-1 ring-amber-400 animate-pulse'
+                              : 'bg-white hover:bg-slate-100'
+                          }`}
+                        >
+                          {isFree ? (
+                            <span className="text-white font-black text-base italic">★</span>
+                          ) : (
+                            <span className={`font-black text-lg sm:text-xl ${
+                              isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950' : 'text-slate-800'
+                            }`}>
+                              {val}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
-                <span className="text-xs font-bold text-center px-3">
-                  {language === 'am' ? 'ካርድ ቁጥር ምረጥ (+)' : '+ Add Card'}
-                </span>
-              </button>
-            )}
-          </div>
-        ) : (
-          /* 🟰 No cards yet — empty state CTA */
+
+                {/* BOTTOM BINGO BUTTON */}
+                <button
+                  disabled={cardIsBlocked}
+                  onClick={() => !cardIsBlocked && handleClaimBingo(visibleCard.id)}
+                  className={`w-full py-3 font-black text-base tracking-widest italic transition cursor-pointer ${
+                    cardIsBlocked
+                      ? 'bg-rose-900 text-rose-300 cursor-not-allowed'
+                      : cardIsWin
+                      ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse border-t-2 border-amber-300'
+                      : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-400 hover:to-emerald-500 border-t-2 border-green-700/30'
+                  }`}
+                >
+                  {cardIsBlocked ? '🚫 BLOCKED' : '🎯 BINGO!'}
+                </button>
+              </div>
+
+              {/* Bottom action bar: Hint | Board | + Card */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleLightGameHit(visibleCard)}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-black text-xs border border-amber-300 flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <Lightbulb className="w-3.5 h-3.5 fill-amber-500" />
+                  {language === 'am' ? 'ፍንጭ' : 'Hint'}
+                </button>
+                <button
+                  onClick={() => setShowTableModal(true)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs border border-slate-200 flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <Grid className="w-3.5 h-3.5 text-blue-600" />
+                  {language === 'am' ? 'ሰሌዳ' : 'Board'}
+                </button>
+                <button
+                  onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
+                  disabled={activeGameCards.length >= 3}
+                  className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition cursor-pointer ${
+                    activeGameCards.length >= 3
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-sm'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {language === 'am' ? 'ካርድ' : 'Card'}
+                  {activeGameCards.length >= 3 && <span className="text-[10px]">(Max)</span>}
+                </button>
+              </div>
+            </>
+          );
+        })() : (
+          /* No cards yet — empty state */
           <div className="flex flex-col items-center justify-center py-10 text-center space-y-4 bg-white rounded-2xl border border-slate-200 mx-1 shadow-xs">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg">
               <Hash className="w-8 h-8" />
@@ -796,27 +843,14 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
             </div>
             <div className="flex flex-col sm:flex-row gap-2 px-4 w-full max-w-xs mx-auto">
               <button
-                onClick={() => {
-                  if (!user) {
-                    openAuthModal('register');
-                  } else {
-                    setIsSelectorOpen(true);
-                  }
-                }}
+                onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
                 className="flex-1 px-3 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>{language === 'am' ? 'ካርድ ቁጥር ይምረጡ' : 'Pick Card Numbers'}</span>
               </button>
               <button
-                onClick={() => {
-                  if (!user) {
-                    openAuthModal('register');
-                  } else {
-                    const ok = joinGame(currentGame.id);
-                    if (!ok && !user) openAuthModal('register');
-                  }
-                }}
+                onClick={() => (!user ? openAuthModal('register') : joinGame(currentGame.id))}
                 className="flex-1 px-3 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Zap className="w-4 h-4" />
@@ -826,55 +860,129 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
           </div>
         )}
       </div>
-
-      {/* ================================================================
-          7. BOTTOM ACTION BAR (fixed to container max-w)
-             Pick Card | Hint | Board
-          ================================================================ */}
-      {activeGameCards.length > 0 && (
-        <div className="mx-2 mb-2 p-2 bg-white border border-slate-200 rounded-2xl flex items-center gap-2 shadow-sm">
-          <button
-            onClick={() => {
-              if (!user) {
-                openAuthModal('register');
-              } else {
-                setIsSelectorOpen(true);
-              }
-            }}
-            disabled={activeGameCards.length >= 3}
-            className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition cursor-pointer ${
-              activeGameCards.length >= 3
-                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-sm'
-            }`}
-          >
-            <Plus className="w-4 h-4" />
-            {language === 'am' ? 'ካርድ ምረጥ' : '+ Pick Card'}
-            {activeGameCards.length >= 3 && <span className="text-[10px]">(Max)</span>}
-          </button>
-
-          <button
-            onClick={() => handleLightGameHit()}
-            className="px-3 py-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-black text-xs border border-amber-300 flex items-center gap-1 cursor-pointer"
-          >
-            <Lightbulb className="w-3.5 h-3.5 fill-amber-500" />
-            Hint
-          </button>
-
-          <button
-            onClick={() => setShowTableModal(true)}
-            className="px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs border border-slate-200 flex items-center gap-1 cursor-pointer"
-          >
-            <Grid className="w-3.5 h-3.5 text-blue-600" />
-            Board
-          </button>
-        </div>
-      )}
       </div>
 
       {/* ================================================================
           8. MODALS (ONE SET ONLY, no duplication)
           ================================================================ */}
+
+      {/* FULL-SCREEN CARD EXPAND MODAL */}
+      {expandCardModal && (() => {
+        const fsCard =
+          activeGameCards.find((c) => c.id === selectedCardId) || activeGameCards[0];
+        if (!fsCard) return null;
+        const fsBlocked = currentGame.blockedCards?.includes(fsCard.cardNumber);
+        const fsWin = checkFullHouseWin(fsCard.marked);
+        const fsDrawnSet = new Set(currentGame.drawnNumbers);
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col select-none">
+            {/* Header: card tabs to switch between all picked cards in full screen + delete + close */}
+            <div className="bg-slate-900 border-b border-slate-800 flex items-center justify-between px-3 py-2 shrink-0 gap-2">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0">
+                {activeGameCards.map((c) => {
+                  const isActive = c.id === fsCard.id;
+                  const isBlk = currentGame.blockedCards?.includes(c.cardNumber);
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => setSelectedCardId(c.id)}
+                      className={`px-3 py-1.5 rounded-xl font-black text-xs transition cursor-pointer shrink-0 ${
+                        isActive
+                          ? isBlk
+                            ? 'bg-rose-700 text-white'
+                            : 'bg-emerald-500 text-slate-950 shadow-md font-black'
+                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                      }`}
+                    >
+                      #{c.cardNumber}
+                      {isBlk && <span className="ml-1 text-[9px]">🚫</span>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => {
+                    const remaining = activeGameCards.filter((c) => c.id !== fsCard.id);
+                    removeCard(fsCard.id);
+                    if (remaining.length > 0) {
+                      setSelectedCardId(remaining[0].id);
+                    } else {
+                      setSelectedCardId(null);
+                      setExpandCardModal(false);
+                    }
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs flex items-center gap-1 transition cursor-pointer border border-rose-500/40"
+                  title="Delete this card"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{language === 'am' ? 'ሰርዝ' : 'Delete'}</span>
+                </button>
+                <button
+                  onClick={() => setExpandCardModal(false)}
+                  className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer"
+                  title="Close fullscreen"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Full-screen 5x5 grid */}
+            <div className="flex-1 grid grid-cols-5 gap-0.5 p-1 bg-slate-950">
+              {fsCard.numbers.map((row, rIdx) =>
+                row.map((val, cIdx) => {
+                  const isFree = rIdx === 2 && cIdx === 2;
+                  const isDrawn = !isFree && fsDrawnSet.has(val);
+                  const isMarked = fsCard.marked[rIdx][cIdx];
+                  const isCurrent = currentGame.currentBall === val && !isFree;
+                  return (
+                    <button
+                      key={`fs-${rIdx}-${cIdx}`}
+                      onClick={() => !isFree && daubCell(fsCard.id, rIdx, cIdx)}
+                      className={`flex items-center justify-center font-bold border border-slate-800/80 transition-all cursor-pointer ${
+                        isFree
+                          ? 'bg-green-500'
+                          : isMarked || isDrawn
+                          ? 'bg-red-600'
+                          : isCurrent
+                          ? 'bg-amber-300'
+                          : 'bg-slate-900 hover:bg-slate-850'
+                      }`}
+                    >
+                      {isFree ? (
+                        <span className="text-white font-black text-2xl italic">★</span>
+                      ) : (
+                        <span className={`font-black text-2xl sm:text-3xl ${
+                          isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950' : 'text-slate-100'
+                        }`}>
+                          {val}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Bottom BINGO button */}
+            <button
+              disabled={fsBlocked}
+              onClick={() => { if (!fsBlocked) { handleClaimBingo(fsCard.id); setExpandCardModal(false); } }}
+              className={`w-full py-4 font-black text-xl tracking-widest italic shrink-0 cursor-pointer ${
+                fsBlocked
+                  ? 'bg-rose-900 text-rose-300 cursor-not-allowed'
+                  : fsWin
+                  ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse'
+                  : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-400 hover:to-emerald-500'
+              }`}
+            >
+              {fsBlocked ? '🚫 BLOCKED' : '🎯 BINGO!'}
+            </button>
+          </div>
+        );
+      })()}
 
       {/* 75-BALL ZOOM POPUP MODAL */}
       {showTableModal && (

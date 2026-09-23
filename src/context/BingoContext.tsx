@@ -67,6 +67,7 @@ interface BingoContextType {
   rejectWithdrawal: (withdrawalId: string, adminName: string) => void;
   joinGame: (gameId: string, chosenCardNumbers?: string[]) => boolean;
   addCardToGame: (gameId: string, cardNumber: string) => boolean;
+  removeCard: (cardId: string) => void;
   createGame: (gameData: Omit<Game, 'id' | 'currentPlayers' | 'drawnNumbers' | 'winners' | 'createdAt'>) => void;
   updateGameStatus: (gameId: string, status: GameStatus) => void;
   daubCell: (cardId: string, row: number, col: number) => void;
@@ -706,6 +707,14 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   };
 
 
+  // Remove a single card from the player's hand for this game
+  const removeCard = (cardId: string) => {
+    const card = userCards.find((c) => c.id === cardId);
+    if (!card) return;
+    setUserCards((prev) => prev.filter((c) => c.id !== cardId));
+    addNotification('🗑️ Card Removed', `Card #${card.cardNumber} removed from your hand.`, 'info');
+  };
+
   // 6. CREATE GAME (ADMIN)
   //    · Weekend/Lottery games → use the prizePool passed in by admin (owner-set fixed prize)
   //    · Regular games        → use PrizePool = 0 and compute live at render:
@@ -1142,6 +1151,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         rejectWithdrawal,
         joinGame,
         addCardToGame,
+        removeCard,
         createGame,
         updateGameStatus,
         daubCell,

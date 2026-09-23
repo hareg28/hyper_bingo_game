@@ -63,9 +63,9 @@ export const INITIAL_USER: User = {
 };
 
 export const INITIAL_WALLET: Wallet = {
-  userId: 'usr_001',
+  userId: 'usr_guest',
   availableBalance: 0,
-  bonusBalance: 20,
+  bonusBalance: 0,
   winningBalance: 0,
   totalDeposited: 0,
   totalWithdrawn: 0,
@@ -79,15 +79,14 @@ export const INITIAL_GAMES: Game[] = [
     gameType: 'TURBO_EXPRESS',
     entryPrice: 5,
     maxPlayers: 100,
-    currentPlayers: 64,
-    startTime: 'Starting in 00:20',
+    currentPlayers: 0,
+    startTime: 'Starting soon',
     drawInterval: 2,
     prizePool: 0,
-    status: 'STARTING',
-    drawnNumbers: [12, 24, 36, 48, 60],
-    currentBall: 60,
+    status: 'OPEN',
+    drawnNumbers: [],
     winners: [],
-    blockedCards: ['101'],
+    blockedCards: [],
     createdAt: '2026-09-15T20:00:00Z',
   },
   {
@@ -96,14 +95,14 @@ export const INITIAL_GAMES: Game[] = [
     gameType: 'QUICK_BINGO',
     entryPrice: 10,
     maxPlayers: 200,
-    currentPlayers: 112,
-    startTime: 'Starting in 01:15',
+    currentPlayers: 0,
+    startTime: 'Starting soon',
     drawInterval: 3,
     prizePool: 0,
     status: 'OPEN',
     drawnNumbers: [],
     winners: [],
-    blockedCards: ['105'],
+    blockedCards: [],
     createdAt: '2026-09-15T20:10:00Z',
   },
   {
@@ -145,15 +144,14 @@ export const INITIAL_GAMES: Game[] = [
     entryPrice: 35,
     minPlayers: 15,
     maxPlayers: 500,
-    currentPlayers: 248,
+    currentPlayers: 0,
     startTime: 'Opens 10:00 PM (Fri-Sun)',
     drawInterval: 2,
     prizePool: 35000,
-    status: 'STARTING',
-    drawnNumbers: [5, 17, 34, 52, 69, 11, 23, 40],
-    currentBall: 40,
+    status: 'OPEN',
+    drawnNumbers: [],
     winners: [],
-    blockedCards: ['777'],
+    blockedCards: [],
     isWeekendSpecial: true,
     createdAt: '2026-09-16T18:00:00Z',
   },
@@ -275,73 +273,11 @@ export const INITIAL_GAMES: Game[] = [
   },
 ];
 
-export const INITIAL_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'TX001',
-    userId: 'usr_001',
-    username: 'abebe_b',
-    type: 'DEPOSIT',
-    amount: 500,
-    balanceAfter: 500,
-    reference: 'TLB-98321049',
-    paymentProvider: 'Telebirr',
-    status: 'COMPLETED',
-    description: 'Telebirr Instant Deposit',
-    createdAt: '2026-09-10T14:20:00Z',
-  },
-  {
-    id: 'GM001',
-    userId: 'usr_001',
-    username: 'abebe_b',
-    type: 'GAME_ENTRY',
-    amount: -50,
-    balanceAfter: 450,
-    reference: 'ENTRY-GM004',
-    status: 'COMPLETED',
-    description: 'Entry fee for Turbo Express',
-    createdAt: '2026-09-11T18:00:00Z',
-  },
-  {
-    id: 'GM002',
-    userId: 'usr_001',
-    username: 'abebe_b',
-    type: 'GAME_WIN',
-    amount: 1000,
-    balanceAfter: 1450,
-    reference: 'WIN-GM004',
-    status: 'COMPLETED',
-    description: 'Two Lines Winning Prize',
-    createdAt: '2026-09-11T18:15:00Z',
-  },
-  {
-    id: 'WD001',
-    userId: 'usr_001',
-    username: 'abebe_b',
-    type: 'WITHDRAWAL',
-    amount: -500,
-    balanceAfter: 950,
-    reference: 'WD-CBE-4412',
-    paymentProvider: 'CBE Birr',
-    status: 'PENDING',
-    description: 'Withdrawal to CBE Birr Account',
-    createdAt: '2026-09-12T09:30:00Z',
-  },
-];
+// No mock transactions — transactions are created by real user actions (deposit/play/win/withdraw)
+export const INITIAL_TRANSACTIONS: Transaction[] = [];
 
-export const INITIAL_WITHDRAWALS: WithdrawalRequest[] = [
-  {
-    id: 'WD001',
-    transactionId: 'WD001',
-    userId: 'usr_001',
-    username: 'abebe_b',
-    amount: 500,
-    paymentMethod: 'CBE Birr',
-    accountNumber: '1000189234857',
-    accountName: 'Abebe Bikila',
-    status: 'PENDING',
-    createdAt: '2026-09-12T09:30:00Z',
-  },
-];
+// No mock withdrawals — populated by real user withdrawal requests
+export const INITIAL_WITHDRAWALS: WithdrawalRequest[] = [];
 
 export const INITIAL_PROMOTIONS: Promotion[] = [
   {
@@ -370,51 +306,11 @@ export const INITIAL_PROMOTIONS: Promotion[] = [
   },
 ];
 
-export const INITIAL_AUDIT_LOGS: AuditLog[] = [
-  {
-    id: 'aud_001',
-    adminUsername: 'super_admin',
-    action: 'CREATE_GAME',
-    target: '\u26A1 Quick Bingo #104',
-    amount: 5000,
-    ipAddress: '196.188.42.12',
-    timestamp: '2026-09-13T21:00:00Z',
-  },
-  {
-    id: 'aud_002',
-    adminUsername: 'finance_admin',
-    action: 'APPROVE_DEPOSIT',
-    target: 'TLB-98321049 (abebe_b)',
-    amount: 500,
-    ipAddress: '196.188.42.15',
-    timestamp: '2026-09-10T14:21:00Z',
-  },
-];
+// No mock audit logs — populated by real admin actions
+export const INITIAL_AUDIT_LOGS: AuditLog[] = [];
 
-export const INITIAL_REFERRALS: Referral[] = [
-  {
-    id: 'ref_01',
-    referrerId: 'usr_001',
-    referrerName: 'Abebe Bikila',
-    referredUserId: 'usr_102',
-    referredName: 'Tigist Kebede',
-    rewardAmount: 50,
-    status: 'REWARDED',
-    createdAt: '2026-09-05T12:00:00Z',
-  },
-  {
-    id: 'ref_02',
-    referrerId: 'usr_001',
-    referrerName: 'Abebe Bikila',
-    referredUserId: 'usr_105',
-    referredName: 'Dawit Yohannes',
-    rewardAmount: 50,
-    status: 'PENDING',
-    createdAt: '2026-09-12T16:40:00Z',
-  },
-];
+// No mock referrals — populated by real referral events
+export const INITIAL_REFERRALS: Referral[] = [];
 
-export const INITIAL_CARDS: BingoCard[] = [
-  createNewBingoCard('gm_small_30', 'usr_001', '12608'),
-  createNewBingoCard('gm_small_30', 'usr_001', '11302'),
-];
+// No pre-loaded cards — players pick their own cards when they join a game
+export const INITIAL_CARDS: BingoCard[] = [];
