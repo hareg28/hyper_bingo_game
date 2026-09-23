@@ -23,14 +23,14 @@ export default function CardNumberSelector({
   onClose,
   onConfirm,
   entryPrice,
-  initialCards = ['12608', '11302'],
+  initialCards = [],
 }: CardNumberSelectorProps) {
   const { t, language } = useBingo();
   const [selectedNumbers, setSelectedNumbers] = useState<string[]>(() => {
     if (initialCards && initialCards.length >= 1) {
       return initialCards.slice(0, 3);
     }
-    return ['12608', '11302'];
+    return [];
   });
   const [inputNumber, setInputNumber] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -38,6 +38,18 @@ export default function CardNumberSelector({
 
   const MIN_CARDS = 1;
   const MAX_CARDS = 3;
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialCards && initialCards.length > 0) {
+        setSelectedNumbers(initialCards.slice(0, 3));
+      } else {
+        setSelectedNumbers([]);
+      }
+      setInputNumber('');
+      setErrorMsg('');
+    }
+  }, [isOpen, initialCards]);
 
   if (!isOpen) return null;
 
@@ -100,14 +112,6 @@ export default function CardNumberSelector({
 
   const handleRemoveNumber = (num: string) => {
     setErrorMsg('');
-    if (selectedNumbers.length <= MIN_CARDS) {
-      setErrorMsg(
-        language === 'am'
-          ? `አነስተኛው የካርድ ብዛት ${MIN_CARDS} መሆን አለበት።`
-          : `Minimum ${MIN_CARDS} cards required to play.`
-      );
-      return;
-    }
     setSelectedNumbers((prev) => prev.filter((n) => n !== num));
   };
 
@@ -115,8 +119,8 @@ export default function CardNumberSelector({
     if (selectedNumbers.length < MIN_CARDS) {
       setErrorMsg(
         language === 'am'
-          ? `እባክዎን ቢያንስ ${MIN_CARDS} ካርዶችን ይምረጡ (አነስተኛ ${MIN_CARDS}፣ ከፍተኛ ${MAX_CARDS})።`
-          : `Please select at least ${MIN_CARDS} cards (Min ${MIN_CARDS}, Max ${MAX_CARDS}).`
+          ? `እባክዎን ቢያንስ ${MIN_CARDS} ካርድ ይምረጡ (ከ1-3 ካርዶች)።`
+          : `Please select at least ${MIN_CARDS} card (1-3 cards allowed).`
       );
       return;
     }
@@ -178,19 +182,19 @@ export default function CardNumberSelector({
                   className="px-3 py-1 rounded-lg bg-emerald-600 text-white font-mono font-black text-xs flex items-center gap-1.5 shadow-xs group hover:bg-emerald-700 transition"
                 >
                   <span>#{num}</span>
-                  {selectedNumbers.length > MIN_CARDS && (
-                    <button
-                      onClick={() => handleRemoveNumber(num)}
-                      className="text-emerald-100 hover:text-white transition cursor-pointer"
-                      title="Remove card"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleRemoveNumber(num)}
+                    className="text-emerald-100 hover:text-white transition cursor-pointer"
+                    title="Remove card"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
               ))
             ) : (
-              <span className="text-slate-500 text-xs italic px-2">No cards selected yet</span>
+              <span className="text-slate-500 text-xs italic px-2">
+                {language === 'am' ? 'እስካሁን ምንም ካርድ አልተመረጠም (ከታች ምረጥ)' : 'No cards selected yet (pick below)'}
+              </span>
             )}
           </div>
         </div>
@@ -250,11 +254,17 @@ export default function CardNumberSelector({
                 <button
                   key={preset}
                   onClick={() => {
-                    if (!isAdded && !isMax) setSelectedNumbers((prev) => [...prev, preset]);
+                    if (isAdded) {
+                      setSelectedNumbers((prev) => prev.filter((n) => n !== preset));
+                    } else if (!isMax) {
+                      setSelectedNumbers((prev) => [...prev, preset]);
+                    }
                   }}
-                  disabled={isAdded || isMax}
+                  disabled={!isAdded && isMax}
                   className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold border transition cursor-pointer ${
-                    isAdded || isMax
+                    isAdded
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      : isMax
                       ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
                       : 'bg-white border-slate-300 text-slate-800 hover:border-emerald-600 hover:text-emerald-700 hover:bg-emerald-50/30'
                   }`}

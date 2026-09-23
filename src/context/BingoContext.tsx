@@ -584,7 +584,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (!targetGame) return false;
 
     // Slot max 3: cap cards to at most 3
-    const rawCards = chosenCardNumbers && chosenCardNumbers.length > 0 ? chosenCardNumbers : ['12608', '11302'];
+    const rawCards = chosenCardNumbers && chosenCardNumbers.length > 0 ? chosenCardNumbers : ['12608'];
     const cardsToCreate = rawCards.slice(0, 3);
     const totalCost = targetGame.entryPrice * cardsToCreate.length;
 
