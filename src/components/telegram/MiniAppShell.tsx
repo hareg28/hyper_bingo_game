@@ -794,17 +794,17 @@ function WeekendLotteryNumberPicker({
         </div>
       </div>
 
-      {/* Game / Stake / Time selector bar (dark) */}
-      <div className="flex items-stretch gap-1 mx-1 mb-2">
+      {/* Game / Stake / Time selector bar */}
+      <div className="flex items-stretch gap-1 mx-1 mb-1">
         {/* STAKE */}
-        <div className="flex-1 rounded-2xl bg-[#13233f] border border-[#1f3660] px-2.5 py-2 flex flex-col justify-center">
+        <div className="flex-1 rounded-xl bg-[#13233f] border border-[#1f3660] px-2 py-1.5 flex flex-col justify-center">
           <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 leading-none">Stake</span>
-          <div className="text-base font-black leading-tight mt-0.5 tabular-nums flex items-center gap-1">
+          <div className="text-sm font-black leading-tight mt-0.5 tabular-nums flex items-center gap-1 text-white">
             {entryPrice} <span className="text-[10px] text-slate-400">ETB</span>
           </div>
         </div>
         {/* Game picker */}
-        <div className="flex-1 rounded-2xl bg-[#13233f] border border-[#1f3660] px-2 py-2 flex flex-col justify-center">
+        <div className="flex-[2] rounded-xl bg-[#13233f] border border-[#1f3660] px-2 py-1.5 flex flex-col justify-center">
           <span className="text-[9px] font-black uppercase tracking-widest text-amber-300/90 leading-none">
             {isAm ? 'የጨዋታ አይነት' : 'Game Type'}
           </span>
@@ -822,40 +822,55 @@ function WeekendLotteryNumberPicker({
             </select>
           ) : (
             <span className="text-[11px] font-black text-amber-400 mt-0.5">
-              {isAm ? 'ሙሉ ዝግጅት' : 'Weekend Mega'}
+              🌟 {isAm ? 'ሙሉ ዝግጅት' : 'Hyper 35'}
             </span>
           )}
         </div>
         {/* Time */}
-        <div className="flex-1 rounded-2xl bg-[#13233f] border border-[#1f3660] px-2 py-2 flex flex-col justify-center">
+        <div className="flex-[2] rounded-xl bg-[#13233f] border border-[#1f3660] px-2 py-1.5 flex flex-col justify-center">
           <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 leading-none">
-            {isAm ? 'ጊዜ | ቀን | አሁድ' : 'Time'}
+            {isAm ? 'ጊዜ | ቀን' : 'Time'}
           </span>
-          <div className="text-[11px] font-black leading-tight mt-0.5 text-blue-300">
-            {isAm ? 'የአርብ እሑድ · ቅዳሜ 10 ሰዓት' : 'Fri · Sat · Sun 10 PM'}
+          <div className="text-[10px] font-black leading-tight mt-0.5 text-blue-300">
+            {isAm ? 'አርብ · ቅዳሜ · እሑድ 10 ሰዓት' : 'Fri · Sat · Sun 10 PM'}
           </div>
         </div>
       </div>
 
-      {/* Number grid (scrollable) */}
-      <div className="flex-1 min-h-0 overflow-y-auto mx-1 mb-2 rounded-2xl bg-[#0b1527] border border-[#1d3159] p-2">
-        <div className="grid grid-cols-8 gap-1.5">
+      {/* Legend */}
+      <div className="flex items-center gap-3 mx-2 mb-1">
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded border border-slate-300 bg-white" />
+          <span className="text-[10px] text-slate-300 font-semibold">{isAm ? 'ነፃ' : 'Free'}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded border border-amber-500 bg-amber-400" />
+          <span className="text-[10px] text-slate-300 font-semibold">{isAm ? 'የተመረጠ' : 'Selected'}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 rounded border border-slate-300 bg-slate-200" />
+          <span className="text-[10px] text-slate-300 font-semibold">{isAm ? 'ተሸጠ' : 'Sold'}</span>
+        </div>
+      </div>
+
+      {/* Number grid — white bg, black numbers, full scrollable, 10-col dense layout */}
+      <div className="flex-1 min-h-0 overflow-y-auto mx-1 mb-2 rounded-2xl bg-white border border-slate-200 p-2">
+        <div className="grid grid-cols-10 gap-1">
           {Array.from({ length: TOTAL_NUMBERS }, (_, i) => i + 1).map((num) => {
             const sold = soldSet.has(num);
             const inSlot = activeSlotSet.has(num);
-            const disabled = sold && !inSlot;
             return (
               <button
                 key={num}
                 type="button"
                 onClick={() => handlePickNumber(num)}
-                disabled={disabled}
-                className={`h-9 rounded-lg text-[12px] font-black tabular-nums transition border shrink-0 ${
+                disabled={sold && !inSlot}
+                className={`h-8 rounded-md text-[11px] font-black tabular-nums transition-all border select-none ${
                   inSlot
-                    ? 'bg-sky-500 border-sky-300 text-white shadow-md shadow-sky-900/60 scale-[1.02]'
+                    ? 'bg-amber-400 border-amber-500 text-slate-900 shadow shadow-amber-300 scale-105 ring-1 ring-amber-600'
                     : sold
-                    ? 'bg-[#2a3550] border-[#2a3550] text-slate-500/60 cursor-not-allowed opacity-70'
-                    : 'bg-white border-slate-200 text-slate-900 hover:bg-amber-50 hover:border-amber-300 active:scale-95'
+                    ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed line-through decoration-slate-400/80'
+                    : 'bg-white border-slate-300 text-slate-900 hover:bg-amber-50 hover:border-amber-400 active:scale-95 cursor-pointer'
                 }`}
               >
                 {num}
@@ -872,8 +887,9 @@ function WeekendLotteryNumberPicker({
         </div>
       )}
 
-      {/* Bottom SLOTS + Buy action */}
-      <div className="mx-1 mb-1 space-y-2">
+      {/* Bottom: compact SLOTS row + Buy button */}
+      <div className="mx-1 mb-1 space-y-1.5">
+        {/* Slots row */}
         <div className="grid grid-cols-2 gap-2">
           {Array.from({ length: NUM_SLOTS }, (_, i) => {
             const num = slotNumbers[i];
@@ -881,24 +897,24 @@ function WeekendLotteryNumberPicker({
             return (
               <div
                 key={i}
-                className={`h-14 rounded-xl border-2 border-dashed flex flex-row items-center justify-center gap-2 px-3 relative ${
+                className={`h-11 rounded-xl border-2 flex flex-row items-center justify-center gap-2 px-3 relative transition-all ${
                   filled
-                    ? 'border-solid border-sky-400 bg-sky-500/15 text-sky-300'
-                    : 'border-[#2d4573] bg-[#0e1a2e] text-slate-500'
+                    ? 'border-amber-400 bg-amber-50 text-slate-900'
+                    : 'border-dashed border-slate-600 bg-[#0e1a2e] text-slate-500'
                 }`}
               >
                 {filled ? (
                   <>
-                    <span className="text-[9px] font-black uppercase tracking-widest opacity-80 leading-none shrink-0">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-amber-600 shrink-0">
                       SLOT {i + 1}
                     </span>
-                    <span className="text-xl font-black tabular-nums">
+                    <span className="text-lg font-black tabular-nums text-slate-900">
                       {String(num).padStart(3, '0')}
                     </span>
                     <button
                       type="button"
                       onClick={() => clearSlot(i)}
-                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-slate-900/70 text-slate-300 text-xs flex items-center justify-center hover:bg-rose-600 hover:text-white transition cursor-pointer"
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center hover:bg-rose-500 hover:text-white transition cursor-pointer"
                       title="Clear"
                     >
                       <X className="w-3 h-3" />
@@ -906,8 +922,8 @@ function WeekendLotteryNumberPicker({
                   </>
                 ) : (
                   <>
-                    <span className="text-slate-400 text-base">+</span>
-                    <span className="text-[10px] font-black uppercase tracking-widest opacity-70 leading-none">
+                    <span className="text-slate-500 text-sm font-bold">+</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                       SLOT {i + 1} EMPTY
                     </span>
                   </>
@@ -916,21 +932,20 @@ function WeekendLotteryNumberPicker({
             );
           })}
         </div>
-
         {/* Buy button */}
         <button
           type="button"
           onClick={handleBuy}
           disabled={slotCountFilled === 0 || !canAfford || !selectedGame}
-          className={`w-full py-3 rounded-2xl font-black text-sm transition shadow-lg cursor-pointer ${
+          className={`w-full py-2.5 rounded-2xl font-black text-sm transition shadow-lg cursor-pointer ${
             slotCountFilled === 0 || !canAfford || !selectedGame
-              ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none'
+              ? 'bg-slate-700 text-slate-400 cursor-not-allowed shadow-none'
               : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 hover:brightness-105 shadow-amber-900/40'
           }`}
         >
           {!user ? (isAm ? 'መመዝገብ →' : 'Register →') :
            slotCountFilled === 0 ? (isAm ? 'ካርድ ይምረጡ' : 'Pick card numbers') :
-           !canAfford ? (isAm ? `በክብሮት ያስፈልጋል ${totalCost} ETB` : `Need ${totalCost} ETB balance`) :
+           !canAfford ? (isAm ? `ያስፈልጋል ${totalCost} ETB` : `Need ${totalCost} ETB`) :
            `${isAm ? 'ይግዙ' : 'BUY'} · ${slotCountFilled}×${entryPrice} = ${totalCost} ETB`}
         </button>
       </div>
