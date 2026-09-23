@@ -447,16 +447,13 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
         {showGameInfo && (
           <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
             {/* Row 1: Pattern hints description */}
-            <div className="pr-20">
+            <div className="flex items-center justify-between pr-24">
               <span className="block text-[11px] text-slate-600 leading-tight">
-                      {isWeekendGame
-                        ? (language === 'am' ? 'የሚኒሱ መስመር ያለው 2 ፍሪ የማይነኩ መስመሮች' : '2 free pattern lines in weekend draw')
-                        : 'Full House pattern - all 24 numbers'
-                      }
-                    </span>
-                  )}
-                </div>
-              </div>
+                {isWeekendGame
+                  ? (language === 'am' ? 'የሚኒሱ መስመር ያለው 2 ፍሪ የማይነኩ መስመሮች' : '2 free pattern lines in weekend draw')
+                  : 'Full House pattern - all 24 numbers'
+                }
+              </span>
               <button
                 onClick={() => setShowPatternHintModal(true)}
                 className="shrink-0 w-7 h-7 rounded-full bg-amber-100 hover:bg-amber-200 flex items-center justify-center text-amber-600 border border-amber-300 transition cursor-pointer shadow-xs"
