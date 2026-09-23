@@ -838,7 +838,7 @@ function WeekendLotteryNumberPicker({
       </div>
 
       {/* Number grid (scrollable) */}
-      <div className="flex-1 min-h-0 overflow-y-auto mx-1 mb-2 rounded-2xl bg-[#0b1527] border border-[#1d3159] p-2 relative">
+      <div className="flex-1 min-h-0 overflow-y-auto mx-1 mb-2 rounded-2xl bg-[#0b1527] border border-[#1d3159] p-2">
         <div className="grid grid-cols-8 gap-1.5">
           {Array.from({ length: TOTAL_NUMBERS }, (_, i) => i + 1).map((num) => {
             const sold = soldSet.has(num);
@@ -863,17 +863,6 @@ function WeekendLotteryNumberPicker({
             );
           })}
         </div>
-        {/* Play video / preview overlay button (like the reference image) */}
-        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-          <button
-            type="button"
-            className="pointer-events-auto w-16 h-16 rounded-full bg-slate-900/70 backdrop-blur border-2 border-white/60 flex items-center justify-center text-white shadow-2xl hover:bg-slate-900/90 transition cursor-pointer"
-            onClick={() => onBack()}
-            title={isAm ? 'ወደ ሎቢ ይመለሱ' : 'Back to lobby'}
-          >
-            <ChevronLeft className="w-7 h-7 translate-x-0.5" />
-          </button>
-        </div>
       </div>
 
       {/* Purchase feedback toast */}
@@ -892,7 +881,7 @@ function WeekendLotteryNumberPicker({
             return (
               <div
                 key={i}
-                className={`h-24 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center relative ${
+                className={`h-14 rounded-xl border-2 border-dashed flex flex-row items-center justify-center gap-2 px-3 relative ${
                   filled
                     ? 'border-solid border-sky-400 bg-sky-500/15 text-sky-300'
                     : 'border-[#2d4573] bg-[#0e1a2e] text-slate-500'
@@ -900,16 +889,16 @@ function WeekendLotteryNumberPicker({
               >
                 {filled ? (
                   <>
-                    <span className="text-[10px] font-black uppercase tracking-widest opacity-80 leading-none">
+                    <span className="text-[9px] font-black uppercase tracking-widest opacity-80 leading-none shrink-0">
                       SLOT {i + 1}
                     </span>
-                    <span className="text-2xl font-black leading-none mt-1 tabular-nums">
+                    <span className="text-xl font-black tabular-nums">
                       {String(num).padStart(3, '0')}
                     </span>
                     <button
                       type="button"
                       onClick={() => clearSlot(i)}
-                      className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-slate-900/70 text-slate-300 text-xs flex items-center justify-center hover:bg-rose-600 hover:text-white transition cursor-pointer"
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-slate-900/70 text-slate-300 text-xs flex items-center justify-center hover:bg-rose-600 hover:text-white transition cursor-pointer"
                       title="Clear"
                     >
                       <X className="w-3 h-3" />
@@ -917,7 +906,7 @@ function WeekendLotteryNumberPicker({
                   </>
                 ) : (
                   <>
-                    <span className="text-slate-400 text-lg mb-1">+</span>
+                    <span className="text-slate-400 text-base">+</span>
                     <span className="text-[10px] font-black uppercase tracking-widest opacity-70 leading-none">
                       SLOT {i + 1} EMPTY
                     </span>
