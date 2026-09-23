@@ -11,11 +11,15 @@ import {
   formatETB, 
   checkFullHouseWin, 
   countRemainingNumbers,
-  playBingoVictoryFanfare 
+  playBingoVictoryFanfare,
+  WINNING_RULES_PATTERNS,
+  getBestWinningRule,
+  WinningRuleMatch,
 } from '../../lib/bingoUtils';
 import confetti from 'canvas-confetti';
 import CardNumberSelector from './CardNumberSelector';
 import { isAdminTelegramId } from '../../lib/authUtils';
+import { getGameLivePrizePool } from '../../lib/store';
 
 interface BingoGameRoomProps {
   gameId: string;
@@ -297,10 +301,10 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
       return;
     }
 
-    // Check pattern completeness - FULL HOUSE ONLY
-    const isFullHouse = checkFullHouseWin(targetCard.marked);
+    // Check pattern completeness using 4 winning rules: 1 Line, 2 Lines, Letter X, Full House
+    const bestRule: WinningRuleMatch | null = getBestWinningRule(targetCard.marked);
 
-    if (!isFullHouse) {
+    if (!bestRule) {
       // FALSE BINGO -> BLOCK THE PLAYER & CARD
       playErrorBuzzer();
       const rem = countRemainingNumbers(targetCard.marked);
@@ -308,13 +312,13 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
       setClaimStatus({
         success: false,
         message: language === 'am'
-          ? `🚫 ታግደዋል! ካርድ #${targetCard.cardNumber} ሳያጠናቅቁ ቢንጎ ስላሉ ታግደዋል። (${rem} ቁጥሮች ቀርተዋል)`
-          : `🚫 BLOCKED! Card #${targetCard.cardNumber} disqualified for false Bingo claim without completing full card (${rem} numbers left).`
+          ? `🚫 ታግደዋል! ካርድ #${targetCard.cardNumber} የአሸናፊ አሳይ ሳያሳይ ቢንጎ ስላሉ ታግደዋል። (${rem} ቁጥሮች ቀርተዋል)`
+          : `🚫 BLOCKED! Card #${targetCard.cardNumber} disqualified for false Bingo claim — no winning pattern matched (${rem} numbers left).`
       });
       return;
     }
 
-    // VALID FULL HOUSE BINGO WIN!
+    // VALID BINGO WIN! (1 Line / 2 Lines / Letter X / Full House)
     if (soundEnabled) {
       playBingoVictoryFanfare();
     }
@@ -367,7 +371,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
   })();
 
   const gameShortId = (currentGame.id || 'game').slice(0, 8);
-  const gamePrizeDisplay = Math.round((currentGame.entryPrice || 0) * 1000);
+  const gamePrizeDisplay = getGameLivePrizePool(currentGame);
 
   // =========================================================================
   // 🔽 SINGLE UNIFIED RENDER (used for both weekend & regular games)
@@ -395,9 +399,27 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
             <span className="text-white font-black text-lg leading-none tracking-tight">
               {currentTime}
             </span>
-            <span className="text-white font-black text-xl leading-none tracking-widest italic ml-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (!user) { openAuthModal('register'); return; }
+                const bestCard = activeGameCards
+                  .slice()
+                  .sort((a, b) => {
+                    const ruleA = getBestWinningRule(a.marked);
+                    const ruleB = getBestWinningRule(b.marked);
+                    const rankScore = (r: WinningRuleMatch | null) => r ? r.rank : -1;
+                    const progressScore = (c: typeof a) => -1 * countRemainingNumbers(c.marked);
+                    const delta = rankScore(ruleB) - rankScore(ruleA);
+                    return delta !== 0 ? delta : progressScore(b) - progressScore(a);
+                  })[0];
+                if (bestCard) handleClaimBingo(bestCard.id);
+              }}
+              className="ml-1 px-2.5 py-1 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-black text-base leading-none tracking-widest italic shadow border border-white/15 transition cursor-pointer active:scale-95"
+              title={language === 'am' ? 'ብጎ ይለያ (BINGO)' : 'Call BINGO if you have a win'}
+            >
               BINGO
-            </span>
+            </button>
           </div>
         </div>
       </div>
@@ -447,9 +469,6 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                         ? (language === 'am' ? 'የሚኒሱ መስመር ያለው 2 ፍሪ የማይነኩ መስመሮች' : '2 free pattern lines in weekend draw')
                         : 'Full House pattern - all 24 numbers'
                       }
-                      <span className="block mt-0.5 text-emerald-700 font-bold">
-                        💎 Rule: Prize = ${currentGame.entryPrice || 10} × 1000 = ${gamePrizeDisplay.toLocaleString()}
-                      </span>
                     </span>
                   )}
                 </div>
@@ -802,7 +821,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
           </div>
         ) : (
           /* 🟰 No cards yet — empty state CTA */
-          <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 bg-white rounded-2xl border border-slate-200 mx-1 shadow-xs">
+          <div className="flex flex-col items-center justify-center py-10 text-center space-y-4 bg-white rounded-2xl border border-slate-200 mx-1 shadow-xs">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg">
               <Hash className="w-8 h-8" />
             </div>
@@ -812,23 +831,39 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               </h3>
               <p className="text-xs text-slate-500 max-w-xs mx-auto">
                 {language === 'am'
-                  ? 'ለመጫወት ቁጥር ይምረጡ (ከ1-3 ካርዶች)'
-                  : 'Choose your card numbers to join the game (1–3 cards)'}
+                  ? 'ለመጫወት ቁጥር ይምረጡ (ከ1-3 ካርዶች) ወይም ፈጣን ቻይን ይጫወቱ'
+                  : 'Choose your card numbers (1–3 cards) or play instantly with random cards'}
               </p>
             </div>
-            <button
-              onClick={() => {
-                if (!user) {
-                  openAuthModal('register');
-                } else {
-                  setIsSelectorOpen(true);
-                }
-              }}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center gap-2 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>{language === 'am' ? 'ካርድ ቁጥር ይምረጡ' : 'Pick Card Numbers'}</span>
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2 px-4 w-full max-w-xs mx-auto">
+              <button
+                onClick={() => {
+                  if (!user) {
+                    openAuthModal('register');
+                  } else {
+                    setIsSelectorOpen(true);
+                  }
+                }}
+                className="flex-1 px-3 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{language === 'am' ? 'ካርድ ቁጥር ይምረጡ' : 'Pick Card Numbers'}</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (!user) {
+                    openAuthModal('register');
+                  } else {
+                    const ok = joinGame(currentGame.id);
+                    if (!ok && !user) openAuthModal('register');
+                  }
+                }}
+                className="flex-1 px-3 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Zap className="w-4 h-4" />
+                <span>{language === 'am' ? 'ፈጣን ጨዋታ' : 'Quick Play'}</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1021,13 +1056,16 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
         const winningCard = activeGameCards.find((c) => c.cardNumber === latestWinner.cardNumber);
         const winningNumbers: number[] = [];
         if (winningCard) {
-          winningCard.rows.forEach((row) => {
-            row.forEach((cell) => {
-              if ((cell.isMarked || cell.isDrawn) && !cell.isFree && cell.number) {
-                winningNumbers.push(cell.number);
+          const drawnNums = new Set(currentGame.drawnNumbers);
+          for (let r = 0; r < 5; r++) {
+            for (let c = 0; c < 5; c++) {
+              const num = winningCard.numbers[r][c];
+              const isFree = (r === 2 && c === 2);
+              if ((winningCard.marked[r][c] || drawnNums.has(num)) && !isFree && num > 0) {
+                winningNumbers.push(num);
               }
-            });
-          });
+            }
+          }
         }
         winningNumbers.sort((a, b) => a - b);
         return (
@@ -1099,88 +1137,97 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
         );
       })()}
 
-      {/* PATTERN HINTS MODAL (matches screenshot 1 popup exactly) */}
+      {/* PATTERN HINTS MODAL — 4 Winning Rules */}
       {showPatternHintModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-3 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
             {/* Header */}
-            <div className="flex items-center gap-2 px-5 pt-5 pb-3">
-              <Lightbulb className="w-6 h-6 text-blue-600 fill-blue-100" />
-              <h3 className="text-xl font-black text-slate-900">Pattern hints</h3>
+            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-5 h-5 text-amber-500 fill-amber-100" />
+                <h3 className="text-base font-black text-slate-900">
+                  {language === 'am' ? 'የአሸናፊ ደንቦች' : 'Winning Rules'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowPatternHintModal(false)}
+                className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Description */}
-            <p className="px-5 pb-4 text-sm text-slate-600 leading-relaxed">
-              Correct (green) and wrong (red) bingo patterns for the game &ldquo;{currentGame.name || `⚡ Hyper ${currentGame.entryPrice}`}&rdquo;.
+            <p className="px-4 pb-3 text-xs text-slate-600 leading-relaxed">
+              {language === 'am'
+                ? 'በዚህ ጨዋታ ውስጥ ለማሸነፍ 4 ደንቦች አሉ። ከእነዚህ መካከል አንዱን ማሳየት ብቻዎ ይኖርዎታል።'
+                : 'There are 4 ways to win this round. Match any one pattern to claim Bingo!'}
             </p>
 
-            {/* 3 Pattern Grids */}
-            <div className="px-4 pb-4 grid grid-cols-3 gap-3">
-              {[
-                { label: 'Correct', isCorrect: true, pattern: [
-                  [true, false, true, false, true],
-                  [true, true, true, true, true],
-                  [false, false, true, false, true],
-                  [false, false, true, true, true],
-                  [false, false, true, false, true],
-                ]},
-                { label: 'Correct', isCorrect: true, pattern: [
-                  [true, false, false, false, true],
-                  [true, true, true, true, true],
-                  [true, true, true, true, true],
-                  [true, true, false, false, false],
-                  [true, false, false, false, false],
-                ]},
-                { label: 'Wrong', isCorrect: false, pattern: [
-                  [false, false, true, false, true],
-                  [false, false, true, true, false],
-                  [true, true, true, true, true],
-                  [false, true, false, false, true],
-                  [true, true, true, true, true],
-                ]},
-              ].map((grid, gIdx) => (
-                <div key={gIdx} className="flex flex-col items-center gap-1.5">
-                  <span className={`text-xs font-black ${grid.isCorrect ? 'text-emerald-600' : 'text-rose-500'}`}>
-                    {grid.label}
-                  </span>
-                  <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-                    {grid.pattern.map((row, rIdx) => (
+            {/* 4 Winning Rule Patterns */}
+            <div className="px-4 pb-4 space-y-3">
+              {WINNING_RULES_PATTERNS.map((rule, idx) => (
+                <div
+                  key={rule.id}
+                  className={`flex items-center gap-3 p-2.5 rounded-xl border ${
+                    idx === 0 ? 'border-emerald-200 bg-emerald-50'
+                    : idx === 1 ? 'border-blue-200 bg-blue-50'
+                    : idx === 2 ? 'border-purple-200 bg-purple-50'
+                    : 'border-amber-200 bg-amber-50'
+                  }`}
+                >
+                  {/* Mini Pattern Grid */}
+                  <div className="shrink-0 rounded-lg overflow-hidden border border-slate-200 bg-white">
+                    {rule.pattern.map((row, rIdx) => (
                       <div key={rIdx} className="flex">
                         {row.map((filled, cIdx) => {
-                          const isFreeCell = rIdx === 2 && cIdx === 2;
+                          const isFree = rIdx === 2 && cIdx === 2;
+                          const gridColor =
+                            idx === 0 ? (filled ? 'bg-emerald-400' : 'bg-white')
+                            : idx === 1 ? (filled ? 'bg-blue-400' : 'bg-white')
+                            : idx === 2 ? (filled ? 'bg-purple-400' : 'bg-white')
+                            : (filled ? 'bg-amber-400' : 'bg-white');
                           return (
                             <div
                               key={cIdx}
-                              className={`w-8 h-8 border border-slate-100 flex items-center justify-center text-[9px] font-black ${
-                                isFreeCell
-                                  ? grid.isCorrect
-                                    ? 'bg-emerald-100 text-emerald-700'
-                                    : 'bg-rose-100 text-rose-400'
-                                  : filled
-                                  ? grid.isCorrect
-                                    ? 'bg-emerald-300'
-                                    : 'bg-rose-300'
-                                  : 'bg-white'
+                              className={`w-4 h-4 border border-slate-100 ${
+                                isFree
+                                  ? idx === 0 ? 'bg-emerald-200'
+                                  : idx === 1 ? 'bg-blue-200'
+                                  : idx === 2 ? 'bg-purple-200'
+                                  : 'bg-amber-200'
+                                  : gridColor
                               }`}
-                            >
-                              {isFreeCell ? 'FREE' : ''}
-                            </div>
+                            />
                           );
                         })}
                       </div>
                     ))}
+                  </div>
+                  {/* Rule Text */}
+                  <div className="flex-1 min-w-0">
+                    <div className={`font-black text-sm ${
+                      idx === 0 ? 'text-emerald-800'
+                      : idx === 1 ? 'text-blue-800'
+                      : idx === 2 ? 'text-purple-800'
+                      : 'text-amber-800'
+                    }`}>
+                      #{idx + 1} · {language === 'am' ? rule.titleAm : rule.title}
+                    </div>
+                    <div className="text-[10px] font-medium text-slate-600 mt-0.5 leading-snug">
+                      {language === 'am' ? rule.subtitleAm : rule.subtitle}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Close button */}
-            <div className="flex justify-end px-6 pb-6">
+            <div className="px-4 pb-4">
               <button
                 onClick={() => setShowPatternHintModal(false)}
-                className="text-blue-600 font-black text-base hover:text-blue-800 transition cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-black text-xs transition cursor-pointer"
               >
-                Close
+                {language === 'am' ? 'እሺ ተረድቻለሁ' : 'Got it — Close'}
               </button>
             </div>
           </div>

@@ -2,7 +2,52 @@ import {
   User, Wallet, Game, BingoCard, Transaction, 
   WithdrawalRequest, Promotion, AuditLog, Referral 
 } from './types';
-import { createNewBingoCard } from './bingoUtils';
+import { createNewBingoCard, generateSoldNumbersForGame } from './bingoUtils';
+
+// ------------------------------------------------------------------
+// PRIZE RULE (per business requirement):
+// REGULAR games   → PrizePool = round((Players × EntryPrice) × 0.85)
+//                    (Owner keeps 15%, remaining 85% goes to winner(s).
+//                     If N winners arrive, they split that 85% equally.)
+// WEEKEND games   → Fixed prize (as pre-set by owner for promo/draw).
+// ------------------------------------------------------------------
+export const OWNER_CUT_PCT = 0.15; // 15%
+export const WINNERS_CUT_PCT = 1 - OWNER_CUT_PCT; // 85%
+
+export const computeRegularPrizePool = (entryPrice: number, currentPlayers: number): number => {
+  const totalCollected = Math.max(0, (entryPrice || 0) * Math.max(0, currentPlayers || 0));
+  return Math.round(totalCollected * WINNERS_CUT_PCT);
+};
+
+/**
+ * Returns the live prize pool for a game.
+ * - Weekend / Lottery specials → use the configured (fixed) prizePool.
+ * - All other (regular) games  → derive from (players × price × 85%).
+ */
+export const getGameLivePrizePool = (game: Game): number => {
+  if (!game) return 0;
+  if (game.isWeekendSpecial || game.gameType === 'WEEKEND_LOTTERY') {
+    return Math.round(game.prizePool || 0);
+  }
+  return computeRegularPrizePool(game.entryPrice || 0, game.currentPlayers || 0);
+};
+
+// ================================================================
+// Weekend Lottery: Sold numbers registry per game (1-500)
+// ================================================================
+export const getInitialLotterySoldMap = (games: Game[]): Record<string, Set<number>> => {
+  const map: Record<string, Set<number>> = {};
+  games.forEach((g) => {
+    if (g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) {
+      const baseSold = Math.min(167, Math.round(500 * (g.currentPlayers / Math.max(1, g.maxPlayers))));
+      map[g.id] = generateSoldNumbersForGame(g.id, baseSold, g.entryPrice);
+    }
+  });
+  return map;
+};
+
+export const WEEKEND_LOTTERY_DEFAULT_STAKE = 50;
+export const WEEKEND_LOTTERY_SLOTS = 2;
 
 // Fallback Guest User Template (Not logged in by default)
 export const INITIAL_USER: User = {
@@ -37,7 +82,7 @@ export const INITIAL_GAMES: Game[] = [
     currentPlayers: 64,
     startTime: 'Starting in 00:20',
     drawInterval: 2,
-    prizePool: 5000,
+    prizePool: 0,
     status: 'STARTING',
     drawnNumbers: [12, 24, 36, 48, 60],
     currentBall: 60,
@@ -54,7 +99,7 @@ export const INITIAL_GAMES: Game[] = [
     currentPlayers: 112,
     startTime: 'Starting in 01:15',
     drawInterval: 3,
-    prizePool: 10000,
+    prizePool: 0,
     status: 'OPEN',
     drawnNumbers: [],
     winners: [],
@@ -70,7 +115,7 @@ export const INITIAL_GAMES: Game[] = [
     currentPlayers: 89,
     startTime: 'Starting in 02:45',
     drawInterval: 4,
-    prizePool: 20000,
+    prizePool: 0,
     status: 'OPEN',
     drawnNumbers: [],
     winners: [],
@@ -85,7 +130,7 @@ export const INITIAL_GAMES: Game[] = [
     currentPlayers: 73,
     startTime: 'Starting in 03:30',
     drawInterval: 3,
-    prizePool: 30000,
+    prizePool: 0,
     status: 'OPEN',
     drawnNumbers: [],
     winners: [],
@@ -158,7 +203,7 @@ export const INITIAL_GAMES: Game[] = [
     currentPlayers: 54,
     startTime: 'Starting in 08:30',
     drawInterval: 4,
-    prizePool: 100000,
+    prizePool: 0,
     status: 'SCHEDULED',
     drawnNumbers: [],
     winners: [],
@@ -174,7 +219,7 @@ export const INITIAL_GAMES: Game[] = [
     currentPlayers: 38,
     startTime: 'Tonight at 20:00',
     drawInterval: 4,
-    prizePool: 200000,
+    prizePool: 0,
     status: 'SCHEDULED',
     drawnNumbers: [],
     winners: [],
@@ -190,7 +235,7 @@ export const INITIAL_GAMES: Game[] = [
     currentPlayers: 22,
     startTime: 'Tonight at 21:00',
     drawInterval: 4,
-    prizePool: 300000,
+    prizePool: 0,
     status: 'SCHEDULED',
     drawnNumbers: [],
     winners: [],
@@ -206,7 +251,7 @@ export const INITIAL_GAMES: Game[] = [
     currentPlayers: 28,
     startTime: 'Tonight at 23:00',
     drawInterval: 4,
-    prizePool: 500000,
+    prizePool: 0,
     status: 'SCHEDULED',
     drawnNumbers: [],
     winners: [],
@@ -222,7 +267,7 @@ export const INITIAL_GAMES: Game[] = [
     currentPlayers: 14,
     startTime: 'Tomorrow 20:00',
     drawInterval: 5,
-    prizePool: 1000000,
+    prizePool: 0,
     status: 'SCHEDULED',
     drawnNumbers: [],
     winners: [],

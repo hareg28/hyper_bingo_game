@@ -8,12 +8,24 @@ import {
 import { 
   INITIAL_USER, INITIAL_WALLET, INITIAL_GAMES, 
   INITIAL_TRANSACTIONS, INITIAL_WITHDRAWALS, 
-  INITIAL_PROMOTIONS, INITIAL_AUDIT_LOGS, INITIAL_REFERRALS, INITIAL_CARDS 
+  INITIAL_PROMOTIONS, INITIAL_AUDIT_LOGS, INITIAL_REFERRALS, INITIAL_CARDS,
+  getGameLivePrizePool, OWNER_CUT_PCT, WINNERS_CUT_PCT
 } from '../lib/store';
-import { createNewBingoCard, checkLineWin, countCompletedLines, checkFullHouseWin } from '../lib/bingoUtils';
+import { 
+  createNewBingoCard, 
+  checkLineWin, 
+  countCompletedLines, 
+  checkFullHouseWin, 
+  getBestWinningRule,
+  WinningRuleMatch,
+  calcLotteryTotalCost,
+  formatLotteryCardNumber,
+  LOTTERY_NUMBERS_TOTAL,
+} from '../lib/bingoUtils';
 import { isAdminTelegramId } from '../lib/authUtils';
 
 import { Language, translations } from '../lib/translations';
+import { getInitialLotterySoldMap } from '../lib/store';
 
 interface NotificationMessage {
   id: string;
@@ -67,6 +79,9 @@ interface BingoContextType {
   autoDaubEnabled: boolean;
   toggleUserRole: () => void;
   setUserRole: (role: UserRole) => void;
+  // Weekend Lottery
+  getLotterySoldNumbers: (gameId: string) => Set<number>;
+  purchaseLotteryNumbers: (gameId: string, numbers: number[]) => { success: boolean; message: string; purchased?: string[] };
   // Auth extensions
   isAuthModalOpen: boolean;
   authModalMode: 'register' | 'login';
@@ -95,6 +110,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>('en');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'register' | 'login'>('register');
+
+  const [lotterySoldMap, setLotterySoldMap] = useState<Record<string, Set<number>>>(
+    () => getInitialLotterySoldMap(INITIAL_GAMES)
+  );
 
   const isLoggedIn = Boolean(user);
 
@@ -687,9 +706,16 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   };
 
 
-  // 6. CREATE GAME (ADMIN) — Universal rule: Prize Pool ALWAYS = Entry Price × 1000
+  // 6. CREATE GAME (ADMIN)
+  //    · Weekend/Lottery games → use the prizePool passed in by admin (owner-set fixed prize)
+  //    · Regular games        → use PrizePool = 0 and compute live at render:
+  //                              PrizePool = round(Players × Price × 0.85)
   const createGame = (gameData: Omit<Game, 'id' | 'currentPlayers' | 'drawnNumbers' | 'winners' | 'createdAt'>) => {
-    const enforcedPrize = Math.round((gameData.entryPrice || 0) * 1000);
+    const isWeekend = !!gameData.isWeekendSpecial || gameData.gameType === 'WEEKEND_LOTTERY';
+    const enforcedPrize = isWeekend
+      ? Math.round(gameData.prizePool || 0)
+      : 0; // Regular games → compute live in getGameLivePrizePool (players × price × 0.85)
+
     const newGame: Game = {
       ...gameData,
       prizePool: enforcedPrize,
@@ -715,7 +741,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     addNotification(
       '🎮 New Game Configured',
-      `Created ${newGame.name} with $${newGame.entryPrice} entry → $${newGame.prizePool.toLocaleString()} Prize (×1000 rule).`,
+      `Created ${newGame.name} with $${newGame.entryPrice} entry ${
+        isWeekend
+          ? `→ $${newGame.prizePool.toLocaleString()} FIXED Prize (owner-set weekend draw).`
+          : `→ LIVE Prize = (Players × ${newGame.entryPrice} × 85%) — Owner keeps 15%.`
+      }`,
       'info'
     );
   };
@@ -776,27 +806,40 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    // Check pattern completeness - FULL HOUSE ONLY (No one-line bingo)
-    const isFullHouse = checkFullHouseWin(card.marked);
+    // ---- WINNING RULE CHECK ----
+    // 4 Rules: 1 Line, 2 Lines, Letter X, Full House
+    const bestRule: WinningRuleMatch | null = getBestWinningRule(card.marked);
 
-    if (!isFullHouse) {
-      // Automatically BLOCK this card for false / premature Bingo claim!
+    if (!bestRule) {
       blockCard(game.id, card.cardNumber);
-
       addNotification(
         '🚫 BLOCKED! Disqualified for False Bingo',
-        `Card #${card.cardNumber} shouted Bingo without completing the Full House (ሙሉ ካርቴላ). This card is now BLOCKED!`,
+        `Card #${card.cardNumber} shouted Bingo without a winning pattern.`,
         'warning'
       );
       return {
         success: false,
-        message: `🚫 BLOCKED! Card #${card.cardNumber} is now blocked for shouting Bingo without completing the game.`,
+        message: `🚫 BLOCKED! Card #${card.cardNumber} is now blocked for shouting Bingo without a winning pattern.`,
       };
     }
 
-    const patternName = 'Full House (ሙሉ ካርቴላ)';
-    const prizeSharePercentage = 1.0; // 100% of prize pool for Full House winner!
-    const calculatedPrize = Math.round(game.prizePool * prizeSharePercentage);
+    // ---- PRIZE LOGIC (business rule) ------------------------------------------
+    const totalCollected = Math.max(0, (game.entryPrice || 0) * Math.max(0, game.currentPlayers || 0));
+    const ownerCut = Math.round(totalCollected * OWNER_CUT_PCT); // 15% owner (internal only)
+    const isWeekend = !!game.isWeekendSpecial || game.gameType === 'WEEKEND_LOTTERY';
+    const totalPrizePoolForWinners = isWeekend
+      ? Math.round(game.prizePool || 0)
+      : Math.round(totalCollected * WINNERS_CUT_PCT);
+
+    const alreadyWonUsernames = new Set(game.winners.map(w => w.username));
+    const newWinnerCount = alreadyWonUsernames.has(user.username)
+      ? game.winners.length
+      : game.winners.length + 1;
+    const winnersN = Math.max(1, newWinnerCount);
+    const perWinnerShare = Math.round(totalPrizePoolForWinners / winnersN);
+
+    const patternName = `${bestRule.label} (${bestRule.labelAm})`;
+    const calculatedPrize = perWinnerShare;
     const winBall = game.currentBall || (game.drawnNumbers.length > 0 ? game.drawnNumbers[game.drawnNumbers.length - 1] : 75);
 
     // Record winner in game with card number & winning ball
@@ -841,21 +884,19 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       balanceAfter: newAvailableBalance,
       reference: `WIN-${patternName.toUpperCase()}`,
       status: 'COMPLETED',
-      description: `BINGO Winner! ${patternName} with Card #${card.cardNumber} in ${game.name}`,
+      description:
+        `BINGO Winner! ${patternName} with Card #${card.cardNumber} in ${game.name}.` +
+        (winnersN > 1 ? ` Split ${winnersN} ways.` : ''),
       createdAt: new Date().toISOString(),
     };
     setTransactions((prev) => [tx, ...prev]);
 
     // ── REFERRAL WIN COMMISSION (1% of Owner Profit to Inviter) ──
-    // When the user registered using a referral link and wins, the inviter receives
-    // 1% of the owner/house profit into their bonus balance (playable only, cannot withdraw).
-    const totalCollected = game.entryPrice * Math.max(1, game.currentPlayers);
-    const ownerProfit = Math.max(0, totalCollected - calculatedPrize) || Math.round(game.prizePool * 0.20);
+    const ownerProfit = Math.max(0, totalCollected - totalPrizePoolForWinners) || Math.round(ownerCut || 0);
     const inviterCommission = Math.max(1, Math.round(ownerProfit * 0.01 * 100) / 100);
 
     if (user.referredBy) {
       const referrerCode = user.referredBy;
-      // Record transaction for referral win commission
       const refTx: Transaction = {
         id: `TX_REF_WIN_${Date.now().toString().slice(-5)}`,
         userId: `ref_${referrerCode}`,
@@ -870,7 +911,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       };
       setTransactions((prev) => [refTx, ...prev]);
 
-      // Call API to credit inviter's bonus wallet
       fetch('/api/referrals/reward', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -892,13 +932,16 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     addNotification(
       '🏆 BINGO WINNER! 🏆',
-      `Congratulations! You claimed ${patternName} with Card #${card.cardNumber} and won ${calculatedPrize} ETB!`,
+      (winnersN > 1
+        ? `🎉 Split win with ${winnersN} winners! You get `
+        : `🎉 Congratulations! `) +
+      `${calculatedPrize} ETB with Card #${card.cardNumber} (${patternName}).`,
       'win'
     );
 
     return {
       success: true,
-      message: `🎉 BINGO! Card #${card.cardNumber} won ${calculatedPrize} ETB (${patternName})!`,
+      message: `🎉 BINGO! Card #${card.cardNumber} won ${calculatedPrize} ETB (${patternName})${winnersN > 1 ? ` (split among ${winnersN} winners)` : ''}!`,
       prize: calculatedPrize,
     };
   };
@@ -952,6 +995,128 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     return nextBall;
   };
 
+  // 11. WEEKEND LOTTERY: Get sold numbers for a game
+  const getLotterySoldNumbers = (gameId: string): Set<number> => {
+    return lotterySoldMap[gameId] || new Set<number>();
+  };
+
+  // 12. WEEKEND LOTTERY: Purchase a set of numbers (slots)
+  const purchaseLotteryNumbers = (
+    gameId: string,
+    numbers: number[]
+  ): { success: boolean; message: string; purchased?: string[] } => {
+    if (!user) {
+      openAuthModal('register');
+      addNotification('Account Required', 'Open an account to purchase weekend lottery cards.', 'warning');
+      return { success: false, message: 'Account required.' };
+    }
+    if (!numbers || numbers.length === 0) {
+      return { success: false, message: 'No numbers selected.' };
+    }
+
+    const game = games.find((g) => g.id === gameId);
+    if (!game) return { success: false, message: 'Game not found.' };
+
+    const soldSet = new Set(lotterySoldMap[gameId] || []);
+    const invalidNums: number[] = [];
+    const alreadySold: number[] = [];
+    numbers.forEach((n) => {
+      if (n < 1 || n > LOTTERY_NUMBERS_TOTAL || !Number.isInteger(n)) invalidNums.push(n);
+      else if (soldSet.has(n)) alreadySold.push(n);
+    });
+    if (invalidNums.length > 0) {
+      return {
+        success: false,
+        message: `Invalid numbers: ${invalidNums.join(', ')} (must be 1–${LOTTERY_NUMBERS_TOTAL}).`,
+      };
+    }
+    if (alreadySold.length > 0) {
+      return {
+        success: false,
+        message: `Numbers already sold: ${alreadySold.join(', ')}.`,
+      };
+    }
+
+    const totalCost = calcLotteryTotalCost(numbers.length, game.entryPrice);
+    const playable = wallet.availableBalance + wallet.bonusBalance;
+    if (playable < totalCost) {
+      addNotification(
+        '⚠️ Insufficient Balance',
+        `Need ${totalCost} ETB for ${numbers.length} ticket(s). Playable balance: ${playable.toFixed(0)} ETB.`,
+        'warning'
+      );
+      return { success: false, message: `Insufficient balance. Need ${totalCost} ETB.` };
+    }
+
+    // Deduct from wallet: bonus first, then available
+    let rem = totalCost;
+    let newBonus = wallet.bonusBalance;
+    let newAvail = wallet.availableBalance;
+    if (newBonus >= rem) {
+      newBonus -= rem;
+      rem = 0;
+    } else {
+      rem -= newBonus;
+      newBonus = 0;
+      newAvail = Math.max(0, newAvail - rem);
+    }
+    setWallet((prev) => ({
+      ...prev,
+      availableBalance: newAvail,
+      bonusBalance: newBonus,
+    }));
+
+    // Record transaction
+    const tx: Transaction = {
+      id: `TX_LOTTERY_${Date.now().toString().slice(-5)}`,
+      userId: user.id,
+      username: user.username,
+      type: 'GAME_ENTRY',
+      amount: -totalCost,
+      balanceAfter: newAvail,
+      reference: `LOTTERY-${gameId}`,
+      status: 'COMPLETED',
+      description: `Weekend Lottery ticket purchase (${numbers.length} cards: ${numbers
+        .map((n) => formatLotteryCardNumber(n))
+        .join(', ')}) in ${game.name}`,
+      createdAt: new Date().toISOString(),
+    };
+    setTransactions((prev) => [tx, ...prev]);
+
+    // Mark numbers as sold
+    setLotterySoldMap((prev) => {
+      const current = new Set(prev[gameId] || []);
+      numbers.forEach((n) => current.add(n));
+      return { ...prev, [gameId]: current };
+    });
+
+    // Increment players counter
+    setGames((prev) =>
+      prev.map((g) => (g.id === gameId ? { ...g, currentPlayers: g.currentPlayers + 1 } : g))
+    );
+
+    // Create corresponding bingo cards for purchased numbers (so game room shows them)
+    const newCards = numbers.map((n) =>
+      createNewBingoCard(gameId, user.id, formatLotteryCardNumber(n))
+    );
+    setUserCards((prev) => [
+      ...prev.filter((c) => c.gameId !== gameId || !numbers.map((n) => formatLotteryCardNumber(n)).includes(c.cardNumber)),
+      ...newCards,
+    ]);
+
+    const purchasedLabels = numbers.map((n) => formatLotteryCardNumber(n));
+    addNotification(
+      '🎟️ Lottery Tickets Purchased!',
+      `Bought ${numbers.length} weekend lottery ticket(s): ${purchasedLabels.join(', ')}. Good luck!`,
+      'success'
+    );
+    return {
+      success: true,
+      message: `Purchased ${numbers.length} ticket(s): ${purchasedLabels.join(', ')}`,
+      purchased: purchasedLabels,
+    };
+  };
+
   return (
     <BingoContext.Provider
       value={{
@@ -989,6 +1154,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         autoDaubEnabled,
         toggleUserRole,
         setUserRole,
+        getLotterySoldNumbers,
+        purchaseLotteryNumbers,
         isAuthModalOpen,
         authModalMode,
         openAuthModal,

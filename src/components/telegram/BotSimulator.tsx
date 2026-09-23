@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
 import { Send, Bot, User as UserIcon, Gamepad2, Wallet, History, Gift, HelpCircle, Shield, X, Globe, Sparkles } from 'lucide-react';
 import { formatETB, isWeekendLotteryDay } from '../../lib/bingoUtils';
@@ -33,6 +33,7 @@ export default function BotSimulator({
   const [inputText, setInputText] = useState('');
 
   const isWeekend = isWeekendLotteryDay();
+  const isUserAdmin = isAdminTelegramId(user?.telegramId) || isAdminTelegramId(user?.username);
 
   // Exact broadcast matching the user's flyer & Telegram announcement screenshot
   const createWeekendBroadcastMessage = (idSuffix = 'init', customTime = '2:13 PM'): ChatMessage => {
@@ -53,8 +54,8 @@ export default function BotSimulator({
 👉 @HyperBingoSupport`,
       buttons: [
         { 
-          label: 'አርብ 🕒 10 ሰዓት (አሁኑኑ ይጫወቱ)', 
-          action: () => onOpenMiniApp('game'), 
+          label: 'አርብ 🕒 10 ሰዓት (ሎተሪ ካርድ ይግዙ)', 
+          action: () => onOpenMiniApp('lottery'), 
           isPrimary: true 
         },
         { 
@@ -88,7 +89,7 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
         { label: '🎮 Play Now / አሁኑኑ ይጫወቱ', action: () => onOpenMiniApp('lobby'), isPrimary: true },
         { label: '🌟 Weekend Lottery (Fri-Sun) / ልዩ ሎተሪ', action: () => handleCommand('/lottery'), isPrimary: true },
         { label: '💰 Wallet / ኪስ ቦርሳ', action: () => handleCommand('/wallet') },
-        ...(isAdminTelegramId(user?.telegramId)
+        ...(isUserAdmin
           ? [{ label: '🛡️ Admin / አስተዳዳሪ', action: () => handleCommand('/admin') }]
           : []),
         { label: '📜 History / ታሪክ', action: () => handleCommand('/history') },
@@ -105,6 +106,22 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setChatHistory((prev) => [...prev, createWeekendBroadcastMessage(Date.now().toString(), time)]);
   };
+
+  // Auto-refresh /start welcome when admin user loads so Admin button appears
+  const hasRefreshedForUserRef = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    const key = `${user.id}|${String(isUserAdmin)}`;
+    if (hasRefreshedForUserRef.current === key) return;
+    // Only auto-trigger if this is an ADMIN user and we haven't yet for this session
+    if (isUserAdmin && hasRefreshedForUserRef.current === null) {
+      // Don't double-send if initial message already included the admin button
+      setTimeout(() => {
+        handleCommand('/start');
+      }, 150);
+    }
+    hasRefreshedForUserRef.current = key;
+  }, [user?.id, isUserAdmin]);
 
   const toggleLanguage = (newLang: Lang) => {
     setLanguage(newLang);
@@ -146,8 +163,22 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
 
     const lowerCmd = cmd.toLowerCase();
 
-    if (lowerCmd === '/admin' || lowerCmd.includes('admin') || lowerCmd.includes('አስተዳዳሪ')) {
-      if (!isAdminTelegramId(user?.telegramId)) {
+    if (lowerCmd === '/start' || lowerCmd.startsWith('/start ') || lowerCmd.startsWith('/start\n')) {
+      botResponseText = isAm 
+        ? `🎉 ወደ **ሃይፐር ቢንጎ** እንኳን በደህና መጡ!\nለመጀመር ከታች ካሉት አማራጮች አንዱን ይምረጡ:`
+        : `🎉 Welcome to **Hyper Bingo**!\nChoose an option below to get started:`;
+      buttons = [
+        { label: isAm ? '🎮 ቢንጎ ይጫወቱ (Mini App)' : '🎮 Play Bingo Mini App', action: () => onOpenMiniApp('lobby'), isPrimary: true },
+        { label: isAm ? '⚡ ፈጣን ቢንጎ (Quick Bingo)' : '⚡ Quick Bingo (Starts soon)', action: () => onOpenMiniApp('game') },
+        { label: isAm ? '🌟 ቅዳሜና እሁድ ሎተሪ' : '🌟 Weekend Special Lottery', action: () => handleCommand('/lottery') },
+        { label: isAm ? '💰 ኪስ ቦርሳ እና ገቢ (Wallet)' : '💰 Wallet & Deposits', action: () => onOpenMiniApp('wallet') },
+        ...(isUserAdmin
+          ? [{ label: isAm ? '🛡️ አስተዳዳሪ (Admin)' : '🛡️ Admin Panel', action: () => handleCommand('/admin') }]
+          : []),
+        { label: isAm ? '🌐 ቋንቋ መቀየሪያ' : '🌐 Change Language', action: () => handleCommand('/language') },
+      ];
+    } else if (lowerCmd === '/admin' || lowerCmd.includes('admin') || lowerCmd.includes('አስተዳዳሪ')) {
+      if (!isUserAdmin) {
         botResponseText = isAm 
           ? `⛔ **ይቅርታ፣ መዳረሻ ተከልክሏል**\n\nየእርስዎ የቴሌግራም መታወቂያ (${user?.telegramId || 'ያልታወቀ'}) በአስተዳዳሪ ዝርዝር ውስጥ አልተገኘም።\nአስተዳዳሪ ለመሆን የቴሌግራም መታወቂያዎን በ .env.local ውስጥ ባለው NEXT_PUBLIC_ADMIN_TELEGRAM_IDS ያስገቡ።`
           : `⛔ **Access Denied**\n\nYour Telegram ID (${user?.telegramId || 'unknown'}) is not authorized as an administrator.\nTo grant access, add this Telegram ID to NEXT_PUBLIC_ADMIN_TELEGRAM_IDS in .env.local.`;
@@ -170,20 +201,6 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
       buttons = [
         { label: '🇪🇹 አማርኛ (Amharic)', action: () => toggleLanguage('am'), isPrimary: true },
         { label: '🇬🇧 English', action: () => toggleLanguage('en'), isPrimary: true },
-      ];
-    } else if (lowerCmd === '/start') {
-      botResponseText = isAm 
-        ? `🎉 ወደ **ሃይፐር ቢንጎ** እንኳን በደህና መጡ!\nለመጀመር ከታች ካሉት አማራጮች አንዱን ይምረጡ:`
-        : `🎉 Welcome to **Hyper Bingo**!\nChoose an option below to get started:`;
-      buttons = [
-        { label: isAm ? '🎮 ቢንጎ ይጫወቱ (Mini App)' : '🎮 Play Bingo Mini App', action: () => onOpenMiniApp('lobby'), isPrimary: true },
-        { label: isAm ? '⚡ ፈጣን ቢንጎ (Quick Bingo)' : '⚡ Quick Bingo (Starts soon)', action: () => onOpenMiniApp('game') },
-        { label: isAm ? '🌟 ቅዳሜና እሁድ ሎተሪ' : '🌟 Weekend Special Lottery', action: () => handleCommand('/lottery') },
-        { label: isAm ? '💰 ኪስ ቦርሳ እና ገቢ (Wallet)' : '💰 Wallet & Deposits', action: () => onOpenMiniApp('wallet') },
-        ...(isAdminTelegramId(user?.telegramId)
-          ? [{ label: isAm ? '🛡️ አስተዳዳሪ (Admin)' : '🛡️ Admin Panel', action: () => handleCommand('/admin') }]
-          : []),
-        { label: isAm ? '🌐 ቋንቋ መቀየሪያ' : '🌐 Change Language', action: () => handleCommand('/language') },
       ];
     } else if (
       lowerCmd === '/lottery' || 
@@ -209,8 +226,8 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
 👉 @HyperBingoSupport`;
       buttons = [
         { 
-          label: 'አርብ 🕒 10 ሰዓት (አሁኑኑ ይጫወቱ)', 
-          action: () => onOpenMiniApp('game'), 
+          label: 'አርብ 🕒 10 ሰዓት (ሎተሪ ካርድ ይግዙ)', 
+          action: () => onOpenMiniApp('lottery'), 
           isPrimary: true 
         },
         { 
@@ -446,6 +463,17 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
             <Send className="w-4 h-4" />
           </button>
         </form>
+
+        {/* Persistent Telegram WebApp / Mini App Keyboard Button — always visible */}
+        <div className="bg-slate-800 border-t border-slate-700/70 px-2.5 pb-2.5 pt-1.5 shrink-0">
+          <button
+            onClick={() => onOpenMiniApp('lobby')}
+            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-blue-900/40 transition border border-blue-400/40 cursor-pointer"
+          >
+            <Gamepad2 className="w-4 h-4" />
+            {language === 'am' ? '🎮 ሃይፐር ቢንጎ ይጫወቱ' : '🎮 Play Hyper Bingo'}
+          </button>
+        </div>
       </div>
     </div>
   );

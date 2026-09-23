@@ -4,10 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
 import { formatETB } from '../../lib/bingoUtils';
 import { localizeGameName, localizeGameTime } from '../../lib/translations';
+import { getGameLivePrizePool } from '../../lib/store';
 import { 
   Gamepad2, Zap, Wallet, User as UserIcon, Shield, 
   ArrowUpRight, Share2, Copy, Check, LogOut, Sparkles, 
-  ChevronRight, ChevronDown, ChevronUp, Gift, Globe, X 
+  ChevronRight, ChevronDown, ChevronUp, ChevronLeft, Gift, Globe, X 
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
 import WalletManager from '../wallet/WalletManager';
@@ -40,7 +41,7 @@ export default function MiniAppShell({
   embedded = false
 }: { 
   onClose?: () => void;
-  initialTab?: 'lobby' | 'game' | 'wallet' | 'profile' | 'admin';
+  initialTab?: 'lobby' | 'game' | 'wallet' | 'profile' | 'admin' | 'lottery';
   embedded?: boolean;
 }) {
   const { 
@@ -53,14 +54,17 @@ export default function MiniAppShell({
     referrals, 
     logout, 
     joinGame,
+    addCardToGame,
     language,
     setLanguage,
     t,
     openAuthModal,
-    toggleUserRole
+    toggleUserRole,
+    getLotterySoldNumbers,
+    purchaseLotteryNumbers,
   } = useBingo();
 
-  const [activeTab, setActiveTab] = useState<'lobby' | 'game' | 'wallet' | 'profile' | 'admin'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'lobby' | 'game' | 'wallet' | 'profile' | 'admin' | 'lottery'>(initialTab);
   const [copiedRef, setCopiedRef] = useState(false);
   const [gameFilter, setGameFilter] = useState<'ALL' | 'SMALL' | 'HIGH'>('ALL');
   const [showAllGames, setShowAllGames] = useState(false);
@@ -86,7 +90,7 @@ export default function MiniAppShell({
   };
 
   const heightStyle = embedded
-    ? { height: '100%', maxHeight: '100%', overflow: 'hidden' as const }
+    ? { flex: '1 1 0%', minHeight: 0, maxHeight: '100%', overflow: 'hidden' as const }
     : { height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' as const };
 
   return (
@@ -164,7 +168,7 @@ export default function MiniAppShell({
       </div>
 
       {/* Main Content Area */}
-      <div className={`flex-1 min-h-0 overflow-x-hidden ${activeTab === 'game' ? 'overflow-y-hidden p-1 pb-16 flex flex-col justify-start' : 'overflow-y-auto overscroll-contain p-3 pb-24 space-y-3'} bg-slate-50/70`}>
+      <div className={`flex-1 min-h-0 overflow-x-hidden ${activeTab === 'game' || activeTab === 'lottery' ? 'overflow-y-hidden p-1 pb-20 flex flex-col justify-start' : 'overflow-y-auto overscroll-contain p-3 pb-28 space-y-3'} bg-slate-50/70`}>
         {/* LOBBY TAB */}
         {activeTab === 'lobby' && (
           <div className="space-y-3">
@@ -179,12 +183,9 @@ export default function MiniAppShell({
                 </span>
               </div>
               <h3 className="text-lg font-black">{getGameDisplayName(quickBingo, language)}</h3>
-              <p className="text-xs font-semibold opacity-90 mb-3">
-                {t('prizePool')}: <strong className="text-base font-black">{formatETB(quickBingo.prizePool)}</strong>
-              </p>
               <button
                 onClick={() => { joinGame(quickBingo.id); setActiveTab('game'); }}
-                className="w-full py-2.5 bg-slate-950 text-white font-black text-xs uppercase tracking-wider rounded-xl transition hover:bg-slate-800 flex items-center justify-center gap-1.5 shadow cursor-pointer"
+                className="w-full py-2.5 bg-slate-950 text-white font-black text-xs uppercase tracking-wider rounded-xl transition hover:bg-slate-800 flex items-center justify-center gap-1.5 shadow cursor-pointer mt-2"
               >
                 {t('playNow')} ({quickBingo.entryPrice} ETB) <ArrowUpRight className="w-4 h-4" />
               </button>
@@ -232,7 +233,7 @@ export default function MiniAppShell({
                           className="p-2 rounded-xl bg-slate-950 text-white flex flex-col items-center justify-center shadow-xs hover:bg-slate-800 transition cursor-pointer text-center"
                         >
                           <span className="text-amber-400 text-xs font-black leading-tight">⚡ {g.entryPrice} ETB</span>
-                          <span className="text-emerald-400 text-[9px] font-bold leading-tight mt-0.5">{formatETB(g.prizePool)}</span>
+                          <span className="text-[9px] font-bold leading-tight mt-0.5 opacity-80 text-slate-300">Entry</span>
                         </button>
                       ))}
                   </div>
@@ -298,8 +299,6 @@ export default function MiniAppShell({
                           </div>
                           <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                             <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
-                            <span>Prize: <strong className="text-emerald-600 font-bold">{formatETB(g.prizePool)}</strong></span>
-                            <span>👥 {g.currentPlayers}{g.minPlayers ? ` (min ${g.minPlayers})` : ''}</span>
                             {g.blockedCards && g.blockedCards.length > 0 && (
                               <span className="text-rose-600 font-bold flex items-center gap-0.5">
                                 🚫 {g.blockedCards.length} {language === 'am' ? 'የታገዱ' : 'Blocked'}
@@ -370,6 +369,29 @@ export default function MiniAppShell({
 
         {/* GAME ROOM TAB */}
         {activeTab === 'game' && <BingoGameRoom gameId={activeGameId || games[0].id} onBack={() => setActiveTab('lobby')} />}
+
+        {/* WEEKEND LOTTERY NUMBER CARD PICKER TAB */}
+        {activeTab === 'lottery' && (
+          <WeekendLotteryNumberPicker
+            games={games}
+            user={user}
+            wallet={wallet}
+            language={language}
+            openAuthModal={openAuthModal}
+            getLotterySoldNumbers={getLotterySoldNumbers}
+            purchaseLotteryNumbers={purchaseLotteryNumbers}
+            onPickCards={(gameId, cardNumbers) => {
+              if (!user) { openAuthModal('register'); return; }
+              if (cardNumbers.length > 0) {
+                joinGame(gameId, [cardNumbers[0]]);
+                cardNumbers.slice(1).forEach((n) => addCardToGame(gameId, n));
+              }
+              setActiveGameId(gameId);
+              setActiveTab('game');
+            }}
+            onBack={() => setActiveTab('lobby')}
+          />
+        )}
 
         {/* WALLET TAB */}
         {activeTab === 'wallet' && <WalletManager />}
@@ -592,58 +614,336 @@ export default function MiniAppShell({
       </div>
 
       {/* Bottom Sticky Telegram Navigation Bar - Clean White */}
-      <div className="bg-white border-t border-slate-200 px-2 py-1.5 flex items-center justify-around z-30 shadow-md shrink-0 w-full">
+      <div className="sticky bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-2 py-2 flex items-center justify-around z-40 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] shrink-0 w-full mt-auto">
         <button
           onClick={() => setActiveTab('lobby')}
-          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-1 ${
-            activeTab === 'lobby' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-2 py-1 rounded-xl ${
+            activeTab === 'lobby' ? 'text-amber-600 font-black bg-amber-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
           <Gamepad2 className="w-5 h-5" />
-          Lobby
+          <span>{language === 'am' ? 'ሎቢ' : 'Lobby'}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('game')}
-          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-1 ${
-            activeTab === 'game' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-2 py-1 rounded-xl ${
+            activeTab === 'game' ? 'text-amber-600 font-black bg-amber-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
           <Zap className="w-5 h-5" />
-          Live
+          <span>{language === 'am' ? 'አዲስ ክፍል' : 'Live'}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('lottery')}
+          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-2 py-1 rounded-xl ${
+            activeTab === 'lottery' ? 'text-amber-600 font-black bg-amber-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <Sparkles className="w-5 h-5" />
+          <span>{language === 'am' ? 'ሎተሪ' : 'Lottery'}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('wallet')}
-          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-1 ${
-            activeTab === 'wallet' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-2 py-1 rounded-xl ${
+            activeTab === 'wallet' ? 'text-amber-600 font-black bg-amber-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
           <Wallet className="w-5 h-5" />
-          Wallet
+          <span>{language === 'am' ? 'ኪስ ቦርሳ' : 'Wallet'}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('profile')}
-          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-1 ${
-            activeTab === 'profile' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-2 py-1 rounded-xl ${
+            activeTab === 'profile' ? 'text-amber-600 font-black bg-amber-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
           <UserIcon className="w-5 h-5" />
-          Profile
+          <span>{language === 'am' ? 'መገለጫ' : 'Profile'}</span>
         </button>
 
         {isUserAdmin && (
           <button
             onClick={() => setActiveTab('admin')}
-            className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-1 ${
-              activeTab === 'admin' ? 'text-amber-600 font-black' : 'text-slate-500 hover:text-slate-900'
+            className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-2 py-1 rounded-xl ${
+              activeTab === 'admin' ? 'text-purple-700 font-black bg-purple-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Shield className="w-5 h-5" />
-            Admin
+            <span>{language === 'am' ? 'አስተዳዳሪ' : 'Admin'}</span>
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ================================================================
+// Weekend Lottery Number Card Picker
+// (Shows 1-500 number grid, 2 card slots to fill, like reference image)
+// ================================================================
+function WeekendLotteryNumberPicker({
+  games,
+  user,
+  wallet,
+  language,
+  openAuthModal,
+  getLotterySoldNumbers,
+  purchaseLotteryNumbers,
+  onPickCards,
+  onBack,
+}: {
+  games: ReturnType<typeof useBingo>['games'];
+  user: ReturnType<typeof useBingo>['user'];
+  wallet: ReturnType<typeof useBingo>['wallet'];
+  language: string;
+  openAuthModal: (mode?: 'register' | 'login') => void;
+  getLotterySoldNumbers: ReturnType<typeof useBingo>['getLotterySoldNumbers'];
+  purchaseLotteryNumbers: ReturnType<typeof useBingo>['purchaseLotteryNumbers'];
+  onPickCards: (gameId: string, cardNumbers: string[]) => void;
+  onBack: () => void;
+}) {
+  const isAm = language === 'am';
+  const weekendGames = games.filter((g) => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
+  const [selectedGameIdx, setSelectedGameIdx] = React.useState(0);
+  const selectedGame = weekendGames[selectedGameIdx] || weekendGames[0];
+  const entryPrice = selectedGame?.entryPrice || 50;
+
+  const TOTAL_NUMBERS = 500;
+  const NUM_SLOTS = 2;
+  const [slotNumbers, setSlotNumbers] = React.useState<(number | null)[]>(
+    Array.from({ length: NUM_SLOTS }, () => null)
+  );
+  const [purchaseFeedback, setPurchaseFeedback] = React.useState<string | null>(null);
+
+  const soldSet = React.useMemo(() => {
+    if (!selectedGame) return new Set<number>();
+    return getLotterySoldNumbers(selectedGame.id);
+  }, [selectedGame?.id, getLotterySoldNumbers]);
+
+  // Mark some numbers "reserved" if they're in active slots (light blue)
+  const activeSlotSet = new Set(slotNumbers.filter((n): n is number => n !== null));
+
+  const slotCountFilled = slotNumbers.filter((n) => n !== null).length;
+  const totalCost = slotCountFilled * entryPrice;
+  const canAfford = wallet.availableBalance >= totalCost;
+
+  const firstEmptySlotIdx = slotNumbers.findIndex((n) => n === null);
+
+  const handlePickNumber = (num: number) => {
+    if (!user) { openAuthModal('register'); return; }
+    if (soldSet.has(num)) return; // already sold
+    // If already in a slot, remove it
+    const existingIdx = slotNumbers.indexOf(num);
+    if (existingIdx >= 0) {
+      const next = [...slotNumbers];
+      next[existingIdx] = null;
+      setSlotNumbers(next);
+      return;
+    }
+    if (firstEmptySlotIdx < 0) {
+      // All full — bounce (no-op, user can remove to change)
+      return;
+    }
+    const next = [...slotNumbers];
+    next[firstEmptySlotIdx] = num;
+    setSlotNumbers(next);
+  };
+
+  const clearSlot = (slotIdx: number) => {
+    const next = [...slotNumbers];
+    next[slotIdx] = null;
+    setSlotNumbers(next);
+  };
+
+  const handleBuy = () => {
+    if (!user) { openAuthModal('register'); return; }
+    if (!selectedGame || slotCountFilled === 0) return;
+    if (!canAfford) return;
+    const nums = slotNumbers.filter((n): n is number => n !== null);
+    const result = purchaseLotteryNumbers(selectedGame.id, nums);
+    setPurchaseFeedback(result.message);
+    setTimeout(() => setPurchaseFeedback(null), 3500);
+    if (result.success) {
+      // Reset slots and optionally jump to game
+      setSlotNumbers(Array.from({ length: NUM_SLOTS }, () => null));
+      onPickCards(selectedGame.id, result.purchased || nums.map((n) => String(n).padStart(3, '0')));
+    }
+  };
+
+  const regCode = user ? user.referralCode?.toUpperCase() || '---' : '---';
+
+  return (
+    <div className="h-full flex flex-col bg-[#0e1a2e] text-white">
+      {/* Yellow top stats bar: SOLD | REG CODE | BALANCE */}
+      <div className="flex items-stretch rounded-2xl overflow-hidden bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-400 text-slate-950 mx-1 shadow-lg border border-amber-500/70 mb-2">
+        <div className="flex-1 flex flex-col items-center justify-center py-2.5 px-2 border-r border-amber-600/30">
+          <span className="text-[9px] font-black uppercase tracking-widest opacity-75 leading-none">Sold</span>
+          <span className="text-lg font-black leading-tight mt-0.5 tabular-nums">{soldSet.size}</span>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center py-2.5 px-2 border-r border-amber-600/30">
+          <span className="text-[9px] font-black uppercase tracking-widest opacity-75 leading-none">Reg Code</span>
+          <span className="text-sm font-black leading-tight mt-0.5 font-mono">{regCode}</span>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center py-2.5 px-2">
+          <span className="text-[9px] font-black uppercase tracking-widest opacity-75 leading-none">Balance</span>
+          <span className="text-lg font-black leading-tight mt-0.5 tabular-nums">{wallet.availableBalance}</span>
+        </div>
+      </div>
+
+      {/* Game / Stake / Time selector bar (dark) */}
+      <div className="flex items-stretch gap-1 mx-1 mb-2">
+        {/* STAKE */}
+        <div className="flex-1 rounded-2xl bg-[#13233f] border border-[#1f3660] px-2.5 py-2 flex flex-col justify-center">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 leading-none">Stake</span>
+          <div className="text-base font-black leading-tight mt-0.5 tabular-nums flex items-center gap-1">
+            {entryPrice} <span className="text-[10px] text-slate-400">ETB</span>
+          </div>
+        </div>
+        {/* Game picker */}
+        <div className="flex-1 rounded-2xl bg-[#13233f] border border-[#1f3660] px-2 py-2 flex flex-col justify-center">
+          <span className="text-[9px] font-black uppercase tracking-widest text-amber-300/90 leading-none">
+            {isAm ? 'የጨዋታ አይነት' : 'Game Type'}
+          </span>
+          {weekendGames.length > 1 ? (
+            <select
+              value={selectedGameIdx}
+              onChange={(e) => setSelectedGameIdx(Number(e.target.value))}
+              className="bg-transparent text-[11px] font-black text-amber-400 mt-0.5 focus:outline-none w-full"
+            >
+              {weekendGames.map((g, i) => (
+                <option key={g.id} value={i} className="bg-[#0e1a2e]">
+                  🌟 Hyper {g.entryPrice}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-[11px] font-black text-amber-400 mt-0.5">
+              {isAm ? 'ሙሉ ዝግጅት' : 'Weekend Mega'}
+            </span>
+          )}
+        </div>
+        {/* Time */}
+        <div className="flex-1 rounded-2xl bg-[#13233f] border border-[#1f3660] px-2 py-2 flex flex-col justify-center">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 leading-none">
+            {isAm ? 'ጊዜ | ቀን | አሁድ' : 'Time'}
+          </span>
+          <div className="text-[11px] font-black leading-tight mt-0.5 text-blue-300">
+            {isAm ? 'የአርብ እሑድ · ቅዳሜ 10 ሰዓት' : 'Fri · Sat · Sun 10 PM'}
+          </div>
+        </div>
+      </div>
+
+      {/* Number grid (scrollable) */}
+      <div className="flex-1 min-h-0 overflow-y-auto mx-1 mb-2 rounded-2xl bg-[#0b1527] border border-[#1d3159] p-2 relative">
+        <div className="grid grid-cols-8 gap-1.5">
+          {Array.from({ length: TOTAL_NUMBERS }, (_, i) => i + 1).map((num) => {
+            const sold = soldSet.has(num);
+            const inSlot = activeSlotSet.has(num);
+            const disabled = sold && !inSlot;
+            return (
+              <button
+                key={num}
+                type="button"
+                onClick={() => handlePickNumber(num)}
+                disabled={disabled}
+                className={`h-9 rounded-lg text-[12px] font-black tabular-nums transition border shrink-0 ${
+                  inSlot
+                    ? 'bg-sky-500 border-sky-300 text-white shadow-md shadow-sky-900/60 scale-[1.02]'
+                    : sold
+                    ? 'bg-[#2a3550] border-[#2a3550] text-slate-500/60 cursor-not-allowed opacity-70'
+                    : 'bg-white border-slate-200 text-slate-900 hover:bg-amber-50 hover:border-amber-300 active:scale-95'
+                }`}
+              >
+                {num}
+              </button>
+            );
+          })}
+        </div>
+        {/* Play video / preview overlay button (like the reference image) */}
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+          <button
+            type="button"
+            className="pointer-events-auto w-16 h-16 rounded-full bg-slate-900/70 backdrop-blur border-2 border-white/60 flex items-center justify-center text-white shadow-2xl hover:bg-slate-900/90 transition cursor-pointer"
+            onClick={() => onBack()}
+            title={isAm ? 'ወደ ሎቢ ይመለሱ' : 'Back to lobby'}
+          >
+            <ChevronLeft className="w-7 h-7 translate-x-0.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Purchase feedback toast */}
+      {purchaseFeedback && (
+        <div className="mx-1 mb-2 px-3 py-2 rounded-xl bg-amber-500/90 text-slate-950 text-[11px] font-black text-center shadow-lg animate-in fade-in slide-in-from-bottom-2">
+          {purchaseFeedback}
+        </div>
+      )}
+
+      {/* Bottom SLOTS + Buy action */}
+      <div className="mx-1 mb-1 space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          {Array.from({ length: NUM_SLOTS }, (_, i) => {
+            const num = slotNumbers[i];
+            const filled = num !== null;
+            return (
+              <div
+                key={i}
+                className={`h-24 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center relative ${
+                  filled
+                    ? 'border-solid border-sky-400 bg-sky-500/15 text-sky-300'
+                    : 'border-[#2d4573] bg-[#0e1a2e] text-slate-500'
+                }`}
+              >
+                {filled ? (
+                  <>
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-80 leading-none">
+                      SLOT {i + 1}
+                    </span>
+                    <span className="text-2xl font-black leading-none mt-1 tabular-nums">
+                      {String(num).padStart(3, '0')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => clearSlot(i)}
+                      className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-slate-900/70 text-slate-300 text-xs flex items-center justify-center hover:bg-rose-600 hover:text-white transition cursor-pointer"
+                      title="Clear"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-slate-400 text-lg mb-1">+</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-70 leading-none">
+                      SLOT {i + 1} EMPTY
+                    </span>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Buy button */}
+        <button
+          type="button"
+          onClick={handleBuy}
+          disabled={slotCountFilled === 0 || !canAfford || !selectedGame}
+          className={`w-full py-3 rounded-2xl font-black text-sm transition shadow-lg cursor-pointer ${
+            slotCountFilled === 0 || !canAfford || !selectedGame
+              ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none'
+              : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 hover:brightness-105 shadow-amber-900/40'
+          }`}
+        >
+          {!user ? (isAm ? 'መመዝገብ →' : 'Register →') :
+           slotCountFilled === 0 ? (isAm ? 'ካርድ ይምረጡ' : 'Pick card numbers') :
+           !canAfford ? (isAm ? `በክብሮት ያስፈልጋል ${totalCost} ETB` : `Need ${totalCost} ETB balance`) :
+           `${isAm ? 'ይግዙ' : 'BUY'} · ${slotCountFilled}×${entryPrice} = ${totalCost} ETB`}
+        </button>
       </div>
     </div>
   );
