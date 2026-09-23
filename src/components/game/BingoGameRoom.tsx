@@ -139,19 +139,44 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const announceBall = (num: number) => {
+    if (!soundEnabled) return;
+    try {
+      const letter = num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(`${letter} ${num}`);
+        utter.rate = 1.0;
+        window.speechSynthesis.speak(utter);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
   // Auto Draw interval timer simulation
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isAutoDrawing && currentGame) {
+    if (isAutoDrawing && currentGame && currentGame.status !== 'COMPLETED' && currentGame.drawnNumbers.length < 75) {
       interval = setInterval(() => {
         const next = drawNextBall(currentGame.id);
         if (!next) {
           setIsAutoDrawing(false);
+        } else {
+          announceBall(next);
         }
-      }, currentGame.drawInterval * 1000);
+      }, Math.max(3000, (currentGame.drawInterval || 3) * 1000));
     }
     return () => clearInterval(interval);
-  }, [isAutoDrawing, currentGame, drawNextBall]);
+  }, [isAutoDrawing, currentGame, drawNextBall, soundEnabled]);
+
+  const handleManualDraw = () => {
+    if (!currentGame || currentGame.drawnNumbers.length >= 75 || currentGame.status === 'COMPLETED') return;
+    const next = drawNextBall(currentGame.id);
+    if (next) {
+      announceBall(next);
+    }
+  };
 
   // Auto-dismiss claim alerts after 4 seconds
   useEffect(() => {
@@ -350,13 +375,9 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
       openAuthModal('register');
       return;
     }
-    if (activeGameCards.length === 0) {
-      joinGame(currentGame.id, selectedCardNumbers);
-    } else {
-      const existingNums = activeGameCards.map((c) => c.cardNumber);
-      const newNums = selectedCardNumbers.filter((n) => !existingNums.includes(n));
-      newNums.forEach((num) => addCardToGame(currentGame.id, num));
-    }
+    // Always join/update with the exact selected card numbers
+    joinGame(currentGame.id, selectedCardNumbers);
+    setIsAutoDrawing(true);
     setIsSelectorOpen(false);
   };
 
@@ -492,22 +513,21 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               </div>
             </div>
 
-            {/* Row 3: Price | Games (user's # of cards) | Prize */}
+            {/* Row 3: Price | Cards (user's # of cards) | Prize */}
             <div className="flex items-center gap-3 text-[12px] flex-wrap">
               <div className="flex items-center gap-1">
-                <span className="text-emerald-700">$</span>
                 <span className="font-bold text-slate-500">{language === 'am' ? 'ዋጋ:' : 'Price:'}</span>
-                <span className="font-black text-slate-900">${currentGame.entryPrice || 10}</span>
+                <span className="font-black text-slate-900">{currentGame.entryPrice} ETB</span>
               </div>
               <div className="flex items-center gap-1">
                 <Grid className="w-3.5 h-3.5 text-blue-700" />
-                <span className="font-bold text-slate-500">{language === 'am' ? 'ጨዋታዎች:' : 'Games:'}</span>
-                <span className="font-black text-slate-900">{activeGameCards.length || 1}</span>
+                <span className="font-bold text-slate-500">{language === 'am' ? 'ካርዶች:' : 'Cards:'}</span>
+                <span className="font-black text-slate-900 font-mono">{activeGameCards.length}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Trophy className="w-3.5 h-3.5 text-amber-600 fill-amber-500/30" />
                 <span className="font-bold text-slate-500">{language === 'am' ? 'ሽልማት:' : 'Prize:'}</span>
-                <span className="font-black text-amber-700">${gamePrizeDisplay.toLocaleString()}</span>
+                <span className="font-black text-amber-700">{formatETB(gamePrizeDisplay)}</span>
               </div>
             </div>
           </div>
@@ -517,30 +537,57 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
       {/* ================================================================
           3. DRAWN NUMBERS (MASTER 75-BALL BOARD - ALWAYS VISIBLE)
              with B-I-N-G-O colored letters and 15 numbers per column
-             (matches screenshot 2)
+             Includes LIVE automated ball caller controls
           ================================================================ */}
       <div className="bg-white border-b border-slate-200 px-3 py-2 shrink-0">
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
               <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">{language === 'am' ? 'የተጠሩ:' : 'Drawn:'}</span>
-              <span className="text-[11px] font-black text-slate-900">{currentGame.drawnNumbers.length}</span>
+              <span className="text-[11px] font-black text-slate-900 font-mono">{currentGame.drawnNumbers.length}/75</span>
             </div>
-            {/* Admin draw button */}
-            {isUserAdmin && (
+
+            {/* Caller Controls: Auto-Call toggle + Manual Call */}
+            <div className="flex items-center gap-1">
               <button
-                onClick={() => drawNextBall(currentGame.id)}
-                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-lg transition flex items-center gap-0.5 shadow-xs cursor-pointer"
+                type="button"
+                onClick={() => setIsAutoDrawing((prev) => !prev)}
+                className={`text-[10px] font-black px-2 py-0.5 rounded-lg transition flex items-center gap-1 cursor-pointer shadow-xs ${
+                  isAutoDrawing
+                    ? 'bg-emerald-100 border border-emerald-300 text-emerald-800'
+                    : 'bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700'
+                }`}
+                title="Toggle automated number caller"
+              >
+                {isAutoDrawing ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                    <span>{language === 'am' ? '⏸ አቁም' : '⏸ Auto'}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{language === 'am' ? '▶ ጀምር' : '▶ Auto'}</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                disabled={currentGame.drawnNumbers.length >= 75 || currentGame.status === 'COMPLETED'}
+                onClick={handleManualDraw}
+                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-lg transition flex items-center gap-0.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Call next number now"
               >
                 <Zap className="w-3 h-3 fill-slate-950" />
-                <span>Draw</span>
+                <span>{language === 'am' ? 'ኳስ ጥራ' : 'Call Ball'}</span>
               </button>
-            )}
+            </div>
           </div>
+
           {currentGame.currentBall && (
-            <div className={`px-2.5 py-0.5 rounded-full font-black text-[11px] bg-gradient-to-r ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-xs ring-2 ring-amber-400/80 flex items-center gap-1`}>
-              <span className="text-[9px] italic">{getBallLetter(currentGame.currentBall)}</span>
-              <span>{currentGame.currentBall}</span>
+            <div className={`px-2.5 py-0.5 rounded-full font-black text-[11px] bg-gradient-to-r ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-xs ring-2 ring-amber-400/80 flex items-center gap-1 animate-in zoom-in-75 duration-200`}>
+              <span className="text-[9px] italic font-black">{getBallLetter(currentGame.currentBall)}</span>
+              <span className="font-mono text-sm">{currentGame.currentBall}</span>
             </div>
           )}
         </div>
@@ -589,7 +636,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
           <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
           <span>{language === 'am' ? 'የታገዱ ካርዶች:' : 'Blocked:'}</span>
           <span className="px-2.5 py-0.5 rounded-full bg-white border border-rose-300 font-mono text-rose-700 text-sm shadow-xs">
-            {(currentGame.blockedCards || []).length || '10'}
+            {(currentGame.blockedCards || []).length}
           </span>
         </button>
       </div>
@@ -609,8 +656,8 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               </div>
               <div className="text-xs font-black truncate leading-tight">
                 {language === 'am'
-                  ? `ካርድ #${currentGame.winners[currentGame.winners.length - 1].cardNumber || '108'} (${currentGame.winners[currentGame.winners.length - 1].username}) ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)} አሸንፏል!`
-                  : `Card #${currentGame.winners[currentGame.winners.length - 1].cardNumber || '108'} (${currentGame.winners[currentGame.winners.length - 1].username}) WON ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)}!`}
+                  ? `ካርድ #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} (${currentGame.winners[currentGame.winners.length - 1].username}) ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)} አሸንፏል!`
+                  : `Card #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} (${currentGame.winners[currentGame.winners.length - 1].username}) WON ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)}!`}
               </div>
             </div>
           </div>
@@ -648,188 +695,160 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
 
 
       {/* ================================================================
-          6. BINGO CARDS — single full-width card, tabs to switch
+          6. BINGO CARDS — Each picked card gets its OWN separate table
           ================================================================ */}
-      <div className="p-2 pb-4 bg-slate-100 flex flex-col gap-2">
-        {activeGameCards.length > 0 ? (() => {
-          // Resolve which card is currently visible
-          const visibleCard =
-            activeGameCards.find((c) => c.id === selectedCardId) ||
-            activeGameCards[0];
-          const cardIsWin = checkFullHouseWin(visibleCard.marked);
-          const cardIsBlocked = currentGame.blockedCards?.includes(visibleCard.cardNumber);
-          const cardDrawnSet = new Set(currentGame.drawnNumbers);
-          const cardIsHint = hintCardId === visibleCard.id;
+      <div className="p-2 pb-4 bg-slate-100 flex flex-col gap-3">
+        {activeGameCards.length > 0 ? (
+          <>
+            {/* ── Render EACH card as its own independent table ── */}
+            {activeGameCards.map((card, cardIdx) => {
+              const cardIsWin = checkFullHouseWin(card.marked);
+              const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
+              const cardDrawnSet = new Set(currentGame.drawnNumbers);
+              const cardIsHint = hintCardId === card.id;
 
-          return (
-            <>
-              {/* ── Card Tabs (shown only when >1 card) ── */}
-              {activeGameCards.length > 1 && (
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-                  {activeGameCards.map((c) => {
-                    const isActive = c.id === visibleCard.id;
-                    const isBlk = currentGame.blockedCards?.includes(c.cardNumber);
-                    return (
-                      <button
-                        key={c.id}
-                        onClick={() => setSelectedCardId(c.id)}
-                        className={`shrink-0 px-3 py-1 rounded-xl font-black text-[11px] border transition cursor-pointer ${
-                          isActive
-                            ? isBlk
-                              ? 'bg-rose-700 border-rose-500 text-white'
-                              : 'bg-blue-600 border-blue-500 text-white shadow-sm'
-                            : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'
-                        }`}
-                      >
-                        #{c.cardNumber}
-                        {isBlk && <span className="ml-1 text-[9px]">🚫</span>}
-                      </button>
-                    );
-                  })}
-                  {activeGameCards.length < 3 && (
-                    <button
-                      onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
-                      className="shrink-0 px-2 py-1 rounded-xl font-black text-[11px] border border-dashed border-emerald-400 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 transition cursor-pointer"
-                    >
-                      + Add
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* ── Full-Width Card ── */}
-              <div
-                className={`bg-white rounded-2xl overflow-hidden shadow-md border-2 transition-all ${
-                  cardIsBlocked
-                    ? 'border-rose-400 ring-2 ring-rose-200'
-                    : cardIsWin
-                    ? 'border-amber-400 ring-2 ring-amber-300 shadow-amber-200'
-                    : 'border-slate-200'
-                }`}
-              >
-                {/* Card header: number + full-screen + delete (no bulky dark blue bar) */}
-                <div className={`${cardIsBlocked ? 'bg-rose-800 text-white' : 'bg-slate-900 text-white'} flex items-center justify-between px-3 py-1.5`}>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] opacity-80">📋</span>
-                    <span className="font-black font-mono text-base">#{visibleCard.cardNumber}</span>
-                    {cardIsBlocked && (
-                      <span className="text-[9px] font-black bg-rose-600 text-white px-1.5 py-0.5 rounded uppercase">
-                        BLOCKED
+              return (
+                <div
+                  key={card.id}
+                  className={`bg-white rounded-2xl overflow-hidden shadow-md border-2 transition-all ${
+                    cardIsBlocked
+                      ? 'border-rose-400 ring-2 ring-rose-200'
+                      : cardIsWin
+                      ? 'border-amber-400 ring-2 ring-amber-300 shadow-amber-200'
+                      : 'border-slate-200'
+                  }`}
+                >
+                  {/* Card header: number badge + card index + fullscreen + delete */}
+                  <div className={`${cardIsBlocked ? 'bg-rose-800 text-white' : 'bg-slate-900 text-white'} flex items-center justify-between px-3 py-1.5`}>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] opacity-80">📋</span>
+                      <span className="font-black font-mono text-base">#{card.cardNumber}</span>
+                      <span className="text-[10px] opacity-60 font-bold">
+                        ({cardIdx + 1}/{activeGameCards.length})
                       </span>
+                      {cardIsBlocked && (
+                        <span className="text-[9px] font-black bg-rose-600 text-white px-1.5 py-0.5 rounded uppercase">
+                          BLOCKED
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          setSelectedCardId(card.id);
+                          setExpandCardModal(true);
+                        }}
+                        className="text-white hover:bg-white/20 transition cursor-pointer px-2 py-1 rounded-lg bg-white/10 text-xs font-bold flex items-center gap-1"
+                        title="View fullscreen"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                        <span className="text-[11px]">{language === 'am' ? 'ሙሉ' : 'Full'}</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCardToDelete({ id: card.id, cardNumber: card.cardNumber });
+                        }}
+                        className="text-rose-300 hover:text-white hover:bg-rose-600 rounded-lg px-2 py-1 transition cursor-pointer text-xs font-bold flex items-center gap-1 bg-rose-500/20"
+                        title="Remove this card"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 5x5 NUMBER GRID */}
+                  <div className="grid grid-cols-5 gap-0 bg-slate-50">
+                    {card.numbers.map((row, rIdx) =>
+                      row.map((val, cIdx) => {
+                        const isFree = rIdx === 2 && cIdx === 2;
+                        const isDrawn = !isFree && cardDrawnSet.has(val);
+                        const isMarked = card.marked[rIdx][cIdx];
+                        const isCurrent = currentGame.currentBall === val && !isFree;
+                        const isHintCell = cardIsHint && patternHint && patternHint[rIdx][cIdx] && !isMarked && !isFree;
+
+                        return (
+                          <button
+                            key={`${card.id}-${rIdx}-${cIdx}`}
+                            onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
+                            className={`h-14 sm:h-16 flex items-center justify-center font-bold border border-slate-100 transition-all relative cursor-pointer ${
+                              isFree
+                                ? 'bg-green-500'
+                                : isMarked || isDrawn
+                                ? 'bg-red-600 shadow-inner'
+                                : isCurrent
+                                ? 'bg-amber-300 ring-1 ring-amber-500'
+                                : isHintCell
+                                ? 'bg-amber-100 ring-1 ring-amber-400 animate-pulse'
+                                : 'bg-white hover:bg-slate-100'
+                            }`}
+                          >
+                            {isFree ? (
+                              <span className="text-white font-black text-base italic">★</span>
+                            ) : (
+                              <span className={`font-black text-lg sm:text-xl ${
+                                isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950' : 'text-slate-800'
+                              }`}>
+                                {val}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5">
+
+                  {/* Per-card action row: Hint + BINGO */}
+                  <div className="flex items-stretch">
                     <button
-                      onClick={() => setExpandCardModal(true)}
-                      className="text-white hover:bg-white/20 transition cursor-pointer px-2 py-1 rounded-lg bg-white/10 text-xs font-bold flex items-center gap-1"
-                      title="View fullscreen"
+                      onClick={() => handleLightGameHit(card)}
+                      className="px-3 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-black text-xs border-t border-r border-amber-200 flex items-center justify-center gap-1 cursor-pointer transition"
                     >
-                      <Maximize2 className="w-3.5 h-3.5" />
-                      <span className="text-[11px]">{language === 'am' ? 'ሙሉ ሰሌዳ' : 'Fullscreen'}</span>
+                      <Lightbulb className="w-3.5 h-3.5 fill-amber-500" />
+                      {language === 'am' ? 'ፍንጭ' : 'Hint'}
                     </button>
                     <button
-                      onClick={() => {
-                        setCardToDelete({ id: visibleCard.id, cardNumber: visibleCard.cardNumber });
-                      }}
-                      className="text-rose-300 hover:text-white hover:bg-rose-600 rounded-lg px-2 py-1 transition cursor-pointer text-xs font-bold flex items-center gap-1 bg-rose-500/20"
-                      title="Remove this card"
+                      disabled={cardIsBlocked}
+                      onClick={() => !cardIsBlocked && handleClaimBingo(card.id)}
+                      className={`flex-1 py-2.5 font-black text-base tracking-widest italic transition cursor-pointer ${
+                        cardIsBlocked
+                          ? 'bg-rose-900 text-rose-300 cursor-not-allowed'
+                          : cardIsWin
+                          ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse border-t-2 border-amber-300'
+                          : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-400 hover:to-emerald-500 border-t-2 border-green-700/30'
+                      }`}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span className="text-[11px]">{language === 'am' ? 'ሰርዝ' : 'Delete'}</span>
+                      {cardIsBlocked ? '🚫 BLOCKED' : '🎯 BINGO!'}
                     </button>
                   </div>
                 </div>
+              );
+            })}
 
-                {/* 5x5 NUMBER GRID (no B-I-N-G-O header row — removed to save space) */}
-                <div className="grid grid-cols-5 gap-0 bg-slate-50">
-                  {visibleCard.numbers.map((row, rIdx) =>
-                    row.map((val, cIdx) => {
-                      const isFree = rIdx === 2 && cIdx === 2;
-                      const isDrawn = !isFree && cardDrawnSet.has(val);
-                      const isMarked = visibleCard.marked[rIdx][cIdx];
-                      const isCurrent = currentGame.currentBall === val && !isFree;
-                      const isHintCell = cardIsHint && patternHint && patternHint[rIdx][cIdx] && !isMarked && !isFree;
-
-                      return (
-                        <button
-                          key={`${rIdx}-${cIdx}`}
-                          onClick={() => !isFree && daubCell(visibleCard.id, rIdx, cIdx)}
-                          className={`h-14 sm:h-16 flex items-center justify-center font-bold border border-slate-100 transition-all relative cursor-pointer ${
-                            isFree
-                              ? 'bg-green-500'
-                              : isMarked || isDrawn
-                              ? 'bg-red-600 shadow-inner'
-                              : isCurrent
-                              ? 'bg-amber-300 ring-1 ring-amber-500'
-                              : isHintCell
-                              ? 'bg-amber-100 ring-1 ring-amber-400 animate-pulse'
-                              : 'bg-white hover:bg-slate-100'
-                          }`}
-                        >
-                          {isFree ? (
-                            <span className="text-white font-black text-base italic">★</span>
-                          ) : (
-                            <span className={`font-black text-lg sm:text-xl ${
-                              isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950' : 'text-slate-800'
-                            }`}>
-                              {val}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-
-                {/* BOTTOM BINGO BUTTON */}
-                <button
-                  disabled={cardIsBlocked}
-                  onClick={() => !cardIsBlocked && handleClaimBingo(visibleCard.id)}
-                  className={`w-full py-3 font-black text-base tracking-widest italic transition cursor-pointer ${
-                    cardIsBlocked
-                      ? 'bg-rose-900 text-rose-300 cursor-not-allowed'
-                      : cardIsWin
-                      ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse border-t-2 border-amber-300'
-                      : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-400 hover:to-emerald-500 border-t-2 border-green-700/30'
-                  }`}
-                >
-                  {cardIsBlocked ? '🚫 BLOCKED' : '🎯 BINGO!'}
-                </button>
-              </div>
-
-              {/* Bottom action bar: Hint | Board | + Card */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleLightGameHit(visibleCard)}
-                  className="flex-1 py-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-black text-xs border border-amber-300 flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <Lightbulb className="w-3.5 h-3.5 fill-amber-500" />
-                  {language === 'am' ? 'ፍንጭ' : 'Hint'}
-                </button>
-                <button
-                  onClick={() => setShowTableModal(true)}
-                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs border border-slate-200 flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <Grid className="w-3.5 h-3.5 text-blue-600" />
-                  {language === 'am' ? 'ሰሌዳ' : 'Board'}
-                </button>
-                <button
-                  onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
-                  disabled={activeGameCards.length >= 3}
-                  className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition cursor-pointer ${
-                    activeGameCards.length >= 3
-                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-sm'
-                  }`}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  {language === 'am' ? 'ካርድ' : 'Card'}
-                  {activeGameCards.length >= 3 && <span className="text-[10px]">(Max)</span>}
-                </button>
-              </div>
-            </>
-          );
-        })() : (
+            {/* Bottom action bar: Board + Add Card (shared across all cards) */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowTableModal(true)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs border border-slate-200 flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <Grid className="w-3.5 h-3.5 text-blue-600" />
+                {language === 'am' ? 'ሰሌዳ' : 'Board'}
+              </button>
+              <button
+                onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
+                disabled={activeGameCards.length >= 3}
+                className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition cursor-pointer ${
+                  activeGameCards.length >= 3
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                    : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-sm'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {language === 'am' ? 'ካርድ ጨምር' : 'Add Card'}
+                {activeGameCards.length >= 3 && <span className="text-[10px]">(Max 3)</span>}
+              </button>
+            </div>
+          </>
+        ) : (
           /* No cards yet — empty state */
           <div className="flex flex-col items-center justify-center py-10 text-center space-y-4 bg-white rounded-2xl border border-slate-200 mx-1 shadow-xs">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg">
@@ -1205,7 +1224,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                 <span className="text-slate-300 font-bold">{language === 'am' ? 'የአሸናፊ ካርድ ቁጥር:' : 'Winning Card #:'}</span>
                 <span className="font-mono font-black text-amber-300 text-base">
-                  #{latestWinner.cardNumber || '108'}
+                  #{latestWinner.cardNumber || ''}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
@@ -1217,7 +1236,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                 <span className="text-slate-300 font-bold">{language === 'am' ? 'ያሸነፈበት ኳስ:' : 'Winning Ball:'}</span>
                 <span className="font-black text-amber-400 text-sm">
-                  #{latestWinner.winningBall || currentGame.currentBall || 75}
+                  #{latestWinner.winningBall || currentGame.currentBall || ''}
                 </span>
               </div>
               <div className="text-xs">
