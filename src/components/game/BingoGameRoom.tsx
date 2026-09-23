@@ -380,8 +380,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
     <div className="w-full h-full max-w-sm sm:max-w-md mx-auto flex flex-col select-none overflow-hidden">
 
       {/* ================================================================
-          1. TOP HEADER: Purple/blue gradient bar — clean minimal (no icons)
-             (matches screenshot 2 top but with useless icons REMOVED)
+          1. TOP HEADER: Purple/blue gradient — STICKY (always visible)
           ================================================================ */}
       <div className="bg-gradient-to-r from-blue-800 via-purple-800 to-indigo-900 px-3 py-2.5 flex items-center justify-between shrink-0 shadow-md">
         {/* Left: Back + time + BINGO */}
@@ -425,10 +424,14 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
       </div>
 
       {/* ================================================================
-          2. SHOW LESS / SHOW MORE RED TOGGLE + GAME INFO 3-ROWS
-             (matches screenshot 1 & 2)
+          SCROLLABLE BODY — Everything below header scrolls as one page
           ================================================================ */}
-      <div className="bg-white/95 border-b border-slate-200 px-3 py-2 shrink-0 space-y-1.5 relative">
+      <div className="flex-1 overflow-y-auto overscroll-contain pb-32 bg-slate-100">
+
+      {/* ================================================================
+          2. SHOW LESS / SHOW MORE + GAME INFO ROWS
+          ================================================================ */}
+      <div className="bg-white border-b border-slate-200 px-3 py-2 space-y-1.5 relative">
         {/* Show Less / Show More toggle (top-right red text) */}
         <button
           onClick={() => setShowGameInfo((prev) => !prev)}
@@ -590,9 +593,8 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
 
       {/* ================================================================
           4. BLOCKED CARDS PILL
-             (matches screenshot 2 — 🚫 Blocked: 10)
           ================================================================ */}
-      <div className="bg-white border-b border-slate-200 px-3 py-2 shrink-0">
+      <div className="bg-white border-b border-slate-200 px-3 py-2">
         <button
           onClick={() => setShowBlockedModal(true)}
           className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-800 text-[11px] font-black transition cursor-pointer w-fit"
@@ -610,7 +612,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
           5. WINNER ANNOUNCEMENT BANNER + TOAST ALERTS
           ================================================================ */}
       {currentGame.winners && currentGame.winners.length > 0 && (
-        <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 shadow-md border-2 border-yellow-200 flex items-center justify-between gap-2 shrink-0 animate-in slide-in-from-top-2 duration-300">
+        <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 shadow-md border-2 border-yellow-200 flex items-center justify-between gap-2 animate-in slide-in-from-top-2 duration-300">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center font-black shrink-0 text-base shadow-xs">
               🏆
@@ -659,15 +661,9 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
       )}
 
       {/* ================================================================
-          6. BINGO CARDS GRID (ALL CARDS SHOWN SIMULTANEOUSLY)
-             - Top Green Bingo button
-             - B-I-N-G-O colored headers (image 2 scheme)
-             - 5x5 numbers daubable (RED for daubed)
-             - Blue footer bar with Card # + X close
-             - Bottom Green Bingo button
-             - 2-col grid, empty-state CTA when 0 cards, + card slot
+          6. BINGO CARDS GRID — all cards shown, no inner scroll needed
           ================================================================ */}
-      <div className="flex-1 overflow-y-auto p-2 pb-20 bg-slate-100">
+      <div className="p-2 bg-slate-100">
         {activeGameCards.length > 0 ? (
           <div className="grid grid-cols-2 gap-2">
             {activeGameCards.map((card) => {
@@ -873,7 +869,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
              Pick Card | Hint | Board
           ================================================================ */}
       {activeGameCards.length > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 max-w-sm sm:max-w-md mx-auto bg-white border-t border-slate-200 px-3 py-2 flex items-center gap-2 z-30 shadow-lg">
+        <div className="mx-2 mb-2 p-2 bg-white border border-slate-200 rounded-2xl flex items-center gap-2 shadow-sm">
           <button
             onClick={() => {
               if (!user) {
@@ -911,6 +907,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
           </button>
         </div>
       )}
+      </div>
 
       {/* ================================================================
           8. MODALS (ONE SET ONLY, no duplication)
