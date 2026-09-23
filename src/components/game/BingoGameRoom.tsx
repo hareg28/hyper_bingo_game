@@ -377,7 +377,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
   // 🔽 SINGLE UNIFIED RENDER (used for both weekend & regular games)
   // =========================================================================
   return (
-    <div className="w-full max-w-sm sm:max-w-md mx-auto flex flex-col select-none overflow-hidden" style={{ minHeight: '100%' }}>
+    <div className="w-full h-full max-w-sm sm:max-w-md mx-auto flex flex-col select-none overflow-hidden">
 
       {/* ================================================================
           1. TOP HEADER: Purple/blue gradient bar — clean minimal (no icons)

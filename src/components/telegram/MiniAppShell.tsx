@@ -168,7 +168,7 @@ export default function MiniAppShell({
       </div>
 
       {/* Main Content Area */}
-      <div className={`flex-1 min-h-0 overflow-x-hidden ${activeTab === 'game' || activeTab === 'lottery' ? 'overflow-y-hidden p-1 pb-20 flex flex-col justify-start' : 'overflow-y-auto overscroll-contain p-3 pb-28 space-y-3'} bg-slate-50/70`}>
+      <div className={`flex-1 min-h-0 overflow-x-hidden ${activeTab === 'game' || activeTab === 'lottery' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto overscroll-contain p-3 pb-28 space-y-3 bg-slate-50/70'}`}>
         {/* LOBBY TAB */}
         {activeTab === 'lobby' && (
           <div className="space-y-3">
