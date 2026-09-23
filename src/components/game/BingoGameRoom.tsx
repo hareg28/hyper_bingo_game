@@ -61,9 +61,14 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [showPatternHintModal, setShowPatternHintModal] = useState(false);
   const [showGameInfo, setShowGameInfo] = useState(true);
+  const [cardToDelete, setCardToDelete] = useState<{ id: string; cardNumber: string } | null>(null);
 
   const currentGame = games.find((g) => g.id === gameId) || games[0];
   const activeGameCards = userCards.filter((c) => c.gameId === currentGame.id);
+  const initialCardNumbers = React.useMemo(
+    () => activeGameCards.map((c) => c.cardNumber),
+    [activeGameCards.map((c) => c.cardNumber).join(',')]
+  );
   const isWeekendGame = currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.isWeekendSpecial;
   
   // Active card (kept for handlers, but UI now shows ALL cards)
@@ -352,6 +357,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
       const newNums = selectedCardNumbers.filter((n) => !existingNums.includes(n));
       newNums.forEach((num) => addCardToGame(currentGame.id, num));
     }
+    setIsSelectorOpen(false);
   };
 
   // 75-Ball rows for master board (always visible inline, not a modal)
@@ -723,9 +729,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                     </button>
                     <button
                       onClick={() => {
-                        const remaining = activeGameCards.filter((c) => c.id !== visibleCard.id);
-                        setSelectedCardId(remaining[0]?.id ?? null);
-                        removeCard(visibleCard.id);
+                        setCardToDelete({ id: visibleCard.id, cardNumber: visibleCard.cardNumber });
                       }}
                       className="text-rose-300 hover:text-white hover:bg-rose-600 rounded-lg px-2 py-1 transition cursor-pointer text-xs font-bold flex items-center gap-1 bg-rose-500/20"
                       title="Remove this card"
@@ -904,14 +908,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => {
-                    const remaining = activeGameCards.filter((c) => c.id !== fsCard.id);
-                    removeCard(fsCard.id);
-                    if (remaining.length > 0) {
-                      setSelectedCardId(remaining[0].id);
-                    } else {
-                      setSelectedCardId(null);
-                      setExpandCardModal(false);
-                    }
+                    setCardToDelete({ id: fsCard.id, cardNumber: fsCard.cardNumber });
                   }}
                   className="px-2.5 py-1.5 rounded-xl bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs flex items-center gap-1 transition cursor-pointer border border-rose-500/40"
                   title="Delete this card"
@@ -1046,13 +1043,62 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
         </div>
       )}
 
+      {/* 2-STEP CARD DELETE CONFIRMATION MODAL */}
+      {cardToDelete && (
+        <div className="fixed inset-0 z-[60] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white border-2 border-slate-200 rounded-3xl p-5 max-w-xs w-full space-y-4 shadow-2xl text-slate-900 animate-in zoom-in-95 duration-150">
+            <div className="flex flex-col items-center text-center space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shadow-xs">
+                <Trash2 className="w-6 h-6 text-rose-600" />
+              </div>
+              <h3 className="font-black text-slate-900 text-base">
+                {language === 'am' ? 'ካርዱን መሰረዝ ይፈልጋሉ?' : 'Remove This Card?'}
+              </h3>
+              <p className="text-xs text-slate-600">
+                {language === 'am'
+                  ? `ካርድ #${cardToDelete.cardNumber} ከጨዋታው ውስጥ ይሰረዛል። እርግጠኛ ነዎት?`
+                  : `Card #${cardToDelete.cardNumber} will be removed from your active cards. Are you sure?`}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setCardToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer border border-slate-300"
+              >
+                {language === 'am' ? 'ተመለስ' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const targetId = cardToDelete.id;
+                  const remaining = activeGameCards.filter((c) => c.id !== targetId);
+                  removeCard(targetId);
+                  if (remaining.length > 0) {
+                    setSelectedCardId(remaining[0].id);
+                  } else {
+                    setSelectedCardId(null);
+                    setExpandCardModal(false);
+                  }
+                  setCardToDelete(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs transition cursor-pointer shadow-md"
+              >
+                {language === 'am' ? 'አዎ ሰርዝ' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CARD SELECTOR MODAL */}
       <CardNumberSelector
         isOpen={isSelectorOpen}
         onClose={() => setIsSelectorOpen(false)}
         onConfirm={handleConfirmCardNumbers}
         entryPrice={currentGame.entryPrice}
-        initialCards={activeGameCards.map((c) => c.cardNumber)}
+        initialCards={initialCardNumbers}
       />
 
       {/* BLOCKED PLAYERS MODAL */}

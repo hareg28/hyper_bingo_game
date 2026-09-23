@@ -39,8 +39,8 @@ export const getInitialLotterySoldMap = (games: Game[]): Record<string, Set<numb
   const map: Record<string, Set<number>> = {};
   games.forEach((g) => {
     if (g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) {
-      const baseSold = Math.min(167, Math.round(500 * (g.currentPlayers / Math.max(1, g.maxPlayers))));
-      map[g.id] = generateSoldNumbersForGame(g.id, baseSold, g.entryPrice);
+      // Real flow: no pre-sold cards initially; cards show as available and turn gray when bought
+      map[g.id] = new Set<number>();
     }
   });
   return map;

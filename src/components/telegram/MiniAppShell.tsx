@@ -172,20 +172,20 @@ export default function MiniAppShell({
         {/* LOBBY TAB */}
         {activeTab === 'lobby' && (
           <div className="space-y-3">
-            {/* Featured Banner - Clean High-Contrast Amber Card */}
-            <div className="bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 p-4 rounded-2xl text-slate-950 shadow-sm">
+            {/* Featured Banner - Soft Light Amber / Cream Card */}
+            <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100/70 p-4 rounded-2xl text-slate-900 shadow-xs border-2 border-amber-200">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-black uppercase tracking-wider opacity-90 flex items-center gap-1">
-                  <Zap className="w-3 h-3" /> {t('quickBingo')}
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                  <Zap className="w-3.5 h-3.5 text-amber-600 fill-amber-500" /> {t('quickBingo')}
                 </span>
-                <span className="text-[10px] font-bold opacity-90">
+                <span className="text-[10px] font-bold text-slate-600 bg-white/80 px-2 py-0.5 rounded-full border border-amber-200">
                   {localizeGameTime(quickBingo.startTime, language)}
                 </span>
               </div>
-              <h3 className="text-lg font-black">{getGameDisplayName(quickBingo, language)}</h3>
+              <h3 className="text-lg font-black text-slate-950">{getGameDisplayName(quickBingo, language)}</h3>
               <button
                 onClick={() => { joinGame(quickBingo.id); setActiveTab('game'); }}
-                className="w-full py-2.5 bg-slate-950 text-white font-black text-xs uppercase tracking-wider rounded-xl transition hover:bg-slate-800 flex items-center justify-center gap-1.5 shadow cursor-pointer mt-2"
+                className="w-full py-2.5 bg-slate-950 text-white font-black text-xs uppercase tracking-wider rounded-xl transition hover:bg-slate-800 flex items-center justify-center gap-1.5 shadow cursor-pointer mt-2.5"
               >
                 {t('playNow')} ({quickBingo.entryPrice} ETB) <ArrowUpRight className="w-4 h-4" />
               </button>
@@ -203,9 +203,9 @@ export default function MiniAppShell({
                 </span>
               </div>
 
-              {/* Weekend Hyper Announcement Banner - 3-Column Responsive Grid */}
+              {/* Weekend Hyper Announcement Banner - Soft Light Gold / Amber Card */}
               {games.some((g) => g.isWeekendSpecial || g.gameType === 'WEEKEND_LOTTERY') && (
-                <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 p-3.5 shadow-sm space-y-2.5">
+                <div className="rounded-2xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100/60 p-3.5 shadow-xs space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <span className="text-base">🌟</span>
@@ -213,12 +213,12 @@ export default function MiniAppShell({
                         <span className="text-slate-950 text-xs font-black uppercase tracking-wider leading-none">
                           {language === 'am' ? 'የሳምንት መጨረሻ ሃይፐር ድራው' : 'WEEKEND HYPER DRAWS'}
                         </span>
-                        <span className="text-slate-900 text-[10px] font-bold opacity-80 mt-0.5">
+                        <span className="text-slate-600 text-[10px] font-bold opacity-90 mt-0.5">
                           {language === 'am' ? 'ዓርብ–እሑድ ማታ 4:00 (10:00 PM)' : 'Fri–Sun Opens at 10:00 PM (ማታ 4:00)'}
                         </span>
                       </div>
                     </div>
-                    <span className="text-[9px] font-black bg-slate-950 text-amber-300 px-2 py-0.5 rounded-full uppercase shadow-xs">
+                    <span className="text-[9px] font-black bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full uppercase shadow-xs">
                       Mega
                     </span>
                   </div>
@@ -230,10 +230,10 @@ export default function MiniAppShell({
                         <button
                           key={g.id}
                           onClick={() => { setActiveGameId(g.id); setActiveTab('game'); }}
-                          className="p-2 rounded-xl bg-slate-950 text-white flex flex-col items-center justify-center shadow-xs hover:bg-slate-800 transition cursor-pointer text-center"
+                          className="p-2 rounded-xl bg-white border border-amber-200 text-slate-900 flex flex-col items-center justify-center shadow-xs hover:border-amber-400 hover:bg-amber-50 transition cursor-pointer text-center"
                         >
-                          <span className="text-amber-400 text-xs font-black leading-tight">⚡ {g.entryPrice} ETB</span>
-                          <span className="text-[9px] font-bold leading-tight mt-0.5 opacity-80 text-slate-300">Entry</span>
+                          <span className="text-amber-700 text-xs font-black leading-tight">⚡ {g.entryPrice} ETB</span>
+                          <span className="text-[9px] font-bold leading-tight mt-0.5 opacity-80 text-slate-600">Entry</span>
                         </button>
                       ))}
                   </div>
@@ -809,18 +809,18 @@ function WeekendLotteryNumberPicker({
         </div>
       </div>
 
-      {/* Yellow top stats card: SOLD | REG CODE | STAKE */}
-      <div className="mx-2 mt-2 flex items-stretch rounded-2xl overflow-hidden bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-400 text-slate-950 shadow-sm border border-amber-500/70 shrink-0">
-        <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-600/30">
-          <span className="text-[9px] font-black uppercase tracking-widest opacity-80 leading-none">
+      {/* Light top stats card: SOLD | REG CODE | STAKE */}
+      <div className="mx-2 mt-2 flex items-stretch rounded-2xl overflow-hidden bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100 text-slate-900 shadow-xs border border-amber-200 shrink-0">
+        <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-200">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 leading-none">
             {isAm ? 'የተሸጠ' : 'Sold'}
           </span>
-          <span className="text-base font-black leading-tight mt-0.5 tabular-nums">
+          <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-slate-900">
             {soldSet.size} / {TOTAL_NUMBERS}
           </span>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-600/30">
-          <span className="text-[9px] font-black uppercase tracking-widest opacity-80 leading-none">
+        <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-200">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 leading-none">
             {isAm ? 'ዋጋ' : 'Stake'}
           </span>
           <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-slate-950">
@@ -828,10 +828,10 @@ function WeekendLotteryNumberPicker({
           </span>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center py-2 px-1">
-          <span className="text-[9px] font-black uppercase tracking-widest opacity-80 leading-none">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 leading-none">
             {isAm ? 'ኮድ' : 'Reg Code'}
           </span>
-          <span className="text-xs font-black leading-tight mt-0.5 font-mono">{regCode}</span>
+          <span className="text-xs font-black leading-tight mt-0.5 font-mono text-slate-900">{regCode}</span>
         </div>
       </div>
 
@@ -895,15 +895,15 @@ function WeekendLotteryNumberPicker({
       <div className="flex items-center justify-center gap-4 mx-2 mt-2 py-1.5 bg-white rounded-xl border border-slate-200 text-[11px] shadow-xs shrink-0">
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded border border-slate-300 bg-white" />
-          <span className="text-slate-800 font-bold">{isAm ? 'ነፃ' : 'Free'}</span>
+          <span className="text-slate-800 font-bold">{isAm ? 'ነፃ' : 'Available'}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded border border-amber-500 bg-amber-400" />
           <span className="text-slate-800 font-bold">{isAm ? 'የተመረጠ' : 'Selected'}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded border border-slate-300 bg-slate-100" />
-          <span className="text-slate-500 font-bold">{isAm ? 'ተሸጠ' : 'Sold'}</span>
+          <div className="w-4 h-4 rounded border border-slate-300 bg-slate-200" />
+          <span className="text-slate-600 font-bold">{isAm ? 'የተሸጠ (ግራጫ)' : 'Sold (Gray)'}</span>
         </div>
       </div>
 
@@ -932,7 +932,7 @@ function WeekendLotteryNumberPicker({
                   inSlot
                     ? 'bg-amber-400 border-amber-500 text-slate-950 shadow shadow-amber-300 scale-105 ring-2 ring-amber-500 z-10'
                     : sold
-                    ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed line-through decoration-slate-400/80'
+                    ? 'bg-slate-200 border-slate-300 text-slate-500 cursor-not-allowed line-through decoration-slate-400/80 font-bold'
                     : 'bg-white border-slate-300 text-slate-950 hover:bg-amber-50 hover:border-amber-400 active:scale-95 cursor-pointer shadow-2xs'
                 }`}
               >

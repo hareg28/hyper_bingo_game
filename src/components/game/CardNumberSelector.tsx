@@ -39,8 +39,11 @@ export default function CardNumberSelector({
   const MIN_CARDS = 1;
   const MAX_CARDS = 3;
 
+  const prevIsOpenRef = React.useRef(false);
+
   React.useEffect(() => {
-    if (isOpen) {
+    // Only initialize when modal transitions from closed to open
+    if (isOpen && !prevIsOpenRef.current) {
       if (initialCards && initialCards.length > 0) {
         setSelectedNumbers(initialCards.slice(0, 3));
       } else {
@@ -49,7 +52,8 @@ export default function CardNumberSelector({
       setInputNumber('');
       setErrorMsg('');
     }
-  }, [isOpen, initialCards]);
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
