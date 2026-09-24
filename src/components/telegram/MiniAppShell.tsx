@@ -97,7 +97,8 @@ export default function MiniAppShell({
     : { height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' as const };
 
   return (
-    <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200" style={heightStyle}>
+    <>
+      <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200" style={heightStyle}>
       {/* Telegram WebApp Frame Header - Clean White */}
       <div className="bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between sticky top-0 z-30 shadow-xs shrink-0 min-w-0 overflow-hidden">
         {user ? (
@@ -1085,5 +1086,6 @@ function WeekendLotteryNumberPicker({
       isOpen={showLuckyWheel}
       onClose={() => setShowLuckyWheel(false)}
     />
+    </>
   );
 }

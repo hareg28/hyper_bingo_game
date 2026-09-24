@@ -4,9 +4,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   allowedDevOrigins: ['*.trycloudflare.com', '*.loca.lt', '*.ngrok-free.app', 'localhost:3000'],
   async headers() {
     return [
