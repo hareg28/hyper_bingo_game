@@ -398,8 +398,8 @@ export function playBingoVictoryFanfare(): void {
 // Weekend Lottery Number Grid (1-500) Utilities
 // ================================================================
 
-export const LOTTERY_NUMBERS_TOTAL = 500;
-export const LOTTERY_MAX_SLOTS = 2;
+export const LOTTERY_NUMBERS_TOTAL = 1500;
+export const LOTTERY_MAX_SLOTS = 5;
 
 export interface LotterySoldMap {
   [gameId: string]: Set<number>;
@@ -411,7 +411,8 @@ const GLOBAL_LOTTERY_SOLD_SEED: Record<string, number[]> = {
     443, 444, 445, 449, 1, 12, 25, 37, 48, 59, 62, 73, 84, 95,
     108, 112, 127, 138, 149, 156, 161, 174, 185, 199, 204, 218,
     221, 233, 245, 256, 267, 278, 289, 292, 305, 314, 325, 336,
-    347, 358, 369, 379, 384, 388,
+    347, 358, 369, 379, 384, 388, 512, 525, 533, 601, 647, 700,
+    712, 756, 808, 845, 901, 999, 1025, 1100, 1201, 1299, 1350, 1410,
   ],
   gm_weekend_50: [
     7, 14, 21, 28, 35, 42, 49, 56, 63, 70, 77, 84, 91, 98, 105,
@@ -419,13 +420,15 @@ const GLOBAL_LOTTERY_SOLD_SEED: Record<string, number[]> = {
     196, 203, 210, 217, 224, 231, 238, 245, 252, 259, 266, 273,
     280, 287, 294, 301, 308, 315, 322, 329, 336, 343, 350, 357,
     364, 371, 378, 385, 392, 399, 406, 413, 420, 427, 434, 441,
-    448, 455, 462, 469, 476, 483, 490, 497,
+    448, 455, 462, 469, 476, 483, 490, 497, 550, 625, 700, 777,
+    850, 925, 1000, 1075, 1150, 1225, 1300, 1375, 1450,
   ],
   gm_weekend_100: [
     10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140,
     150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260,
     270, 280, 290, 300, 310, 320, 330, 340, 350, 360, 370, 380,
     390, 400, 410, 420, 430, 440, 450, 460, 470, 480, 490, 500,
+    600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500,
   ],
 };
 
@@ -446,7 +449,7 @@ export function generateSoldNumbersForGame(gameId: string, count: number, entryP
 }
 
 export function formatLotteryCardNumber(num: number): string {
-  return String(num).padStart(3, '0');
+  return String(num).padStart(4, '0');
 }
 
 export function getLotteryGameSoldCount(gameId: string, entryPrice: number): number {

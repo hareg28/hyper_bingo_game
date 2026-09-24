@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
-import { formatETB } from '../../lib/bingoUtils';
+import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS } from '../../lib/bingoUtils';
 import { localizeGameTime } from '../../lib/translations';
 import { 
   Gamepad2, Zap, Wallet, User as UserIcon, Shield, 
   Share2, Copy, Check, LogOut, Sparkles, 
-  ChevronRight, ChevronLeft, Globe, X
+  ChevronRight, ChevronLeft, Globe, X, Users, Gift
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
 import WalletManager from '../wallet/WalletManager';
@@ -310,6 +310,10 @@ export default function MiniAppShell({
                           </div>
                           <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                             <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
+                            <span className="flex items-center gap-1 text-emerald-700 font-black">
+                              <Users className="w-3 h-3" />
+                              {g.currentPlayers || 0}
+                            </span>
                             {g.blockedCards && g.blockedCards.length > 0 && (
                               <span className="text-rose-600 font-bold flex items-center gap-0.5">
                                 🚫 {g.blockedCards.length} {language === 'am' ? 'የታገዱ' : 'Blocked'}
@@ -729,8 +733,8 @@ function WeekendLotteryNumberPicker({
   const selectedGame = weekendGames[selectedGameIdx] || weekendGames[0];
   const entryPrice = selectedGame?.entryPrice || 50;
 
-  const TOTAL_NUMBERS = 500;
-  const NUM_SLOTS = 2;
+  const TOTAL_NUMBERS = LOTTERY_NUMBERS_TOTAL;
+  const NUM_SLOTS = LOTTERY_MAX_SLOTS;
   const [slotNumbers, setSlotNumbers] = React.useState<(number | null)[]>(
     Array.from({ length: NUM_SLOTS }, () => null)
   );
@@ -883,14 +887,22 @@ function WeekendLotteryNumberPicker({
         </div>
       </div>
 
-      {/* Light top stats card: SOLD | REG CODE | STAKE */}
+      {/* Light top stats card: SOLD | AVAILABLE | STAKE | REG CODE */}
       <div className="mx-2 mt-2 flex items-stretch rounded-2xl overflow-hidden bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100 text-slate-900 shadow-xs border border-amber-200 shrink-0">
         <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-200">
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 leading-none">
+          <span className="text-[9px] font-black uppercase tracking-widest text-rose-600 leading-none">
             {isAm ? 'የተሸጠ' : 'Sold'}
           </span>
-          <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-slate-900">
-            {soldSet.size} / {TOTAL_NUMBERS}
+          <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-rose-700">
+            {soldSet.size}
+          </span>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-200">
+          <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 leading-none">
+            {isAm ? 'ነፃ' : 'Available'}
+          </span>
+          <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-emerald-800">
+            {TOTAL_NUMBERS - soldSet.size}
           </span>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-200">
@@ -921,42 +933,41 @@ function WeekendLotteryNumberPicker({
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-5 gap-1.5">
           {Array.from({ length: NUM_SLOTS }, (_, i) => {
             const num = slotNumbers[i];
             const filled = num !== null;
             return (
               <div
                 key={i}
-                className={`h-11 rounded-xl border-2 flex items-center justify-between px-2.5 transition-all ${
+                className={`h-14 rounded-xl border-2 flex flex-col items-center justify-center relative transition-all ${
                   filled
                     ? 'border-amber-400 bg-amber-50 text-slate-950 shadow-2xs'
                     : 'border-dashed border-slate-300 bg-slate-50 text-slate-500'
                 }`}
               >
+                <span className={`text-[9px] font-black uppercase tracking-widest px-1 rounded ${
+                  filled ? 'text-amber-700 bg-amber-200/80' : 'text-slate-400'
+                }`}>
+                  S{i + 1}
+                </span>
                 {filled ? (
                   <>
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 bg-amber-200/80 px-1 rounded">
-                        S{i + 1}
-                      </span>
-                      <span className="text-base font-black font-mono tabular-nums text-slate-950">
-                        #{String(num).padStart(3, '0')}
-                      </span>
-                    </div>
+                    <span className="text-sm font-black font-mono tabular-nums text-slate-950 leading-tight mt-0.5">
+                      #{String(num).padStart(4, '0')}
+                    </span>
                     <button
                       type="button"
                       onClick={() => clearSlot(i)}
-                      className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center hover:bg-rose-500 hover:text-white transition cursor-pointer shrink-0"
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center hover:bg-rose-500 hover:text-white transition cursor-pointer shrink-0 border-2 border-white shadow-xs"
                       title="Remove"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   </>
                 ) : (
-                  <div className="flex items-center justify-center gap-1 w-full text-slate-500 text-xs font-bold">
-                    <span>+</span>
-                    <span>{isAm ? `ካርድ ${i + 1} ምረጥ` : `Slot ${i + 1} Empty`}</span>
+                  <div className="flex items-center justify-center gap-0.5 mt-0.5">
+                    <span className="text-slate-400 font-black">+</span>
                   </div>
                 )}
               </div>
@@ -981,15 +992,20 @@ function WeekendLotteryNumberPicker({
         </div>
       </div>
 
-      {/* Master 500 Numbers Table — Clean White Background, Bold Black Numbers, 10 Columns */}
+      {/* Master Lottery Numbers Table — Clean White Background, Bold Black Numbers */}
       <div className="mx-2 mt-2 bg-white rounded-2xl border border-slate-200 p-2 shadow-xs">
         <div className="flex items-center justify-between mb-1.5 px-1">
           <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider">
-            {isAm ? 'የቁጥሮች ሰንጠረዥ (1-500)' : 'Master Lottery Board (1–500)'}
+            {isAm ? `የቁጥሮች ሰንጠረዥ (1-${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`}
           </span>
-          <span className="text-[10px] text-slate-500 font-bold">
-            {TOTAL_NUMBERS - soldSet.size} {isAm ? 'ቀሪዎች' : 'Available'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-emerald-700 font-black bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              ✓ {TOTAL_NUMBERS - soldSet.size} {isAm ? 'ነፃዎች' : 'Available'}
+            </span>
+            <span className="text-[10px] text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+              ✗ {soldSet.size} {isAm ? 'የተሸጡ' : 'Sold'}
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-10 gap-1 sm:gap-1.5">

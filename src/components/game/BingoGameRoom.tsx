@@ -6,7 +6,7 @@ import {
   Volume2, VolumeX, Sparkles, Zap, 
   Plus, Star, Hash, Lightbulb, X, Grid, ChevronLeft,
   Undo2, Redo2, Settings, Menu, ShieldAlert, Trophy,
-  Trash2, Maximize2
+  Trash2, Maximize2, Users
 } from 'lucide-react';
 import { 
   formatETB, 
@@ -155,14 +155,85 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const amharicNumbers = ['', 'አንድ', 'ሁለት', 'ሶስት', 'አራት', 'አምስት', 'ስድስት', 'ሰባት', 'ስምንት', 'ዘጠኝ', 'አሰር',
+    'አስራአንድ', 'አስራሁለት', 'አስራሶስት', 'አስራአራት', 'አስራአምስት', 'አስራስድስት', 'አስራሰባት', 'አስራስምንት', 'አስራዘጠኝ', 'ሃያ',
+    'ሃያ አንድ', 'ሃያ ሁለት', 'ሃያ ሶስት', 'ሃያ አራት', 'ሃያ አምስት', 'ሃያ ስድስት', 'ሃያ ሰባት', 'ሃያ ስምንት', 'ሃያ ዘጠኝ', 'ሰላሳ',
+    'ሰላሳ አንድ', 'ሰላሳ ሁለት', 'ሰላሳ ሶስት', 'ሰላሳ አራት', 'ሰላሳ አምስት', 'ሰላሳ ስድስት', 'ሰላሳ ሰባት', 'ሰላሳ ስምንት', 'ሰላሳ ዘጠኝ', 'አርባ',
+    'አርባ አንድ', 'አርባ ሁለት', 'አርባ ሶስት', 'አርባ አራት', 'አርባ አምስት', 'አርባ ስድስት', 'አርባ ሰባት', 'አርባ ስምንት', 'አርባ ዘጠኝ', 'ሃምሳ',
+    'ሃምሳ አንድ', 'ሃምሳ ሁለት', 'ሃምሳ ሶስት', 'ሃምሳ አራት', 'ሃምሳ አምስት', 'ሃምሳ ስድስት', 'ሃምሳ ሰባት', 'ሃምሳ ስምንት', 'ሃምሳ ዘጠኝ', 'ስድሳ',
+    'ስድሳ አንድ', 'ስድሳ ሁለት', 'ስድሳ ሶስት', 'ስድሳ አራት', 'ስድሳ አምስት', 'ስድሳ ስድስት', 'ስድሳ ሰባት', 'ስድሳ ስምንት', 'ስድሳ ዘጠኝ', 'ሰባ',
+    'ሰባ አንድ', 'ሰባ ሁለት', 'ሰባ ሶስት'
+  ];
+
+  const getAmharicTens = (n: number): string => {
+    if (n <= 70) return amharicNumbers[n] || String(n);
+    if (n < 80) return 'ሰባ ' + amharicNumbers[n - 70];
+    if (n === 80) return 'ሰማንያ';
+    if (n < 90) return 'ሰማንያ ' + amharicNumbers[n - 80];
+    if (n === 90) return 'ዘጠና';
+    if (n < 100) return 'ዘጠና ' + amharicNumbers[n - 90];
+    return String(n);
+  };
+
+  const numberToAmharic = (n: number): string => {
+    if (n <= 70) return amharicNumbers[n] || String(n);
+    if (n < 100) return getAmharicTens(n);
+    if (n === 100) return 'መቶ';
+    if (n < 200) return 'መቶ ' + getAmharicTens(n - 100);
+    const hundreds = Math.floor(n / 100);
+    const rest = n % 100;
+    const hunWord = hundreds <= 70 ? (amharicNumbers[hundreds] || String(hundreds)) : String(hundreds);
+    return hunWord + ' መቶ' + (rest > 0 ? ' ' + getAmharicTens(rest) : '');
+  };
+
   const announceBall = (num: number) => {
     if (!soundEnabled) return;
     try {
       const letter = num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-        const utter = new SpeechSynthesisUtterance(`${letter} ${num}`);
-        utter.rate = 1.0;
+        
+        const useAmharic = language === 'am' || true;
+        const amWord = numberToAmharic(num);
+        const text = useAmharic
+          ? `${letter} ቁጥር ${amWord} (${num})`
+          : `${letter} ${num}`;
+
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = useAmharic ? 'am-ET' : 'en-US';
+        utter.rate = useAmharic ? 0.95 : 1.0;
+        utter.pitch = 1.4;
+        utter.volume = 1.0;
+
+        const voices = window.speechSynthesis.getVoices();
+        const femaleKeywords = ['female', 'woman', 'girl', 'amharic', 'amhara', 'ethiop', 'et-ET', 'am_ET', 'Samantha', 'Victoria', 'Karen', 'Tessa', 'Martha', 'Moira', 'Fiona', 'Serena', 'Mónica'];
+        const maleKeywords = ['male', 'man', 'boy', 'David', 'Daniel', 'Alex', 'Fred'];
+
+        let pickedVoice: SpeechSynthesisVoice | null = null;
+        if (useAmharic) {
+          pickedVoice = voices.find(v =>
+            /am|amh|ethiop|et/i.test(v.lang + ' ' + v.name) &&
+            !maleKeywords.some(k => v.name.toLowerCase().includes(k.toLowerCase()))
+          ) || null;
+          if (!pickedVoice) {
+            pickedVoice = voices.find(v =>
+              /am|amh|ethiop|et/i.test(v.lang + ' ' + v.name)
+            ) || null;
+          }
+        }
+        if (!pickedVoice) {
+          pickedVoice = voices.find(v =>
+            femaleKeywords.some(k =>
+              (v.name.toLowerCase().includes(k.toLowerCase()) || v.lang.toLowerCase().includes(k.toLowerCase()))
+            ) &&
+            !maleKeywords.some(k => v.name.toLowerCase().includes(k.toLowerCase()))
+          ) || null;
+        }
+        if (!pickedVoice && voices.length > 0) {
+          pickedVoice = voices[0];
+        }
+        if (pickedVoice) utter.voice = pickedVoice;
+
         window.speechSynthesis.speak(utter);
       }
     } catch (e) {
@@ -496,6 +567,11 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
           <div className="flex items-center justify-between gap-2">
             {/* Left: Caller Controls + Drawn count */}
             <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+                <Users className="w-3 h-3 text-emerald-600 shrink-0" />
+                <span className="text-[10px] font-black text-emerald-700 uppercase tracking-wider">{language === 'am' ? 'ተጫዋቾች:' : 'Players:'}</span>
+                <span className="text-[11px] font-black text-emerald-900 font-mono tabular-nums">{currentGame.currentPlayers || 0}</span>
+              </div>
               <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200">
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">{language === 'am' ? 'የተጠሩ:' : 'Drawn:'}</span>
                 <span className="text-[11px] font-black text-slate-900 font-mono">{currentGame.drawnNumbers.length}/75</span>
@@ -653,8 +729,13 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               </button>
             </div>
 
-            {/* Row 2: Price | Cards | Prize */}
+            {/* Row 2: Players | Price | Cards | Prize */}
             <div className="flex items-center gap-3 text-[12px] flex-wrap">
+              <div className="flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                <span className="text-base leading-none">👥</span>
+                <span className="font-bold text-emerald-700">{language === 'am' ? 'ተጫዋቾች:' : 'Players:'}</span>
+                <span className="font-black text-emerald-900 font-mono tabular-nums">{currentGame.currentPlayers || 0}</span>
+              </div>
               <div className="flex items-center gap-1">
                 <span className="font-bold text-slate-500">{language === 'am' ? 'ዋጋ:' : 'Price:'}</span>
                 <span className="font-black text-slate-900">{currentGame.entryPrice} ETB</span>

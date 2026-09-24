@@ -123,6 +123,43 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
     hasRefreshedForUserRef.current = key;
   }, [user?.id, isUserAdmin]);
 
+  // Listen for external admin broadcast events (from AdminPanel after real Telegram API succeeds)
+  useEffect(() => {
+    const handler = (e: any) => {
+      try {
+        const data = e?.detail || {};
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const isAm = language === 'am';
+        const text = data.text || data.customText || '';
+        const preset = data.preset || 'custom';
+
+        if (preset === 'weekend_draws' || (!text && (!preset || preset === 'custom'))) {
+          setChatHistory((prev) => [...prev, createWeekendBroadcastMessage(Date.now().toString(), time)]);
+          return;
+        }
+
+        const msg: ChatMessage = {
+          id: `msg_broadcast_${Date.now()}`,
+          sender: 'bot',
+          text,
+          reaction: '📢',
+          buttons: [
+            { label: isAm ? '🎮 አፑን ክፈቱ' : '🎮 Open Mini App', action: () => onOpenMiniApp('lobby'), isPrimary: true },
+            { label: isAm ? '🌟 ልዩ ሎተሪ' : '🌟 Weekend Lottery', action: () => handleCommand('/lottery'), isPrimary: true },
+          ],
+          time,
+        };
+        setChatHistory((prev) => [...prev, msg]);
+      } catch (err) {
+        // Fallback: always render a weekend broadcast
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setChatHistory((prev) => [...prev, createWeekendBroadcastMessage(Date.now().toString(), time)]);
+      }
+    };
+    window.addEventListener('hyperbingo:bot-broadcast', handler);
+    return () => window.removeEventListener('hyperbingo:bot-broadcast', handler);
+  }, [language]);
+
   const toggleLanguage = (newLang: Lang) => {
     setLanguage(newLang);
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

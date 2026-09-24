@@ -47,7 +47,7 @@ export const getInitialLotterySoldMap = (games: Game[]): Record<string, Set<numb
 };
 
 export const WEEKEND_LOTTERY_DEFAULT_STAKE = 50;
-export const WEEKEND_LOTTERY_SLOTS = 2;
+export const WEEKEND_LOTTERY_SLOTS = 5;
 
 // Fallback Guest User Template (Not logged in by default)
 export const INITIAL_USER: User = {

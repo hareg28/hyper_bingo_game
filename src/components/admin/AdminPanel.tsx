@@ -107,6 +107,17 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
       const data = await res.json();
       if (data.success) {
         setAnnounceResult({ ok: true, msg: `Broadcast successfully sent to ${target}! ✅` });
+        // Also push to local BotSimulator chat so all in-app users see the announcement
+        try {
+          window.dispatchEvent(new CustomEvent('hyperbingo:bot-broadcast', {
+            detail: {
+              preset: broadcastPreset,
+              text: payload.customText || (broadcastPreset === 'weekend_draws' ? '' : ''),
+              customText: payload.customText || '',
+              weekendGames: payload.weekendGames,
+            }
+          }));
+        } catch {}
       } else {
         setAnnounceResult({ ok: false, msg: data.error || 'Failed to send broadcast.' });
       }

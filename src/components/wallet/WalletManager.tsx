@@ -28,15 +28,52 @@ export default function WalletManager() {
   const [depositReference, setDepositReference] = useState<string>('');
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // QR Code Modal State
+  // QR Code State — generated IMMEDIATELY when entering deposit step 2 (no manual click needed)
   const [showQrModal, setShowQrModal] = useState<boolean>(false);
   const [copiedRef, setCopiedRef] = useState<boolean>(false);
+  const [copiedPaymentText, setCopiedPaymentText] = useState<boolean>(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [fullPaymentText, setFullPaymentText] = useState<string>('');
+  const [destinationNumber, setDestinationNumber] = useState<string>('');
+
+  // Auto-generate QR code + payment text the moment user enters step 2 with amount + reference set
+  useEffect(() => {
+    if (depositStep !== 2) return;
+    if (!depositReference) return;
+    if (!amount || (typeof amount === 'number' && amount <= 0)) return;
+
+    // Resolve destination account per provider
+    let dest = '';
+    if (provider === 'Telebirr') dest = '+251911234567';
+    else if (provider === 'CBE Birr') dest = '+251911234567 / 100023456789';
+    else dest = 'CBE: 100023456789';
+
+    setDestinationNumber(dest);
+
+    // One-line exact payment text so user cannot mismatch the amount
+    const payText = `Pay ${amount} ETB via ${provider}. Destination: ${dest}. Remark/Reference: ${depositReference}. Name: ${user?.name || 'Player'} (${user?.username || user?.id || '—'}).`;
+    setFullPaymentText(payText);
+
+    // Generate QR using a public QR image service (no install needed) — encodes the exact amount + provider + reference
+    const qrPayload = `HYPERBINGO_DEPOSIT\nProvider: ${provider}\nAmount: ${amount} ETB\nReference: ${depositReference}\nDestination: ${dest}\nPlayer: ${user?.username || user?.id || user?.name || 'guest'}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=6&data=${encodeURIComponent(qrPayload)}`;
+    setQrDataUrl(qrUrl);
+  }, [depositStep, depositReference, amount, provider, user?.id, user?.username, user?.name]);
 
   const handleCopyRef = (textToCopy: string) => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(textToCopy);
       setCopiedRef(true);
       setTimeout(() => setCopiedRef(false), 2000);
+    }
+  };
+
+  const handleCopyFullPayment = () => {
+    if (!fullPaymentText) return;
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(fullPaymentText);
+      setCopiedPaymentText(true);
+      setTimeout(() => setCopiedPaymentText(false), 2500);
     }
   };
 
@@ -497,21 +534,11 @@ export default function WalletManager() {
                 </div>
               </div>
 
-              {/* Account Destination Details for Payment */}
-              <div className="bg-slate-50 border border-emerald-300 p-3 rounded-xl space-y-2 text-xs">
-                <div className="text-[11px] font-black text-emerald-900 uppercase tracking-wider flex items-center justify-between gap-1.5 mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <Landmark className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>Transfer Destination (ክፍያ የሚፈፀምበት)</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowQrModal(true)}
-                    className="px-2 py-0.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold text-[10px] border border-blue-300 flex items-center gap-1 cursor-pointer transition shadow-xs"
-                  >
-                    <QrCode className="w-3 h-3 text-blue-700" />
-                    <span>QR Code</span>
-                  </button>
+              {/* Account Destination Details for Payment + INLINE QR (generated immediately — no modal/click needed) */}
+              <div className="bg-slate-50 border border-emerald-300 p-3 rounded-xl space-y-3 text-xs">
+                <div className="text-[11px] font-black text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Landmark className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Transfer Destination (ክፍያ የሚፈፀምበት)</span>
                 </div>
 
                 {provider === 'Telebirr' ? (
@@ -556,14 +583,85 @@ export default function WalletManager() {
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => setShowQrModal(true)}
-                  className="w-full mt-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-                >
-                  <QrCode className="w-4 h-4" />
-                  <span>📱 Scan {provider} QR Code (የQR ኮድ አሳይ)</span>
-                </button>
+                {/* INLINE QR CODE — generated IMMEDIATELY when step 2 loads (not on button click) */}
+                <div className="bg-white border-2 border-blue-300 rounded-2xl p-3 space-y-2 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <QrCode className="w-3.5 h-3.5 text-blue-700" />
+                      <span className="text-[11px] font-black text-blue-900 uppercase tracking-wider">
+                        {provider} Deposit QR — Ready Now
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                      ✓ Auto-Generated
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-xl border border-blue-200 shadow-inner">
+                      {qrDataUrl ? (
+                        <img
+                          src={qrDataUrl}
+                          alt={`${provider} Deposit QR for ${amount} ETB`}
+                          width={220}
+                          height={220}
+                          className="w-44 h-44 object-contain rounded-lg bg-white p-2 shadow-2xs"
+                        />
+                      ) : (
+                        <div className="w-44 h-44 flex items-center justify-center text-slate-400 text-[10px] font-bold text-center bg-white rounded-lg p-2">
+                          ⏳ QR loading...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-slate-600 text-center font-semibold leading-snug px-1">
+                    ⚠️ <strong className="text-rose-700">Pay EXACTLY:</strong> <span className="text-rose-900 font-black text-sm bg-rose-50 px-2 py-0.5 rounded">{amount} ETB</span><br />
+                    {destinationNumber && (<span className="text-slate-800">To: <strong>{destinationNumber}</strong></span>)}<br />
+                    <span className="text-amber-800">Ref: <strong className="font-mono">{depositReference}</strong></span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <a
+                      href={qrDataUrl || '#'}
+                      download={`hyperbingo_deposit_${depositReference || 'qr'}.png`}
+                      className="py-1.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-900 border border-sky-300 text-[10px] font-black flex items-center justify-center gap-1 transition cursor-pointer shadow-xs"
+                      onClick={(e) => { if (!qrDataUrl) e.preventDefault(); }}
+                    >
+                      💾 Save QR
+                    </a>
+                    <button
+                      type="button"
+                      onClick={handleCopyFullPayment}
+                      className={`py-1.5 rounded-lg border text-[10px] font-black flex items-center justify-center gap-1 transition cursor-pointer shadow-xs ${
+                        copiedPaymentText
+                          ? 'bg-emerald-100 border-emerald-400 text-emerald-900'
+                          : 'bg-indigo-100 hover:bg-indigo-200 border-indigo-300 text-indigo-900'
+                      }`}
+                    >
+                      {copiedPaymentText ? (<>✓ Copied!</>) : (<><Copy className="w-3 h-3" /> Copy Full Info</>)}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Exact Copyable Payment Line — so users don't type the wrong amount */}
+                {fullPaymentText && (
+                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-2 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-800">
+                        ✅ Paste this as your Remark/Message (Exact Amount)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleCopyFullPayment}
+                        className="p-1 rounded text-amber-800 hover:bg-amber-200 cursor-pointer"
+                        title="Copy exact payment text"
+                      >
+                        {copiedPaymentText ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-800 font-mono font-bold leading-snug break-all bg-white rounded border border-amber-200 p-1.5 select-all">
+                      {fullPaymentText}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* 📸 MANDATORY PAYMENT SCREENSHOT UPLOAD */}
@@ -776,9 +874,9 @@ export default function WalletManager() {
 
           <button
             type="submit"
-            disabled={isProcessing || amount < 50}
+            disabled={isProcessing || Number(amount) < 50}
             className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer ${
-              amount >= 50
+              Number(amount) >= 50
                 ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
             }`}
