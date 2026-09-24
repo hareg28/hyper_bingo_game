@@ -61,7 +61,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
   const [showBlockedModal, setShowBlockedModal] = useState(false);
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [showPatternHintModal, setShowPatternHintModal] = useState(false);
-  const [showGameInfo, setShowGameInfo] = useState(true);
+  const [showGameInfo, setShowGameInfo] = useState(false);
   const [cardToDelete, setCardToDelete] = useState<{ id: string; cardNumber: string } | null>(null);
   const [reactions, setReactions] = useState<{ id: string; emoji: string; text: string; sender: string; left: number }[]>([]);
 
