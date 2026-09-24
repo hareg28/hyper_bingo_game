@@ -484,47 +484,125 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-36 bg-slate-100">
 
       {/* ================================================================
-          2. SHOW LESS / SHOW MORE + GAME INFO ROWS
+          2. GAME INFO & DRAWN NUMBERS (EXPANDABLE / COLLAPSIBLE)
+             - Show Less: shows ONLY the drawn ball & caller controls
+             - Show More: shows full 75-ball grid + game info rows
           ================================================================ */}
-      <div className="bg-white border-b border-slate-200 px-3 py-2 space-y-1.5 relative">
-        {/* Show Less / Show More toggle (top-right red text) */}
-        <button
-          onClick={() => setShowGameInfo((prev) => !prev)}
-          className="absolute top-2 right-3 text-red-700 font-black text-[11px] flex items-center gap-0.5 hover:text-red-800 transition cursor-pointer shrink-0"
-        >
-          {showGameInfo ? (
-            <>
-              <span className="text-base leading-none">^</span>
-              {language === 'am' ? 'አሳንስ' : 'Show Less'}
-            </>
-          ) : (
-            <>
-              <span className="text-base leading-none">v</span>
-              {language === 'am' ? 'ተጨማሪ አሳይ' : 'Show More'}
-            </>
-          )}
-        </button>
+      {!showGameInfo ? (
+        /* ============================================================
+           COLLAPSED MODE (SHOW LESS): ONLY THE DRAWN BALL & CALLER BAR
+           ============================================================ */
+        <div className="bg-white border-b border-slate-200 px-3 py-2 shrink-0 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between gap-2">
+            {/* Left: Caller Controls + Drawn count */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">{language === 'am' ? 'የተጠሩ:' : 'Drawn:'}</span>
+                <span className="text-[11px] font-black text-slate-900 font-mono">{currentGame.drawnNumbers.length}/75</span>
+              </div>
 
-        {showGameInfo && (
-          <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
-            {/* Row 1: Pattern hints description */}
-            <div className="flex items-center justify-between pr-24">
-              <span className="block text-[11px] text-slate-600 leading-tight">
-                {isWeekendGame
-                  ? (language === 'am' ? 'የሚኒሱ መስመር ያለው 2 ፍሪ የማይነኩ መስመሮች' : '2 free pattern lines in weekend draw')
-                  : 'Full House pattern - all 24 numbers'
-                }
-              </span>
-              <button
-                onClick={() => setShowPatternHintModal(true)}
-                className="shrink-0 w-7 h-7 rounded-full bg-amber-100 hover:bg-amber-200 flex items-center justify-center text-amber-600 border border-amber-300 transition cursor-pointer shadow-xs"
-                title="Pattern Hints"
-              >
-                <Lightbulb className="w-3.5 h-3.5 fill-amber-400" />
-              </button>
+              {/* Controls: Auto + Call Ball + Sound */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setIsAutoDrawing((prev) => !prev)}
+                  className={`text-[10px] font-black px-2 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer shadow-xs ${
+                    isAutoDrawing
+                      ? 'bg-emerald-100 border border-emerald-300 text-emerald-800'
+                      : 'bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700'
+                  }`}
+                  title="Toggle automated number caller"
+                >
+                  {isAutoDrawing ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                      <span>{language === 'am' ? '⏸ አቁም' : '⏸ Auto'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{language === 'am' ? '▶ ጀምር' : '▶ Auto'}</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={currentGame.drawnNumbers.length >= 75 || currentGame.status === 'COMPLETED'}
+                  onClick={handleManualDraw}
+                  className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] px-2 py-1 rounded-lg transition flex items-center gap-0.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Call next number now"
+                >
+                  <Zap className="w-3 h-3 fill-slate-950" />
+                  <span>{language === 'am' ? 'ኳስ ጥራ' : 'Call Ball'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSoundEnabled((prev) => !prev)}
+                  className={`text-[10px] font-black px-1.5 py-1 rounded-lg transition flex items-center gap-0.5 cursor-pointer shadow-xs border ${
+                    soundEnabled
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                      : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-400'
+                  }`}
+                  title={soundEnabled ? (language === 'am' ? 'ድምፅ አጥፋ' : 'Mute Voice') : (language === 'am' ? 'ድምፅ አብራ' : 'Turn On Voice')}
+                >
+                  {soundEnabled ? (
+                    <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
+                  ) : (
+                    <VolumeX className="w-3.5 h-3.5 text-slate-400" />
+                  )}
+                </button>
+              </div>
             </div>
 
-            {/* Row 2: ID | Time | Status */}
+            {/* Right: Only the Drawn Ball + Show More toggle */}
+            <div className="flex items-center gap-2 shrink-0">
+              {currentGame.currentBall ? (
+                <div className="flex items-center gap-1.5">
+                  {/* Recent drawn numbers trail (last 3) */}
+                  {currentGame.drawnNumbers.length > 1 && (
+                    <div className="hidden xs:flex items-center gap-1 opacity-70">
+                      {currentGame.drawnNumbers.slice(-4, -1).map((n) => (
+                        <span
+                          key={n}
+                          className={`w-5 h-5 rounded-full text-[9px] font-black flex items-center justify-center bg-gradient-to-r ${getLetterColor(getBallLetter(n))} shadow-xs`}
+                        >
+                          {n}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {/* Active Current Drawn Ball */}
+                  <div className={`px-3 py-1 rounded-full font-black text-xs bg-gradient-to-r ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-md ring-2 ring-amber-400 flex items-center gap-1.5 animate-in zoom-in-75 duration-200`}>
+                    <span className="text-[10px] italic font-black uppercase tracking-wider">{getBallLetter(currentGame.currentBall)}</span>
+                    <span className="font-mono text-sm font-black">{currentGame.currentBall}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-400 text-[10px] font-bold">
+                  {language === 'am' ? 'ኳስ አልተጠራም' : 'No ball drawn'}
+                </div>
+              )}
+
+              {/* Show More toggle button */}
+              <button
+                onClick={() => setShowGameInfo(true)}
+                className="text-red-700 font-black text-[11px] flex items-center gap-0.5 hover:text-red-800 transition cursor-pointer shrink-0 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg border border-red-200 shadow-xs"
+                title={language === 'am' ? 'ተጨማሪ አሳይ' : 'Show More'}
+              >
+                <span className="text-sm leading-none font-bold">▾</span>
+                <span>{language === 'am' ? 'ተጨማሪ አሳይ' : 'Show More'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ============================================================
+           EXPANDED MODE (SHOW MORE): FULL GAME INFO + FULL 75-BALL GRID
+           ============================================================ */
+        <div className="bg-white border-b border-slate-200 shrink-0 animate-in fade-in duration-150">
+          {/* Top header row with ID, Time, Status and Show Less toggle */}
+          <div className="px-3 py-2 flex items-center justify-between border-b border-slate-100 flex-wrap gap-2">
             <div className="flex items-center gap-3 text-[11px] text-slate-600 flex-wrap">
               <div className="flex items-center gap-1">
                 <Hash className="w-3.5 h-3.5 text-slate-500" />
@@ -545,7 +623,37 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               </div>
             </div>
 
-            {/* Row 3: Price | Cards (user's # of cards) | Prize */}
+            {/* Show Less toggle button */}
+            <button
+              onClick={() => setShowGameInfo(false)}
+              className="text-red-700 font-black text-[11px] flex items-center gap-0.5 hover:text-red-800 transition cursor-pointer shrink-0 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg border border-red-200 shadow-xs ml-auto"
+              title={language === 'am' ? 'አሳንስ' : 'Show Less'}
+            >
+              <span className="text-sm leading-none font-bold">▴</span>
+              <span>{language === 'am' ? 'አሳንስ' : 'Show Less'}</span>
+            </button>
+          </div>
+
+          {/* Game Info Details: Patterns, Price, Cards, Prize */}
+          <div className="px-3 py-1.5 space-y-1.5 border-b border-slate-100 bg-slate-50/50">
+            {/* Row 1: Pattern hints description */}
+            <div className="flex items-center justify-between pr-4">
+              <span className="block text-[11px] text-slate-600 leading-tight">
+                {isWeekendGame
+                  ? (language === 'am' ? 'የሚኒሱ መስመር ያለው 2 ፍሪ የማይነኩ መስመሮች' : '2 free pattern lines in weekend draw')
+                  : 'Full House pattern - all 24 numbers'
+                }
+              </span>
+              <button
+                onClick={() => setShowPatternHintModal(true)}
+                className="shrink-0 w-6 h-6 rounded-full bg-amber-100 hover:bg-amber-200 flex items-center justify-center text-amber-600 border border-amber-300 transition cursor-pointer shadow-xs"
+                title="Pattern Hints"
+              >
+                <Lightbulb className="w-3.5 h-3.5 fill-amber-400" />
+              </button>
+            </div>
+
+            {/* Row 2: Price | Cards | Prize */}
             <div className="flex items-center gap-3 text-[12px] flex-wrap">
               <div className="flex items-center gap-1">
                 <span className="font-bold text-slate-500">{language === 'am' ? 'ዋጋ:' : 'Price:'}</span>
@@ -563,121 +671,117 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               </div>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* ================================================================
-          3. DRAWN NUMBERS (MASTER 75-BALL BOARD - ALWAYS VISIBLE)
-             with B-I-N-G-O colored letters and 15 numbers per column
-             Includes LIVE automated ball caller controls
-          ================================================================ */}
-      <div className="bg-white border-b border-slate-200 px-3 py-2 shrink-0">
-        <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">{language === 'am' ? 'የተጠሩ:' : 'Drawn:'}</span>
-              <span className="text-[11px] font-black text-slate-900 font-mono">{currentGame.drawnNumbers.length}/75</span>
+          {/* Caller Bar + Full 75-Ball Master Grid */}
+          <div className="px-3 py-2">
+            <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">{language === 'am' ? 'የተጠሩ:' : 'Drawn:'}</span>
+                  <span className="text-[11px] font-black text-slate-900 font-mono">{currentGame.drawnNumbers.length}/75</span>
+                </div>
+
+                {/* Caller Controls */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsAutoDrawing((prev) => !prev)}
+                    className={`text-[10px] font-black px-2 py-0.5 rounded-lg transition flex items-center gap-1 cursor-pointer shadow-xs ${
+                      isAutoDrawing
+                        ? 'bg-emerald-100 border border-emerald-300 text-emerald-800'
+                        : 'bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700'
+                    }`}
+                    title="Toggle automated number caller"
+                  >
+                    {isAutoDrawing ? (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                        <span>{language === 'am' ? '⏸ አቁም' : '⏸ Auto'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{language === 'am' ? '▶ ጀምር' : '▶ Auto'}</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={currentGame.drawnNumbers.length >= 75 || currentGame.status === 'COMPLETED'}
+                    onClick={handleManualDraw}
+                    className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-lg transition flex items-center gap-0.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Call next number now"
+                  >
+                    <Zap className="w-3 h-3 fill-slate-950" />
+                    <span>{language === 'am' ? 'ኳስ ጥራ' : 'Call Ball'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSoundEnabled((prev) => !prev)}
+                    className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg transition flex items-center gap-0.5 cursor-pointer shadow-xs border ${
+                      soundEnabled
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                        : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-400'
+                    }`}
+                    title={soundEnabled ? (language === 'am' ? 'ድምፅ አጥፋ' : 'Mute Voice') : (language === 'am' ? 'ድምፅ አብራ' : 'Turn On Voice')}
+                  >
+                    {soundEnabled ? (
+                      <>
+                        <Volume2 className="w-3 h-3 text-emerald-600" />
+                        <span>{language === 'am' ? 'ድምፅ' : 'Voice'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <VolumeX className="w-3 h-3 text-slate-400" />
+                        <span>{language === 'am' ? 'ድምፅ የለም' : 'Mute'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {currentGame.currentBall && (
+                <div className={`px-2.5 py-0.5 rounded-full font-black text-[11px] bg-gradient-to-r ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-xs ring-2 ring-amber-400/80 flex items-center gap-1 animate-in zoom-in-75 duration-200`}>
+                  <span className="text-[9px] italic font-black">{getBallLetter(currentGame.currentBall)}</span>
+                  <span className="font-mono text-sm">{currentGame.currentBall}</span>
+                </div>
+              )}
             </div>
 
-            {/* Caller Controls: Auto-Call toggle + Manual Call + Voice Sound Toggle */}
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setIsAutoDrawing((prev) => !prev)}
-                className={`text-[10px] font-black px-2 py-0.5 rounded-lg transition flex items-center gap-1 cursor-pointer shadow-xs ${
-                  isAutoDrawing
-                    ? 'bg-emerald-100 border border-emerald-300 text-emerald-800'
-                    : 'bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700'
-                }`}
-                title="Toggle automated number caller"
-              >
-                {isAutoDrawing ? (
-                  <>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span>{language === 'am' ? '⏸ አቁም' : '⏸ Auto'}</span>
-                  </>
-                ) : (
-                  <>
-                    <span>{language === 'am' ? '▶ ጀምር' : '▶ Auto'}</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                disabled={currentGame.drawnNumbers.length >= 75 || currentGame.status === 'COMPLETED'}
-                onClick={handleManualDraw}
-                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-lg transition flex items-center gap-0.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Call next number now"
-              >
-                <Zap className="w-3 h-3 fill-slate-950" />
-                <span>{language === 'am' ? 'ኳስ ጥራ' : 'Call Ball'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSoundEnabled((prev) => !prev)}
-                className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg transition flex items-center gap-0.5 cursor-pointer shadow-xs border ${
-                  soundEnabled
-                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                    : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-400'
-                }`}
-                title={soundEnabled ? (language === 'am' ? 'ድምፅ አጥፋ' : 'Mute Voice') : (language === 'am' ? 'ድምፅ አብራ' : 'Turn On Voice')}
-              >
-                {soundEnabled ? (
-                  <>
-                    <Volume2 className="w-3 h-3 text-emerald-600" />
-                    <span>{language === 'am' ? 'ድምፅ' : 'Voice'}</span>
-                  </>
-                ) : (
-                  <>
-                    <VolumeX className="w-3 h-3 text-slate-400" />
-                    <span>{language === 'am' ? 'ድምፅ የለም' : 'Mute'}</span>
-                  </>
-                )}
-              </button>
+            {/* B-I-N-G-O 75-Ball grid */}
+            <div className="space-y-0.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+              {rows.map((row) => (
+                <div key={row.letter} className="flex items-center gap-0.5">
+                  <div className={`w-5 h-5 rounded-md text-[10px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
+                    {row.letter}
+                  </div>
+                  <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
+                    {row.range.map((num) => {
+                      const isDrawn = drawnSet.has(num);
+                      const isCurrent = currentGame.currentBall === num;
+                      return (
+                        <div
+                          key={num}
+                          className={`h-5 rounded-md text-[9px] font-bold flex items-center justify-center transition-all ${
+                            isCurrent
+                              ? 'bg-amber-400 text-slate-950 font-black scale-110 shadow-xs ring-1 ring-amber-400'
+                              : isDrawn
+                              ? `${row.color} font-black shadow-xs`
+                              : 'bg-white text-slate-600 border border-slate-200'
+                          }`}
+                        >
+                          {num}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-
-          {currentGame.currentBall && (
-            <div className={`px-2.5 py-0.5 rounded-full font-black text-[11px] bg-gradient-to-r ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-xs ring-2 ring-amber-400/80 flex items-center gap-1 animate-in zoom-in-75 duration-200`}>
-              <span className="text-[9px] italic font-black">{getBallLetter(currentGame.currentBall)}</span>
-              <span className="font-mono text-sm">{currentGame.currentBall}</span>
-            </div>
-          )}
         </div>
-
-        {/* B-I-N-G-O 75-Ball grid always inline */}
-        <div className="space-y-0.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-          {rows.map((row) => (
-            <div key={row.letter} className="flex items-center gap-0.5">
-              <div className={`w-5 h-5 rounded-md text-[10px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
-                {row.letter}
-              </div>
-              <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
-                {row.range.map((num) => {
-                  const isDrawn = drawnSet.has(num);
-                  const isCurrent = currentGame.currentBall === num;
-                  return (
-                    <div
-                      key={num}
-                      className={`h-5 rounded-md text-[9px] font-bold flex items-center justify-center transition-all ${
-                        isCurrent
-                          ? 'bg-amber-400 text-slate-950 font-black scale-110 shadow-xs ring-1 ring-amber-400'
-                          : isDrawn
-                          ? `${row.color} font-black shadow-xs`
-                          : 'bg-white text-slate-600 border border-slate-200'
-                      }`}
-                    >
-                      {num}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* ================================================================
           4. BLOCKED CARDS PILL
