@@ -383,7 +383,14 @@ export default function MiniAppShell({
         )}
 
         {/* GAME ROOM TAB */}
-        {activeTab === 'game' && <BingoGameRoom gameId={activeGameId || games[0].id} onBack={() => setActiveTab('lobby')} />}
+        {activeTab === 'game' && (
+          <BingoGameRoom
+            gameId={activeGameId || games[0].id}
+            onBack={() => setActiveTab('lobby')}
+            onChangeGameId={(newId) => setActiveGameId(newId)}
+            onOpenLotteryTab={() => setActiveTab('lottery')}
+          />
+        )}
 
         {/* WEEKEND LOTTERY NUMBER CARD PICKER TAB */}
         {activeTab === 'lottery' && (
@@ -787,7 +794,8 @@ function WeekendLotteryNumberPicker({
 
   const slotCountFilled = slotNumbers.filter((n) => n !== null).length;
   const totalCost = slotCountFilled * entryPrice;
-  const canAfford = wallet.availableBalance >= totalCost;
+  const playableBalance = wallet.availableBalance + wallet.bonusBalance;
+  const canAfford = playableBalance >= totalCost;
 
   const firstEmptySlotIdx = slotNumbers.findIndex((n) => n === null);
 
@@ -828,7 +836,7 @@ function WeekendLotteryNumberPicker({
     if (result.success) {
       // Reset slots and optionally jump to game
       setSlotNumbers(Array.from({ length: NUM_SLOTS }, () => null));
-      onPickCards(selectedGame.id, result.purchased || nums.map((n) => String(n).padStart(3, '0')));
+      onPickCards(selectedGame.id, result.purchased || nums.map((n) => String(n).padStart(4, '0')));
     }
   };
 
@@ -1059,7 +1067,7 @@ function WeekendLotteryNumberPicker({
           ) : slotCountFilled === 0 ? (
             isAm ? '👉 ከሰንጠረዡ ካርድ ቁጥር ይምረጡ' : '👉 Tap Numbers Above to Pick'
           ) : !canAfford ? (
-            isAm ? `ተጨማሪ ${totalCost - wallet.availableBalance} ETB ያስፈልጋል` : `Need ${totalCost} ETB (Insufficient Balance)`
+            isAm ? `ተጨማሪ ${Math.max(0, totalCost - playableBalance)} ETB ያስፈልጋል (Bonus+Balance: ${Math.floor(playableBalance)} ETB)` : `Need ${Math.max(0, totalCost - playableBalance)} ETB more (Have ${Math.floor(playableBalance)} ETB)`
           ) : (
             `🏆 ${isAm ? 'ይግዙ' : 'BUY'} · ${slotCountFilled}×${entryPrice} = ${totalCost} ETB`
           )}

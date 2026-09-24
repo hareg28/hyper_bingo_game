@@ -26,9 +26,11 @@ import { getGameLivePrizePool } from '../../lib/store';
 interface BingoGameRoomProps {
   gameId: string;
   onBack?: () => void;
+  onChangeGameId?: (newGameId: string) => void;
+  onOpenLotteryTab?: () => void;
 }
 
-export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
+export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLotteryTab }: BingoGameRoomProps) {
   const { 
     games, 
     userCards, 
@@ -47,6 +49,40 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
   } = useBingo();
 
   const [soundEnabled, setSoundEnabled] = useState(false);
+  // Cached voices + robust preload via onvoiceschanged (fixes empty voice list on first speak)
+  const [loadedVoices, setLoadedVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  // Preload SpeechSynthesis voices via onvoiceschanged ASAP & after first sound toggle
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    let cancelled = false;
+    const refreshVoices = () => {
+      if (cancelled) return;
+      try {
+        const list = window.speechSynthesis.getVoices();
+        if (Array.isArray(list) && list.length > 0) setLoadedVoices(list);
+      } catch {}
+    };
+    // Immediate first attempt (some browsers populate before event)
+    refreshVoices();
+    // Wait for async voice list load (Chrome/Safari/Firefox all fire onvoiceschanged)
+    try {
+      window.speechSynthesis.onvoiceschanged = refreshVoices;
+    } catch {}
+    return () => {
+      cancelled = true;
+      try { window.speechSynthesis.onvoiceschanged = null; } catch {}
+    };
+  }, []);
+  // Trigger an extra voices refresh the moment user toggles sound ON (some browsers lazy-load until a user gesture)
+  useEffect(() => {
+    if (!soundEnabled) return;
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.cancel();
+    } catch {}
+  }, [soundEnabled]);
   const [isAutoDrawing, setIsAutoDrawing] = useState(false);
   const [claimStatus, setClaimStatus] = useState<{ success?: boolean; message?: string; prize?: number } | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -86,6 +122,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
     [activeGameCards.map((c) => c.cardNumber).join(',')]
   );
   const isWeekendGame = currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.isWeekendSpecial;
+  const weekendGames = games.filter((g) => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
   
   // Active card (kept for handlers, but UI now shows ALL cards)
   const activeUserCard = 
@@ -190,54 +227,92 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
     if (!soundEnabled) return;
     try {
       const letter = num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        
-        const useAmharic = language === 'am' || true;
-        const amWord = numberToAmharic(num);
-        const text = useAmharic
-          ? `${letter} ቁጥር ${amWord} (${num})`
-          : `${letter} ${num}`;
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = useAmharic ? 'am-ET' : 'en-US';
-        utter.rate = useAmharic ? 0.95 : 1.0;
-        utter.pitch = 1.4;
-        utter.volume = 1.0;
+      // Always cancel any pending utterance (prevents voice queue deadlock & kills stale male fallback voices)
+      try { window.speechSynthesis.cancel(); } catch {}
 
-        const voices = window.speechSynthesis.getVoices();
-        const femaleKeywords = ['female', 'woman', 'girl', 'amharic', 'amhara', 'ethiop', 'et-ET', 'am_ET', 'Samantha', 'Victoria', 'Karen', 'Tessa', 'Martha', 'Moira', 'Fiona', 'Serena', 'Mónica'];
-        const maleKeywords = ['male', 'man', 'boy', 'David', 'Daniel', 'Alex', 'Fred'];
-
-        let pickedVoice: SpeechSynthesisVoice | null = null;
-        if (useAmharic) {
-          pickedVoice = voices.find(v =>
-            /am|amh|ethiop|et/i.test(v.lang + ' ' + v.name) &&
-            !maleKeywords.some(k => v.name.toLowerCase().includes(k.toLowerCase()))
-          ) || null;
-          if (!pickedVoice) {
-            pickedVoice = voices.find(v =>
-              /am|amh|ethiop|et/i.test(v.lang + ' ' + v.name)
-            ) || null;
-          }
-        }
-        if (!pickedVoice) {
-          pickedVoice = voices.find(v =>
-            femaleKeywords.some(k =>
-              (v.name.toLowerCase().includes(k.toLowerCase()) || v.lang.toLowerCase().includes(k.toLowerCase()))
-            ) &&
-            !maleKeywords.some(k => v.name.toLowerCase().includes(k.toLowerCase()))
-          ) || null;
-        }
-        if (!pickedVoice && voices.length > 0) {
-          pickedVoice = voices[0];
-        }
-        if (pickedVoice) utter.voice = pickedVoice;
-
-        window.speechSynthesis.speak(utter);
+      // Use PRE-LOADED voices (loaded via onvoiceschanged) — never empty by first user gesture
+      let voices: SpeechSynthesisVoice[] = loadedVoices.length > 0 ? loadedVoices : [];
+      if (voices.length === 0) {
+        try { voices = window.speechSynthesis.getVoices() || []; } catch { voices = []; }
       }
+
+      const useAmharic = true; // Default Amharic on always (per user request: "make it Amharic + girl")
+      const amWord = numberToAmharic(num);
+      const text = `${letter} ቁጥር ${amWord}  —  (${letter} ${num})`;
+
+      const utter = new SpeechSynthesisUtterance();
+
+      // ── Voice selection strategy: FEMALE + AMHARIC/GIRL first, else any FEMALE, else DEFAULT with high pitch ──
+      const femaleKeywords = [
+        'female', 'woman', 'girl', 'lady', 'amharic', 'amhara', 'ethiopia', 'ethiop', 'am-et', 'am_et',
+        'Samantha', 'Victoria', 'Karen', 'Tessa', 'Martha', 'Moira', 'Fiona', 'Serena', 'Mónica',
+        'Monica', 'Google UK English Female', 'Google US English', 'Google Français', 'Kanya',
+        'Melina', 'Kyoko', 'Hanna', 'Zuzana', 'Sara', 'Ting-Ting', 'Sin-ji', 'Yuna', 'Mei-Jia',
+        'Olena', 'Milena', 'Alyona', 'Yelena', 'Tatyana', 'Katya', 'Sonya', 'Sofia', 'Ioana', 'Maria',
+        'Anna', 'Zosia', 'Ewa', 'Jolanta', 'Ellen', 'Nora', 'Camila', 'Luciana', 'Valentina', 'Vitoria',
+        'Ximena', 'Lupita', 'Carmen', 'Dulce', 'Isabela', 'Helena', 'Manuela', 'Marcia', 'Ellen', 'Nicole',
+      ];
+      const maleKeywords = [
+        'male', ' man', 'boy', 'david', 'daniel', 'alex', 'fred', 'mark', 'juan', 'jose', 'pedro',
+        'luca', 'marco', 'paul', 'peter', 'ryan', 'samuel', 'thomas', 'william', 'oliver', 'matthew',
+        'Microsoft', 'Google हिन्दी', 'Google Deutsch Male', 'Google Nederlands',
+      ];
+      const lower = (s: string) => String(s || '').toLowerCase();
+
+      let pickedVoice: SpeechSynthesisVoice | null = null;
+
+      // 1) Try an EXPLICIT Amharic/Ethiopian voice (lang starts with 'am')
+      if (!pickedVoice) {
+        pickedVoice =
+          voices.find(v => /^(am|amh)/i.test(v.lang) && !maleKeywords.some(k => lower(v.name).includes(lower(k)))) ||
+          voices.find(v => /(am|amh|ethiop)/i.test(lower(v.lang) + ' ' + lower(v.name))) || null;
+      }
+
+      // 2) Try any voice that looks FEMALE & non-male (across all languages)
+      if (!pickedVoice) {
+        const anyFemale = voices.find(v => {
+          const hay = lower(v.name) + ' ' + lower(v.lang);
+          const isFemaleHit = femaleKeywords.some(k => hay.includes(lower(k)));
+          const isMaleHit = maleKeywords.some(k => lower(v.name).includes(lower(k)));
+          return isFemaleHit && !isMaleHit;
+        }) || null;
+        if (anyFemale) pickedVoice = anyFemale;
+      }
+
+      // 3) Last fallback: prefer any defaultFemale voice or first voice that isn't explicitly male
+      if (!pickedVoice && voices.length > 0) {
+        const nonMale = voices.find(v => !maleKeywords.some(k => lower(v.name).includes(lower(k))));
+        pickedVoice = nonMale || voices[0];
+      }
+
+      // Assign voice FIRST so browser doesn't reset pitch/rate on later assignment
+      if (pickedVoice) {
+        try { utter.voice = pickedVoice; } catch {}
+      }
+
+      // Now assign the rest — in order recommended by MDN
+      utter.text = text;
+      utter.lang = useAmharic ? 'am-ET' : 'am-ET'; // Always lock to Amharic locale
+
+      // GIRL / FEMININE tuning
+      utter.pitch = 1.9;         // Higher pitch (max 2) sounds like a young girl / female
+      utter.rate = 0.88;         // Slightly slower so Amharic words are clearly heard
+      utter.volume = 1.0;
+
+      // Extra safety: re-apply HIGH PITCH right before speak (some engines reset on voice assignment)
+      setTimeout(() => {
+        try {
+          utter.pitch = 1.9;
+          utter.rate = 0.88;
+          utter.volume = 1.0;
+        } catch {}
+      }, 0);
+
+      window.speechSynthesis.speak(utter);
     } catch (e) {
-      // ignore
+      // Silent ignore — never crash gameplay over a TTS error
     }
   };
 
@@ -554,6 +629,78 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
           ================================================================ */}
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-36 bg-slate-100">
 
+      {/* ── Weekend Stake Price Selector (ONLY for Weekend Games) ────── */}
+      {isWeekendGame && weekendGames.length > 1 && onChangeGameId && (
+        <div className="bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 border-b border-amber-200 px-3 py-2.5 space-y-1.5">
+          <div className="flex items-center justify-between px-0.5">
+            <h4 className="text-[11px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+              {language === 'am' ? 'የሳምንት መጨረሻ የክፍያ ደረጃ (Stake)' : 'Weekend Stake Selector — Pick Your Tier'}
+            </h4>
+            {onOpenLotteryTab && (
+              <button
+                type="button"
+                onClick={onOpenLotteryTab}
+                className="text-[10px] font-black uppercase tracking-wider bg-amber-700 hover:bg-amber-800 text-white px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer shadow-xs"
+              >
+                🎟️ {language === 'am' ? 'ካርታ ይምረጡ (Lottery)' : 'Pick Lottery Cards'}
+              </button>
+            )}
+          </div>
+          <div className={`grid ${weekendGames.length <= 3 ? `grid-cols-${weekendGames.length}` : 'grid-cols-3 sm:grid-cols-5'} gap-1.5`}>
+            {weekendGames.map((wg) => {
+              const isActive = wg.id === currentGame.id;
+              return (
+                <button
+                  key={wg.id}
+                  type="button"
+                  onClick={() => onChangeGameId(wg.id)}
+                  className={`py-2 rounded-xl font-black text-xs flex flex-col items-center justify-center gap-0.5 border-2 transition cursor-pointer shadow-2xs ${
+                    isActive
+                      ? 'bg-gradient-to-br from-amber-500 to-amber-600 text-white border-amber-700 shadow-sm scale-[1.02]'
+                      : 'bg-white text-slate-800 border-amber-300 hover:border-amber-500 hover:bg-amber-50'
+                  }`}
+                >
+                  <span className="text-sm font-black leading-tight">{wg.entryPrice}</span>
+                  <span className={`text-[9px] leading-tight ${isActive ? 'text-amber-100' : 'text-slate-500'}`}>ETB</span>
+                  {isActive && (
+                    <span className={`text-[9px] leading-none mt-0.5 font-black ${isActive ? 'text-amber-950 bg-amber-200 px-1.5 rounded' : ''}`}>
+                      {language === 'am' ? 'የምረጡት' : 'SELECTED'}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Weekend Lottery Card Pick Notice ── */}
+      {isWeekendGame && onOpenLotteryTab && (
+        <div className="mx-2 mt-2 bg-white border border-amber-300 rounded-2xl p-3 shadow-xs flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md shadow-indigo-300/50 text-lg">
+            🎟️
+          </div>
+          <div className="flex-1 min-w-0 space-y-0.5">
+            <h4 className="text-xs font-black text-slate-900 leading-tight">
+              {language === 'am' ? '🌟 የሳምንት መጨረሻ ሎተሪ ካርታዎች' : '🌟 Lottery Ticket Numbers Picked Here'}
+            </h4>
+            <p className="text-[10px] text-slate-600 leading-snug">
+              {language === 'am'
+                ? 'ከዚህ በታች ቢንጎ ካርድ ካያዙ በፊት 🌟 ካርታዎችን ከሎተሪ ምርጫው መምረጥ አለብዎት 1-1500 ቁጥሮች'
+                : 'Pick your 1–1500 range lottery numbers FIRST from the 🌟 Lottery tab before joining — Bingo cards are reserved via lottery selection!'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenLotteryTab}
+            className="shrink-0 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs hover:from-purple-500 hover:to-indigo-500"
+          >
+            🎯 {language === 'am' ? 'ሎተሪ' : 'Lottery'}
+          </button>
+        </div>
+      )}
+
       {/* ================================================================
           2. GAME INFO & DRAWN NUMBERS (EXPANDABLE / COLLAPSIBLE)
              - Show Less: shows ONLY the drawn ball & caller controls
@@ -715,9 +862,9 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
             {/* Row 1: Pattern hints description */}
             <div className="flex items-center justify-between pr-4">
               <span className="block text-[11px] text-slate-600 leading-tight">
-                {isWeekendGame
-                  ? (language === 'am' ? 'የሚኒሱ መስመር ያለው 2 ፍሪ የማይነኩ መስመሮች' : '2 free pattern lines in weekend draw')
-                  : 'Full House pattern - all 24 numbers'
+                {language === 'am'
+                  ? '🏆 4 የማሸነፊያ ደንቦች: 1 መስመር | 2 መስመሮች | X | ሙሉ ቤት'
+                  : '🏆 4 Winning Rules: 1 Line | 2 Lines | Letter X | Full House'
                 }
               </span>
               <button
@@ -1126,19 +1273,21 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                 <Grid className="w-3.5 h-3.5 text-blue-600" />
                 {language === 'am' ? 'ሰሌዳ' : 'Board'}
               </button>
-              <button
-                onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
-                disabled={activeGameCards.length >= 3}
-                className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition cursor-pointer ${
-                  activeGameCards.length >= 3
-                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-                    : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-sm'
-                }`}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                {language === 'am' ? 'ካርድ ጨምር' : 'Add Card'}
-                {activeGameCards.length >= 3 && <span className="text-[10px]">(Max 3)</span>}
-              </button>
+              {!isWeekendGame && (
+                <button
+                  onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
+                  disabled={activeGameCards.length >= 3}
+                  className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition cursor-pointer ${
+                    activeGameCards.length >= 3
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-sm'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {language === 'am' ? 'ካርድ ጨምር' : 'Add Card'}
+                  {activeGameCards.length >= 3 && <span className="text-[10px]">(Max 3)</span>}
+                </button>
+              )}
             </div>
           </>
         ) : (
@@ -1149,30 +1298,58 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
             </div>
             <div className="space-y-1 px-4">
               <h3 className="text-base font-black text-slate-900">
-                {language === 'am' ? 'የቢንጎ ካርድ ይምረጡ' : 'Pick Your Bingo Cards'}
+                {isWeekendGame
+                  ? (language === 'am' ? '🌟 በሎተሪ ካርታዎች ይጫወቱ' : '🌟 Play via Lottery Tickets')
+                  : (language === 'am' ? 'የቢንጎ ካርድ ይምረጡ' : 'Pick Your Bingo Cards')}
               </h3>
               <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                {language === 'am'
-                  ? 'ለመጫወት ቁጥር ይምረጡ (ከ1-3 ካርዶች) ወይም ፈጣን ቻይን ይጫወቱ'
-                  : 'Choose your card numbers (1–3 cards) or play instantly with random cards'}
+                {isWeekendGame
+                  ? (language === 'am'
+                      ? 'የሳምንት መጨረሻ ጨዋታዎች ከ🌟 ሎተሪ ገጽ ካርታዎችን መምረጥ ይRequire ያደርጋል — 1-1500 ቁጥሮች'
+                      : 'Weekend games use lottery ticket numbers picked from the 🌟 Lottery tab (1–1500). Tap below to pick tickets, then Quick Play to join!')
+                  : (language === 'am'
+                      ? 'ለመጫወት ቁጥር ይምረጡ (ከ1-3 ካርዶች) ወይም ፈጣን ቻይን ይጫወቱ'
+                      : 'Choose your card numbers (1–3 cards) or play instantly with random cards')}
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 px-4 w-full max-w-xs mx-auto">
-              <button
-                onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
-                className="flex-1 px-3 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>{language === 'am' ? 'ካርድ ቁጥር ይምረጡ' : 'Pick Card Numbers'}</span>
-              </button>
-              <button
-                onClick={() => (!user ? openAuthModal('register') : joinGame(currentGame.id))}
-                className="flex-1 px-3 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Zap className="w-4 h-4" />
-                <span>{language === 'am' ? 'ፈጣን ጨዋታ' : 'Quick Play'}</span>
-              </button>
-            </div>
+            {isWeekendGame ? (
+              <div className="flex flex-col gap-2 px-4 w-full max-w-xs mx-auto">
+                {onOpenLotteryTab && (
+                  <button
+                    type="button"
+                    onClick={onOpenLotteryTab}
+                    className="w-full px-3 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>{language === 'am' ? '🎟️ ሎተሪ ካርታ ይምረጡ (1-1500)' : '🎟️ Pick Lottery Tickets (1–1500)'}</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => (!user ? openAuthModal('register') : joinGame(currentGame.id))}
+                  className="w-full px-3 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>{language === 'am' ? '🚀 አሁኑኑ ይጫወቱ (Quick Play)' : '🚀 Quick Play (Join Now)'}</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-2 px-4 w-full max-w-xs mx-auto">
+                <button
+                  onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
+                  className="flex-1 px-3 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{language === 'am' ? 'ካርድ ቁጥር ይምረጡ' : 'Pick Card Numbers'}</span>
+                </button>
+                <button
+                  onClick={() => (!user ? openAuthModal('register') : joinGame(currentGame.id))}
+                  className="flex-1 px-3 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>{language === 'am' ? 'ፈጣን ጨዋታ' : 'Quick Play'}</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

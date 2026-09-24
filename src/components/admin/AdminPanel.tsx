@@ -66,14 +66,17 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     return customBroadcastText || 'Enter your custom announcement message here...';
   };
 
-  const handleSendBroadcast = async () => {
+  const handleSendBroadcast = async (overrideTarget?: string) => {
     setAnnouncing(true);
     setAnnounceResult(null);
+    let payload: any = {};
+
     try {
       const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
-      const target = broadcastTarget === 'channel' ? (announceChatId.trim() || '@HyperBingoChannel') : (announceChatId.trim() || user?.telegramId);
-      
-      const payload: any = {
+      const rawTarget = overrideTarget || (broadcastTarget === 'channel' ? (announceChatId.trim() || '@HyperBingoChannel') : (announceChatId.trim() || user?.telegramId));
+      const target = rawTarget;
+
+      payload = {
         adminTelegramId: user?.telegramId || user?.username || '',
         chatId: target,
       };
@@ -105,23 +108,50 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (data.success) {
-        setAnnounceResult({ ok: true, msg: `Broadcast successfully sent to ${target}! ✅` });
-        // Also push to local BotSimulator chat so all in-app users see the announcement
-        try {
-          window.dispatchEvent(new CustomEvent('hyperbingo:bot-broadcast', {
-            detail: {
-              preset: broadcastPreset,
-              text: payload.customText || (broadcastPreset === 'weekend_draws' ? '' : ''),
-              customText: payload.customText || '',
-              weekendGames: payload.weekendGames,
-            }
-          }));
-        } catch {}
+      const isSuccess = Boolean(data?.success || data?.ok);
+
+      // ── ALWAYS push to local BotSimulator chat (not just on Telegram success — so simulator users always see broadcast!)
+      try {
+        const weekendGamesForPreview = payload.weekendGames || [];
+        const weekendPreviewText = weekendGamesForPreview.length > 0
+          ? weekendGamesForPreview.map((g: any, i: number) => `${i + 1}. 🌟 ${g.name} | 💵 ${g.entryPrice} ETB | 🏆 ${(g.prizePool || 0).toLocaleString()} ETB`).join('\n')
+          : '';
+        window.dispatchEvent(new CustomEvent('hyperbingo:bot-broadcast', {
+          detail: {
+            preset: broadcastPreset,
+            text: payload.customText || weekendPreviewText,
+            customText: payload.customText || '',
+            weekendGames: payload.weekendGames,
+          }
+        }));
+      } catch {}
+
+      if (isSuccess) {
+        setAnnounceResult({ ok: true, msg: `✅ Broadcast delivered to ${target}! Telegram OK + Local Bot Simulator Updated ✓` });
       } else {
-        setAnnounceResult({ ok: false, msg: data.error || 'Failed to send broadcast.' });
+        const tip = data?.tip || '';
+        const errText = data?.error || 'Telegram failed (but simulator users updated)';
+        setAnnounceResult({
+          ok: false,
+          msg: `⚠️ Telegram API: ` + String(errText || '—') + `\n\n✅ Good News: Local Bot Simulator has been updated locally! Users of this app see the broadcast.\n\n` + (tip ? `💡 TIP: ${tip}` : '')
+        });
       }
     } catch (e: any) {
+      // Even on network error — still push to local BotSimulator
+      try {
+        const weekendGamesForPreview = payload?.weekendGames || [];
+        const weekendPreviewText = weekendGamesForPreview.length > 0
+          ? weekendGamesForPreview.map((g: any, i: number) => `${i + 1}. 🌟 ${g.name} | 💵 ${g.entryPrice} ETB | 🏆 ${(g.prizePool || 0).toLocaleString()} ETB`).join('\n')
+          : '';
+        window.dispatchEvent(new CustomEvent('hyperbingo:bot-broadcast', {
+          detail: {
+            preset: broadcastPreset,
+            text: payload?.customText || weekendPreviewText,
+            customText: payload?.customText || '',
+            weekendGames: payload?.weekendGames
+          }
+        }));
+      } catch {}
       setAnnounceResult({ ok: false, msg: e.message });
     } finally {
       setAnnouncing(false);
@@ -573,24 +603,40 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
           {/* Action Button & Status */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
-            <div className="text-[10px] text-slate-400">
-              Target: <code className="text-purple-300 font-bold">{announceChatId || '@HyperBingoChannel'}</code>
+            <div className="flex flex-col gap-1.5">
+              <div className="text-[10px] text-slate-400">
+                Target: <code className="text-purple-300 font-bold">{announceChatId || '@HyperBingoChannel'}</code>
+              </div>
+              <div className="bg-amber-950/30 border border-amber-700/40 rounded-lg px-2 py-1.5 text-[10px] text-amber-200 leading-relaxed">
+                <strong className="text-amber-300">⚠️ Chat-not-found fix steps:</strong>
+                <span className="opacity-80"> 1. Add @HyperBingoBot as channel ADMIN. 2. Private? Use numeric ID like -1001234567890. 3. Verify bot works via Send Test to Me below.</span>
+              </div>
             </div>
-            <button
-              onClick={handleSendBroadcast}
-              disabled={announcing}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white font-black text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-purple-900/30 cursor-pointer"
-            >
-              <Megaphone className="w-4 h-4" />
-              {announcing ? 'Broadcasting...' : (language === 'am' ? 'መልእክቱን በቴሌግራም አሰራጭ' : 'Broadcast to Telegram')}
-            </button>
+            <div className="flex flex-col sm:flex-row items-stretch gap-1.5">
+              <button
+                type="button"
+                onClick={() => { if (user?.telegramId) handleSendBroadcast(user.telegramId); }}
+                disabled={announcing || !user?.telegramId}
+                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 font-black text-[10px] transition flex items-center justify-center gap-1 border border-slate-700 cursor-pointer shrink-0"
+              >
+                ✉️ {language === 'am' ? 'ልእናንተ ላይ ሞክር' : 'Send Test to Me'}
+              </button>
+              <button
+                onClick={() => handleSendBroadcast()}
+                disabled={announcing}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white font-black text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-purple-900/30 cursor-pointer"
+              >
+                <Megaphone className="w-4 h-4" />
+                {announcing ? 'Broadcasting...' : (language === 'am' ? 'መልእክቱን በቴሌግራም አሰራጭ' : 'Broadcast to Telegram')}
+              </button>
+            </div>
           </div>
 
           {announceResult && (
-            <div className={`text-xs font-bold px-3 py-2 rounded-xl border ${
+            <div className={`text-[11px] font-bold whitespace-pre-wrap leading-relaxed px-3 py-2.5 rounded-xl border ${
               announceResult.ok
                 ? 'bg-emerald-900/40 border-emerald-500/40 text-emerald-300'
-                : 'bg-rose-900/40 border-rose-500/40 text-rose-300'
+                : 'bg-rose-950/50 border-rose-500/40 text-rose-200'
             }`}>
               {announceResult.msg}
             </div>

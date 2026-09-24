@@ -72,15 +72,49 @@ export async function POST(req: NextRequest) {
     const result = await response.json();
 
     if (!result.ok) {
+      const rawError = result.description || 'Telegram API error';
+      let userFriendlyMsg = String(rawError || '');
+
+      // Diagnose common failures and give actionable advice to admin
+      if (/chat not found/i.test(userFriendlyMsg)) {
+        userFriendlyMsg = [
+          '❌ Bad Request: chat not found — HOW TO FIX THIS:',
+          '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+          '1. 🔐 Add @HyperBingoBot as ADMINISTRATOR of the channel first: @HyperBingoChannel',
+          '   (BotFather → /mybots → HyperBingoBot → Bot Settings → Administrators)',
+          '   OR click: "Add Bot to Channel / Add to Group"',
+          '',
+          '2. 🆔 Channel private channels need NUMERIC chat_id format like: -1001234567890',
+          '   Paste above field "Target Chat ID" instead of @username',
+          '',
+          '3. ✅ Click "Send Test to Me" to prove bot is working before broadcasting',
+          '',
+          '4. Debug: https://api.telegram.org/bot<TOKEN>/getChat?chat_id=@HyperBingoChannel',
+          '   ← if this returns ok=false the bot is NOT added or username is incorrect',
+          '',
+          'Raw error: ' + rawError,
+        ].join('\n');
+      } else if (/not enough rights|bot was kicked|forbidden/i.test(userFriendlyMsg)) {
+        userFriendlyMsg = '🚫 Bot KICKED/NO RIGHTS: Add HyperBingoBot is not admin of @HyperBingoChannel — promote @HyperBingoBot to admin role with Post permission on the channel\n' + 'Original error: ' + rawError;
+      } else if (/message is not modified|can't parse/i.test(userFriendlyMsg)) {
+        userFriendlyMsg = '⚠️ ' + userFriendlyMsg + ' — text empty try shorter message or try again';
+      }
+
       return NextResponse.json(
-        { error: result.description || 'Telegram API error' },
-        { status: 500 }
+        {
+          error: userFriendlyMsg,
+          ok: false,
+          telegramRaw: result,
+          tip: 'Try chat_id = numeric format -1001234567890 instead of @username',
+        },
+        { status: 200 } // 200 so admin's UI shows detailed messages (better DX)
       );
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Weekend game announcement sent successfully!',
+      ok: true,
+      message: '✅ Broadcast delivered to ' + targetChatId,
       telegramResult: result,
     });
   } catch (error: any) {
