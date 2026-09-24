@@ -8,7 +8,7 @@ import { getGameLivePrizePool } from '../../lib/store';
 import { 
   Gamepad2, Zap, Wallet, User as UserIcon, Shield, 
   ArrowUpRight, Share2, Copy, Check, LogOut, Sparkles, 
-  ChevronRight, ChevronDown, ChevronUp, ChevronLeft, Gift, Globe, X,
+  ChevronRight, ChevronLeft, Gift, Globe, X,
   ExternalLink
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
@@ -69,7 +69,6 @@ export default function MiniAppShell({
   const [activeTab, setActiveTab] = useState<'lobby' | 'game' | 'wallet' | 'profile' | 'admin' | 'lottery'>(initialTab);
   const [copiedRef, setCopiedRef] = useState(false);
   const [gameFilter, setGameFilter] = useState<'ALL' | 'SMALL' | 'HIGH'>('ALL');
-  const [showAllGames, setShowAllGames] = useState(false);
   const [showLuckyWheel, setShowLuckyWheel] = useState(false);
 
   useEffect(() => {
@@ -97,8 +96,7 @@ export default function MiniAppShell({
     : { height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' as const };
 
   return (
-    <>
-      <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200" style={heightStyle}>
+    <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200" style={heightStyle}>
       {/* Telegram WebApp Frame Header - Clean White */}
       <div className="bg-white border-b border-slate-200 px-3 py-2 flex items-center justify-between sticky top-0 z-30 shadow-xs shrink-0 min-w-0 overflow-hidden">
         {user ? (
@@ -765,6 +763,7 @@ function WeekendLotteryNumberPicker({
   const [slotNumbers, setSlotNumbers] = React.useState<(number | null)[]>(
     Array.from({ length: NUM_SLOTS }, () => null)
   );
+  const [purchaseFeedback, setPurchaseFeedback] = React.useState<string | null>(null);
   const [drawCountdown, setDrawCountdown] = React.useState('00:00:00');
 
   React.useEffect(() => {
@@ -1080,12 +1079,5 @@ function WeekendLotteryNumberPicker({
         </button>
       </div>
     </div>
-
-    {/* ── DAILY LUCKY WHEEL MODAL ─────────────────────────────────────── */}
-    <DailyLuckyWheelModal
-      isOpen={showLuckyWheel}
-      onClose={() => setShowLuckyWheel(false)}
-    />
-    </>
   );
 }
