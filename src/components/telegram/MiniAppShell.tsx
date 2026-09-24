@@ -110,7 +110,7 @@ export default function MiniAppShell({
                 @{user.username}
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
               </h3>
-              <span className="text-[10px] text-slate-500 font-bold block truncate">{t('telegramMiniApp')} v4.0</span>
+              <button onClick={() => window.location.reload()} className="text-[10px] text-slate-500 hover:text-slate-700 font-bold block truncate text-left cursor-pointer" title="Tap to refresh app">{t('telegramMiniApp')} v4.1 🔄</button>
             </div>
           </div>
         ) : (
