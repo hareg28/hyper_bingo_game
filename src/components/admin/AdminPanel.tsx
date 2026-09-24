@@ -46,34 +46,69 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     return () => clearInterval(timer);
   }, []);
 
-  // Weekend announcement state
-  const [announceChatId, setAnnounceChatId] = useState('');
+  // Telegram Broadcast Suite
+  const [broadcastTarget, setBroadcastTarget] = useState<'channel' | 'custom'>('channel');
+  const [announceChatId, setAnnounceChatId] = useState('@HyperBingoChannel');
+  const [broadcastPreset, setBroadcastPreset] = useState<'weekend_draws' | 'daily_spin' | 'custom'>('weekend_draws');
+  const [customBroadcastText, setCustomBroadcastText] = useState('');
   const [announcing, setAnnouncing] = useState(false);
   const [announceResult, setAnnounceResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const sendWeekendAnnouncement = async () => {
-    const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
-    if (weekendGames.length === 0) {
-      setAnnounceResult({ ok: false, msg: 'No weekend games found to announce.' });
-      return;
+  const getBroadcastPreview = () => {
+    if (broadcastPreset === 'weekend_draws') {
+      const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
+      const lines = weekendGames.map((g, i) => `${i + 1}. 🌟 ${g.name} | 💵 ${g.entryPrice} ETB | 🏆 ${formatETB(g.prizePool)}`).join('\n');
+      return `🎉🌟 WEEKEND HYPER BINGO — Special Lottery Draws!\n⏰ Live Draw Schedule: 2:00 PM, 5:00 PM, and 7:00 PM (Fri–Sun)\n\n${lines || '1. Weekend Mega Draw (25,000 ETB)'}\n\n⚡ Pick your cards now on Hyper Bingo Telegram Mini App!`;
     }
+    if (broadcastPreset === 'daily_spin') {
+      return `🎁 Daily Free Lucky Spin Wheel is Ready!\n\nSpin every 24 hours to win free ETB bonus credits or free card tickets! Open Hyper Bingo and claim your spin today. 🎡✨`;
+    }
+    return customBroadcastText || 'Enter your custom announcement message here...';
+  };
+
+  const handleSendBroadcast = async () => {
     setAnnouncing(true);
     setAnnounceResult(null);
     try {
+      const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
+      const target = broadcastTarget === 'channel' ? (announceChatId.trim() || '@HyperBingoChannel') : (announceChatId.trim() || user?.telegramId);
+      
+      const payload: any = {
+        adminTelegramId: user?.telegramId || user?.username || '',
+        chatId: target,
+      };
+
+      if (broadcastPreset === 'weekend_draws') {
+        payload.weekendGames = weekendGames.length > 0 ? weekendGames : [
+          { name: 'Weekend Mega Draw (2:00 PM)', entryPrice: 100, prizePool: 25000, currentPlayers: 28, maxPlayers: 100, drawInterval: 10 },
+          { name: 'Weekend High Roller (5:00 PM)', entryPrice: 200, prizePool: 50000, currentPlayers: 18, maxPlayers: 80, drawInterval: 10 },
+          { name: 'Sunday Night Jackpot (7:00 PM)', entryPrice: 500, prizePool: 100000, currentPlayers: 42, maxPlayers: 150, drawInterval: 10 }
+        ];
+      } else if (broadcastPreset === 'daily_spin') {
+        payload.customText = `🎁 <b>Daily Free Lucky Spin Wheel is Ready!</b> 🎡\n━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `🇪🇹 <b>የዕለቱ የነጻ ዕድል ማዞሪያ ዝግጁ ነው!</b>\n\n` +
+          `በየቀኑ ያሽከርክሩ እና እስከ <b>200 ETB የቦነስ ሽልማት</b> ወይም ነፃ የቢንጎ ቲኬቶችን ያሸንፉ! ✨\n\n` +
+          `📲 አሁኑኑ አፑን ከፍተው ዕድልዎን ይሞክሩ!\n\n` +
+          `💰 ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር`;
+      } else {
+        if (!customBroadcastText.trim()) {
+          setAnnounceResult({ ok: false, msg: 'Please type an announcement text.' });
+          setAnnouncing(false);
+          return;
+        }
+        payload.customText = customBroadcastText.trim();
+      }
+
       const res = await fetch('/api/admin/announce-weekend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          adminTelegramId: user?.telegramId || user?.username || '',
-          weekendGames,
-          chatId: announceChatId.trim() || user?.telegramId,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
-        setAnnounceResult({ ok: true, msg: 'Weekend games announced successfully on Telegram! ✅' });
+        setAnnounceResult({ ok: true, msg: `Broadcast successfully sent to ${target}! ✅` });
       } else {
-        setAnnounceResult({ ok: false, msg: data.error || 'Failed to send announcement.' });
+        setAnnounceResult({ ok: false, msg: data.error || 'Failed to send broadcast.' });
       }
     } catch (e: any) {
       setAnnounceResult({ ok: false, msg: e.message });
@@ -406,48 +441,150 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
           );
         })()}
 
-        {/* Weekend Telegram Announcement Panel */}
-        {games.some(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) && (
-          <div className="bg-gradient-to-r from-purple-900/60 via-slate-900 to-purple-900/60 p-4 rounded-2xl border border-purple-500/30 shadow-lg space-y-3">
+        {/* Admin Telegram Broadcast Studio */}
+        <div className="bg-gradient-to-r from-purple-950/70 via-slate-900 to-indigo-950/70 p-4 rounded-2xl border border-purple-500/30 shadow-xl space-y-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-purple-500/20 pb-2.5">
             <div className="flex items-center gap-2">
-              <Megaphone className="w-4 h-4 text-purple-400" />
-              <span className="text-xs font-black uppercase tracking-wider text-purple-300">
-                {language === 'am' ? 'የሳምንቱ ጨዋታ ማስታወቂያ ላክ (Telegram)' : 'Announce Weekend Games on Telegram'}
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-400">
-              {language === 'am'
-                ? 'ሁሉም የሳምንቱ ጨዋታዎች እና የብር መጠናቸው ወደ ቴሌግራም ቻናል/ቡድን ይላካሉ።'
-                : 'Sends all weekend lottery games with their ETB prize amounts to a Telegram chat/channel/group.'}
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder={language === 'am' ? 'Chat ID ወይም ቻናል (ባዶ ከሆነ ለእርስዎ ይላካል)' : 'Chat ID / @channel (blank = send to yourself)'}
-                value={announceChatId}
-                onChange={e => setAnnounceChatId(e.target.value)}
-                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 transition"
-              />
-              <button
-                onClick={sendWeekendAnnouncement}
-                disabled={announcing}
-                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-black text-xs transition flex items-center gap-1.5 shrink-0 shadow-lg cursor-pointer"
-              >
-                <Megaphone className="w-3.5 h-3.5" />
-                {announcing ? 'Sending...' : (language === 'am' ? 'ላክ' : 'Send Announcement')}
-              </button>
-            </div>
-            {announceResult && (
-              <div className={`text-xs font-bold px-3 py-2 rounded-xl border ${
-                announceResult.ok
-                  ? 'bg-emerald-900/40 border-emerald-500/40 text-emerald-300'
-                  : 'bg-rose-900/40 border-rose-500/40 text-rose-300'
-              }`}>
-                {announceResult.msg}
+              <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300">
+                <Megaphone className="w-4 h-4" />
               </div>
-            )}
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-purple-300">
+                  {language === 'am' ? 'የቴሌግራም ማስታወቂያ ማሰራጫ ስቱዲዮ' : 'Telegram Broadcast Studio'}
+                </h3>
+                <p className="text-[10px] text-slate-400">
+                  {language === 'am' ? 'ወደ ኦፊሴላዊ ቻናል ወይም ተጫዋቾች ቀጥታ መልእክት ያስተላልፉ' : 'Broadcast draw times, promotions, and updates to Telegram channels'}
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">
+              Bot Broadcast Active
+            </span>
           </div>
-        )}
+
+          {/* Target & Preset Selection */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* Target Channel */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                {language === 'am' ? 'የሚላክበት አድራሻ (Target)' : 'Broadcast Destination'}
+              </label>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => { setBroadcastTarget('channel'); setAnnounceChatId('@HyperBingoChannel'); }}
+                  className={`flex-1 py-1.5 px-2.5 rounded-xl text-xs font-black border transition cursor-pointer text-left flex items-center gap-1.5 ${
+                    broadcastTarget === 'channel'
+                      ? 'bg-purple-600/30 border-purple-500 text-purple-200 ring-1 ring-purple-400'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  <span>📢</span>
+                  <span className="truncate">@HyperBingoChannel</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setBroadcastTarget('custom'); setAnnounceChatId(''); }}
+                  className={`py-1.5 px-3 rounded-xl text-xs font-black border transition cursor-pointer flex items-center gap-1 ${
+                    broadcastTarget === 'custom'
+                      ? 'bg-purple-600/30 border-purple-500 text-purple-200 ring-1 ring-purple-400'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  <span>✍️ Custom</span>
+                </button>
+              </div>
+              {broadcastTarget === 'custom' && (
+                <input
+                  type="text"
+                  placeholder="Chat ID, @channel, or Group ID"
+                  value={announceChatId}
+                  onChange={e => setAnnounceChatId(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 mt-1"
+                />
+              )}
+            </div>
+
+            {/* Template Presets */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                {language === 'am' ? 'የመልእክት ዓይነት (Preset)' : 'Broadcast Template'}
+              </label>
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { id: 'weekend_draws', label: '🌟 2/5/7 PM' },
+                  { id: 'daily_spin', label: '🎁 Lucky Spin' },
+                  { id: 'custom', label: '📝 Custom' },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setBroadcastPreset(item.id as any)}
+                    className={`py-1.5 px-2 rounded-xl text-[10px] font-black border transition cursor-pointer truncate ${
+                      broadcastPreset === item.id
+                        ? 'bg-amber-500/20 border-amber-400 text-amber-300 ring-1 ring-amber-400'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Custom text editor if custom preset */}
+          {broadcastPreset === 'custom' && (
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                {language === 'am' ? 'የመልእክት ጽሑፍ አስገባ' : 'Type Broadcast Message (HTML Supported)'}
+              </label>
+              <textarea
+                rows={3}
+                value={customBroadcastText}
+                onChange={e => setCustomBroadcastText(e.target.value)}
+                placeholder="🎉 Big weekend jackpots are live! Join now..."
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono"
+              />
+            </div>
+          )}
+
+          {/* Telegram Preview Box */}
+          <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 space-y-1 text-xs">
+            <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+              <span>Telegram Message Preview</span>
+              <span className="text-purple-400 font-mono">HTML Formatted</span>
+            </div>
+            <pre className="text-[11px] text-slate-300 font-sans whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto pr-1">
+              {getBroadcastPreview()}
+            </pre>
+          </div>
+
+          {/* Action Button & Status */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
+            <div className="text-[10px] text-slate-400">
+              Target: <code className="text-purple-300 font-bold">{announceChatId || '@HyperBingoChannel'}</code>
+            </div>
+            <button
+              onClick={handleSendBroadcast}
+              disabled={announcing}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white font-black text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-purple-900/30 cursor-pointer"
+            >
+              <Megaphone className="w-4 h-4" />
+              {announcing ? 'Broadcasting...' : (language === 'am' ? 'መልእክቱን በቴሌግራም አሰራጭ' : 'Broadcast to Telegram')}
+            </button>
+          </div>
+
+          {announceResult && (
+            <div className={`text-xs font-bold px-3 py-2 rounded-xl border ${
+              announceResult.ok
+                ? 'bg-emerald-900/40 border-emerald-500/40 text-emerald-300'
+                : 'bg-rose-900/40 border-rose-500/40 text-rose-300'
+            }`}>
+              {announceResult.msg}
+            </div>
+          )}
+        </div>
 
         {/* Navigation Tabs */}
         <div className="flex items-center gap-1.5 border-b border-slate-800 overflow-x-auto pb-1 no-scrollbar">

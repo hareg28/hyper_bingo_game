@@ -9,36 +9,42 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { adminTelegramId, weekendGames, chatId } = body;
+    const { adminTelegramId, weekendGames, chatId, customText } = body;
 
     // Verify caller is admin
     if (!isAdminTelegramId(adminTelegramId)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    if (!weekendGames || weekendGames.length === 0) {
-      return NextResponse.json({ error: 'No weekend games provided' }, { status: 400 });
+    let announcementText = '';
+    if (customText && typeof customText === 'string' && customText.trim().length > 0) {
+      announcementText = customText.trim();
+    } else {
+      if (!weekendGames || weekendGames.length === 0) {
+        return NextResponse.json({ error: 'No announcement message or games provided' }, { status: 400 });
+      }
+
+      // Build the announcement message
+      const gameLines = weekendGames
+        .map((g: any, i: number) =>
+          `${i + 1}. 🌟 <b>${g.name}</b>\n` +
+          `   💵 Entry: <b>${g.entryPrice} ETB</b> | 🏆 Prize Pool: <b>${g.prizePool.toLocaleString()} ETB</b>\n` +
+          `   👥 Players: <b>${g.currentPlayers}/${g.maxPlayers}</b> | ⏱ Draw every ${g.drawInterval}s`
+        )
+        .join('\n\n');
+
+      announcementText =
+        `🎉🌟 <b>WEEKEND HYPER BINGO — Special Lottery Games!</b> 🌟🎉\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `🇪🇹 <b>የሳምንቱ መጨረሻ ልዩ ቢንጎ ጨዋታዎች!</b>\n` +
+        `⏰ የጨዋታ ሰዓቶች፡ <b>2:00 PM | 5:00 PM | 7:00 PM</b>\n\n` +
+        `${gameLines}\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `⚡ <b>Win big ETB prizes this weekend!</b>\n` +
+        `📲 Open the app and join now — seats fill up fast!\n\n` +
+        `💰 ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር\n` +
+        `🔥 100% ደህንነቱ የተጠበቀ ጨዋታ`;
     }
-
-    // Build the announcement message
-    const gameLines = weekendGames
-      .map((g: any, i: number) =>
-        `${i + 1}. 🌟 <b>${g.name}</b>\n` +
-        `   💵 Entry: <b>${g.entryPrice} ETB</b> | 🏆 Prize Pool: <b>${g.prizePool.toLocaleString()} ETB</b>\n` +
-        `   👥 Players: <b>${g.currentPlayers}/${g.maxPlayers}</b> | ⏱ Draw every ${g.drawInterval}s`
-      )
-      .join('\n\n');
-
-    const announcementText =
-      `🎉🌟 <b>WEEKEND HYPER BINGO — Special Lottery Games!</b> 🌟🎉\n` +
-      `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `🇪🇹 <b>የሳምንቱ መጨረሻ ልዩ ቢንጎ ጨዋታዎች!</b>\n\n` +
-      `${gameLines}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━\n` +
-      `⚡ <b>Win big ETB prizes this weekend!</b>\n` +
-      `📲 Open the app and join now — seats fill up fast!\n\n` +
-      `💰 ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር\n` +
-      `🔥 100% ደህንነቱ የተጠበቀ ጨዋታ`;
 
     // Send to the provided chatId (can be a group, channel, or individual)
     const targetChatId = chatId || adminTelegramId;

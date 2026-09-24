@@ -182,6 +182,97 @@ export function getBestWinningRule(marked: boolean[][]): WinningRuleMatch | null
   return matches.length > 0 ? matches[0] : null;
 }
 
+export interface OneAwayStatus {
+  isOneAway: boolean;
+  neededNumber: number | null;
+  neededCell: [number, number] | null;
+  ruleLabel: string;
+  ruleLabelAm: string;
+}
+
+export function checkOneAwayStatus(marked: boolean[][], numbers: number[][]): OneAwayStatus {
+  // If already won a pattern, not 1-away
+  if (getBestWinningRule(marked)) {
+    return { isOneAway: false, neededNumber: null, neededCell: null, ruleLabel: '', ruleLabelAm: '' };
+  }
+
+  // Check 5 rows
+  for (let r = 0; r < 5; r++) {
+    const unmarked = [0, 1, 2, 3, 4].filter((c) => !marked[r][c]);
+    if (unmarked.length === 1) {
+      const c = unmarked[0];
+      return {
+        isOneAway: true,
+        neededNumber: numbers[r][c],
+        neededCell: [r, c],
+        ruleLabel: '1 Line',
+        ruleLabelAm: '1 መስመር',
+      };
+    }
+  }
+
+  // Check 5 columns
+  for (let c = 0; c < 5; c++) {
+    const unmarked = [0, 1, 2, 3, 4].filter((r) => !marked[r][c]);
+    if (unmarked.length === 1) {
+      const r = unmarked[0];
+      return {
+        isOneAway: true,
+        neededNumber: numbers[r][c],
+        neededCell: [r, c],
+        ruleLabel: '1 Line',
+        ruleLabelAm: '1 መስመር',
+      };
+    }
+  }
+
+  // Check Diagonal 1 (\)
+  const diag1Unmarked = [0, 1, 2, 3, 4].filter((i) => !marked[i][i]);
+  if (diag1Unmarked.length === 1) {
+    const i = diag1Unmarked[0];
+    return {
+      isOneAway: true,
+      neededNumber: numbers[i][i],
+      neededCell: [i, i],
+      ruleLabel: 'Diagonal',
+      ruleLabelAm: 'ዲያጎናል',
+    };
+  }
+
+  // Check Diagonal 2 (/)
+  const diag2Unmarked = [0, 1, 2, 3, 4].filter((i) => !marked[i][4 - i]);
+  if (diag2Unmarked.length === 1) {
+    const i = diag2Unmarked[0];
+    return {
+      isOneAway: true,
+      neededNumber: numbers[i][4 - i],
+      neededCell: [i, 4 - i],
+      ruleLabel: 'Diagonal',
+      ruleLabelAm: 'ዲያጎናል',
+    };
+  }
+
+  // Check Full House (only 1 cell remaining on whole card)
+  let fullHouseUnmarked: [number, number][] = [];
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      if (!marked[r][c]) fullHouseUnmarked.push([r, c]);
+    }
+  }
+  if (fullHouseUnmarked.length === 1) {
+    const [r, c] = fullHouseUnmarked[0];
+    return {
+      isOneAway: true,
+      neededNumber: numbers[r][c],
+      neededCell: [r, c],
+      ruleLabel: 'Full House',
+      ruleLabelAm: 'ሙሉ ቤት',
+    };
+  }
+
+  return { isOneAway: false, neededNumber: null, neededCell: null, ruleLabel: '', ruleLabelAm: '' };
+}
+
 export const WINNING_RULES_PATTERNS: { id: WinningRuleId; title: string; titleAm: string; subtitle: string; subtitleAm: string; pattern: boolean[][] }[] = [
   {
     id: 'ONE_LINE',

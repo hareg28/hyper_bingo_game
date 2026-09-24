@@ -16,6 +16,7 @@ import {
   WINNING_RULES_PATTERNS,
   getBestWinningRule,
   WinningRuleMatch,
+  checkOneAwayStatus,
 } from '../../lib/bingoUtils';
 import confetti from 'canvas-confetti';
 import CardNumberSelector from './CardNumberSelector';
@@ -62,6 +63,21 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
   const [showPatternHintModal, setShowPatternHintModal] = useState(false);
   const [showGameInfo, setShowGameInfo] = useState(true);
   const [cardToDelete, setCardToDelete] = useState<{ id: string; cardNumber: string } | null>(null);
+  const [reactions, setReactions] = useState<{ id: string; emoji: string; text: string; sender: string; left: number }[]>([]);
+
+  const sendReaction = (emoji: string, text: string, sender = 'You') => {
+    const newReaction = {
+      id: `${Date.now()}_${Math.random()}`,
+      emoji,
+      text,
+      sender,
+      left: Math.floor(15 + Math.random() * 70),
+    };
+    setReactions((prev) => [...prev.slice(-6), newReaction]);
+    setTimeout(() => {
+      setReactions((prev) => prev.filter((r) => r.id !== newReaction.id));
+    }, 2800);
+  };
 
   const currentGame = games.find((g) => g.id === gameId) || games[0];
   const activeGameCards = userCards.filter((c) => c.gameId === currentGame.id);
@@ -745,6 +761,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
               const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
               const cardDrawnSet = new Set(currentGame.drawnNumbers);
               const cardIsHint = hintCardId === card.id;
+              const oneAway = checkOneAwayStatus(card.marked, card.numbers);
 
               return (
                 <div
@@ -753,23 +770,29 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                     cardIsBlocked
                       ? 'border-rose-400 ring-2 ring-rose-200'
                       : cardIsWin
-                      ? 'border-amber-400 ring-2 ring-amber-300 shadow-amber-200'
+                      ? 'border-amber-400 ring-4 ring-amber-300 shadow-xl shadow-amber-200 animate-pulse'
+                      : oneAway.isOneAway
+                      ? 'border-amber-400 ring-4 ring-amber-300 shadow-xl shadow-amber-200/50'
                       : 'border-slate-200'
                   }`}
                 >
                   {/* Card header: number badge + card index + fullscreen + delete */}
-                  <div className={`${cardIsBlocked ? 'bg-rose-800 text-white' : 'bg-slate-900 text-white'} flex items-center justify-between px-3 py-1.5`}>
+                  <div className={`${cardIsBlocked ? 'bg-rose-800 text-white' : oneAway.isOneAway && !cardIsWin ? 'bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 text-white' : 'bg-slate-900 text-white'} flex items-center justify-between px-3 py-1.5`}>
                     <div className="flex items-center gap-1.5">
                       <span className="text-[11px] opacity-80">📋</span>
                       <span className="font-black font-mono text-base">#{card.cardNumber}</span>
                       <span className="text-[10px] opacity-60 font-bold">
                         ({cardIdx + 1}/{activeGameCards.length})
                       </span>
-                      {cardIsBlocked && (
+                      {cardIsBlocked ? (
                         <span className="text-[9px] font-black bg-rose-600 text-white px-1.5 py-0.5 rounded uppercase">
                           BLOCKED
                         </span>
-                      )}
+                      ) : oneAway.isOneAway && !cardIsWin ? (
+                        <span className="text-[9px] font-black bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded uppercase shadow-xs animate-bounce">
+                          🔥 1-AWAY
+                        </span>
+                      ) : null}
                     </div>
                     <div className="flex items-center gap-1.5">
                       <button
@@ -795,6 +818,22 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                     </div>
                   </div>
 
+                  {/* 1-AWAY SUSPENSE BANNER */}
+                  {oneAway.isOneAway && !cardIsWin && !cardIsBlocked && (
+                    <div className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 px-3 py-1 flex items-center justify-between text-slate-950 font-black text-xs shadow-xs animate-pulse">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="text-sm">🔥</span>
+                        <span className="truncate uppercase tracking-wider text-[11px]">
+                          {language === 'am' ? `1 ቁጥር ቀርቷል! (${oneAway.ruleLabelAm})` : `1-AWAY TO BINGO! (${oneAway.ruleLabel})`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 bg-slate-950 text-amber-300 px-2 py-0.5 rounded-full text-[11px] font-mono shrink-0 shadow-2xs">
+                        <span>{language === 'am' ? 'የሚፈለግ:' : 'Needed:'}</span>
+                        <span className="text-white font-black text-xs">#{oneAway.neededNumber}</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* 5x5 NUMBER GRID */}
                   <div className="grid grid-cols-5 gap-0 bg-slate-50">
                     {card.numbers.map((row, rIdx) =>
@@ -804,6 +843,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                         const isMarked = card.marked[rIdx][cIdx];
                         const isCurrent = currentGame.currentBall === val && !isFree;
                         const isHintCell = cardIsHint && patternHint && patternHint[rIdx][cIdx] && !isMarked && !isFree;
+                        const isTargetNumber = oneAway.isOneAway && oneAway.neededNumber === val && !isMarked && !isFree;
 
                         return (
                           <button
@@ -814,6 +854,8 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                                 ? 'bg-green-500'
                                 : isMarked || isDrawn
                                 ? 'bg-red-600 shadow-inner'
+                                : isTargetNumber
+                                ? 'bg-amber-100 ring-2 ring-amber-500 ring-offset-1 animate-pulse z-10'
                                 : isCurrent
                                 ? 'bg-amber-300 ring-1 ring-amber-500'
                                 : isHintCell
@@ -862,6 +904,33 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                 </div>
               );
             })}
+
+            {/* Quick Live Reactions Toolbar */}
+            <div className="bg-white/95 backdrop-blur-xs border border-slate-200 rounded-2xl p-2 flex items-center justify-between gap-1 shadow-xs">
+              <span className="text-[10px] font-black text-slate-400 pl-1 uppercase tracking-wider hidden xs:inline">
+                {language === 'am' ? 'ምላሽ:' : 'React:'}
+              </span>
+              <div className="flex items-center gap-1.5 flex-1 justify-around">
+                {[
+                  { emoji: '🔥', label: language === 'am' ? 'ደርሻለሁ!' : 'So Close!' },
+                  { emoji: '👏', label: language === 'am' ? 'እንኳን ደስ አለህ!' : 'Congrats!' },
+                  { emoji: '🎯', label: language === 'am' ? 'ቢንጎ!' : 'BINGO!' },
+                  { emoji: '⚡', label: language === 'am' ? 'ቀጥል!' : 'Let\'s Go!' },
+                  { emoji: '😂', label: language === 'am' ? 'አመለጠኝ!' : 'Ouch!' },
+                ].map((r) => (
+                  <button
+                    key={r.emoji}
+                    type="button"
+                    onClick={() => sendReaction(r.emoji, r.label, user?.name || 'You')}
+                    className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-amber-50 active:scale-95 text-xs font-black transition cursor-pointer flex items-center gap-1 border border-slate-200 hover:border-amber-300 shadow-2xs"
+                    title={r.label}
+                  >
+                    <span className="text-sm">{r.emoji}</span>
+                    <span className="text-[10px] text-slate-600 hidden sm:inline">{r.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Bottom action bar: Board + Add Card (shared across all cards) */}
             <div className="flex items-center gap-2">
@@ -1405,6 +1474,23 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
           </div>
         </div>
       )}
+
+      {/* FLOATING LIVE REACTIONS OVERLAY */}
+      <div className="fixed inset-x-0 bottom-24 top-24 pointer-events-none z-40 overflow-hidden">
+        {reactions.map((r) => (
+          <div
+            key={r.id}
+            style={{ left: `${r.left}%` }}
+            className="absolute bottom-8 flex items-center gap-1.5 bg-slate-950/85 backdrop-blur-xs text-white px-3 py-1.5 rounded-full text-xs font-black shadow-xl border border-white/20 animate-in slide-in-from-bottom-8 fade-in duration-300"
+          >
+            <span className="text-lg">{r.emoji}</span>
+            <div className="flex flex-col text-left">
+              <span className="text-[9px] text-amber-300 font-bold leading-none">{r.sender}</span>
+              <span className="text-[10px] text-white font-black leading-tight">{r.text}</span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

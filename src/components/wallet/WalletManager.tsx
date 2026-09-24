@@ -8,7 +8,7 @@ import {
   Wallet, ArrowDownRight, ArrowUpRight, ShieldCheck,
   Smartphone, Landmark, CreditCard, History, Plus, Trash2,
   CheckCircle, Clock, XCircle, Star, ChevronRight, ExternalLink,
-  Upload, Camera,
+  Upload, Camera, QrCode, Copy, Check, X,
 } from 'lucide-react';
 
 declare global {
@@ -27,6 +27,18 @@ export default function WalletManager() {
   const [depositStep, setDepositStep] = useState<1 | 2>(1);
   const [depositReference, setDepositReference] = useState<string>('');
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // QR Code Modal State
+  const [showQrModal, setShowQrModal] = useState<boolean>(false);
+  const [copiedRef, setCopiedRef] = useState<boolean>(false);
+
+  const handleCopyRef = (textToCopy: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(textToCopy);
+      setCopiedRef(true);
+      setTimeout(() => setCopiedRef(false), 2000);
+    }
+  };
 
   // Payment screenshot state (REQUIRED by owner)
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
@@ -450,22 +462,56 @@ export default function WalletManager() {
               </div>
 
               {/* Account Destination Details for Payment */}
-              <div className="bg-slate-50 border border-emerald-300 p-3 rounded-xl space-y-1.5 text-xs">
-                <div className="text-[11px] font-black text-emerald-900 uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                  <Landmark className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Transfer Destination (ክፍያ የሚፈፀምበት)</span>
+              <div className="bg-slate-50 border border-emerald-300 p-3 rounded-xl space-y-2 text-xs">
+                <div className="text-[11px] font-black text-emerald-900 uppercase tracking-wider flex items-center justify-between gap-1.5 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <Landmark className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Transfer Destination (ክፍያ የሚፈፀምበት)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowQrModal(true)}
+                    className="px-2 py-0.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold text-[10px] border border-blue-300 flex items-center gap-1 cursor-pointer transition shadow-xs"
+                  >
+                    <QrCode className="w-3 h-3 text-blue-700" />
+                    <span>QR Code</span>
+                  </button>
                 </div>
+
                 {provider === 'Telebirr' ? (
-                  <div className="space-y-1 text-slate-800 font-medium">
+                  <div className="space-y-1.5 text-slate-800 font-medium">
                     <p>• Telebirr Number: <strong className="text-slate-950 font-mono font-black">+251911234567</strong></p>
                     <p>• Receiver Name: <strong className="text-amber-800 font-black">Hyper Bingo Games</strong></p>
-                    <p className="text-[10px] text-slate-600">• Put Reference <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">{depositReference}</code> in remark</p>
+                    <div className="flex items-center justify-between bg-amber-50 p-1.5 rounded-lg border border-amber-200 text-[10px]">
+                      <span>Remark Reference: <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">{depositReference}</code></span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyRef(depositReference)}
+                        className="p-1 text-amber-800 hover:text-amber-950 font-bold flex items-center gap-0.5 cursor-pointer"
+                        title="Copy Reference"
+                      >
+                        {copiedRef ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedRef ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
                   </div>
                 ) : provider === 'CBE Birr' ? (
-                  <div className="space-y-1 text-slate-800 font-medium">
+                  <div className="space-y-1.5 text-slate-800 font-medium">
                     <p>• CBE Birr / Phone: <strong className="text-slate-950 font-mono font-black">+251911234567</strong></p>
                     <p>• CBE Account: <strong className="text-slate-950 font-mono font-black">100023456789</strong></p>
                     <p>• Name: <strong className="text-amber-800 font-black">Hyper Bingo CBE</strong></p>
+                    <div className="flex items-center justify-between bg-purple-50 p-1.5 rounded-lg border border-purple-200 text-[10px]">
+                      <span>Remark Reference: <code className="bg-purple-100 px-1 py-0.5 rounded text-purple-900 font-bold">{depositReference}</code></span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyRef(depositReference)}
+                        className="p-1 text-purple-800 hover:text-purple-950 font-bold flex items-center gap-0.5 cursor-pointer"
+                        title="Copy Reference"
+                      >
+                        {copiedRef ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedRef ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-1 text-slate-800 font-medium">
@@ -473,6 +519,15 @@ export default function WalletManager() {
                     <p>• Account Name: <strong className="text-amber-800 font-black">Hyper Bingo Entertainment</strong></p>
                   </div>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowQrModal(true)}
+                  className="w-full mt-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                >
+                  <QrCode className="w-4 h-4" />
+                  <span>📱 Scan {provider} QR Code (የQR ኮድ አሳይ)</span>
+                </button>
               </div>
 
               {/* 📸 MANDATORY PAYMENT SCREENSHOT UPLOAD */}
@@ -846,6 +901,81 @@ export default function WalletManager() {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── QR CODE MODAL ────────────────────────────────────────────────────── */}
+      {showQrModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-5 border-2 border-blue-400 shadow-2xl relative text-center space-y-4">
+            {/* Close button */}
+            <button
+              onClick={() => setShowQrModal(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex flex-col items-center">
+              <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 bg-blue-100 px-3 py-1 rounded-full border border-blue-200 mb-1">
+                Instant Transfer QR
+              </span>
+              <h3 className="text-lg font-black text-slate-900">
+                {provider} Scan & Pay
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">
+                የቴሌብር ወይም የሲቢኢ ብር አፕሊኬሽን በመጠቀም ስካን ያድርጉ
+              </p>
+            </div>
+
+            {/* QR Code Container with animated scan effect */}
+            <div className="relative mx-auto w-52 h-52 bg-white p-3 rounded-2xl border-2 border-dashed border-blue-300 shadow-inner flex items-center justify-center overflow-hidden">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                  provider === 'Telebirr'
+                    ? `telebirr://transfer?phone=251911234567&amount=${amount}&ref=${depositReference}`
+                    : `cbe://transfer?account=100023456789&amount=${amount}&ref=${depositReference}`
+                )}`}
+                alt="Payment QR Code"
+                className="w-44 h-44 object-contain rounded-lg"
+              />
+              <div className="absolute inset-x-4 top-2 h-0.5 bg-blue-500/80 shadow-[0_0_8px_#3b82f6] animate-bounce pointer-events-none"></div>
+            </div>
+
+            {/* Payment Summary */}
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs space-y-1.5 text-left">
+              <div className="flex justify-between items-center text-slate-700 font-semibold">
+                <span>Amount to Pay:</span>
+                <span className="text-base font-black text-emerald-700">{amount} ETB</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-700 font-semibold">
+                <span>Recipient:</span>
+                <span className="font-mono font-black text-slate-900">
+                  {provider === 'Telebirr' ? '+251911234567' : '100023456789'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-slate-700 font-semibold pt-1 border-t border-slate-200">
+                <span>Remark:</span>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono font-bold text-amber-800 text-[11px] truncate max-w-[140px]">{depositReference}</span>
+                  <button
+                    onClick={() => handleCopyRef(depositReference)}
+                    className="p-1 text-slate-500 hover:text-amber-800 cursor-pointer"
+                    title="Copy Reference"
+                  >
+                    {copiedRef ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowQrModal(false)}
+              className="w-full py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-black text-xs transition cursor-pointer"
+            >
+              Done / ተጠናቋል
+            </button>
           </div>
         </div>
       )}

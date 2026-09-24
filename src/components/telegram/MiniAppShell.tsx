@@ -8,11 +8,13 @@ import { getGameLivePrizePool } from '../../lib/store';
 import { 
   Gamepad2, Zap, Wallet, User as UserIcon, Shield, 
   ArrowUpRight, Share2, Copy, Check, LogOut, Sparkles, 
-  ChevronRight, ChevronDown, ChevronUp, ChevronLeft, Gift, Globe, X 
+  ChevronRight, ChevronDown, ChevronUp, ChevronLeft, Gift, Globe, X,
+  ExternalLink
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
 import WalletManager from '../wallet/WalletManager';
 import AdminPanel from '../admin/AdminPanel';
+import DailyLuckyWheelModal from '../rewards/DailyLuckyWheelModal';
 import { isAdminTelegramId } from '../../lib/authUtils';
 
 // Dynamic reliable display title formatter
@@ -68,6 +70,7 @@ export default function MiniAppShell({
   const [copiedRef, setCopiedRef] = useState(false);
   const [gameFilter, setGameFilter] = useState<'ALL' | 'SMALL' | 'HIGH'>('ALL');
   const [showAllGames, setShowAllGames] = useState(false);
+  const [showLuckyWheel, setShowLuckyWheel] = useState(false);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -147,6 +150,17 @@ export default function MiniAppShell({
             {language === 'en' ? '🇪🇹 አማ' : '🇬🇧 EN'}
           </button>
 
+          {/* Daily Spin Button */}
+          <button
+            type="button"
+            onClick={() => setShowLuckyWheel(true)}
+            className="px-2 py-1 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-[10px] hover:brightness-105 active:scale-95 transition flex items-center gap-1 shadow-xs cursor-pointer border border-amber-300 ring-1 ring-amber-300/50 animate-pulse"
+            title={language === 'am' ? 'ዕለታዊ ነፃ እድል' : 'Daily Free Spin'}
+          >
+            <span className="text-xs">🎁</span>
+            <span className="font-extrabold">{language === 'am' ? 'እድል' : 'Spin'}</span>
+          </button>
+
           {/* Wallet Balance Chip */}
           <button
             onClick={() => setActiveTab('wallet')}
@@ -172,6 +186,33 @@ export default function MiniAppShell({
         {/* LOBBY TAB */}
         {activeTab === 'lobby' && (
           <div className="space-y-3">
+            {/* 📢 OFFICIAL TELEGRAM CHANNEL BANNER */}
+            <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 rounded-2xl p-3 text-white shadow-md flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-lg shrink-0 shadow-inner">
+                  📢
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs font-black uppercase tracking-wider leading-tight text-white flex items-center gap-1.5">
+                    <span>@HyperBingoChannel</span>
+                    <span className="text-[9px] bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded-full font-black">Official</span>
+                  </h4>
+                  <p className="text-[10px] text-blue-100 truncate mt-0.5 font-medium">
+                    {language === 'am' ? 'የነፃ ካርድ ኮዶች፣ የጨዋታ ሰዓቶች እና የአሸናፊዎች ዝርዝር!' : 'Daily free card promos, draw schedules & winner lists!'}
+                  </p>
+                </div>
+              </div>
+              <a
+                href="https://t.me/HyperBingoSupport"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-xl bg-white text-blue-700 hover:bg-blue-50 font-black text-xs shrink-0 transition flex items-center gap-1 shadow-sm"
+              >
+                <span>{language === 'am' ? 'ይቀላቀሉ' : 'Join'}</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
             {/* Featured Banner - Soft Light Amber / Cream Card */}
             <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100/70 p-4 rounded-2xl text-slate-900 shadow-xs border-2 border-amber-200">
               <div className="flex items-center justify-between mb-1">
@@ -677,6 +718,12 @@ export default function MiniAppShell({
           </button>
         )}
       </div>
+
+      {/* DAILY LUCKY WHEEL MODAL */}
+      <DailyLuckyWheelModal
+        isOpen={showLuckyWheel}
+        onClose={() => setShowLuckyWheel(false)}
+      />
     </div>
   );
 }
@@ -717,7 +764,43 @@ function WeekendLotteryNumberPicker({
   const [slotNumbers, setSlotNumbers] = React.useState<(number | null)[]>(
     Array.from({ length: NUM_SLOTS }, () => null)
   );
-  const [purchaseFeedback, setPurchaseFeedback] = React.useState<string | null>(null);
+  const [drawCountdown, setDrawCountdown] = React.useState('00:00:00');
+
+  React.useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentSecond = now.getSeconds();
+      const totalSecToday = currentHour * 3600 + currentMinute * 60 + currentSecond;
+
+      const slot1Sec = 14 * 3600; // 2:00 PM
+      const slot2Sec = 17 * 3600; // 5:00 PM
+      const slot3Sec = 19 * 3600; // 7:00 PM
+
+      let diffSec = 0;
+      if (totalSecToday < slot1Sec) {
+        diffSec = slot1Sec - totalSecToday;
+      } else if (totalSecToday < slot2Sec) {
+        diffSec = slot2Sec - totalSecToday;
+      } else if (totalSecToday < slot3Sec) {
+        diffSec = slot3Sec - totalSecToday;
+      } else {
+        diffSec = (24 * 3600 - totalSecToday) + slot1Sec;
+      }
+
+      const h = Math.floor(diffSec / 3600);
+      const m = Math.floor((diffSec % 3600) / 60);
+      const s = diffSec % 60;
+      setDrawCountdown(
+        `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+      );
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const soldSet = React.useMemo(() => {
     if (!selectedGame) return new Set<number>();
@@ -806,6 +889,26 @@ function WeekendLotteryNumberPicker({
             <Wallet className="w-3 h-3 text-emerald-600 shrink-0" />
             <span>{wallet.availableBalance} ETB</span>
           </div>
+        </div>
+      </div>
+
+      {/* ⏳ LIVE COUNTDOWN TO NEXT WEEKEND DRAW (2:00 PM, 5:00 PM, 7:00 PM) */}
+      <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-amber-400/40 text-white shadow-md flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-400 flex items-center justify-center text-base shrink-0 animate-pulse">
+            ⏳
+          </div>
+          <div className="min-w-0">
+            <span className="text-[9px] uppercase tracking-widest text-amber-300 font-black block leading-none">
+              {isAm ? 'ቀጣዩ ሜጋ ድራው በ:' : 'Next Mega Draw In:'}
+            </span>
+            <span className="text-[10px] text-slate-300 font-bold truncate block mt-0.5">
+              {selectedGame?.name || 'Weekend Draw'} · {selectedGame?.startTime || '2:00 PM (Fri–Sun)'}
+            </span>
+          </div>
+        </div>
+        <div className="px-3 py-1 rounded-xl bg-amber-400/10 border border-amber-400/40 text-amber-300 font-mono font-black text-sm tracking-widest tabular-nums shadow-inner shrink-0">
+          {drawCountdown}
         </div>
       </div>
 
