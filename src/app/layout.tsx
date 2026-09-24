@@ -1,16 +1,23 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
 import { BingoProvider } from '../context/BingoContext';
 import NotificationToast from '../components/telegram/NotificationToast';
 import AuthModal from '../components/auth/AuthModal';
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  themeColor: '#ffffff',
+};
+
 export const metadata: Metadata = {
   title: 'Hyper Bingo - Telegram + Web Real-Money Bingo Platform',
   description: 'Digital Hyper Bingo platform with Telegram Bot, Telegram Mini App, Real-Time 75-Ball Game Engine, Telebirr & CBE Birr Wallet integration.',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover',
   other: {
-    'theme-color': '#ffffff',
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-capable': 'yes',
     'format-detection': 'telephone=no',
