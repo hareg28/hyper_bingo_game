@@ -561,7 +561,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
                 <div className="flex items-center gap-1.5">
                   {/* Recent drawn numbers trail (last 3) */}
                   {currentGame.drawnNumbers.length > 1 && (
-                    <div className="hidden xs:flex items-center gap-1 opacity-70">
+                    <div className="hidden sm:flex items-center gap-1 opacity-70">
                       {currentGame.drawnNumbers.slice(-4, -1).map((n) => (
                         <span
                           key={n}
@@ -1011,7 +1011,7 @@ export default function BingoGameRoom({ gameId, onBack }: BingoGameRoomProps) {
 
             {/* Quick Live Reactions Toolbar */}
             <div className="bg-white/95 backdrop-blur-xs border border-slate-200 rounded-2xl p-2 flex items-center justify-between gap-1 shadow-xs">
-              <span className="text-[10px] font-black text-slate-400 pl-1 uppercase tracking-wider hidden xs:inline">
+              <span className="text-[10px] font-black text-slate-400 pl-1 uppercase tracking-wider hidden sm:inline">
                 {language === 'am' ? 'ምላሽ:' : 'React:'}
               </span>
               <div className="flex items-center gap-1.5 flex-1 justify-around">
