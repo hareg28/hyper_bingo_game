@@ -3,12 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
 import { formatETB } from '../../lib/bingoUtils';
-import { localizeGameName, localizeGameTime } from '../../lib/translations';
-import { getGameLivePrizePool } from '../../lib/store';
+import { localizeGameTime } from '../../lib/translations';
 import { 
   Gamepad2, Zap, Wallet, User as UserIcon, Shield, 
-  ArrowUpRight, Share2, Copy, Check, LogOut, Sparkles, 
-  ChevronRight, ChevronLeft, Gift, Globe, X
+  Share2, Copy, Check, LogOut, Sparkles, 
+  ChevronRight, ChevronLeft, Globe, X
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
 import WalletManager from '../wallet/WalletManager';
@@ -199,7 +198,7 @@ export default function MiniAppShell({
                 onClick={() => { joinGame(quickBingo.id); setActiveTab('game'); }}
                 className="w-full py-2.5 bg-slate-950 text-white font-black text-xs uppercase tracking-wider rounded-xl transition hover:bg-slate-800 flex items-center justify-center gap-1.5 shadow cursor-pointer mt-2.5"
               >
-                {t('playNow')} ({quickBingo.entryPrice} ETB) <ArrowUpRight className="w-4 h-4" />
+                {t('playNow')} ({quickBingo.entryPrice} ETB) ↗
               </button>
             </div>
 
