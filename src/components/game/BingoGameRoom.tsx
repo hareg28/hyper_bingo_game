@@ -51,6 +51,81 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const [soundEnabled, setSoundEnabled] = useState(false);
   // Cached voices + robust preload via onvoiceschanged (fixes empty voice list on first speak)
   const [loadedVoices, setLoadedVoices] = useState<SpeechSynthesisVoice[]>([]);
+  // Runtime voice-quality signal
+  const [voiceBanner, setVoiceBanner] = useState<
+    null | { kind: 'warning'; titleEn: string; titleAm: string; bodyEn: string; bodyAm: string; }
+  >(null);
+
+  // Best-effort client-side detection of running OS — used only to pick the correct Amharic-voice install instructions.
+  const detectClientOs = (): 'windows' | 'mac' | 'ios' | 'android' | 'linux' | 'other' => {
+    if (typeof navigator === 'undefined') return 'other';
+    const p = (navigator.platform || '').toLowerCase();
+    const ua = (navigator.userAgent || '').toLowerCase();
+    if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+    if (/mac/.test(p) || /mac os x/.test(ua)) return 'mac';
+    if (/android/.test(ua)) return 'android';
+    if (/win/.test(p) || /windows/.test(ua)) return 'windows';
+    if (/linux|x11/.test(ua)) return 'linux';
+    return 'other';
+  };
+
+  const recheckVoiceHealth = React.useCallback(
+    (_voices: SpeechSynthesisVoice[]) => {
+      const lower = (s: string) => String(s || '').toLowerCase();
+      const isAmharic = (v: SpeechSynthesisVoice) => {
+        const l = lower(v.lang);
+        if (/^(am|amh)/.test(l) || l === 'am-et' || l === 'am_et' || l === 'am') return true;
+        const hay = lower(v.name) + ' ' + lower(v.lang);
+        if (/(haregeweyen|microsoft amharic|amharic|amhara|ethiop|tigray|tigist|amazon amharic)/.test(hay)) return true;
+        return false;
+      };
+      const amharicVoices = _voices.filter(isAmharic);
+      if (amharicVoices.length > 0) { setVoiceBanner(null); return; }
+
+      const os = detectClientOs();
+      const byOs: Record<string, { titleEn: string; titleAm: string; bodyEn: string; bodyAm: string }> = {
+        windows: {
+          titleEn: 'Windows: Amharic (Girl) voice not installed',
+          titleAm: 'የ Windows: የአማርኛ (ሴት) ድምፅ አልተገጠመም',
+          bodyEn: "This PC doesn't have Microsoft Haregeweyen — open Settings → Time & language → Speech → Manage voices → Add voice → search \"Amharic (Ethiopia)\" → install, then reload this page. Meanwhile we'll use the clearest girl English voice with Amharic phonetics.",
+          bodyAm: 'በዚህ ፒሲ ላይ «Microsoft Haregeweyen» የአማርኛ ድምፅ የለም። — ሴቲንግ → ጊዜ እና ቋንቋ → ንግግር → ድምፆችን አስተዳድር → ድምፅ ጨምር → «አማርኛ (ኢትዮጵያ)» ይፈልጉ → ይጫኑ ከዚያ ይህ ገጽ እንደገና ይክፈቱ። በዚህ መካከል በግልጽ የሚሰማ የሴት ኢንግሊዝ ድምፅ በአማርኛ የግል ግላዊነት (phonetics) ይነጋግራል።',
+        },
+        mac: {
+          titleEn: 'macOS: Add Tigist (Enhanced) for Amharic',
+          titleAm: 'macOS: ለአማርኛ «Tigist (Enhanced)» ያክሉ',
+          bodyEn: "Open System Settings → Accessibility → Spoken Content → System voice → Manage voices → add Amharic → Tigist (Enhanced), then reload this page. Meanwhile we'll use a young-girl English voice with Amharic phonetics.",
+          bodyAm: 'System Settings → Accessibility → Spoken Content → System voice → Manage voices → Amharic → Tigist (Enhanced) ይጫኑ ከዚያ ይህ ገጽ ይደምምሩ። በዚህ መካከል የሴት ኢንግሊዝ ድምፅ በአማርኛ phonetics ይነጋግራል።',
+        },
+        ios: {
+          titleEn: 'iPhone/iPad: Turn on Amharic voices',
+          titleAm: 'iPhone/iPad: የአማርኛ ድምፆችን ይክፈቱ',
+          bodyEn: "Open Settings → Accessibility → Spoken Content → Voices → Amharic → download Tigist, then reload. Meanwhile we'll use a girl English voice with Amharic phonetics.",
+          bodyAm: 'Settings → Accessibility → Spoken Content → Voices → Amharic → Tigist ይክፈቱ ከዚያ ይህ ገጽ ይደምምሩ።',
+        },
+        android: {
+          titleEn: 'Android: Install Google TTS Amharic',
+          titleAm: 'Android: የ Google TTS አማርኛ ድምፅ ይጫኑ',
+          bodyEn: "Open Settings → System → Languages → Text-to-speech → install / select Google Text-to-speech → Languages → Amharic, then reload this page.",
+          bodyAm: 'Settings → System → Languages → Text-to-speech → Google TTS ይምረጡ → Languages → አማርኛ ይጫኑ።',
+        },
+        linux: {
+          titleEn: 'Amharic TTS voice not found',
+          titleAm: 'የአማርኛ TTS ድምፅ አልተገኘም',
+          bodyEn: "Install an am-ET text-to-speech voice (e.g. RHVoice Amharic, eSpeak NG with am data) and reload the page. Meanwhile we'll use a girl English voice with Amharic phonetics.",
+          bodyAm: 'የአማርኛ TTS ድምፅ (ለምሳሌ RHVoice Amharic ወይም eSpeak NG + am data) ይጫኑ ከዚያ ይህ ገጽ ይደምምሩ።',
+        },
+        other: {
+          titleEn: 'Amharic voice not available',
+          titleAm: 'የአማርኛ ድምፅ ሊገኝ አልቻለም',
+          bodyEn: "Your device doesn't expose an Amharic voice. We'll use the clearest English girl voice with Amharic pronunciation written phonetically.",
+          bodyAm: 'በመሳሪያዎ ላይ የአማርኛ ድምፅ የለም። በግልጽ የሚሰማ የሴት ኢንግሊዝ ድምፅ በአማርኛ phonetics ይነጋግራል።',
+        },
+      };
+      const msgs = byOs[os] || byOs.other;
+      setVoiceBanner({ kind: 'warning', ...msgs });
+    },
+    []
+  );
 
   // Preload SpeechSynthesis voices via onvoiceschanged ASAP & after first sound toggle
   useEffect(() => {
@@ -60,7 +135,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       if (cancelled) return;
       try {
         const list = window.speechSynthesis.getVoices();
-        if (Array.isArray(list) && list.length > 0) setLoadedVoices(list);
+        const arr: SpeechSynthesisVoice[] = Array.isArray(list) ? list : [];
+        if (arr.length > 0) {
+          setLoadedVoices(arr);
+          recheckVoiceHealth(arr);
+        }
       } catch {}
     };
     // Immediate first attempt (some browsers populate before event)
@@ -73,16 +152,21 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       cancelled = true;
       try { window.speechSynthesis.onvoiceschanged = null; } catch {}
     };
-  }, []);
+  }, [recheckVoiceHealth]);
   // Trigger an extra voices refresh the moment user toggles sound ON (some browsers lazy-load until a user gesture)
   useEffect(() => {
     if (!soundEnabled) return;
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     try {
-      window.speechSynthesis.getVoices();
+      const v = window.speechSynthesis.getVoices();
+      const arr: SpeechSynthesisVoice[] = Array.isArray(v) ? v : [];
+      if (arr.length > 0) {
+        setLoadedVoices(arr);
+        recheckVoiceHealth(arr);
+      }
       window.speechSynthesis.cancel();
     } catch {}
-  }, [soundEnabled]);
+  }, [soundEnabled, recheckVoiceHealth]);
   const [isAutoDrawing, setIsAutoDrawing] = useState(false);
   const [claimStatus, setClaimStatus] = useState<{ success?: boolean; message?: string; prize?: number } | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -223,97 +307,341 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     return hunWord + ' መቶ' + (rest > 0 ? ' ' + getAmharicTens(rest) : '');
   };
 
+  // Latin-letter phonetic transliteration of Amharic number words so a girl English voice
+  // (fallback when no am-ET voice is installed on the client) still pronounces them correctly.
+  const amharicNumberPhonetic: string[] = [
+    '',
+    'a-nd', 'hoo-lat', 'so-sat', 'a-rat', 'a-mist', 'si-dist', 'sə-bat', 'sə-mint', 'ze-te-ɲ', 'a-sər',
+    'as-ra a-nd', 'as-ra hoo-lat', 'as-ra so-sat', 'as-ra a-rat', 'as-ra a-mist', 'as-ra si-dist', 'as-ra sə-bat', 'as-ra sə-mint', 'as-ra ze-te-ɲ', 'ha-ya',
+    'ha-ya a-nd', 'ha-ya hoo-lat', 'ha-ya so-sat', 'ha-ya a-rat', 'ha-ya a-mist', 'ha-ya si-dist', 'ha-ya sə-bat', 'ha-ya sə-mint', 'ha-ya ze-te-ɲ', 'sə-la-sa',
+    'sə-la-sa a-nd', 'sə-la-sa hoo-lat', 'sə-la-sa so-sat', 'sə-la-sa a-rat', 'sə-la-sa a-mist', 'sə-la-sa si-dist', 'sə-la-sa sə-bat', 'sə-la-sa sə-mint', 'sə-la-sa ze-te-ɲ', 'ar-ba',
+    'ar-ba a-nd', 'ar-ba hoo-lat', 'ar-ba so-sat', 'ar-ba a-rat', 'ar-ba a-mist', 'ar-ba si-dist', 'ar-ba sə-bat', 'ar-ba sə-mint', 'ar-ba ze-te-ɲ', 'ham-sa',
+    'ham-sa a-nd', 'ham-sa hoo-lat', 'ham-sa so-sat', 'ham-sa a-rat', 'ham-sa a-mist', 'ham-sa si-dist', 'ham-sa sə-bat', 'ham-sa sə-mint', 'ham-sa ze-te-ɲ', 'sə-də-sa',
+    'sə-də-sa a-nd', 'sə-də-sa hoo-lat', 'sə-də-sa so-sat', 'sə-də-sa a-rat', 'sə-də-sa a-mist', 'sə-də-sa si-dist', 'sə-də-sa sə-bat', 'sə-də-sa sə-mint', 'sə-də-sa ze-te-ɲ', 'sə-ba',
+    'sə-ba a-nd', 'sə-ba hoo-lat', 'sə-ba so-sat',
+  ];
+
+  const getPhoneticTens = (n: number): string => {
+    if (n <= 70) return amharicNumberPhonetic[n] || String(n);
+    if (n < 80) return 'sə-ba ' + (amharicNumberPhonetic[n - 70] || String(n - 70));
+    if (n === 80) return 'sə-ma-nya';
+    if (n < 90) return 'sə-ma-nya ' + (amharicNumberPhonetic[n - 80] || String(n - 80));
+    if (n === 90) return 'ze-te-na';
+    if (n < 100) return 'ze-te-na ' + (amharicNumberPhonetic[n - 90] || String(n - 90));
+    return String(n);
+  };
+
+  const numberToPhonetic = (n: number): string => {
+    if (n <= 70) return amharicNumberPhonetic[n] || String(n);
+    if (n < 100) return getPhoneticTens(n);
+    if (n === 100) return 'ma-to';
+    if (n < 200) return 'ma-to ' + getPhoneticTens(n - 100);
+    const hundreds = Math.floor(n / 100);
+    const rest = n % 100;
+    const hunWord = (amharicNumberPhonetic[hundreds] || String(hundreds));
+    return hunWord + ' ma-to ' + (rest > 0 ? getPhoneticTens(rest) : '');
+  };
+
+  // B-I-N-G-O letter reads for the girl-voice fallback (English phonetics of Amharic letters).
+  const letterPhoneticSpell: Record<string, string> = {
+    B: 'Bee',
+    I: 'Ee',
+    N: 'En',
+    G: 'Jee',
+    O: 'Oo',
+  };
+
+  const amharicLetterSpell: Record<string, string> = {
+    B: 'ቢ',
+    I: 'አይ',
+    N: 'ኤን',
+    G: 'ጂ',
+    O: 'ኦ',
+  };
+
+  // Concrete voice NAME lists — these are the exact strings browsers/OSes expose for Amharic TTS.
+  // Using a name match beats a fuzzy keyword match because lang='am-ET' is what actually activates the Amharic engine.
+  const AMHARIC_VOICE_NAMES_BY_PLATFORM: string[] = [
+    // Windows 11 (SAPI5) + Edge
+    'Microsoft Haregeweyen',
+    'Microsoft Haregeweyen - Amharic (Ethiopia)',
+    'Microsoft Haregeweyen - Amharic',
+    'Microsoft Haregeweyen (Ethiopia)',
+    'Microsoft Haregeweyen (am-ET)',
+    'Microsoft Amharic',
+    // Chrome / Edge on Android (Google TTS)
+    'Google አማርኛ',
+    'Google Amharic (Ethiopia)',
+    'Google Amharic',
+    'Google TTS Amharic',
+    // iOS / macOS (built-in)
+    'Amharic',
+    'Amharic (Ethiopia)',
+    'Tigist',
+    'Tigist (Enhanced)',
+    // Samsung / Huawei / other device makers
+    'Samsung Amharic',
+    'Huawei Amharic',
+    // Fallback Amharic vendor strings observed in the wild
+    'Amazon Amharic',
+    'Polly Amharic',
+    'Mamul',
+  ];
+
+  // Male-identifying voice NAME sub-strings — NEVER pick these even if lang matches am-ET.
+  // (Windows / Chrome on Android often name male Amharic voices with obvious tokens.)
+  const MALE_VOICE_NAME_HINTS: string[] = [
+    'Male',
+    'Microsoft Daniel', 'Microsoft David', 'Microsoft Mark', 'Microsoft Richard',
+    'Mikael', 'Ephrem', 'Getachew', 'Kiros',
+  ];
+
   const announceBall = (num: number) => {
     if (!soundEnabled) return;
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    const letter = num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
+    const amLetter = amharicLetterSpell[letter] || letter;
+    const amWord = numberToAmharic(num);
+    const phLetter = letterPhoneticSpell[letter] || letter;
+    const phWord = numberToPhonetic(num);
+
+    // Cancel any stale utterance — this clears a previous voice if it was e.g. the default male Amharic
+    try { window.speechSynthesis.cancel(); } catch {}
+
+    // Refresh voices (browsers populate voices lazily on user gesture)
+    let voices: SpeechSynthesisVoice[] = [];
     try {
-      const letter = num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
-      if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+      const fresh = window.speechSynthesis.getVoices() || [];
+      voices = Array.isArray(fresh) ? fresh : [];
+      if (voices.length > 0) setLoadedVoices(voices);
+    } catch { voices = []; }
 
-      // Always cancel any pending utterance (prevents voice queue deadlock & kills stale male fallback voices)
-      try { window.speechSynthesis.cancel(); } catch {}
+    const lower = (s: string) => String(s || '').toLowerCase();
 
-      // Use PRE-LOADED voices (loaded via onvoiceschanged) — never empty by first user gesture
-      let voices: SpeechSynthesisVoice[] = loadedVoices.length > 0 ? loadedVoices : [];
-      if (voices.length === 0) {
-        try { voices = window.speechSynthesis.getVoices() || []; } catch { voices = []; }
+    // Helper: exact (case-insensitive) prefix/substring check on a voice name
+    const nameMatchesAny = (v: SpeechSynthesisVoice, needles: string[]) =>
+      needles.some(n => lower(v.name).includes(lower(n)));
+
+    const isMaleBlocked = (v: SpeechSynthesisVoice) =>
+      MALE_VOICE_NAME_HINTS.some(m => lower(v.name).includes(lower(m)));
+
+    const isAmharicLang = (v: SpeechSynthesisVoice) => {
+      const l = lower(v.lang);
+      return /^(am|amh)/.test(l) || l === 'am-et' || l === 'am_et' || l === 'am';
+    };
+
+    // ──────────────────────────────────────────────────────────
+    // BRANCH A — Amharic voice is INSTALLED on the client.
+    //   → use real am-ET + max pitch (girl tuning).
+    // BRANCH B — NO am-ET voice available on this client (like your Windows screenshot).
+    //   → use the MOST GIRL / FEMALE English voice we can find,
+    //     and render the number in Amharic phonetic Latin script
+    //     so it sounds like Amharic even from an English woman.
+    // ──────────────────────────────────────────────────────────
+    const hasAnyAmharicVoice = voices.some(v => isAmharicLang(v) || nameMatchesAny(v, AMHARIC_VOICE_NAMES_BY_PLATFORM));
+
+    // Expanded list of English-language FEMALE voices we want to pick when falling back.
+    // Includes Windows "Microsoft Aria / Jenny / Zira / Sonia / Libby / Hazel / Susan / Catherine" etc.
+    const ENGLISH_GIRL_VOICE_NAMES = [
+      // Windows 10/11 (SAPI5 + Neural)
+      'Microsoft Aria',
+      'Microsoft Aria Neural',
+      'Microsoft Jenny',
+      'Microsoft Jenny Neural',
+      'Microsoft Zira',
+      'Microsoft Sonia',
+      'Microsoft Sonia Neural',
+      'Microsoft Libby',
+      'Microsoft Libby Neural',
+      'Microsoft Hazel',
+      'Microsoft Hazel Neural',
+      'Microsoft Susan',
+      'Microsoft Susan Neural',
+      'Microsoft Catherine',
+      'Microsoft Catherine Neural',
+      'Microsoft Natasha',
+      'Microsoft Ayumi',
+      'Microsoft Huihui',
+      'Microsoft Yaoyao',
+      'Microsoft Xiaoxiao',
+      'Microsoft Xiaoyi',
+      'Microsoft Kangkang',
+      'Microsoft Yunxi',
+      'Microsoft Yunyang',
+      'Microsoft Xiaoqiu',
+      'Microsoft Xiaohan',
+      'Microsoft Xiaomo',
+      'Microsoft Xiaoxuan',
+      'Microsoft Xiaoyou',
+      'Microsoft Yunjian',
+      'Microsoft Yunxia',
+      // macOS / iOS
+      'Samantha',
+      'Samantha (Enhanced)',
+      'Victoria',
+      'Karen',
+      'Tessa',
+      'Martha',
+      'Moira',
+      'Fiona',
+      'Serena',
+      'Monica',
+      'Allison',
+      'Ava',
+      'Joelle',
+      'Kathy',
+      'Lori',
+      'Princess',
+      'Siri',
+      // Google (Android, Chrome)
+      'Google US English',
+      'Google UK English Female',
+      'Google Français',
+      'Google Deutsch Female',
+      'Google Nederlands Female',
+      'Google Italiano Female',
+      'Google हिन्दी Female',
+      'Google 日本語 Female',
+      'Kanya',
+      'Melina',
+      'Kyoko',
+      'Hanna',
+      'Zuzana',
+      'Sara',
+      'Ting-Ting',
+      'Sin-ji',
+      'Yuna',
+      'Mei-Jia',
+      // Extras (other common female names exposed by browsers)
+      'Olena', 'Milena', 'Alyona', 'Yelena', 'Tatyana', 'Katya', 'Sonya', 'Sofia', 'Ioana', 'Maria',
+      'Anna', 'Zosia', 'Ewa', 'Jolanta', 'Ellen', 'Nora', 'Camila', 'Luciana', 'Valentina', 'Vitoria',
+      'Ximena', 'Lupita', 'Carmen', 'Dulce', 'Isabela', 'Helena', 'Manuela', 'Marcia', 'Nicole',
+      'Amira', 'Aya', 'Layla', 'Hana', 'Maya', 'Zara', 'Lina', 'Dina', 'Selam',
+      'Frederikke', 'Satu', 'Tuuli', 'Alva', 'Matilda', 'Majda', 'Anita', 'Simona',
+    ];
+
+    let picked: SpeechSynthesisVoice | null = null;
+    let pickedAmharic = false;
+
+    if (hasAnyAmharicVoice) {
+      // BRANCH A: real Amharic engine → take the best am-ET voice, never male
+      const tier1 = voices
+        .filter(v => nameMatchesAny(v, AMHARIC_VOICE_NAMES_BY_PLATFORM) && !isMaleBlocked(v));
+      picked = tier1[0] || null;
+      if (!picked) {
+        const tier2 = voices.filter(v => isAmharicLang(v) && !isMaleBlocked(v));
+        picked = tier2[0] || null;
       }
-
-      const useAmharic = true; // Default Amharic on always (per user request: "make it Amharic + girl")
-      const amWord = numberToAmharic(num);
-      const text = `${letter} ቁጥር ${amWord}  —  (${letter} ${num})`;
-
-      const utter = new SpeechSynthesisUtterance();
-
-      // ── Voice selection strategy: FEMALE + AMHARIC/GIRL first, else any FEMALE, else DEFAULT with high pitch ──
-      const femaleKeywords = [
-        'female', 'woman', 'girl', 'lady', 'amharic', 'amhara', 'ethiopia', 'ethiop', 'am-et', 'am_et',
-        'Samantha', 'Victoria', 'Karen', 'Tessa', 'Martha', 'Moira', 'Fiona', 'Serena', 'Mónica',
-        'Monica', 'Google UK English Female', 'Google US English', 'Google Français', 'Kanya',
-        'Melina', 'Kyoko', 'Hanna', 'Zuzana', 'Sara', 'Ting-Ting', 'Sin-ji', 'Yuna', 'Mei-Jia',
-        'Olena', 'Milena', 'Alyona', 'Yelena', 'Tatyana', 'Katya', 'Sonya', 'Sofia', 'Ioana', 'Maria',
-        'Anna', 'Zosia', 'Ewa', 'Jolanta', 'Ellen', 'Nora', 'Camila', 'Luciana', 'Valentina', 'Vitoria',
-        'Ximena', 'Lupita', 'Carmen', 'Dulce', 'Isabela', 'Helena', 'Manuela', 'Marcia', 'Ellen', 'Nicole',
-      ];
-      const maleKeywords = [
-        'male', ' man', 'boy', 'david', 'daniel', 'alex', 'fred', 'mark', 'juan', 'jose', 'pedro',
-        'luca', 'marco', 'paul', 'peter', 'ryan', 'samuel', 'thomas', 'william', 'oliver', 'matthew',
-        'Microsoft', 'Google हिन्दी', 'Google Deutsch Male', 'Google Nederlands',
-      ];
-      const lower = (s: string) => String(s || '').toLowerCase();
-
-      let pickedVoice: SpeechSynthesisVoice | null = null;
-
-      // 1) Try an EXPLICIT Amharic/Ethiopian voice (lang starts with 'am')
-      if (!pickedVoice) {
-        pickedVoice =
-          voices.find(v => /^(am|amh)/i.test(v.lang) && !maleKeywords.some(k => lower(v.name).includes(lower(k)))) ||
-          voices.find(v => /(am|amh|ethiop)/i.test(lower(v.lang) + ' ' + lower(v.name))) || null;
-      }
-
-      // 2) Try any voice that looks FEMALE & non-male (across all languages)
-      if (!pickedVoice) {
-        const anyFemale = voices.find(v => {
+      if (!picked) {
+        const tier3 = voices.filter(v => {
           const hay = lower(v.name) + ' ' + lower(v.lang);
-          const isFemaleHit = femaleKeywords.some(k => hay.includes(lower(k)));
-          const isMaleHit = maleKeywords.some(k => lower(v.name).includes(lower(k)));
-          return isFemaleHit && !isMaleHit;
-        }) || null;
-        if (anyFemale) pickedVoice = anyFemale;
+          return /(amharic|amhara|ethiop|ethiopic|tigray|tigrigna|tigrinya|oromo)/.test(hay) && !isMaleBlocked(v);
+        });
+        picked = tier3[0] || null;
+      }
+      pickedAmharic = Boolean(picked);
+    } else {
+      // BRANCH B: NO Amharic engine available → take the MOST CLEARLY GIRL/FEMALE English voice.
+      // Explicit name matches first (Windows/Google/macOS known-female list)
+      const tierGirlByName = voices.filter(v =>
+        nameMatchesAny(v, ENGLISH_GIRL_VOICE_NAMES) &&
+        !isMaleBlocked(v) &&
+        /^en|en-us|en-gb/.test(lower(v.lang))
+      );
+      picked = tierGirlByName[0] || null;
+
+      if (!picked) {
+        // Any clearly-female English voice by lang + name-keyword
+        const tierGirlByKeyword = voices.filter(v => {
+          const hay = lower(v.name) + ' ' + lower(v.lang);
+          const hit = /(female|girl|woman|lady|aria|jenny|zira|samantha|sara|karen|tessa|victoria)/.test(hay);
+          const en = /^en|en-us|en-gb/.test(lower(v.lang));
+          return hit && en && !isMaleBlocked(v);
+        });
+        picked = tierGirlByKeyword[0] || null;
       }
 
-      // 3) Last fallback: prefer any defaultFemale voice or first voice that isn't explicitly male
-      if (!pickedVoice && voices.length > 0) {
-        const nonMale = voices.find(v => !maleKeywords.some(k => lower(v.name).includes(lower(k))));
-        pickedVoice = nonMale || voices[0];
+      if (!picked) {
+        // Any English voice not on the male blocklist
+        const tierAnyEnglish = voices.filter(v =>
+          /^en|en-us|en-gb/.test(lower(v.lang)) && !isMaleBlocked(v)
+        );
+        picked = tierAnyEnglish[0] || null;
       }
 
-      // Assign voice FIRST so browser doesn't reset pitch/rate on later assignment
-      if (pickedVoice) {
-        try { utter.voice = pickedVoice; } catch {}
+      if (!picked && voices.length > 0) {
+        // Last resort: anything not explicitly male
+        const nonMale = voices.filter(v => !isMaleBlocked(v));
+        picked = nonMale[0] || voices[0];
       }
-
-      // Now assign the rest — in order recommended by MDN
-      utter.text = text;
-      utter.lang = useAmharic ? 'am-ET' : 'am-ET'; // Always lock to Amharic locale
-
-      // GIRL / FEMININE tuning
-      utter.pitch = 1.9;         // Higher pitch (max 2) sounds like a young girl / female
-      utter.rate = 0.88;         // Slightly slower so Amharic words are clearly heard
-      utter.volume = 1.0;
-
-      // Extra safety: re-apply HIGH PITCH right before speak (some engines reset on voice assignment)
-      setTimeout(() => {
-        try {
-          utter.pitch = 1.9;
-          utter.rate = 0.88;
-          utter.volume = 1.0;
-        } catch {}
-      }, 0);
-
-      window.speechSynthesis.speak(utter);
-    } catch (e) {
-      // Silent ignore — never crash gameplay over a TTS error
     }
+
+    const utter = new SpeechSynthesisUtterance();
+    // Choose text + lang based on which branch we're in.
+    const textAmharic = `${amLetter}… ቁጥር ${amWord}.  ${letter} ${num}.`;
+    const textPhonetic = `${phLetter} … kitir ${phWord}.  (${letter} ${num}).`;
+
+    // ── MDN-recommended ASSIGNMENT ORDER (critical for Safari / Telegram WebView) ──
+    // voice → lang → rate → pitch → volume → text
+    try { if (picked) utter.voice = picked; } catch {}
+    if (pickedAmharic) {
+      utter.lang = 'am-ET';
+      utter.text = textAmharic;
+    } else {
+      // NOTE: this is ONLY when the user's OS has zero am-ET voice installed (like your Windows).
+      // The sentence is pure Amharic content written in English-girl-readable phonetics.
+      utter.lang = /^en/.test(lower(picked?.lang || '')) ? (picked?.lang || 'en-US') : 'en-US';
+      utter.text = textPhonetic;
+    }
+    utter.rate = 0.85;
+    utter.pitch = 2.0;   // MAX pitch = girl / young female (also applied to real am-ET Haregeweyen/Tigist)
+    utter.volume = 1.0;
+
+    // Re-apply tuning defensively (engines often reset params after assign voice/text/lang)
+    const reapplyTune = () => {
+      try { utter.rate = 0.85; } catch {}
+      try { utter.pitch = 2.0; } catch {}
+      try { utter.volume = 1.0; } catch {}
+      // Re-assert voice last so it wins over any defaulting
+      try { if (picked) utter.voice = picked; } catch {}
+      try {
+        if (pickedAmharic) utter.lang = 'am-ET';
+        else utter.lang = /^en/.test(lower(picked?.lang || '')) ? (picked?.lang || 'en-US') : 'en-US';
+      } catch {}
+    };
+    try { utter.onstart    = reapplyTune; } catch {}
+    try { utter.onboundary = reapplyTune; } catch {}
+    setTimeout(reapplyTune, 0);
+
+    // ── SPEAK MUST HAPPEN AFTER cancel() + voice refresh in the NEXT macrotask ──
+    // (Some Chromium versions drop params if speak() is same microtask as cancel().)
+    setTimeout(() => {
+      // One final refresh in case voices loaded between click and this setTimeout
+      try {
+        const finalV = window.speechSynthesis.getVoices() || [];
+        const finalArr: SpeechSynthesisVoice[] = Array.isArray(finalV) ? finalV : [];
+        if (finalArr.length > 0 && (!picked || !finalArr.includes(picked))) {
+          // Try to re-pick the same strategy against the fresh list
+          const freshIsAmharic = finalArr.some(v => isAmharicLang(v) || nameMatchesAny(v, AMHARIC_VOICE_NAMES_BY_PLATFORM));
+          if (freshIsAmharic) {
+            const fresh = finalArr.find(v => (isAmharicLang(v) || nameMatchesAny(v, AMHARIC_VOICE_NAMES_BY_PLATFORM)) && !isMaleBlocked(v));
+            if (fresh) { picked = fresh; pickedAmharic = true; }
+          } else {
+            const fresh = finalArr.find(v =>
+              nameMatchesAny(v, ENGLISH_GIRL_VOICE_NAMES) &&
+              !isMaleBlocked(v) &&
+              /^en|en-us|en-gb/.test(lower(v.lang))
+            ) || finalArr.find(v => /^en/.test(lower(v.lang)) && !isMaleBlocked(v))
+              || finalArr.find(v => !isMaleBlocked(v)) || finalArr[0];
+            if (fresh) { picked = fresh; pickedAmharic = false; }
+          }
+        }
+        if (picked) { try { utter.voice = picked; } catch {} }
+      } catch {}
+      reapplyTune();
+      try { window.speechSynthesis.speak(utter); } catch {}
+    }, 25);
   };
 
   // Auto Draw interval timer simulation
@@ -628,6 +956,32 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           SCROLLABLE BODY — Everything below header scrolls as one page
           ================================================================ */}
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-36 bg-slate-100">
+
+        {voiceBanner && (
+          <div className="sticky top-0 z-40 bg-amber-50 border-b border-amber-300 px-3 py-2.5 shadow-sm">
+            <div className="flex items-start gap-2">
+              <span className="shrink-0 w-6 h-6 rounded-lg bg-amber-100 border border-amber-200 flex items-center justify-center">
+                <Lightbulb className="w-3.5 h-3.5 text-amber-800 fill-amber-500" />
+              </span>
+              <div className="flex-1 min-w-0 space-y-0.5">
+                <h5 className="text-[11px] font-black uppercase tracking-wider text-amber-900">
+                  {language === 'am' ? voiceBanner.titleAm : voiceBanner.titleEn}
+                </h5>
+                <p className="text-[11px] leading-snug text-amber-900/85 whitespace-pre-line">
+                  {language === 'am' ? voiceBanner.bodyAm : voiceBanner.bodyEn}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVoiceBanner(null)}
+                className="shrink-0 w-5 h-5 rounded-md bg-amber-100 border border-amber-200 text-amber-900 flex items-center justify-center"
+                title={language === 'am' ? 'ይዝጋ' : 'Dismiss'}
+              >
+                <span className="text-[11px] leading-none font-black">×</span>
+              </button>
+            </div>
+          </div>
+        )}
 
       {/* ── Weekend Stake Price Selector (ONLY for Weekend Games) ────── */}
       {isWeekendGame && weekendGames.length > 1 && onChangeGameId && (
