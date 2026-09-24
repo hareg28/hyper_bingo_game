@@ -32,7 +32,7 @@ const SEGMENTS: WheelSegment[] = [
 ];
 
 export default function DailyLuckyWheelModal({ isOpen, onClose }: DailyLuckyWheelModalProps) {
-  const { user, wallet, setWallet, addNotification, language } = useBingo();
+  const { user, wallet, creditBonusBalance, addNotification, language } = useBingo();
   const isAm = language === 'am';
 
   const [isSpinning, setIsSpinning] = useState(false);
@@ -104,17 +104,9 @@ export default function DailyLuckyWheelModal({ isOpen, onClose }: DailyLuckyWhee
         });
 
         // Credit bonus balance to user wallet
-        setWallet((prev) => ({
-          ...prev,
-          bonusBalance: prev.bonusBalance + winningSegment.amount,
-        }));
-
-        addNotification(
-          isAm ? '🎁 ዕለታዊ ሽልማት አሸንፈዋል!' : '🎁 Daily Reward Won!',
-          isAm
-            ? `${winningSegment.labelAm} በቦነስ ሂሳብዎ ላይ ተጨምሯል!`
-            : `${winningSegment.label} added to your bonus playable balance!`,
-          'success'
+        creditBonusBalance(
+          winningSegment.amount,
+          isAm ? 'ዕለታዊ እድለኛ መንኰራኵር' : 'Daily Lucky Wheel'
         );
       }
     }, 4500);

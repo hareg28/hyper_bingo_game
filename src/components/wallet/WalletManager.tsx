@@ -20,7 +20,7 @@ export default function WalletManager() {
 
   const [activeTab, setActiveTab] = useState<'balance' | 'deposit' | 'withdraw' | 'accounts' | 'history'>('balance');
   const [provider, setProvider] = useState<PaymentProvider>('Telebirr');
-  const [amount, setAmount] = useState<number>(500);
+  const [amount, setAmount] = useState<number | ''>(100);
   const [phoneOrAccount, setPhoneOrAccount] = useState<string>(() => user?.phone || '');
   const [accountName, setAccountName] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -107,6 +107,12 @@ export default function WalletManager() {
       openAuthModal('register');
       return;
     }
+    const depositAmt = typeof amount === 'number' ? amount : Number(amount) || 0;
+    if (depositAmt < 10) {
+      showStatus('error', 'Minimum deposit is 10 ETB (ዝቅተኛው ተቀማጭ መጠን 10 ብር ነው).');
+      return;
+    }
+
     if (depositStep === 1) {
       setDepositStep(2);
       setDepositReference(`HBINGO_${user.id}_${Date.now()}`);
@@ -128,7 +134,7 @@ export default function WalletManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user?.id,
-          amount,
+          amount: depositAmt,
           provider,
           depositReference,
           screenshot: screenshotBase64,
@@ -138,8 +144,8 @@ export default function WalletManager() {
       const data = await res.json();
 
       if (data.success) {
-        await depositWallet(amount, provider, depositReference);
-        showStatus('success', `Deposit of ${amount} ETB submitted! Owner notified via Telegram with your payment screenshot.`);
+        await depositWallet(depositAmt, provider, depositReference);
+        showStatus('success', `Deposit of ${depositAmt} ETB submitted! Owner notified via Telegram with your payment screenshot.`);
         setActiveTab('balance');
         setDepositStep(1);
         handleRemoveScreenshot();
@@ -148,8 +154,8 @@ export default function WalletManager() {
       }
     } catch {
       // Fallback
-      await depositWallet(amount, provider, depositReference);
-      showStatus('success', `Deposit of ${amount} ETB registered! Owner notified.`);
+      await depositWallet(depositAmt, provider, depositReference);
+      showStatus('success', `Deposit of ${depositAmt} ETB registered! Owner notified.`);
       setActiveTab('balance');
       setDepositStep(1);
       handleRemoveScreenshot();
@@ -165,6 +171,15 @@ export default function WalletManager() {
       openAuthModal('register');
       return;
     }
+    const withdrawAmt = typeof amount === 'number' ? amount : Number(amount) || 0;
+    if (withdrawAmt < 50) {
+      showStatus('error', 'Minimum withdrawal is 50 ETB (ዝቅተኛው የማውጣት መጠን 50 ብር ነው).');
+      return;
+    }
+    if (withdrawAmt > (wallet.availableBalance + wallet.winningBalance)) {
+      showStatus('error', 'Insufficient withdrawable balance.');
+      return;
+    }
     if (!phoneOrAccount || !accountName) {
       showStatus('error', 'Please fill in account number and account holder name.');
       return;
@@ -176,7 +191,7 @@ export default function WalletManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user.id,
-          amount,
+          amount: withdrawAmt,
           accountNumber: phoneOrAccount,
           accountName,
           paymentMethod: provider,
@@ -184,16 +199,16 @@ export default function WalletManager() {
       });
       const data = await res.json();
       if (data.success) {
-        showStatus('success', `Withdrawal of ${amount} ETB submitted! Processing 1-24 hours.`);
+        showStatus('success', `Withdrawal of ${withdrawAmt} ETB submitted! Processing 1-24 hours.`);
         setActiveTab('balance');
       } else {
         // Fallback to local context
-        const ok = await requestWithdrawal(amount, provider, phoneOrAccount, accountName);
+        const ok = await requestWithdrawal(withdrawAmt, provider, phoneOrAccount, accountName);
         if (ok) showStatus('success', 'Withdrawal request submitted successfully!');
         else showStatus('error', data.error ?? 'Withdrawal failed');
       }
     } catch {
-      const ok = await requestWithdrawal(amount, provider, phoneOrAccount, accountName);
+      const ok = await requestWithdrawal(withdrawAmt, provider, phoneOrAccount, accountName);
       if (ok) showStatus('success', 'Withdrawal request submitted!');
       else showStatus('error', 'Withdrawal failed. Please try again.');
     } finally {
@@ -408,13 +423,20 @@ export default function WalletManager() {
                 </div>
               </div>
 
-              {/* Amount */}
-              <div>
-                <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-2">
-                  {t('amountETB')}
-                </label>
-                <div className="grid grid-cols-4 gap-1.5 mb-2">
-                  {[100, 250, 500, 1000].map(amt => (
+              {/* Amount Selection & Input */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider">
+                    {t('amountETB')}
+                  </label>
+                  <span className="text-[10px] text-emerald-700 font-bold">
+                    {amount !== '' && Number(amount) > 0 ? `${amount} ETB` : 'ማንኛውንም መጠን ያስገቡ'}
+                  </span>
+                </div>
+                
+                {/* Quick Presets */}
+                <div className="grid grid-cols-5 gap-1.5">
+                  {[50, 100, 200, 500, 1000].map(amt => (
                     <button
                       key={amt}
                       type="button"
@@ -429,14 +451,28 @@ export default function WalletManager() {
                     </button>
                   ))}
                 </div>
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
-                  min={10}
-                  className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 font-mono font-bold focus:bg-white focus:outline-none focus:border-emerald-600"
-                  placeholder={t('customAmountPlaceholder')}
-                />
+
+                {/* Custom Number Input */}
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={amount === '' ? '' : amount}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setAmount(val === '' ? '' : Number(val));
+                    }}
+                    min={10}
+                    step="any"
+                    className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-950 font-mono font-black focus:bg-white focus:outline-none focus:border-emerald-600 pl-3.5 pr-14"
+                    placeholder="የሚፈልጉትን መጠን ያስገቡ / Enter custom amount"
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">
+                    ETB
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500 font-medium">
+                  ዝቅተኛው ተቀማጭ መጠን 10 ብር ነው (Minimum deposit: 10 ETB)
+                </p>
               </div>
 
               <button type="submit" className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer">

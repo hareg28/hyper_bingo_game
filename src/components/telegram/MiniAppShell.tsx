@@ -1079,5 +1079,11 @@ function WeekendLotteryNumberPicker({
         </button>
       </div>
     </div>
+
+    {/* ── DAILY LUCKY WHEEL MODAL ─────────────────────────────────────── */}
+    <DailyLuckyWheelModal
+      isOpen={showLuckyWheel}
+      onClose={() => setShowLuckyWheel(false)}
+    />
   );
 }

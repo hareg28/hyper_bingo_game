@@ -80,6 +80,7 @@ interface BingoContextType {
   autoDaubEnabled: boolean;
   toggleUserRole: () => void;
   setUserRole: (role: UserRole) => void;
+  creditBonusBalance: (amount: number, reason: string) => void;
   // Weekend Lottery
   getLotterySoldNumbers: (gameId: string) => Set<number>;
   purchaseLotteryNumbers: (gameId: string, numbers: number[]) => { success: boolean; message: string; purchased?: string[] };
@@ -386,6 +387,20 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       return;
     }
     setUser((prev) => (prev ? { ...prev, role } : null));
+  };
+
+  const creditBonusBalance = (amount: number, reason: string) => {
+    setWallet((prev) => ({
+      ...prev,
+      bonusBalance: prev.bonusBalance + amount,
+    }));
+    addNotification(
+      language === 'am' ? '🎁 የቦነስ ሂሳብ ተጨምሯል!' : '🎁 Bonus Credited!',
+      language === 'am'
+        ? `${amount} ብር ቦነስ ወደ ሂሳብዎ ተጨምሯል (${reason})`
+        : `${amount} ETB bonus added to your balance (${reason})`,
+      'success'
+    );
   };
 
 
@@ -1173,6 +1188,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         autoDaubEnabled,
         toggleUserRole,
         setUserRole,
+        creditBonusBalance,
         getLotterySoldNumbers,
         purchaseLotteryNumbers,
         isAuthModalOpen,
