@@ -8,8 +8,7 @@ import { getGameLivePrizePool } from '../../lib/store';
 import { 
   Gamepad2, Zap, Wallet, User as UserIcon, Shield, 
   ArrowUpRight, Share2, Copy, Check, LogOut, Sparkles, 
-  ChevronRight, ChevronLeft, Gift, Globe, X,
-  ExternalLink
+  ChevronRight, ChevronLeft, Gift, Globe, X
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
 import WalletManager from '../wallet/WalletManager';
@@ -185,33 +184,6 @@ export default function MiniAppShell({
         {/* LOBBY TAB */}
         {activeTab === 'lobby' && (
           <div className="space-y-3">
-            {/* 📢 OFFICIAL TELEGRAM CHANNEL BANNER */}
-            <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 rounded-2xl p-3 text-white shadow-md flex items-center justify-between gap-2.5">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-lg shrink-0 shadow-inner">
-                  📢
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-xs font-black uppercase tracking-wider leading-tight text-white flex items-center gap-1.5">
-                    <span>@HyperBingoChannel</span>
-                    <span className="text-[9px] bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded-full font-black">Official</span>
-                  </h4>
-                  <p className="text-[10px] text-blue-100 truncate mt-0.5 font-medium">
-                    {language === 'am' ? 'የነፃ ካርድ ኮዶች፣ የጨዋታ ሰዓቶች እና የአሸናፊዎች ዝርዝር!' : 'Daily free card promos, draw schedules & winner lists!'}
-                  </p>
-                </div>
-              </div>
-              <a
-                href="https://t.me/HyperBingoSupport"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-xl bg-white text-blue-700 hover:bg-blue-50 font-black text-xs shrink-0 transition flex items-center gap-1 shadow-sm"
-              >
-                <span>{language === 'am' ? 'ይቀላቀሉ' : 'Join'}</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-
             {/* Featured Banner - Soft Light Amber / Cream Card */}
             <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100/70 p-4 rounded-2xl text-slate-900 shadow-xs border-2 border-amber-200">
               <div className="flex items-center justify-between mb-1">
