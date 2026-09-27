@@ -240,7 +240,7 @@ export default function MiniAppShell({
                       .map((g) => (
                         <button
                           key={g.id}
-                          onClick={() => { setActiveGameId(g.id); setActiveTab('game'); }}
+                          onClick={() => { setActiveGameId(g.id); setActiveTab('lottery'); }}
                           className="p-2 rounded-xl bg-white border border-amber-200 text-slate-900 flex flex-col items-center justify-center shadow-xs hover:border-amber-400 hover:bg-amber-50 transition cursor-pointer text-center"
                         >
                           <span className="text-amber-700 text-xs font-black leading-tight">⚡ {g.entryPrice} ETB</span>
@@ -402,6 +402,8 @@ export default function MiniAppShell({
             openAuthModal={openAuthModal}
             getLotterySoldNumbers={getLotterySoldNumbers}
             purchaseLotteryNumbers={purchaseLotteryNumbers}
+            activeGameId={activeGameId || undefined}
+            onChangeGameId={(newId) => setActiveGameId(newId)}
             onPickCards={(gameId, cardNumbers) => {
               if (!user) { openAuthModal('register'); return; }
               if (cardNumbers.length > 0) {
@@ -723,6 +725,8 @@ function WeekendLotteryNumberPicker({
   purchaseLotteryNumbers,
   onPickCards,
   onBack,
+  activeGameId,
+  onChangeGameId,
 }: {
   games: ReturnType<typeof useBingo>['games'];
   user: ReturnType<typeof useBingo>['user'];
@@ -733,10 +737,30 @@ function WeekendLotteryNumberPicker({
   purchaseLotteryNumbers: ReturnType<typeof useBingo>['purchaseLotteryNumbers'];
   onPickCards: (gameId: string, cardNumbers: string[]) => void;
   onBack: () => void;
+  activeGameId?: string;
+  onChangeGameId?: (gameId: string) => void;
 }) {
   const isAm = language === 'am';
   const weekendGames = games.filter((g) => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
-  const [selectedGameIdx, setSelectedGameIdx] = React.useState(0);
+  
+  // Find game by activeGameId if provided, otherwise default to 50 ETB game or index 0
+  const getDefaultIdx = React.useCallback((wGames: typeof weekendGames, aId?: string) => {
+    if (aId) {
+      const idx = wGames.findIndex((g) => g.id === aId);
+      if (idx >= 0) return idx;
+    }
+    const idx50 = wGames.findIndex((g) => g.entryPrice === 50);
+    return idx50 >= 0 ? idx50 : 0;
+  }, []);
+
+  const [selectedGameIdx, setSelectedGameIdx] = React.useState(() => getDefaultIdx(weekendGames, activeGameId));
+
+  // Sync whenever activeGameId changes OR on first mount (ensures 50 ETB default)
+  React.useEffect(() => {
+    setSelectedGameIdx(getDefaultIdx(weekendGames, activeGameId));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGameId]);
+
   const selectedGame = weekendGames[selectedGameIdx] || weekendGames[0];
   const entryPrice = selectedGame?.entryPrice || 50;
 
@@ -892,6 +916,44 @@ function WeekendLotteryNumberPicker({
         </div>
         <div className="px-3 py-1 rounded-xl bg-amber-400/10 border border-amber-400/40 text-amber-300 font-mono font-black text-sm tracking-widest tabular-nums shadow-inner shrink-0">
           {drawCountdown}
+        </div>
+      </div>
+
+      {/* ── Stake Tier Selector (35 ETB | 50 ETB | 100 ETB) ── */}
+      <div className="mx-2 mt-2 p-2 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-1.5 shrink-0">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-amber-600" />
+            {isAm ? 'የሳምንት መጨረሻ ውርርድ ደረጃ (Stake Tier)' : 'Select Weekend Stake Tier'}
+          </span>
+          <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+            ⚡ {entryPrice} ETB {isAm ? 'ተመርጧል' : 'Selected'}
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-1.5">
+          {weekendGames.map((wg, idx) => {
+            const isSelected = selectedGameIdx === idx;
+            return (
+              <button
+                key={wg.id}
+                type="button"
+                onClick={() => {
+                  setSelectedGameIdx(idx);
+                  if (onChangeGameId) onChangeGameId(wg.id);
+                }}
+                className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center transition cursor-pointer border-2 ${
+                  isSelected
+                    ? 'bg-amber-500 border-amber-600 text-slate-950 font-black shadow-sm scale-[1.02]'
+                    : 'bg-slate-50 hover:bg-amber-50/50 border-slate-200 hover:border-amber-300 text-slate-700 font-bold'
+                }`}
+              >
+                <span className="text-xs font-black">⚡ {wg.entryPrice} ETB</span>
+                <span className={`text-[9px] ${isSelected ? 'text-amber-950 font-black' : 'text-slate-500'}`}>
+                  {wg.entryPrice === 50 ? (isAm ? 'ተመራጭ' : 'Popular') : (wg.entryPrice === 100 ? 'VIP Mega' : (isAm ? 'መደበኛ' : 'Standard'))}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

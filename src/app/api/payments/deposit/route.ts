@@ -8,11 +8,12 @@ const DEFAULT_BOT_TOKEN = '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, amount, provider, depositReference, screenshot, senderPhone } = body as {
+    const { userId, amount, provider, depositReference, transactionCode, screenshot, senderPhone } = body as {
       userId: string;
       amount: number;
       provider: 'Telebirr' | 'CBE Birr' | 'Chapa' | 'Bank Transfer';
       depositReference?: string;
+      transactionCode?: string;
       screenshot?: string;
       senderPhone?: string;
     };
@@ -24,11 +25,15 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // REQUIRE payment screenshot
-    if (!screenshot || screenshot.trim() === '') {
+    // Require EITHER transaction code OR screenshot
+    const code = (transactionCode || '').trim();
+    const hasCode = code.length >= 3;
+    const hasScreenshot = Boolean(screenshot && screenshot.trim().length > 0);
+
+    if (!hasCode && !hasScreenshot) {
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'Payment screenshot is required. Please attach your transfer screenshot or receipt before submitting.',
+        error: 'Please enter your Transaction Reference Code / SMS ID (e.g. FT number for CBE) or attach a payment receipt.',
       }, { status: 400 });
     }
 
@@ -40,31 +45,46 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
-    const txRef = depositReference || `HBINGO_${userId}_${Date.now()}`;
+    const txRef = code || depositReference || `HBINGO_${userId}_${Date.now()}`;
+    const txId = `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN;
 
-    // Credit deposit to user wallet in DB
+    // Create PENDING deposit in DB (Owner must review & approve!)
+    let createdTx;
     try {
-      await db.creditDeposit(userId, amount, txRef, (provider || 'Telebirr'));
+      createdTx = await db.createPendingDeposit({
+        id: txId,
+        userId,
+        amount,
+        provider: provider || 'Telebirr',
+        reference: txRef,
+        description: `Deposit via ${provider} (Code: ${txRef})`,
+      });
     } catch (dbErr) {
-      console.error('[Deposit API] creditDeposit error:', dbErr);
+      console.error('[Deposit API] createPendingDeposit error:', dbErr);
     }
 
-    // NOTIFY OWNER / ADMINISTRATORS VIA TELEGRAM
+    // NOTIFY OWNER / ADMINISTRATORS VIA TELEGRAM WITH VERIFICATION CODE
     const adminWhitelist = getAdminWhitelist();
     const targetAdmins = adminWhitelist.length > 0 ? adminWhitelist : ['570615212', '7829104'];
 
+    const proofDescription = [
+      hasCode ? `🔖 <b>Transaction ID / Code:</b> <code>${code}</code>` : '',
+      hasScreenshot ? `📸 <b>Screenshot:</b> Attached` : (provider === 'CBE Birr' ? `ℹ️ <i>CBE App blocks screenshot on Android. Code provided above.</i>` : ''),
+    ].filter(Boolean).join('\n');
+
     const notificationMessage = 
-      `🚨 <b>NEW DEPOSIT SUBMITTED / አዲስ ተቀማጭ ጥያቄ</b> 🚨\n\n` +
+      `🚨 <b>NEW DEPOSIT SUBMITTED (PENDING APPROVAL)</b> 🚨\n\n` +
       `👤 <b>Player:</b> ${user.name} (@${user.username || 'user'})\n` +
       `🆔 <b>User ID:</b> <code>${userId}</code>\n` +
       `📞 <b>Phone:</b> <code>${user.phone || senderPhone || 'N/A'}</code>\n` +
       `💰 <b>Amount:</b> <b>${amount} ETB</b>\n` +
       `💳 <b>Payment Provider:</b> <b>${provider}</b>\n` +
-      `🔖 <b>Reference:</b> <code>${txRef}</code>\n` +
-      `📸 <b>Payment Screenshot:</b> Attached & Verified ✅\n` +
+      `${proofDescription}\n` +
+      `🔖 <b>System Ref:</b> <code>${txRef}</code>\n` +
       `⏰ <b>Date & Time:</b> ${new Date().toLocaleString()}\n\n` +
-      `👉 <i>The player attached their payment screenshot. Please verify your ${provider} account to confirm receipt of funds.</i>`;
+      `👉 <b>ACTION:</b> Verify receipt in your ${provider} account / SMS using code: <code>${txRef}</code>.\n` +
+      `Then open <b>Admin Panel → Finance → Pending Deposits</b> to Approve or Reject.`;
 
     // Dispatch notification to all admin chat IDs
     for (const adminId of targetAdmins) {
@@ -86,11 +106,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json<ApiResponse>({
       success: true,
       data: {
+        txId: createdTx?.id || txId,
         txRef,
         amount,
         provider,
-        notifiedAdminsCount: targetAdmins.length,
-        message: 'Deposit submitted successfully! The owner has received notification along with your payment screenshot.',
+        status: 'PENDING',
+        message: `Deposit request of ${amount} ETB submitted! Status: PENDING review. The owner will verify the transaction code and approve your balance shortly.`,
       },
     });
   } catch (err) {

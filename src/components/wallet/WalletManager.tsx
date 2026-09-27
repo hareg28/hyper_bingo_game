@@ -16,7 +16,8 @@ declare global {
 }
 
 export default function WalletManager() {
-  const { wallet, transactions, depositWallet, requestWithdrawal, user, openAuthModal, t } = useBingo();
+  const { wallet, transactions, depositWallet, submitPendingDeposit, requestWithdrawal, user, openAuthModal, t, language } = useBingo();
+  const isAm = language === 'am';
 
   const [activeTab, setActiveTab] = useState<'balance' | 'deposit' | 'withdraw' | 'accounts' | 'history'>('balance');
   const [provider, setProvider] = useState<PaymentProvider>('Telebirr');
@@ -26,6 +27,7 @@ export default function WalletManager() {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [depositStep, setDepositStep] = useState<1 | 2>(1);
   const [depositReference, setDepositReference] = useState<string>('');
+  const [transactionCode, setTransactionCode] = useState<string>('');
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // QR Code State — generated IMMEDIATELY when entering deposit step 2 (no manual click needed)
@@ -156,16 +158,26 @@ export default function WalletManager() {
       return;
     }
 
-    // Screenshot is strictly required
-    if (!screenshotBase64) {
-      setScreenshotError('Payment screenshot is required! Please attach your receipt before submitting.');
-      showStatus('error', 'Please attach your payment screenshot before submitting.');
+    // Validation: User must provide EITHER Transaction Code/SMS OR a Screenshot
+    const code = transactionCode.trim();
+    if (!code && !screenshotBase64) {
+      setScreenshotError(
+        isAm
+          ? 'እባክዎ የባንክ/ቴሌብር የክፍያ መለያ ቁጥር (Transaction ID / FT) ያስገቡ ወይም ደረሰኝ ያያይዙ።'
+          : 'Please enter your Transaction Reference Code / FT number or attach a payment receipt.'
+      );
+      showStatus(
+        'error',
+        isAm
+          ? 'የክፍያ መለያ ቁጥር (Transaction ID) ወይም ደረሰኝ ማስገባት ግዴታ ነው!'
+          : 'Please enter your Transaction ID or attach a payment receipt.'
+      );
       return;
     }
 
     setIsProcessing(true);
     try {
-      // Send deposit with screenshot to API (which notifies the owner via Telegram)
+      // Send deposit with verification code & screenshot to API
       const res = await fetch('/api/payments/deposit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -174,6 +186,7 @@ export default function WalletManager() {
           amount: depositAmt,
           provider,
           depositReference,
+          transactionCode: code,
           screenshot: screenshotBase64,
           senderPhone: user.phone || phoneOrAccount,
         }),
@@ -181,20 +194,31 @@ export default function WalletManager() {
       const data = await res.json();
 
       if (data.success) {
-        await depositWallet(depositAmt, provider, depositReference);
-        showStatus('success', `Deposit of ${depositAmt} ETB submitted! Owner notified via Telegram with your payment screenshot.`);
-        setActiveTab('balance');
+        await submitPendingDeposit(depositAmt, provider, depositReference, code);
+        showStatus(
+          'success',
+          isAm
+            ? `የ ${depositAmt} ብር ተቀማጭ ጥያቄዎ በተሳካ ሁኔታ ቀርቧል! አስተዳዳሪው የመለያ ቁጥሩን (Code) አረጋግጦ ሂሳብዎን ወዲያውኑ ያስተካክላል።`
+            : `Deposit of ${depositAmt} ETB submitted! Status: PENDING review. The owner will verify the transaction code and approve your balance shortly.`
+        );
+        setActiveTab('history');
         setDepositStep(1);
+        setTransactionCode('');
         handleRemoveScreenshot();
       } else {
-        showStatus('error', data.error || 'Deposit failed. Please try again.');
+        showStatus('error', data.error || 'Deposit submission failed. Please try again.');
       }
     } catch {
-      // Fallback
-      await depositWallet(depositAmt, provider, depositReference);
-      showStatus('success', `Deposit of ${depositAmt} ETB registered! Owner notified.`);
-      setActiveTab('balance');
+      await submitPendingDeposit(depositAmt, provider, depositReference, code);
+      showStatus(
+        'success',
+        isAm
+          ? `የ ${depositAmt} ብር ተቀማጭ ጥያቄዎ ቀርቧል! አስተዳዳሪው እንዲያረጋግጥ ተልኳል።`
+          : `Deposit of ${depositAmt} ETB submitted for review! Owner notified.`
+      );
+      setActiveTab('history');
       setDepositStep(1);
+      setTransactionCode('');
       handleRemoveScreenshot();
     } finally {
       setIsProcessing(false);
@@ -664,20 +688,79 @@ export default function WalletManager() {
                 )}
               </div>
 
-              {/* 📸 MANDATORY PAYMENT SCREENSHOT UPLOAD */}
-              <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-amber-300">
+              {/* 🔢 TRANSACTION CODE / FT NUMBER / SMS INPUT (CBE SAFE) */}
+              <div className="space-y-2 bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 p-3.5 rounded-2xl border-2 border-emerald-400 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-black text-emerald-950 flex items-center gap-1.5">
+                    <span className="text-sm">🔑</span>
+                    <span>
+                      {provider === 'CBE Birr' || provider === 'Bank Transfer'
+                        ? (isAm ? 'የ CBE ማረጋገጫ ቁጥር / Transaction ID (FT ቁጥር)' : 'CBE Transaction ID / FT Reference Number')
+                        : (isAm ? 'የቴሌብር የክፍያ መለያ ቁጥር (Transaction ID)' : 'Telebirr Transaction ID / Reference Code')}
+                    </span>
+                    <span className="text-rose-600 font-black">*</span>
+                  </label>
+                  <span className="text-[9px] font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300 uppercase">
+                    {isAm ? 'ዋነኛ ማረጋገጫ' : 'Primary Proof'}
+                  </span>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder={
+                      provider === 'CBE Birr' || provider === 'Bank Transfer'
+                        ? (isAm ? 'ለምሳሌ: FT260927XXXXX ወይም ከባንኩ የተላከውን SMS እዚህ ይለጥፉ' : 'e.g. FT260927XXXXX or paste bank confirmation SMS')
+                        : (isAm ? 'ለምሳሌ: CI0000XXXX ወይም የቴሌብር SMS' : 'e.g. CI0000XXXX or Telebirr TXN Code')
+                    }
+                    value={transactionCode}
+                    onChange={(e) => {
+                      setTransactionCode(e.target.value);
+                      if (screenshotError) setScreenshotError(null);
+                    }}
+                    className="w-full bg-white border-2 border-emerald-300 focus:border-emerald-600 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none shadow-inner"
+                  />
+                  {transactionCode && (
+                    <button
+                      type="button"
+                      onClick={() => setTransactionCode('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Important CBE notice explaining why screenshot is NOT needed if FT number is provided */}
+                <div className="bg-white/80 rounded-xl p-2 border border-emerald-200 flex items-start gap-2">
+                  <span className="text-sm shrink-0 mt-0.5">💡</span>
+                  <p className="text-[10px] text-emerald-950 font-semibold leading-relaxed">
+                    {provider === 'CBE Birr' || provider === 'Bank Transfer'
+                      ? (isAm
+                          ? 'የኢትዮጵያ ንግድ ባንክ (CBE) አፕሊኬሽን በስልክ ላይ ስክሪንሾት (Screenshot) አይፈቅድም። ስለዚህ ስክሪንሾት አያስፈልግዎትም! ከላይ ባለው ሳጥን ውስጥ ከባንኩ የተላከውን የ FT ቁጥር ወይም ሙሉውን የኤስኤምኤስ (SMS) ጽሁፍ ብቻ ያስገቡ።'
+                          : 'CBE mobile banking strictly blocks screenshots on phones. You do NOT need a screenshot! Simply enter your FT number (e.g. FT260927...) or paste the bank SMS message above.')
+                      : (isAm
+                          ? 'ክፍያውን እንዳጠናቀቁ ከቴሌብር የደረሰዎትን የክፍያ መለያ ቁጥር (Transaction ID) ያስገቡ።'
+                          : 'Enter the Transaction ID received from Telebirr SMS after completing your payment.')}
+                  </p>
+                </div>
+              </div>
+
+              {/* 📸 PAYMENT SCREENSHOT UPLOAD (Optional if Transaction Code is entered) */}
+              <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-black text-slate-900 flex items-center gap-1.5">
                     <Camera className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Payment Screenshot (የክፍያ ደረሰኝ)</span>
-                    <span className="text-rose-600 font-black">*</span>
+                    <span>{isAm ? 'የክፍያ ደረሰኝ ስክሪንሾት (አማራጭ)' : 'Payment Screenshot (Optional)'}</span>
                   </label>
-                  <span className="text-[9px] text-rose-800 font-bold uppercase tracking-wider bg-rose-100 px-2 py-0.5 rounded border border-rose-300">
-                    Required by Owner
+                  <span className="text-[9px] text-slate-600 font-bold uppercase tracking-wider bg-slate-200 px-2 py-0.5 rounded">
+                    {transactionCode.trim() ? (isAm ? 'አማራጭ' : 'Optional') : (isAm ? 'አማራጭ / ወይም ኮድ ያስገቡ' : 'Optional / Or Code')}
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-600 font-medium">
-                  Please attach your payment screenshot after completing the transfer. The owner will verify and approve your deposit.
+                <p className="text-[10px] text-slate-500">
+                  {isAm
+                    ? 'ስክሪንሾት ማንሳት ከቻሉ ማያያዝ ይችላሉ (ከላይ ኮድ ካስገቡ ስክሪንሾት ማስገባት ግዴታ አይደለም)።'
+                    : 'Attach your transfer screenshot if available. If you already entered the transaction code above, screenshot is optional.'}
                 </p>
 
                 {screenshotPreview ? (
@@ -690,10 +773,10 @@ export default function WalletManager() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-emerald-800 truncate flex items-center gap-1">
                         <CheckCircle className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-                        <span>Receipt Attached</span>
+                        <span>{isAm ? 'ደረሰኝ ተያይዟል' : 'Receipt Attached'}</span>
                       </p>
                       <p className="text-[10px] text-slate-500 truncate mt-0.5">{screenshotFileName || 'screenshot.png'}</p>
-                      <p className="text-[10px] text-amber-800 font-bold">Owner will be notified via Telegram</p>
+                      <p className="text-[10px] text-amber-800 font-bold">{isAm ? 'ለባለቤቱ በቴሌግራም ይላካል' : 'Sent to owner for verification'}</p>
                     </div>
                     <button
                       type="button"
@@ -706,13 +789,13 @@ export default function WalletManager() {
                   </div>
                 ) : (
                   <div>
-                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-xl p-3.5 cursor-pointer bg-white hover:bg-slate-50 transition text-center group">
-                      <Upload className="w-6 h-6 text-amber-600 group-hover:scale-110 transition mb-1" />
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-xl p-3 cursor-pointer bg-white hover:bg-slate-50 transition text-center group">
+                      <Upload className="w-5 h-5 text-amber-600 group-hover:scale-110 transition mb-0.5" />
                       <span className="text-xs font-black text-slate-800">
-                        Upload Payment Screenshot
+                        {isAm ? 'ደረሰኝ ካለዎት እዚህ ይጫኑ' : 'Upload Receipt (If available)'}
                       </span>
-                      <span className="text-[10px] text-slate-500 mt-0.5">
-                        የባንክ ወይም ቴሌብር ደረሰኝ ስክሪንሽት ያስገቡ (JPG, PNG)
+                      <span className="text-[9px] text-slate-400 mt-0.5">
+                        JPG, PNG
                       </span>
                       <input
                         type="file"
@@ -741,9 +824,9 @@ export default function WalletManager() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isProcessing || !screenshotBase64}
+                  disabled={isProcessing || (!transactionCode.trim() && !screenshotBase64)}
                   className={`w-2/3 py-2.5 rounded-xl font-black text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer ${
-                    !screenshotBase64
+                    (!transactionCode.trim() && !screenshotBase64)
                       ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed'
                       : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20'
                   }`}
@@ -753,6 +836,14 @@ export default function WalletManager() {
                   )}
                 </button>
               </div>
+              {/* Helper hint — tells user what unlocks the submit button */}
+              {!transactionCode.trim() && !screenshotBase64 && (
+                <p className="text-[10px] text-center text-amber-800 font-bold bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                  ⬆️ {isAm
+                    ? 'ለማስገባት: ከላይ ያለውን የ Transaction ID / FT ቁጥር ያስገቡ (ወይም ደረሰኝ ያያይዙ)'
+                    : 'To submit: Enter your Transaction ID / FT number above (or attach receipt)'}
+                </p>
+              )}
             </div>
           )}
         </form>

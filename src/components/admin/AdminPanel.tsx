@@ -21,6 +21,8 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     user, 
     approveWithdrawal, 
     rejectWithdrawal, 
+    approveDeposit,
+    rejectDeposit,
     createGame, 
     updateGameStatus,
     drawNextBall,
@@ -830,10 +832,110 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
         {/* FINANCE TAB */}
         {activeTab === 'finance' && (
-          <div className="glass-panel p-4 sm:p-5 rounded-2xl border-slate-800 space-y-3">
-            <h3 className="text-xs sm:text-sm font-bold text-slate-200">{t('payoutApprovals')}</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+          <div className="space-y-6">
+            {/* PENDING DEPOSITS REVIEW SECTION */}
+            <div className="glass-panel p-4 sm:p-5 rounded-2xl border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-100 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span>{language === 'am' ? 'የተጠቃሚዎች ገቢ ማረጋገጫ (Pending Deposits)' : 'Deposit Verifications & Approvals'}</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {language === 'am'
+                      ? 'የተጫዋቾች የ CBE/ቴሌብር የክፍያ መለያ ኮድ (Transaction ID) እዚህ ይመልከቱ እና ያረጋግጡ።'
+                      : 'Verify player CBE / Telebirr Transaction ID / SMS codes and approve to credit balance.'}
+                  </p>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  {transactions.filter((t) => t.type === 'DEPOSIT' && t.status === 'PENDING').length} {language === 'am' ? 'በመጠባበቅ ላይ' : 'Pending'}
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-900 text-slate-400 border-b border-slate-800">
+                      <th className="p-2.5">Tx ID</th>
+                      <th className="p-2.5">{t('users')}</th>
+                      <th className="p-2.5">{t('gateway')}</th>
+                      <th className="p-2.5">Transaction ID / Code (FT ቁጥር)</th>
+                      <th className="p-2.5">{t('amountETB')}</th>
+                      <th className="p-2.5">{t('status')}</th>
+                      <th className="p-2.5">{t('actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {transactions.filter((t) => t.type === 'DEPOSIT').length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-4 text-center text-slate-500 italic">
+                          {language === 'am' ? 'ምንም የገቢ ጥያቄ የለም' : 'No deposits recorded yet'}
+                        </td>
+                      </tr>
+                    ) : (
+                      transactions
+                        .filter((t) => t.type === 'DEPOSIT')
+                        .map((tx) => (
+                          <tr key={tx.id} className="hover:bg-slate-900/40">
+                            <td className="p-2.5 font-mono text-[11px] text-slate-400">{tx.id}</td>
+                            <td className="p-2.5 font-bold text-slate-200">@{tx.username}</td>
+                            <td className="p-2.5">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-200 border border-slate-700">
+                                {tx.paymentProvider}
+                              </span>
+                            </td>
+                            <td className="p-2.5 font-mono text-xs font-bold text-amber-300 bg-amber-950/20 px-2 py-1 rounded">
+                              {tx.reference || '—'}
+                            </td>
+                            <td className="p-2.5 font-bold text-emerald-400">{formatETB(tx.amount)}</td>
+                            <td className="p-2.5">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  tx.status === 'COMPLETED'
+                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                    : tx.status === 'PENDING'
+                                    ? 'bg-amber-500/20 text-amber-300 animate-pulse'
+                                    : 'bg-rose-500/20 text-rose-300'
+                                }`}
+                              >
+                                {tx.status}
+                              </span>
+                            </td>
+                            <td className="p-2.5">
+                              {tx.status === 'PENDING' ? (
+                                <div className="flex gap-1.5">
+                                  <button
+                                    onClick={() => approveDeposit(tx.id, user?.username || 'admin')}
+                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-black cursor-pointer shadow-xs transition"
+                                  >
+                                    ✓ {t('approve')}
+                                  </button>
+                                  <button
+                                    onClick={() => rejectDeposit(tx.id, user?.username || 'admin')}
+                                    className="px-2 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[10px] font-bold cursor-pointer transition"
+                                  >
+                                    ✕ {t('reject')}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-slate-500 italic text-[10px]">
+                                  {tx.status === 'COMPLETED' ? 'Credited' : 'Rejected'}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* WITHDRAWALS APPROVAL SECTION */}
+            <div className="glass-panel p-4 sm:p-5 rounded-2xl border-slate-800 space-y-3">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-200">{t('payoutApprovals')}</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-900 text-slate-400 border-b border-slate-800">
                     <th className="p-2.5">Req ID</th>
@@ -892,7 +994,8 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               </table>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {/* USERS TAB */}
         {activeTab === 'users' && (

@@ -62,6 +62,9 @@ interface BingoContextType {
   t: (key: keyof typeof translations['en']) => string;
   setActiveGameId: (id: string | null) => void;
   depositWallet: (amount: number, provider: PaymentProvider, reference: string) => Promise<boolean>;
+  submitPendingDeposit: (amount: number, provider: PaymentProvider, reference: string, transactionCode?: string) => Promise<boolean>;
+  approveDeposit: (transactionId: string, adminName: string) => Promise<void>;
+  rejectDeposit: (transactionId: string, adminName: string) => Promise<void>;
   requestWithdrawal: (amount: number, provider: PaymentProvider, accountNumber: string, accountName: string) => Promise<boolean>;
   approveWithdrawal: (withdrawalId: string, adminName: string) => void;
   rejectWithdrawal: (withdrawalId: string, adminName: string) => void;
@@ -449,6 +452,46 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
+  // 1b. SUBMIT PENDING DEPOSIT (Secure deposit request awaiting owner approval)
+  const submitPendingDeposit = async (
+    amount: number,
+    provider: PaymentProvider,
+    reference: string,
+    transactionCode?: string
+  ): Promise<boolean> => {
+    if (!user) {
+      openAuthModal('register');
+      return false;
+    }
+
+    const code = transactionCode || reference;
+    const newTxId = `TX_${Date.now().toString().slice(-6)}`;
+
+    const newTx: Transaction = {
+      id: newTxId,
+      userId: user.id,
+      username: user.username,
+      type: 'DEPOSIT',
+      amount,
+      balanceAfter: wallet.availableBalance, // NOT credited yet!
+      reference: code,
+      paymentProvider: provider,
+      status: 'PENDING',
+      description: `Deposit via ${provider} (Ref: ${code})`,
+      createdAt: new Date().toISOString(),
+    };
+
+    setTransactions((prev) => [newTx, ...prev]);
+
+    addNotification(
+      '⏳ Deposit Submitted for Verification',
+      `Your deposit of ${amount} ETB via ${provider} (Code: ${code}) has been submitted. The owner has been notified to verify your transaction code and credit your balance shortly.`,
+      'info'
+    );
+
+    return true;
+  };
+
   // 2. WITHDRAWAL REQUEST FLOW
   const requestWithdrawal = async (
     amount: number,
@@ -593,6 +636,81 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     addNotification(
       '❌ Withdrawal Rejected',
       `Your withdrawal request of ${wd.amount} ETB was rejected. Funds refunded to wallet.`,
+      'warning'
+    );
+  };
+
+  // 4b. ADMIN APPROVE DEPOSIT
+  const approveDeposit = async (transactionId: string, adminName: string) => {
+    const tx = transactions.find((t) => t.id === transactionId);
+    if (!tx || tx.status !== 'PENDING') return;
+
+    try {
+      await fetch('/api/admin/deposits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionId, action: 'APPROVE', adminName }),
+      });
+    } catch {}
+
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === transactionId ? { ...t, status: 'COMPLETED' } : t))
+    );
+    setWallet((prev) => ({
+      ...prev,
+      availableBalance: prev.availableBalance + tx.amount,
+      totalDeposited: prev.totalDeposited + tx.amount,
+    }));
+
+    const audit: AuditLog = {
+      id: `aud_${Date.now()}`,
+      adminUsername: adminName,
+      action: 'APPROVE_DEPOSIT',
+      target: `${tx.username} (${tx.amount} ETB via ${tx.paymentProvider})`,
+      amount: tx.amount,
+      ipAddress: '196.188.42.10',
+      timestamp: new Date().toISOString(),
+    };
+    setAuditLogs((prev) => [audit, ...prev]);
+
+    addNotification(
+      '✅ Deposit Approved!',
+      `Deposit of ${tx.amount} ETB via ${tx.paymentProvider} approved. Balance credited!`,
+      'success'
+    );
+  };
+
+  // 4c. ADMIN REJECT DEPOSIT
+  const rejectDeposit = async (transactionId: string, adminName: string) => {
+    const tx = transactions.find((t) => t.id === transactionId);
+    if (!tx) return;
+
+    try {
+      await fetch('/api/admin/deposits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionId, action: 'REJECT', adminName }),
+      });
+    } catch {}
+
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === transactionId ? { ...t, status: 'FAILED' } : t))
+    );
+
+    const audit: AuditLog = {
+      id: `aud_${Date.now()}`,
+      adminUsername: adminName,
+      action: 'REJECT_DEPOSIT',
+      target: `${tx.username} (${tx.amount} ETB via ${tx.paymentProvider})`,
+      amount: tx.amount,
+      ipAddress: '196.188.42.10',
+      timestamp: new Date().toISOString(),
+    };
+    setAuditLogs((prev) => [audit, ...prev]);
+
+    addNotification(
+      '❌ Deposit Rejected',
+      `Deposit of ${tx.amount} ETB was rejected.`,
       'warning'
     );
   };
@@ -1170,6 +1288,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         t,
         setActiveGameId,
         depositWallet,
+        submitPendingDeposit,
+        approveDeposit,
+        rejectDeposit,
         requestWithdrawal,
         approveWithdrawal,
         rejectWithdrawal,

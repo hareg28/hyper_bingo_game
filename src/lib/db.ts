@@ -385,6 +385,160 @@ const db = {
   },
 
   /**
+   * Create a PENDING deposit request without crediting balance yet.
+   */
+  async createPendingDeposit(params: {
+    id?: string;
+    userId: string;
+    amount: number;
+    provider: PaymentProvider;
+    reference: string;
+    description: string;
+  }): Promise<Transaction> {
+    const sql = getNeonSql();
+    const user = await this.getUserById(params.userId);
+    const username = user?.username ?? 'unknown';
+    const txId = params.id || generateId('tx');
+
+    if (sql) {
+      try {
+        const walletRows = await sql`SELECT available_balance FROM wallets WHERE user_id = ${params.userId} LIMIT 1`;
+        const currentBal = walletRows.length > 0 ? parseFloat(walletRows[0].available_balance) : 0;
+        const txRows = await sql`
+          INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
+          VALUES (
+            ${txId}, ${params.userId}, ${username}, 'DEPOSIT', ${params.amount}, ${currentBal},
+            ${params.provider}, 'PENDING', ${params.reference}, ${params.description}
+          )
+          RETURNING *
+        `;
+        return rowToTransaction(txRows[0]);
+      } catch (e) {
+        console.error('Neon createPendingDeposit error:', e);
+      }
+    }
+
+    const wallet = await this.getOrCreateWallet(params.userId);
+    const tx: Transaction = {
+      id: txId,
+      userId: params.userId,
+      username,
+      type: 'DEPOSIT',
+      amount: params.amount,
+      balanceAfter: wallet.availableBalance,
+      reference: params.reference,
+      paymentProvider: params.provider,
+      status: 'PENDING',
+      description: params.description,
+      createdAt: new Date().toISOString(),
+    };
+    transactionsMap.set(tx.id, tx);
+    return tx;
+  },
+
+  /**
+   * Admin approves a pending deposit -> credits user's wallet.
+   */
+  async approvePendingDeposit(transactionId: string): Promise<Transaction | null> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const txRows = await sql`SELECT * FROM transactions WHERE id = ${transactionId} LIMIT 1`;
+        if (txRows.length === 0) return null;
+        const tx = rowToTransaction(txRows[0]);
+        if (tx.status !== 'PENDING') return tx;
+
+        // Credit user wallet
+        const walletRows = await sql`
+          UPDATE wallets
+          SET
+            available_balance = available_balance + ${tx.amount},
+            total_deposited = total_deposited + ${tx.amount},
+            updated_at = NOW()
+          WHERE user_id = ${tx.userId}
+          RETURNING *
+        `;
+        const newBal = walletRows.length > 0 ? parseFloat(walletRows[0].available_balance) : 0;
+
+        // Update tx
+        const updatedTxRows = await sql`
+          UPDATE transactions
+          SET status = 'COMPLETED', balance_after = ${newBal}
+          WHERE id = ${transactionId}
+          RETURNING *
+        `;
+        return rowToTransaction(updatedTxRows[0]);
+      } catch (e) {
+        console.error('Neon approvePendingDeposit error:', e);
+      }
+    }
+
+    // In-memory
+    const tx = transactionsMap.get(transactionId);
+    if (!tx || tx.status !== 'PENDING') return tx || null;
+
+    const wallet = await this.getOrCreateWallet(tx.userId);
+    wallet.availableBalance += tx.amount;
+    wallet.totalDeposited += tx.amount;
+    walletsMap.set(tx.userId, wallet);
+
+    tx.status = 'COMPLETED';
+    tx.balanceAfter = wallet.availableBalance;
+    transactionsMap.set(transactionId, tx);
+    return tx;
+  },
+
+  /**
+   * Admin rejects a pending deposit.
+   */
+  async rejectPendingDeposit(transactionId: string): Promise<Transaction | null> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const updatedTxRows = await sql`
+          UPDATE transactions
+          SET status = 'FAILED'
+          WHERE id = ${transactionId}
+          RETURNING *
+        `;
+        if (updatedTxRows.length > 0) return rowToTransaction(updatedTxRows[0]);
+      } catch (e) {
+        console.error('Neon rejectPendingDeposit error:', e);
+      }
+    }
+
+    const tx = transactionsMap.get(transactionId);
+    if (tx) {
+      tx.status = 'FAILED';
+      transactionsMap.set(transactionId, tx);
+      return tx;
+    }
+    return null;
+  },
+
+  /**
+   * Get all pending deposits for admin review.
+   */
+  async getPendingDeposits(): Promise<Transaction[]> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          SELECT * FROM transactions
+          WHERE type = 'DEPOSIT' AND status = 'PENDING'
+          ORDER BY created_at DESC
+        `;
+        return rows.map(rowToTransaction);
+      } catch (e) {
+        console.error('Neon getPendingDeposits error:', e);
+      }
+    }
+    return Array.from(transactionsMap.values())
+      .filter((t) => t.type === 'DEPOSIT' && t.status === 'PENDING')
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  },
+
+  /**
    * Create a withdrawal request and deduct from winningBalance.
    */
   async createWithdrawal(params: {

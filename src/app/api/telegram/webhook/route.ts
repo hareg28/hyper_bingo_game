@@ -119,12 +119,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // Default fallback
+      // Default fallback — responds to ANY text that is not a command
       await sendTelegramMessage({
         chat_id: chatId,
         parse_mode: 'HTML',
         text: `🤖 <b>Hyper Bingo Bot</b>\n\nUse /start to open the game or /admin to access admin tools.\n\nጨዋታውን ለመጀመር /start ይጫኑ።\n\n` +
-              `🌟 <b>Weekend Hyper Draw:</b> Fri–Sun | 2:00 PM, 5:00 PM & 7:00 PM EAT\n` +
+              `🌟 <b>Weekend Hyper Draw:</b> Fri–Sun | 2:00 PM, 5:00 PM &amp; 7:00 PM EAT\n` +
               `📞 Support: <a href="tel:+251911234567">+251 91 123 4567</a> | @HyperBingoSupport`,
         reply_markup: {
           inline_keyboard: [
@@ -142,6 +142,16 @@ export async function POST(req: NextRequest) {
             ],
           ],
         },
+      });
+    }
+
+    // Handle callback_query (inline keyboard button presses) — always acknowledge
+    if (update.callback_query) {
+      const cbQuery = update.callback_query;
+      await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callback_query_id: cbQuery.id, text: '✅ Opening Hyper Bingo...' }),
       });
     }
 
