@@ -24,7 +24,9 @@ export interface Wallet {
 }
 
 export type GameStatus = 'SCHEDULED' | 'OPEN' | 'STARTING' | 'RUNNING' | 'COMPLETED' | 'CANCELLED';
-export type GameType = 'QUICK_BINGO' | 'CLASSIC_75' | 'HIGH_STAKES' | 'TURBO_EXPRESS' | 'WEEKEND_LOTTERY';
+export type GameType = 'QUICK_BINGO' | 'CLASSIC_75' | 'HIGH_STAKES' | 'TURBO_EXPRESS' | 'WEEKEND_LOTTERY' | 'HYPER_FETAN' | 'HYPER_SPECIAL';
+export type GameCategory = 'HYPER_FETAN' | 'HYPER_SPECIAL' | 'HYPER_WEEKEND';
+export type WinningRuleType = 'ONE_LINE_OR_CORNERS' | 'STANDARD' | 'FULL_HOUSE_ONLY';
 
 export interface WinnerRecord {
   userId: string;
@@ -40,6 +42,8 @@ export interface Game {
   id: string;
   name: string;
   gameType: GameType;
+  category?: GameCategory;
+  winningRule?: WinningRuleType;
   entryPrice: number;       // ETB
   minPlayers?: number;      // Required minimum players to start (e.g. 5 or 10)
   maxPlayers: number;
@@ -53,6 +57,8 @@ export interface Game {
   winners: WinnerRecord[];
   blockedCards?: string[];  // Array of blocked card numbers e.g. ['200']
   isWeekendSpecial?: boolean;
+  roundDuration?: number;   // In seconds, e.g. 60 for Hyper Fetan
+  pickDuration?: number;    // In seconds, e.g. 30 for Hyper Fetan intermission
   createdAt: string;
 }
 

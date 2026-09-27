@@ -28,7 +28,7 @@ export default function CardNumberSelector({
   const { t, language } = useBingo();
   const [selectedNumbers, setSelectedNumbers] = useState<string[]>(() => {
     if (initialCards && initialCards.length >= 1) {
-      return initialCards.slice(0, 3);
+      return initialCards.slice(0, 5);
     }
     return [];
   });
@@ -37,7 +37,7 @@ export default function CardNumberSelector({
   const [showMorePresets, setShowMorePresets] = useState(false);
 
   const MIN_CARDS = 1;
-  const MAX_CARDS = 3;
+  const MAX_CARDS = 5;
 
   const prevIsOpenRef = React.useRef(false);
 
@@ -45,7 +45,7 @@ export default function CardNumberSelector({
     // Only initialize when modal transitions from closed to open
     if (isOpen && !prevIsOpenRef.current) {
       if (initialCards && initialCards.length > 0) {
-        setSelectedNumbers(initialCards.slice(0, 3));
+        setSelectedNumbers(initialCards.slice(0, 5));
       } else {
         setSelectedNumbers([]);
       }

@@ -104,7 +104,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [wallet, setWallet] = useState<Wallet>(EMPTY_WALLET);
   const [games, setGames] = useState<Game[]>(INITIAL_GAMES);
-  const [activeGameId, setActiveGameId] = useState<string | null>('gm_small_05');
+  const [activeGameId, setActiveGameId] = useState<string | null>('gm_fetan_05');
   const [userCards, setUserCards] = useState<BingoCard[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>(INITIAL_WITHDRAWALS);
@@ -726,9 +726,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const targetGame = games.find((g) => g.id === gameId);
     if (!targetGame) return false;
 
-    // Slot max 3: cap cards to at most 3
+    // Slot max 5: cap cards to at most 5
     const rawCards = chosenCardNumbers && chosenCardNumbers.length > 0 ? chosenCardNumbers : [String(Math.floor(10000 + Math.random() * 90000))];
-    const cardsToCreate = rawCards.slice(0, 3);
+    const cardsToCreate = rawCards.slice(0, 5);
     const totalCost = targetGame.entryPrice * cardsToCreate.length;
 
     // Bonus balance is playable (can play but cannot withdraw)
@@ -772,7 +772,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       balanceAfter: newAvailable,
       reference: `GM-${targetGame.id}`,
       status: 'COMPLETED',
-      description: `Entry ticket (${cardsToCreate.length} cards, max 3 slots) for ${targetGame.name}`,
+      description: `Entry ticket (${cardsToCreate.length} cards, max 5 slots) for ${targetGame.name}`,
       createdAt: new Date().toISOString(),
     };
     setTransactions((prev) => [tx, ...prev]);
@@ -797,7 +797,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
-  // Add individual card to existing game session (max 3 slots)
+  // Add individual card to existing game session (max 5 slots)
   const addCardToGame = (gameId: string, cardNumber: string): boolean => {
     if (!user) {
       openAuthModal('register');
@@ -808,10 +808,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const targetGame = games.find((g) => g.id === gameId);
     if (!targetGame) return false;
 
-    // Slot max 3 check
+    // Slot max 5 check
     const currentCardsCount = userCards.filter((c) => c.gameId === gameId).length;
-    if (currentCardsCount >= 3) {
-      addNotification('⚠️ Max 3 Slots', 'Maximum 3 cards/slots allowed per game.', 'warning');
+    if (currentCardsCount >= 5) {
+      addNotification('⚠️ Max 5 Slots', 'Maximum 5 cards/slots allowed per game.', 'warning');
       return false;
     }
 
@@ -957,20 +957,28 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    // ---- WINNING RULE CHECK ----
-    // 4 Rules: 1 Line, 2 Lines, Letter X, Full House
-    const bestRule: WinningRuleMatch | null = getBestWinningRule(card.marked);
+    // ---- WINNING RULE CHECK ACCORDING TO GAME CATEGORY / RULE ----
+    // Hyper Fetan: 1 Line OR 4 Corners
+    // Hyper Weekend: Full House Only
+    // Hyper Special: Standard (1 Line, 2 Lines, Letter X, Full House)
+    const bestRule: WinningRuleMatch | null = getBestWinningRule(card.marked, game.winningRule);
 
     if (!bestRule) {
       blockCard(game.id, card.cardNumber);
+      const ruleDesc = game.winningRule === 'ONE_LINE_OR_CORNERS'
+        ? (language === 'am' ? '1 መስመር ወይም 4 ማዕዘናት' : '1 Line or 4 Corners')
+        : game.winningRule === 'FULL_HOUSE_ONLY'
+        ? (language === 'am' ? 'ሙሉ ቤት (Full House)' : 'Full House')
+        : (language === 'am' ? 'የተፈቀደ የድል ጥምረት' : 'a winning pattern');
+
       addNotification(
-        '🚫 BLOCKED! Disqualified for False Bingo',
-        `Card #${card.cardNumber} shouted Bingo without a winning pattern.`,
+        '🚫 BLOCKED! False Bingo Claim',
+        `Card #${card.cardNumber} shouted Bingo without ${ruleDesc}.`,
         'warning'
       );
       return {
         success: false,
-        message: `🚫 BLOCKED! Card #${card.cardNumber} is now blocked for shouting Bingo without a winning pattern.`,
+        message: `🚫 BLOCKED! Card #${card.cardNumber} shouted Bingo without ${ruleDesc}.`,
       };
     }
 

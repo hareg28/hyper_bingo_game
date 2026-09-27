@@ -113,7 +113,11 @@ export function checkFullHouseWin(marked: boolean[][]): boolean {
   return true;
 }
 
-export type WinningRuleId = 'ONE_LINE' | 'TWO_LINES' | 'LETTER_X' | 'FULL_HOUSE';
+export function checkFourCornersWin(marked: boolean[][]): boolean {
+  return Boolean(marked[0][0] && marked[0][4] && marked[4][0] && marked[4][4]);
+}
+
+export type WinningRuleId = 'ONE_LINE' | 'TWO_LINES' | 'LETTER_X' | 'FULL_HOUSE' | 'FOUR_CORNERS';
 
 export interface WinningRuleMatch {
   id: WinningRuleId;
@@ -162,10 +166,28 @@ export function getTwoDistinctLinesCompleted(marked: boolean[][]): boolean {
   return countCompletedLines(marked) >= 2;
 }
 
-export function detectWinningRules(marked: boolean[][]): WinningRuleMatch[] {
+export function detectWinningRules(marked: boolean[][], ruleType?: 'ONE_LINE_OR_CORNERS' | 'STANDARD' | 'FULL_HOUSE_ONLY'): WinningRuleMatch[] {
   const fullHouse = checkFullHouseWin(marked);
   const linesCompleted = countCompletedLines(marked);
   const oneLine = linesCompleted >= 1;
+  const fourCorners = checkFourCornersWin(marked);
+
+  // CATEGORY 1: HYPER FETAN (1 Line OR 4 Corners)
+  if (ruleType === 'ONE_LINE_OR_CORNERS') {
+    return [
+      { id: 'FOUR_CORNERS', label: '4 Corners', labelAm: '4 ማዕዘናት', rank: 1, isMatch: fourCorners },
+      { id: 'ONE_LINE', label: '1 Line', labelAm: '1 መስመር', rank: 2, isMatch: oneLine },
+    ];
+  }
+
+  // CATEGORY 3: HYPER WEEKEND (Full House Only)
+  if (ruleType === 'FULL_HOUSE_ONLY') {
+    return [
+      { id: 'FULL_HOUSE', label: 'Full House', labelAm: 'ሙሉ ቤት', rank: 1, isMatch: fullHouse },
+    ];
+  }
+
+  // CATEGORY 2: HYPER SPECIAL / STANDARD (1 Line, 2 Lines, Letter X, Full House)
   const twoLines = getTwoDistinctLinesCompleted(marked);
   const letterX = checkLetterXWin(marked);
 
@@ -174,11 +196,12 @@ export function detectWinningRules(marked: boolean[][]): WinningRuleMatch[] {
     { id: 'TWO_LINES', label: '2 Lines', labelAm: '2 መስመሮች', rank: 3, isMatch: twoLines && !fullHouse && !letterX },
     { id: 'LETTER_X', label: 'Letter X', labelAm: 'ፊደል X', rank: 2, isMatch: letterX && !fullHouse },
     { id: 'FULL_HOUSE', label: 'Full House', labelAm: 'ሙሉ ቤት', rank: 1, isMatch: fullHouse },
+    { id: 'FOUR_CORNERS', label: '4 Corners', labelAm: '4 ማዕዘናት', rank: 5, isMatch: fourCorners && !fullHouse },
   ];
 }
 
-export function getBestWinningRule(marked: boolean[][]): WinningRuleMatch | null {
-  const matches = detectWinningRules(marked).filter((r) => r.isMatch).sort((a, b) => a.rank - b.rank);
+export function getBestWinningRule(marked: boolean[][], ruleType?: 'ONE_LINE_OR_CORNERS' | 'STANDARD' | 'FULL_HOUSE_ONLY'): WinningRuleMatch | null {
+  const matches = detectWinningRules(marked, ruleType).filter((r) => r.isMatch).sort((a, b) => a.rank - b.rank);
   return matches.length > 0 ? matches[0] : null;
 }
 
@@ -190,9 +213,46 @@ export interface OneAwayStatus {
   ruleLabelAm: string;
 }
 
-export function checkOneAwayStatus(marked: boolean[][], numbers: number[][]): OneAwayStatus {
-  // If already won a pattern, not 1-away
-  if (getBestWinningRule(marked)) {
+export function checkOneAwayStatus(marked: boolean[][], numbers: number[][], ruleType?: 'ONE_LINE_OR_CORNERS' | 'STANDARD' | 'FULL_HOUSE_ONLY'): OneAwayStatus {
+  // If already won a pattern according to this game's rule, not 1-away
+  if (getBestWinningRule(marked, ruleType)) {
+    return { isOneAway: false, neededNumber: null, neededCell: null, ruleLabel: '', ruleLabelAm: '' };
+  }
+
+  // If HYPER_FETAN: check 4 corners 1-away first!
+  if (ruleType === 'ONE_LINE_OR_CORNERS') {
+    const corners: [number, number][] = [[0, 0], [0, 4], [4, 0], [4, 4]];
+    const unmarkedCorners = corners.filter(([r, c]) => !marked[r][c]);
+    if (unmarkedCorners.length === 1) {
+      const [r, c] = unmarkedCorners[0];
+      return {
+        isOneAway: true,
+        neededNumber: numbers[r][c],
+        neededCell: [r, c],
+        ruleLabel: '4 Corners',
+        ruleLabelAm: '4 ማዕዘናት',
+      };
+    }
+  }
+
+  // If FULL_HOUSE_ONLY: only check Full House 1-away
+  if (ruleType === 'FULL_HOUSE_ONLY') {
+    let fullHouseUnmarked: [number, number][] = [];
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        if (!marked[r][c]) fullHouseUnmarked.push([r, c]);
+      }
+    }
+    if (fullHouseUnmarked.length === 1) {
+      const [r, c] = fullHouseUnmarked[0];
+      return {
+        isOneAway: true,
+        neededNumber: numbers[r][c],
+        neededCell: [r, c],
+        ruleLabel: 'Full House',
+        ruleLabelAm: 'ሙሉ ቤት',
+      };
+    }
     return { isOneAway: false, neededNumber: null, neededCell: null, ruleLabel: '', ruleLabelAm: '' };
   }
 
@@ -252,6 +312,20 @@ export function checkOneAwayStatus(marked: boolean[][], numbers: number[][]): On
     };
   }
 
+  // Check 4 Corners for standard game if not fetan
+  const corners: [number, number][] = [[0, 0], [0, 4], [4, 0], [4, 4]];
+  const unmarkedCorners = corners.filter(([r, c]) => !marked[r][c]);
+  if (unmarkedCorners.length === 1) {
+    const [r, c] = unmarkedCorners[0];
+    return {
+      isOneAway: true,
+      neededNumber: numbers[r][c],
+      neededCell: [r, c],
+      ruleLabel: '4 Corners',
+      ruleLabelAm: '4 ማዕዘናት',
+    };
+  }
+
   // Check Full House (only 1 cell remaining on whole card)
   let fullHouseUnmarked: [number, number][] = [];
   for (let r = 0; r < 5; r++) {
@@ -271,6 +345,99 @@ export function checkOneAwayStatus(marked: boolean[][], numbers: number[][]): On
   }
 
   return { isOneAway: false, neededNumber: null, neededCell: null, ruleLabel: '', ruleLabelAm: '' };
+}
+
+/**
+ * Generates dynamic HIT & Requirement guidance for a card.
+ */
+export function getGameHitRequirement(
+  marked: boolean[][],
+  numbers: number[][],
+  ruleType: 'ONE_LINE_OR_CORNERS' | 'STANDARD' | 'FULL_HOUSE_ONLY' = 'STANDARD',
+  language: string = 'en'
+): { isHit: boolean; hitTitle: string; hitDetail: string; neededNumber: number | null; progressText: string } {
+  const isAm = language === 'am';
+  const bestWin = getBestWinningRule(marked, ruleType);
+  if (bestWin) {
+    return {
+      isHit: true,
+      hitTitle: isAm ? '🎉 አሸናፊ ነዎት!' : '🎉 BINGO READY!',
+      hitDetail: isAm ? `የ ${bestWin.labelAm} ጥምረት ተጠናቋል! አሁኑኑ BINGO ይጫኑ!` : `${bestWin.label} complete! Tap BINGO to claim!`,
+      neededNumber: null,
+      progressText: '100% Complete',
+    };
+  }
+
+  const oneAway = checkOneAwayStatus(marked, numbers, ruleType);
+  if (oneAway.isOneAway && oneAway.neededNumber) {
+    const label = isAm ? oneAway.ruleLabelAm : oneAway.ruleLabel;
+    return {
+      isHit: true,
+      hitTitle: isAm ? `🔥 የድል ሂት! 1 ቁጥር ብቻ ቀረዎ!` : `🔥 HIT ALERT! 1 Ball Away!`,
+      hitDetail: isAm 
+        ? `ለ ${label} ድል ቁጥር #${oneAway.neededNumber} ያስፈልግዎታል!` 
+        : `Need Ball #${oneAway.neededNumber} for ${label} Win!`,
+      neededNumber: oneAway.neededNumber,
+      progressText: isAm ? '1 ብቻ ቀረ' : '1 away',
+    };
+  }
+
+  // Not 1-away: provide exact requirement and current progress
+  if (ruleType === 'ONE_LINE_OR_CORNERS') {
+    // Check corners count
+    const corners: [number, number][] = [[0, 0], [0, 4], [4, 0], [4, 4]];
+    const markedCorners = corners.filter(([r, c]) => marked[r][c]).length;
+
+    // Check max marked in any line
+    let maxLine = 0;
+    for (let r = 0; r < 5; r++) {
+      const c = [0, 1, 2, 3, 4].filter((col) => marked[r][col]).length;
+      if (c > maxLine) maxLine = c;
+    }
+    for (let c = 0; c < 5; c++) {
+      const r = [0, 1, 2, 3, 4].filter((row) => marked[row][c]).length;
+      if (r > maxLine) maxLine = r;
+    }
+
+    return {
+      isHit: false,
+      hitTitle: isAm ? '🎯 የሚያስፈልገው: 1 መስመር ወይም 4 ማዕዘናት' : '🎯 Requirement: 1 Line or 4 Corners',
+      hitDetail: isAm 
+        ? `ማንኛውም 1 መስመር (አግድም/ቁመት/ዲያጎናል) ወይም አራቱን ማዕዘናት በማጠናቀቅ ያሸንፉ (ማዕዘናት: ${markedCorners}/4)`
+        : `Complete any 1 Line (Row / Col / Diagonal) or all 4 Corners to win (Corners: ${markedCorners}/4, Best Line: ${maxLine}/5)`,
+      neededNumber: null,
+      progressText: `${Math.max(markedCorners, maxLine)} / 5`,
+    };
+  }
+
+  if (ruleType === 'FULL_HOUSE_ONLY') {
+    let totalMarked = 0;
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        if (marked[r][c]) totalMarked++;
+      }
+    }
+    const remaining = 25 - totalMarked;
+    return {
+      isHit: false,
+      hitTitle: isAm ? '🏆 የሚያስፈልገው: ሙሉ ቤት (Full House)' : '🏆 Requirement: Full House (All Cells)',
+      hitDetail: isAm 
+        ? `በካርዱ ላይ ያሉትን ሁሉንም 24 ቁጥሮች ምልክት በማድረግ ሙሉ ቤት ያሸንፉ (${totalMarked}/25 ተጠናቋል)` 
+        : `Mark all 24 numbers on your card to win Full House jackpot (${totalMarked}/25 marked, ${remaining} needed)`,
+      neededNumber: null,
+      progressText: `${totalMarked}/25`,
+    };
+  }
+
+  return {
+    isHit: false,
+    hitTitle: isAm ? '⚡ የሚያስፈልገው: 1 መስመር፣ 2 መስመሮች ወይም ሙሉ ቤት' : '⚡ Requirement: 1 Line, 2 Lines, or Full House',
+    hitDetail: isAm 
+      ? 'የተጠሩትን ቁጥሮች በማስመር የቢንጎ ድል ያስመዝግቡ'
+      : 'Match drawn numbers to complete a winning line or full house',
+    neededNumber: null,
+    progressText: 'In Progress',
+  };
 }
 
 export const WINNING_RULES_PATTERNS: { id: WinningRuleId; title: string; titleAm: string; subtitle: string; subtitleAm: string; pattern: boolean[][] }[] = [
@@ -313,6 +480,20 @@ export const WINNING_RULES_PATTERNS: { id: WinningRuleId; title: string; titleAm
       [false, true, false, true, false],
       [false, false, true, false, false],
       [false, true, false, true, false],
+      [true, false, false, false, true],
+    ],
+  },
+  {
+    id: 'FOUR_CORNERS',
+    title: '4 Corners',
+    titleAm: '4 ማዕዘናት',
+    subtitle: 'All 4 corner squares marked',
+    subtitleAm: 'አራቱም ማዕዘናት የተሟሉ',
+    pattern: [
+      [true, false, false, false, true],
+      [false, false, false, false, false],
+      [false, false, false, false, false],
+      [false, false, false, false, false],
       [true, false, false, false, true],
     ],
   },

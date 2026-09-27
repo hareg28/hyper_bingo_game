@@ -11,12 +11,14 @@ import {
 import { 
   formatETB, 
   checkFullHouseWin, 
+  checkFourCornersWin,
   countRemainingNumbers,
   playBingoVictoryFanfare,
   WINNING_RULES_PATTERNS,
   getBestWinningRule,
   WinningRuleMatch,
   checkOneAwayStatus,
+  getGameHitRequirement,
 } from '../../lib/bingoUtils';
 import confetti from 'canvas-confetti';
 import CardNumberSelector from './CardNumberSelector';
@@ -255,6 +257,79 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Hyper Fetan 1-minute round + 30-second card pick period live loop
+  const [fetanSecondsLeft, setFetanSecondsLeft] = useState<number>(60);
+  const [fetanIsIntermission, setFetanIsIntermission] = useState<boolean>(false);
+
+  useEffect(() => {
+    const updateFetanClock = () => {
+      const epochSec = Math.floor(Date.now() / 1000);
+      const cycle = epochSec % 90; // 0..59: 60s active game round, 60..89: 30s pick cards intermission
+      if (cycle < 60) {
+        setFetanIsIntermission(false);
+        setFetanSecondsLeft(60 - cycle);
+      } else {
+        setFetanIsIntermission(true);
+        setFetanSecondsLeft(90 - cycle);
+      }
+    };
+    updateFetanClock();
+    const interval = setInterval(updateFetanClock, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Dynamic Hit Requirement calculation for active cards
+  const topHitRequirement = React.useMemo(() => {
+    const isAm = language === 'am';
+    if (activeGameCards.length === 0) {
+      if (currentGame.winningRule === 'ONE_LINE_OR_CORNERS') {
+        return {
+          isHit: false,
+          hitTitle: isAm ? '🎯 የሚያስፈልገው: 1 መስመር ወይም 4 ማዕዘናት' : '🎯 Win Condition: 1 Line or 4 Corners',
+          hitDetail: isAm 
+            ? 'ለመጫወት ካርታ ይምረጡ (ከ1-500 እስከ 5 ካርዶች)። ለማሸነፍ ማንኛውም 1 መስመር ወይም አራቱ ማዕዘናት ያስፈልጋል።' 
+            : 'Pick cards (1–500, up to 5 slots) to enter. Complete any 1 line or the 4 corners to win!',
+          progressText: isAm ? '5 ክፍተቶች' : '5 Slots',
+          neededNumber: null,
+        };
+      }
+      if (currentGame.winningRule === 'FULL_HOUSE_ONLY') {
+        return {
+          isHit: false,
+          hitTitle: isAm ? '🏆 የሚያስፈልገው: ሙሉ ቤት ብቻ (Full House Only)' : '🏆 Win Condition: Full House Only',
+          hitDetail: isAm 
+            ? 'ለመጫወት ካርታ ይምረጡ። በካርዱ ላይ ያሉትን ሁሉንም 24 ቁጥሮች ምልክት በማድረግ ሜጋ ጃክፖት ያሸንፉ!' 
+            : 'Pick cards to enter. Every cell on the card must be marked to claim Full House jackpot!',
+          progressText: isAm ? 'ሙሉ ቤት' : 'Full House',
+          neededNumber: null,
+        };
+      }
+      return {
+        isHit: false,
+        hitTitle: isAm ? '⚡ የሚያስፈልገው: 1 መስመር፣ 2 መስመሮች ወይም ሙሉ ቤት' : '⚡ Win Condition: 1 Line, 2 Lines, or Full House',
+        hitDetail: isAm 
+          ? 'የተጠሩትን ቁጥሮች በማስመር የቢንጎ ድል ያስመዝግቡ።' 
+          : 'Daub called numbers to complete a winning line or full house!',
+        progressText: isAm ? 'መደበኛ' : 'Standard',
+        neededNumber: null,
+      };
+    }
+
+    // Check if any active card has a 1-away hit
+    for (const card of activeGameCards) {
+      const hit = getGameHitRequirement(card.marked, card.numbers, currentGame.winningRule, language);
+      if (hit.isHit) {
+        return {
+          ...hit,
+          hitDetail: `[Card #${card.cardNumber}] ${hit.hitDetail}`,
+        };
+      }
+    }
+
+    // Otherwise return best general requirement with progress
+    return getGameHitRequirement(activeGameCards[0].marked, activeGameCards[0].numbers, currentGame.winningRule, language);
+  }, [activeGameCards, currentGame.winningRule, language]);
 
   const formatTimeRemaining = (totalSec: number): string => {
     const m = Math.floor(totalSec / 60);
@@ -817,19 +892,26 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       return;
     }
 
-    // Check pattern completeness using 4 winning rules: 1 Line, 2 Lines, Letter X, Full House
-    const bestRule: WinningRuleMatch | null = getBestWinningRule(targetCard.marked);
+    // Check pattern completeness according to game's winning rule:
+    // Fetan: 1 Line or 4 Corners | Weekend: Full House Only | Special: Standard
+    const bestRule: WinningRuleMatch | null = getBestWinningRule(targetCard.marked, currentGame.winningRule);
 
     if (!bestRule) {
       // FALSE BINGO -> BLOCK THE PLAYER & CARD
       playErrorBuzzer();
       const rem = countRemainingNumbers(targetCard.marked);
-      const result = claimBingo(targetCard.id); // This adds card to blockedCards in context
+      claimBingo(targetCard.id); // This adds card to blockedCards in context
+      const ruleName = currentGame.winningRule === 'ONE_LINE_OR_CORNERS'
+        ? (language === 'am' ? '1 መስመር ወይም 4 ማዕዘናት' : '1 Line or 4 Corners')
+        : currentGame.winningRule === 'FULL_HOUSE_ONLY'
+        ? (language === 'am' ? 'ሙሉ ቤት (Full House)' : 'Full House')
+        : (language === 'am' ? 'የተፈቀደ የድል ጥምረት' : 'a winning pattern');
+
       setClaimStatus({
         success: false,
         message: language === 'am'
-          ? `🚫 ታግደዋል! ካርድ #${targetCard.cardNumber} የአሸናፊ አሳይ ሳያሳይ ቢንጎ ስላሉ ታግደዋል። (${rem} ቁጥሮች ቀርተዋል)`
-          : `🚫 BLOCKED! Card #${targetCard.cardNumber} disqualified for false Bingo claim — no winning pattern matched (${rem} numbers left).`
+          ? `🚫 ታግደዋል! ካርድ #${targetCard.cardNumber} ያለ ${ruleName} ቢንጎ ስላሉ ታግደዋል። (${rem} ቁጥሮች ቀርተዋል)`
+          : `🚫 BLOCKED! Card #${targetCard.cardNumber} disqualified for false claim without ${ruleName} (${rem} numbers left).`
       });
       return;
     }
@@ -985,7 +1067,91 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </button>
             </div>
           </div>
-        )}
+        {/* ================================================================
+            RULE ON TOP OF THE GAME & HIT / WHAT THE GAME REQUIRES
+            ================================================================ */}
+        <div className="mx-2 mt-2 space-y-2">
+          {/* RULE BANNER */}
+          <div className={`p-3 rounded-2xl border-2 shadow-xs transition-all ${
+            currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
+              ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 border-amber-600'
+              : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
+              ? 'bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white border-purple-400'
+              : 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border-indigo-400'
+          }`}>
+            <div className="flex items-center justify-between gap-1 mb-1">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-base shrink-0">
+                  {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' ? '⚡' : currentGame.winningRule === 'FULL_HOUSE_ONLY' ? '🌟' : '🎲'}
+                </span>
+                <span className="text-xs font-black uppercase tracking-wider truncate">
+                  {currentGame.winningRule === 'ONE_LINE_OR_CORNERS'
+                    ? (language === 'am' ? 'የፈጣን ቢንጎ ደንብ (Hyper Fetan Rule)' : 'Hyper Fetan Rule')
+                    : currentGame.winningRule === 'FULL_HOUSE_ONLY'
+                    ? (language === 'am' ? 'የሳምንት መጨረሻ ደንብ (Hyper Weekend Rule)' : 'Hyper Weekend Rule')
+                    : (language === 'am' ? 'የስፔሻል ቢንጎ ደንብ (Hyper Special Rule)' : 'Hyper Special Rule')}
+                </span>
+              </div>
+
+              {/* Fetan 1-min game / 30-sec pick live counter badge */}
+              {(currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN') && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-950 text-amber-300 font-mono shadow-xs shrink-0 tabular-nums">
+                  {fetanIsIntermission ? `⏳ Pick: ${fetanSecondsLeft}s` : `● Live: ${fetanSecondsLeft}s`}
+                </span>
+              )}
+            </div>
+
+            {/* Main Rule Text */}
+            <div className="text-xs font-black leading-snug">
+              {currentGame.winningRule === 'ONE_LINE_OR_CORNERS'
+                ? (language === 'am' ? '🎯 1 መስመር (አግድም፣ ቁመት፣ ዲያጎናል) ወይም 4 ማዕዘናት ማጠናቀቅ!' : '🎯 1 Line (Row / Col / Diagonal) OR 4 Corners to Win!')
+                : currentGame.winningRule === 'FULL_HOUSE_ONLY'
+                ? (language === 'am' ? '🏆 ሙሉ ቤት ብቻ (ሁሉንም 24 ቁጥሮች ምልክት ማድረግ)!' : '🏆 FULL HOUSE ONLY (All 24 Numbers Marked) to Win!')
+                : (language === 'am' ? '⚡ 1 መስመር፣ 2 መስመሮች ወይም ሙሉ ቤት ማጠናቀቅ!' : '⚡ 1 Line, 2 Lines, Letter X, or Full House to Win!')}
+            </div>
+
+            {/* Sub-label */}
+            <div className={`text-[10px] font-bold mt-1 ${
+              currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
+                ? 'text-slate-900 opacity-90'
+                : 'text-slate-300'
+            }`}>
+              {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
+                ? (language === 'am' ? '⏱️ 1 ደቂቃ ጨዋታ • 30 ሴኮንድ ካርድ መምረጫ • 5 ክፍተቶች' : '⏱️ 1 Min Round • 30 Sec Card Pick Period • 5 Slots')
+                : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
+                ? (language === 'am' ? `💰 ሜጋ ጃክፖት ሽልማት: ${formatETB(gamePrizeDisplay)}` : `💰 Mega Jackpot: ${formatETB(gamePrizeDisplay)} • Fri–Sun Draws`)
+                : (language === 'am' ? '🎮 የቀጥታ 75-ኳስ ጨዋታ ክፍል • 85% የሽልማት ገንዳ' : '🎮 Classic Live 75-Ball Engine • 85% to Winners')}
+            </div>
+          </div>
+
+          {/* DYNAMIC HIT / WHAT THE GAME REQUIRED */}
+          {topHitRequirement && (
+            <div className={`p-2.5 rounded-2xl border transition-all ${
+              topHitRequirement.isHit
+                ? 'bg-amber-100 border-amber-400 text-amber-950 shadow-sm animate-pulse'
+                : 'bg-white border-slate-200 text-slate-800 shadow-2xs'
+            }`}>
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-base shrink-0">
+                    {topHitRequirement.isHit ? '🔥' : '💡'}
+                  </span>
+                  <span className={`text-[11px] font-black uppercase tracking-wider truncate ${topHitRequirement.isHit ? 'text-amber-950 font-black' : 'text-slate-900 font-bold'}`}>
+                    {topHitRequirement.hitTitle}
+                  </span>
+                </div>
+                {topHitRequirement.progressText && (
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-300 font-mono shrink-0">
+                    {topHitRequirement.progressText}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] leading-snug mt-1 font-medium text-slate-700">
+                {topHitRequirement.hitDetail}
+              </p>
+            </div>
+          )}
+        </div>
 
       {/* ── Weekend Stake Price Selector (ONLY for Weekend Games) ────── */}
       {isWeekendGame && weekendGames.length > 1 && onChangeGameId && (
@@ -1459,11 +1625,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           <>
             {/* ── Render EACH card as its own independent table ── */}
             {activeGameCards.map((card, cardIdx) => {
-              const cardIsWin = checkFullHouseWin(card.marked);
+              const cardIsWin = Boolean(getBestWinningRule(card.marked, currentGame.winningRule));
               const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
               const cardDrawnSet = new Set(currentGame.drawnNumbers);
               const cardIsHint = hintCardId === card.id;
-              const oneAway = checkOneAwayStatus(card.marked, card.numbers);
+              const oneAway = checkOneAwayStatus(card.marked, card.numbers, currentGame.winningRule);
 
               return (
                 <div
