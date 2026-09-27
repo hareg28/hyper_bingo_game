@@ -6,7 +6,8 @@ import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS } from '../../lib/b
 import { 
   Wallet, User as UserIcon, Shield, 
   Share2, Copy, Check, LogOut, Sparkles, 
-  ChevronRight, ChevronLeft, Globe, X, Users, Gift
+  ChevronRight, ChevronLeft, Globe, X, Users, Gift,
+  Gamepad2, Zap
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
 import WalletManager from '../wallet/WalletManager';
