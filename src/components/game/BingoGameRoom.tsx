@@ -1069,87 +1069,53 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </div>
         )}
         {/* ================================================================
-            RULE ON TOP OF THE GAME & HIT / WHAT THE GAME REQUIRES
+            ONE-LINE COMPACT RULE & HIT BAR
             ================================================================ */}
-        <div className="mx-2 mt-2 space-y-2">
-          {/* RULE BANNER */}
-          <div className={`p-3 rounded-2xl border-2 shadow-xs transition-all ${
+        <div className="mx-2 mt-1.5 space-y-1">
+          <div className={`px-3 py-1.5 rounded-xl border flex items-center justify-between gap-2 shadow-2xs transition-all ${
             currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
-              ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 border-amber-600'
+              ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 border-amber-600'
               : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
-              ? 'bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white border-purple-400'
-              : 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border-indigo-400'
+              ? 'bg-gradient-to-r from-purple-900 to-indigo-900 text-white border-purple-400'
+              : 'bg-gradient-to-r from-slate-900 to-indigo-950 text-white border-indigo-400'
           }`}>
-            <div className="flex items-center justify-between gap-1 mb-1">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-base shrink-0">
-                  {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' ? '⚡' : currentGame.winningRule === 'FULL_HOUSE_ONLY' ? '🌟' : '🎲'}
-                </span>
-                <span className="text-xs font-black uppercase tracking-wider truncate">
-                  {currentGame.winningRule === 'ONE_LINE_OR_CORNERS'
-                    ? (language === 'am' ? 'የፈጣን ቢንጎ ደንብ (Hyper Fetan Rule)' : 'Hyper Fetan Rule')
-                    : currentGame.winningRule === 'FULL_HOUSE_ONLY'
-                    ? (language === 'am' ? 'የሳምንት መጨረሻ ደንብ (Hyper Weekend Rule)' : 'Hyper Weekend Rule')
-                    : (language === 'am' ? 'የስፔሻል ቢንጎ ደንብ (Hyper Special Rule)' : 'Hyper Special Rule')}
-                </span>
-              </div>
-
-              {/* Fetan 1-min game / 30-sec pick live counter badge */}
-              {(currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN') && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-950 text-amber-300 font-mono shadow-xs shrink-0 tabular-nums">
-                  {fetanIsIntermission ? `⏳ Pick: ${fetanSecondsLeft}s` : `● Live: ${fetanSecondsLeft}s`}
-                </span>
-              )}
+            <div className="flex items-center gap-1.5 min-w-0 truncate text-[11px]">
+              <span className="shrink-0 text-sm">
+                {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' ? '⚡' : currentGame.winningRule === 'FULL_HOUSE_ONLY' ? '🌟' : '🎲'}
+              </span>
+              <span className="font-black uppercase tracking-wider shrink-0">
+                {language === 'am' ? 'ሕግ:' : 'Rule:'}
+              </span>
+              <span className="font-bold truncate">
+                {currentGame.winningRule === 'ONE_LINE_OR_CORNERS'
+                  ? (language === 'am' ? '1 መስመር ወይም 4 ማዕዘን (ፈጣን ቢንጎ)' : '1 Line or 4 Corners to Win')
+                  : currentGame.winningRule === 'FULL_HOUSE_ONLY'
+                  ? (language === 'am' ? 'ሙሉ ቤት ብቻ 24/24 (ሜጋ ጃክፖት)' : 'Full House Only (All 24 Numbers)')
+                  : (language === 'am' ? '1 መስመር፣ 2 መስመር፣ X፣ ሙሉ ቤት' : '1L, 2L, X, or Full House to Win')}
+              </span>
             </div>
 
-            {/* Main Rule Text */}
-            <div className="text-xs font-black leading-snug">
-              {currentGame.winningRule === 'ONE_LINE_OR_CORNERS'
-                ? (language === 'am' ? '🎯 1 መስመር (አግድም፣ ቁመት፣ ዲያጎናል) ወይም 4 ማዕዘናት ማጠናቀቅ!' : '🎯 1 Line (Row / Col / Diagonal) OR 4 Corners to Win!')
-                : currentGame.winningRule === 'FULL_HOUSE_ONLY'
-                ? (language === 'am' ? '🏆 ሙሉ ቤት ብቻ (ሁሉንም 24 ቁጥሮች ምልክት ማድረግ)!' : '🏆 FULL HOUSE ONLY (All 24 Numbers Marked) to Win!')
-                : (language === 'am' ? '⚡ 1 መስመር፣ 2 መስመሮች ወይም ሙሉ ቤት ማጠናቀቅ!' : '⚡ 1 Line, 2 Lines, Letter X, or Full House to Win!')}
-            </div>
-
-            {/* Sub-label */}
-            <div className={`text-[10px] font-bold mt-1 ${
-              currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
-                ? 'text-slate-900 opacity-90'
-                : 'text-slate-300'
-            }`}>
-              {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
-                ? (language === 'am' ? '⏱️ 1 ደቂቃ ጨዋታ • 30 ሴኮንድ ካርድ መምረጫ • 5 ክፍተቶች' : '⏱️ 1 Min Round • 30 Sec Card Pick Period • 5 Slots')
-                : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
-                ? (language === 'am' ? `💰 ሜጋ ጃክፖት ሽልማት: ${formatETB(gamePrizeDisplay)}` : `💰 Mega Jackpot: ${formatETB(gamePrizeDisplay)} • Fri–Sun Draws`)
-                : (language === 'am' ? '🎮 የቀጥታ 75-ኳስ ጨዋታ ክፍል • 85% የሽልማት ገንዳ' : '🎮 Classic Live 75-Ball Engine • 85% to Winners')}
-            </div>
+            {/* Fetan 1-min live counter badge or Category Badge */}
+            {(currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN') ? (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-950 text-amber-300 font-mono shadow-xs shrink-0 tabular-nums">
+                {fetanIsIntermission ? `⏳ Pick: ${fetanSecondsLeft}s` : `● Live: ${fetanSecondsLeft}s`}
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-white/20 text-white shrink-0">
+                {currentGame.winningRule === 'FULL_HOUSE_ONLY' ? '🌟 FULL HOUSE' : '🎲 75-BALL'}
+              </span>
+            )}
           </div>
 
-          {/* DYNAMIC HIT / WHAT THE GAME REQUIRED */}
-          {topHitRequirement && (
-            <div className={`p-2.5 rounded-2xl border transition-all ${
-              topHitRequirement.isHit
-                ? 'bg-amber-100 border-amber-400 text-amber-950 shadow-sm animate-pulse'
-                : 'bg-white border-slate-200 text-slate-800 shadow-2xs'
-            }`}>
-              <div className="flex items-center justify-between gap-1">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-base shrink-0">
-                    {topHitRequirement.isHit ? '🔥' : '💡'}
-                  </span>
-                  <span className={`text-[11px] font-black uppercase tracking-wider truncate ${topHitRequirement.isHit ? 'text-amber-950 font-black' : 'text-slate-900 font-bold'}`}>
-                    {topHitRequirement.hitTitle}
-                  </span>
-                </div>
-                {topHitRequirement.progressText && (
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-300 font-mono shrink-0">
-                    {topHitRequirement.progressText}
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] leading-snug mt-1 font-medium text-slate-700">
-                {topHitRequirement.hitDetail}
-              </p>
+          {/* DYNAMIC HIT INFO IN ONE SLIM LINE IF HIT */}
+          {topHitRequirement && topHitRequirement.isHit && (
+            <div className="px-2.5 py-1 rounded-lg bg-amber-100 border border-amber-400 text-amber-950 flex items-center justify-between gap-1 text-[10px] font-black animate-pulse shadow-2xs">
+              <span className="truncate">🔥 {topHitRequirement.hitTitle}: {topHitRequirement.hitDetail}</span>
+              {topHitRequirement.progressText && (
+                <span className="px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 shrink-0 font-mono">
+                  {topHitRequirement.progressText}
+                </span>
+              )}
             </div>
           )}
         </div>

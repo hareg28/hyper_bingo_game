@@ -57,7 +57,14 @@ export default function MiniAppShell({
   const [activeTab, setActiveTab] = useState<'lobby' | 'game' | 'wallet' | 'profile' | 'admin' | 'lottery'>(initialTab);
   const [copiedRef, setCopiedRef] = useState(false);
   const [categoryTab, setCategoryTab] = useState<'FETAN' | 'SPECIAL' | 'WEEKEND'>('FETAN');
+  const [lotteryMode, setLotteryMode] = useState<'FETAN' | 'SPECIAL' | 'WEEKEND'>('FETAN');
   const [showLuckyWheel, setShowLuckyWheel] = useState(false);
+
+  const handleSelectGameToPickCards = (gameId: string, cat: 'FETAN' | 'SPECIAL' | 'WEEKEND') => {
+    setActiveGameId(gameId);
+    setLotteryMode(cat);
+    setActiveTab('lottery');
+  };
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -168,7 +175,14 @@ export default function MiniAppShell({
       </div>
 
       {/* Main Content Area */}
-      <div className={`flex-1 min-h-0 overflow-x-hidden ${activeTab === 'game' || activeTab === 'lottery' ? 'overflow-hidden flex flex-col min-h-0' : 'overflow-y-auto overscroll-contain p-3 pb-28 space-y-3 bg-slate-50/70'}`}>
+      <div 
+        className={`flex-1 min-h-0 overflow-x-hidden ${
+          activeTab === 'game' || activeTab === 'lottery' 
+            ? 'overflow-hidden flex flex-col min-h-0' 
+            : 'overflow-y-auto overscroll-y-contain p-3 pb-36 space-y-3 bg-slate-50/70'
+        }`}
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {/* LOBBY TAB */}
         {activeTab === 'lobby' && (
           <div className="space-y-3">
@@ -220,134 +234,115 @@ export default function MiniAppShell({
               </button>
             </div>
 
-            {/* CATEGORY 1: HYPER FETAN (5, 10, 30, 50 ETB · 1-500 Cards · Sold/Avail · 1 min game / 30s pick · 5 Slots · 1 Line or 4 Corners) */}
-            {categoryTab === 'FETAN' && (
-              <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white">
-                <WeekendLotteryNumberPicker
-                  mode="FETAN"
-                  games={games}
-                  user={user}
-                  wallet={wallet}
-                  language={language}
-                  openAuthModal={openAuthModal}
-                  getLotterySoldNumbers={getLotterySoldNumbers}
-                  purchaseLotteryNumbers={purchaseLotteryNumbers}
-                  activeGameId={activeGameId || undefined}
-                  onChangeGameId={(newId) => setActiveGameId(newId)}
-                  onPickCards={(gameId, cardNumbers) => {
-                    if (!user) { openAuthModal('register'); return; }
-                    if (cardNumbers.length > 0) {
-                      joinGame(gameId, cardNumbers);
-                      setActiveGameId(gameId);
-                      setActiveTab('game');
-                    }
-                  }}
-                  onBack={() => {}}
-                  hideBackBtn
-                />
+            {/* ONE-LINE COMPACT RULE & HIT BANNER */}
+            <div className={`px-3 py-1.5 rounded-xl border flex items-center justify-between gap-2 shadow-2xs text-[11px] transition-all ${
+              categoryTab === 'FETAN'
+                ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300 text-amber-950'
+                : categoryTab === 'SPECIAL'
+                ? 'bg-gradient-to-r from-indigo-50 to-slate-50 border-indigo-300 text-indigo-950'
+                : 'bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-300 text-purple-950'
+            }`}>
+              <div className="flex items-center gap-1.5 min-w-0 truncate">
+                <span className="shrink-0 text-sm">
+                  {categoryTab === 'FETAN' ? '⚡' : categoryTab === 'SPECIAL' ? '🎲' : '🌟'}
+                </span>
+                <span className="font-black shrink-0">
+                  {language === 'am' ? 'ሕግ:' : 'Rule:'}
+                </span>
+                <span className="font-bold truncate text-slate-800">
+                  {categoryTab === 'FETAN'
+                    ? (language === 'am' ? '1 መስመር ወይም 4 ማዕዘን (ፈጣን ቢንጎ)' : '1 Line or 4 Corners (Instant Win • 1 Min)')
+                    : categoryTab === 'SPECIAL'
+                    ? (language === 'am' ? 'መደበኛ (1L, 2L, X, ሙሉ ቤት)' : 'Standard Patterns (1L, 2L, X, Full House)')
+                    : (language === 'am' ? 'ሙሉ ቤት ብቻ 24/24 (ሜጋ ጃክፖት)' : 'Full House Only 24/24 (Mega Grand Prize)')}
+                </span>
               </div>
-            )}
+              <span className={`shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full ${
+                categoryTab === 'FETAN' ? 'bg-amber-500 text-slate-950'
+                : categoryTab === 'SPECIAL' ? 'bg-indigo-600 text-white'
+                : 'bg-purple-600 text-white'
+              }`}>
+                {categoryTab === 'FETAN' ? '⚡ 5-50 ETB'
+                : categoryTab === 'SPECIAL' ? '🎲 10-100 ETB'
+                : '🌟 30-100 ETB'}
+              </span>
+            </div>
 
-            {/* CATEGORY 2: HYPER SPECIAL (10, 20, 30, 50, 100 ETB · Classic Live Room Format · Rule on Top & Hit Info) */}
-            {categoryTab === 'SPECIAL' && (
-              <div className="space-y-2.5">
-                {/* Rule on Top of Game Banner */}
-                <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-400 text-slate-950 space-y-1.5 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 font-black text-xs text-amber-950">
-                      <span className="text-sm">🎯</span>
-                      <span>{language === 'am' ? 'የጨዋታው ሕግ: መደበኛ (1 መስመር፣ 2 መስመር፣ X፣ ሙሉ ቤት)' : 'WIN RULE: STANDARD PATTERNS (1L / 2L / X / FULL HOUSE)'}</span>
-                    </div>
-                    <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 shadow-2xs">
-                      🎲 {language === 'am' ? 'ስፔሻል' : 'Special'}
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-800 font-bold bg-white/90 p-2 rounded-xl border border-amber-200/80 leading-snug">
-                    <span className="text-amber-800 font-black">💡 {language === 'am' ? 'አሸናፊ ለመሆን (Hit Requirement):' : 'Hit Requirement:'} </span>
-                    <span>
-                      {language === 'am'
-                        ? '1 መስመር (አግድም/ቁመት/ሰያፍ)፣ 2 መስመሮች፣ የX ቅርጽ ወይም ሙሉ ቤት በመምታት ቢንጎ ይበሉ!'
-                        : 'Complete any 1 line, 2 lines, an "X" shape, or Full House to claim Bingo victory!'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Games List in Classic Live Room Style */}
-                <div className="space-y-2">
-                  {games
-                    .filter((g) => g.category === 'HYPER_SPECIAL' || (!g.name?.includes('Fetan') && g.gameType !== 'WEEKEND_LOTTERY' && !g.isWeekendSpecial && g.entryPrice >= 10))
-                    .sort((a, b) => a.entryPrice - b.entryPrice)
-                    .map((g) => (
-                      <div
-                        key={g.id}
-                        className="bg-white p-3.5 rounded-2xl flex items-center justify-between border border-slate-200 shadow-xs hover:border-amber-400 transition"
-                      >
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-bold text-sm text-slate-900">{getGameDisplayName(g, language)}</span>
-                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                              {language === 'am' ? 'መደበኛ ሕግ' : 'Standard Rules'}
-                            </span>
-                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                              g.status === 'RUNNING' ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                              : g.status === 'STARTING' ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                              : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                            }`}>
-                              {g.status === 'RUNNING' ? '● LIVE' : g.status === 'STARTING' ? 'STARTING' : 'OPEN'}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
-                            <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
-                            <span className="flex items-center gap-1 text-emerald-700 font-black">
-                              <Users className="w-3 h-3" />
-                              {g.currentPlayers || 0}
-                            </span>
-                            {g.blockedCards && g.blockedCards.length > 0 && (
-                              <span className="text-rose-600 font-bold flex items-center gap-0.5">
-                                🚫 {g.blockedCards.length} {language === 'am' ? 'የታገዱ' : 'Blocked'}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => { joinGame(g.id); setActiveGameId(g.id); setActiveTab('game'); }}
-                          className="ml-3 px-3.5 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-black text-xs transition shrink-0 flex items-center gap-1 shadow-xs cursor-pointer"
-                        >
-                          PLAY <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
+            {/* Category Games List (Styled like Hyper Special Live Room) */}
+            <div className="space-y-2">
+              {games
+                .filter((g) => {
+                  if (categoryTab === 'FETAN') {
+                    return g.category === 'HYPER_FETAN' || g.entryPrice === 5 || g.entryPrice === 10 || (g.name?.includes('Fetan') && g.entryPrice <= 50);
+                  }
+                  if (categoryTab === 'SPECIAL') {
+                    return g.category === 'HYPER_SPECIAL' || (!g.name?.includes('Fetan') && g.gameType !== 'WEEKEND_LOTTERY' && !g.isWeekendSpecial && g.entryPrice >= 10);
+                  }
+                  return g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial;
+                })
+                .sort((a, b) => a.entryPrice - b.entryPrice)
+                .map((g) => (
+                  <div
+                    key={g.id}
+                    className="bg-white p-3.5 rounded-2xl flex items-center justify-between border border-slate-200 shadow-xs hover:border-amber-400 transition"
+                  >
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-black text-sm text-slate-900">{getGameDisplayName(g, language)}</span>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                          categoryTab === 'FETAN' ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                          : categoryTab === 'WEEKEND' ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                          : 'bg-indigo-100 text-indigo-900 border border-indigo-300'
+                        }`}>
+                          {categoryTab === 'FETAN' ? (language === 'am' ? '1 መስመር/ማዕዘን' : '1 Line / Corners')
+                            : categoryTab === 'WEEKEND' ? (language === 'am' ? 'ሙሉ ቤት' : 'Full House Only')
+                            : (language === 'am' ? 'መደበኛ ሕግ' : 'Standard Rules')}
+                        </span>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                          g.status === 'RUNNING' ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                          : g.status === 'STARTING' ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                          : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        }`}>
+                          {g.status === 'RUNNING' ? '● LIVE' : g.status === 'STARTING' ? 'STARTING' : 'OPEN'}
+                        </span>
                       </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* CATEGORY 3: HYPER WEEKEND (30, 50, 100 ETB · Full House Only · 1-500 Card Picker · 5 Slots · Rule on Top & Hit Info) */}
-            {categoryTab === 'WEEKEND' && (
-              <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white">
-                <WeekendLotteryNumberPicker
-                  mode="WEEKEND"
-                  games={games}
-                  user={user}
-                  wallet={wallet}
-                  language={language}
-                  openAuthModal={openAuthModal}
-                  getLotterySoldNumbers={getLotterySoldNumbers}
-                  purchaseLotteryNumbers={purchaseLotteryNumbers}
-                  activeGameId={activeGameId || undefined}
-                  onChangeGameId={(newId) => setActiveGameId(newId)}
-                  onPickCards={(gameId, cardNumbers) => {
-                    if (!user) { openAuthModal('register'); return; }
-                    if (cardNumbers.length > 0) {
-                      joinGame(gameId, cardNumbers);
-                      setActiveGameId(gameId);
-                      setActiveTab('game');
-                    }
-                  }}
-                  onBack={() => {}}
-                  hideBackBtn
-                />
-              </div>
-            )}
+                      <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+                        <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
+                        <span className="flex items-center gap-1 text-emerald-700 font-black">
+                          <Users className="w-3 h-3" />
+                          {g.currentPlayers || 0} {language === 'am' ? 'ተጫዋቾች' : 'players'}
+                        </span>
+                        {categoryTab === 'FETAN' && (
+                          <span className="text-amber-800 font-bold text-[10px]">
+                            ⚡ {language === 'am' ? '1 ደቂቃ ዙር' : '1 Min Round'}
+                          </span>
+                        )}
+                        {categoryTab === 'WEEKEND' && (
+                          <span className="text-purple-800 font-bold text-[10px]">
+                            🏆 {language === 'am' ? '30k+ ብር ጃክፖት' : '30k+ ETB Jackpot'}
+                          </span>
+                        )}
+                        {g.blockedCards && g.blockedCards.length > 0 && (
+                          <span className="text-rose-600 font-bold flex items-center gap-0.5 text-[10px]">
+                            🚫 {g.blockedCards.length} {language === 'am' ? 'የታገዱ' : 'Blocked'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleSelectGameToPickCards(g.id, categoryTab)}
+                      className="ml-3 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shrink-0 flex items-center gap-1 shadow-xs cursor-pointer"
+                    >
+                      <span>
+                        {categoryTab === 'WEEKEND' 
+                          ? (language === 'am' ? 'ካርድ ግዛ' : 'Buy Card') 
+                          : (language === 'am' ? 'ካርድ ምረጥ' : 'Choose Cards')}
+                      </span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+            </div>
 
             {/* Promotions */}
             {promotions.length > 0 && (
@@ -407,10 +402,10 @@ export default function MiniAppShell({
           />
         )}
 
-        {/* WEEKEND LOTTERY NUMBER CARD PICKER TAB (direct nav from game room) */}
+        {/* LOTTERY / CARD PICKER TAB */}
         {activeTab === 'lottery' && (
           <WeekendLotteryNumberPicker
-            mode="WEEKEND"
+            mode={lotteryMode}
             games={games}
             user={user}
             wallet={wallet}
@@ -675,13 +670,16 @@ export default function MiniAppShell({
         </button>
 
         <button
-          onClick={() => setActiveTab('lottery')}
+          onClick={() => {
+            setLotteryMode(categoryTab);
+            setActiveTab('lottery');
+          }}
           className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-2 py-1 rounded-xl ${
             activeTab === 'lottery' ? 'text-amber-600 font-black bg-amber-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
           <Sparkles className="w-5 h-5" />
-          <span>{language === 'am' ? 'ሎተሪ' : 'Lottery'}</span>
+          <span>{language === 'am' ? 'ካርዶች / ሎተሪ' : 'Cards / Lottery'}</span>
         </button>
 
         <button
@@ -756,7 +754,7 @@ function WeekendLotteryNumberPicker({
   onBack?: () => void;
   activeGameId?: string;
   onChangeGameId?: (gameId: string) => void;
-  mode?: 'FETAN' | 'WEEKEND';
+  mode?: 'FETAN' | 'SPECIAL' | 'WEEKEND';
   hideBackBtn?: boolean;
 }) {
   const isAm = language === 'am';
@@ -765,6 +763,18 @@ function WeekendLotteryNumberPicker({
     if (mode === 'FETAN') {
       const list = games.filter(
         (g) => g.category === 'HYPER_FETAN' || g.entryPrice === 5 || g.entryPrice === 10 || (g.name?.includes('Fetan') && g.entryPrice <= 50)
+      );
+      const seen = new Set<number>();
+      const deduped = list.filter((g) => {
+        if (seen.has(g.entryPrice)) return false;
+        seen.add(g.entryPrice);
+        return true;
+      });
+      return deduped.sort((a, b) => a.entryPrice - b.entryPrice);
+    }
+    if (mode === 'SPECIAL') {
+      const list = games.filter(
+        (g) => g.category === 'HYPER_SPECIAL' || (!g.name?.includes('Fetan') && g.gameType !== 'WEEKEND_LOTTERY' && !g.isWeekendSpecial && g.entryPrice >= 10)
       );
       const seen = new Set<number>();
       const deduped = list.filter((g) => {
@@ -796,6 +806,10 @@ function WeekendLotteryNumberPicker({
       const idx10 = tGames.findIndex((g) => g.entryPrice === 10);
       return idx10 >= 0 ? idx10 : 0;
     }
+    if (mode === 'SPECIAL') {
+      const idx20 = tGames.findIndex((g) => g.entryPrice === 20);
+      return idx20 >= 0 ? idx20 : 0;
+    }
     const idx50 = tGames.findIndex((g) => g.entryPrice === 50);
     return idx50 >= 0 ? idx50 : 0;
   }, [mode]);
@@ -807,7 +821,7 @@ function WeekendLotteryNumberPicker({
   }, [activeGameId, targetGames, getDefaultIdx]);
 
   const selectedGame = targetGames[selectedGameIdx] || targetGames[0];
-  const entryPrice = selectedGame?.entryPrice || (mode === 'FETAN' ? 10 : 50);
+  const entryPrice = selectedGame?.entryPrice || (mode === 'FETAN' ? 10 : mode === 'SPECIAL' ? 20 : 50);
 
   const TOTAL_NUMBERS = LOTTERY_NUMBERS_TOTAL;
   const NUM_SLOTS = LOTTERY_MAX_SLOTS;
@@ -940,16 +954,20 @@ function WeekendLotteryNumberPicker({
             )}
             <div>
               <h3 className="text-xs font-black text-slate-900 leading-tight flex items-center gap-1">
-                <span>{mode === 'FETAN' ? '⚡' : '🌟'}</span>
+                <span>{mode === 'FETAN' ? '⚡' : mode === 'SPECIAL' ? '🎲' : '🌟'}</span>
                 <span>
                   {mode === 'FETAN' 
-                    ? (isAm ? 'ሃይፐር ፈጣን (1 ደቂቃ ጨዋታ)' : 'Hyper Fetan (1 Min Game)')
+                    ? (isAm ? 'ሃይፐር ፈጣን ካርዶች (1-500)' : 'Hyper Fetan Cards (1-500)')
+                    : mode === 'SPECIAL'
+                    ? (isAm ? 'ሃይፐር ስፔሻል ካርዶች (1-500)' : 'Hyper Special Cards (1-500)')
                     : (isAm ? 'የሳምንት መጨረሻ ሃይፐር ሎተሪ' : 'Weekend Hyper Lottery')}
                 </span>
               </h3>
               <span className="text-[10px] text-slate-500 font-bold">
                 {mode === 'FETAN' 
-                  ? (isAm ? '1 ደቂቃ ጨዋታ · 30 ሰከንድ ካርድ መምረጫ' : '1 Min Round · 30s Card Pick Intermission')
+                  ? (isAm ? '1 ደቂቃ ዙር · 30 ሰከንድ ካርድ መምረጫ' : '1 Min Round · 30s Card Pick Intermission')
+                  : mode === 'SPECIAL'
+                  ? (isAm ? 'መደበኛ ሕግ · እስከ 5 ካርዶች ይምረጡ' : 'Standard Rules · Pick up to 5 cards (S1..S5)')
                   : (isAm ? 'አርብ · ቅዳሜ · እሑድ 8:00፣ 11:00 እና 1:00' : 'Fri · Sat · Sun: 2 PM, 5 PM & 7 PM')}
               </span>
             </div>
@@ -964,35 +982,25 @@ function WeekendLotteryNumberPicker({
         </div>
       )}
 
-      {/* 🎯 WINNING RULE & DYNAMIC HIT REQUIREMENT ON TOP OF GAME */}
-      <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-400 text-slate-950 space-y-1.5 shadow-xs">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 font-black text-xs text-amber-950">
-            <span className="text-sm">{mode === 'FETAN' ? '🎯' : '🏆'}</span>
-            <span>
-              {mode === 'FETAN'
-                ? (isAm ? 'የጨዋታው ሕግ: 1 መስመር ወይም 4ቱ ማዕዘኖች' : 'WIN RULE: 1 LINE OR 4 CORNERS')
-                : (isAm ? 'የጨዋታው ሕግ: ሙሉ ቤት ብቻ (24/24)' : 'WIN RULE: FULL HOUSE ONLY (24/24)')
-              }
-            </span>
-          </div>
-          <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 shadow-2xs">
-            {mode === 'FETAN' ? '⚡ 5 SLOTS' : '🌟 FULL HOUSE'}
+      {/* 🎯 ONE-LINE COMPACT WINNING RULE & HIT BANNER */}
+      <div className="mx-2 mt-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-400 text-slate-950 flex items-center justify-between gap-2 shadow-2xs text-[11px]">
+        <div className="flex items-center gap-1.5 min-w-0 truncate">
+          <span className="shrink-0">{mode === 'FETAN' ? '⚡' : mode === 'SPECIAL' ? '🎲' : '🌟'}</span>
+          <span className="font-black text-amber-950 shrink-0">
+            {isAm ? 'ሕግ:' : 'Rule:'}
           </span>
-        </div>
-        <div className="text-[11px] text-slate-800 font-bold bg-white/90 p-2 rounded-xl border border-amber-200/80 leading-snug">
-          <span className="text-amber-800 font-black">💡 {isAm ? 'አሸናፊ ለመሆን (Hit Requirement):' : 'Hit Requirement:'} </span>
-          <span>
+          <span className="font-bold text-slate-800 truncate">
             {mode === 'FETAN'
-              ? (isAm 
-                  ? 'በካርዱ ላይ ማንኛውንም 1 መስመር (አግድም፣ ቁመት፣ ሰያፍ) ወይም 4ቱን የማዕዘን ቁጥሮች በመምታት ወዲያውኑ ቢንጎ ይበሉ!'
-                  : 'Complete any 1 single line (horizontal, vertical, diagonal) OR mark all 4 outer corner numbers to claim Bingo instantly!')
-              : (isAm
-                  ? 'በካርዱ ላይ ያሉትን 24ቱም ቁጥሮች ሙሉ በሙሉ በመምታት የሳምንት መጨረሻውን ሜጋ ጃክፖት ያሸንፉ!'
-                  : 'Mark every single number on your card (Full House 24/24) to win the Weekend Mega Grand Prize!')
+              ? (isAm ? '1 መስመር ወይም 4 ማዕዘን (ፈጣን ቢንጎ)' : '1 Line or 4 Corners to Win')
+              : mode === 'SPECIAL'
+              ? (isAm ? '1 ወይም 2 መስመር፣ X፣ ሙሉ ቤት' : '1L, 2L, X, or Full House')
+              : (isAm ? 'ሙሉ ቤት ብቻ 24/24 (ሜጋ ጃክፖት)' : 'Full House Only (24/24) • Mega Jackpot')
             }
           </span>
         </div>
+        <span className="shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-slate-950">
+          {mode === 'FETAN' ? '⚡ 5 SLOTS' : mode === 'SPECIAL' ? '🎲 CLASSIC' : '🌟 FULL HOUSE'}
+        </span>
       </div>
 
       {/* ⏳ TIMING CLOCK BANNER */}
@@ -1033,6 +1041,25 @@ function WeekendLotteryNumberPicker({
             00:{fetanSeconds.toString().padStart(2, '0')}
           </div>
         </div>
+      ) : mode === 'SPECIAL' ? (
+        <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-indigo-400/40 text-white shadow-md flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-base shrink-0 animate-pulse">
+              🎲
+            </div>
+            <div className="min-w-0">
+              <span className="text-[9px] uppercase tracking-widest text-indigo-300 font-black block leading-none">
+                {isAm ? 'የስፔሻል ክፍል ካርድ መምረጫ:' : 'SPECIAL CARD SELECTION:'}
+              </span>
+              <span className="text-[10px] text-slate-300 font-bold truncate block mt-0.5">
+                {selectedGame?.name || 'Hyper Special'} · {isAm ? 'እስከ 5 ካርዶች ይምረጡ' : 'Select up to 5 cards (S1..S5)'}
+              </span>
+            </div>
+          </div>
+          <div className="px-3 py-1 rounded-xl bg-indigo-400/10 border border-indigo-400/40 text-indigo-300 font-mono font-black text-xs tracking-wider shrink-0">
+            {selectedGame?.status === 'RUNNING' ? '● LIVE' : 'STARTING'}
+          </div>
+        </div>
       ) : (
         <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-amber-400/40 text-white shadow-md flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -1061,6 +1088,8 @@ function WeekendLotteryNumberPicker({
             <Sparkles className="w-3 h-3 text-amber-600" />
             {mode === 'FETAN' 
               ? (isAm ? 'የፈጣን ውርርድ ደረጃ (5, 10, 30, 50 ብር)' : 'Hyper Fetan Stakes (5, 10, 30, 50 ETB)')
+              : mode === 'SPECIAL'
+              ? (isAm ? 'የስፔሻል ውርርድ ደረጃ (10, 20, 30, 50, 100 ብር)' : 'Hyper Special Stakes (10, 20, 30, 50, 100 ETB)')
               : (isAm ? 'የሳምንት መጨረሻ ውርርድ (30, 50, 100 ብር)' : 'Weekend Stakes (30, 50, 100 ETB)')
             }
           </span>
@@ -1068,7 +1097,7 @@ function WeekendLotteryNumberPicker({
             ⚡ {entryPrice} ETB {isAm ? 'ተመርጧል' : 'Selected'}
           </span>
         </div>
-        <div className={`grid gap-1.5 ${mode === 'FETAN' ? 'grid-cols-4' : 'grid-cols-3'}`}>
+        <div className={`grid gap-1.5 ${mode === 'FETAN' ? 'grid-cols-4' : mode === 'SPECIAL' ? 'grid-cols-5' : 'grid-cols-3'}`}>
           {targetGames.map((wg, idx) => {
             const isSelected = selectedGameIdx === idx;
             return (
