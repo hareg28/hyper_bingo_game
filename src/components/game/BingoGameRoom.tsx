@@ -1067,6 +1067,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </button>
             </div>
           </div>
+        )}
         {/* ================================================================
             RULE ON TOP OF THE GAME & HIT / WHAT THE GAME REQUIRES
             ================================================================ */}
