@@ -199,7 +199,7 @@ export default function MiniAppShell({
               >
                 <span className="flex items-center gap-1 font-black">⚡ {language === 'am' ? 'ሃይፐር ፈጣን' : 'Hyper Fetan'}</span>
                 <span className={`text-[9px] font-bold ${categoryTab === 'FETAN' ? 'text-amber-950' : 'text-slate-500'}`}>
-                  5, 10, 30, 50 ETB
+                  5-50 ETB · 500 {language === 'am' ? 'ካርድ' : 'Cards'}
                 </span>
               </button>
 
@@ -214,7 +214,7 @@ export default function MiniAppShell({
               >
                 <span className="flex items-center gap-1 font-black">🎲 {language === 'am' ? 'ሃይፐር ስፔሻል' : 'Hyper Special'}</span>
                 <span className={`text-[9px] font-bold ${categoryTab === 'SPECIAL' ? 'text-amber-950' : 'text-slate-500'}`}>
-                  10, 20, 30+ ETB
+                  10-100 ETB · {language === 'am' ? 'ቀጥታ ክፍል' : 'Live Room'}
                 </span>
               </button>
 
@@ -229,7 +229,7 @@ export default function MiniAppShell({
               >
                 <span className="flex items-center gap-1 font-black">🌟 {language === 'am' ? 'ዊክኤንድ' : 'Weekend'}</span>
                 <span className={`text-[9px] font-bold ${categoryTab === 'WEEKEND' ? 'text-amber-950' : 'text-slate-500'}`}>
-                  30, 50, 100 ETB
+                  30-100 ETB · 1500 {language === 'am' ? 'ካርድ' : 'Cards'}
                 </span>
               </button>
             </div>
@@ -330,13 +330,29 @@ export default function MiniAppShell({
                       </div>
                     </div>
                     <button
-                      onClick={() => handleSelectGameToPickCards(g.id, categoryTab)}
-                      className="ml-3 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shrink-0 flex items-center gap-1 shadow-xs cursor-pointer"
+                      onClick={() => {
+                        if (categoryTab === 'SPECIAL') {
+                          joinGame(g.id);
+                          setActiveGameId(g.id);
+                          setActiveTab('game');
+                        } else {
+                          handleSelectGameToPickCards(g.id, categoryTab);
+                        }
+                      }}
+                      className={`ml-3 px-3.5 py-2 rounded-xl text-xs font-black transition shrink-0 flex items-center gap-1 shadow-xs cursor-pointer ${
+                        categoryTab === 'SPECIAL'
+                          ? 'bg-slate-950 hover:bg-slate-800 text-white'
+                          : categoryTab === 'WEEKEND'
+                          ? 'bg-purple-600 hover:bg-purple-500 text-white'
+                          : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                      }`}
                     >
                       <span>
-                        {categoryTab === 'WEEKEND' 
-                          ? (language === 'am' ? 'ካርድ ግዛ' : 'Buy Card') 
-                          : (language === 'am' ? 'ካርድ ምረጥ' : 'Choose Cards')}
+                        {categoryTab === 'SPECIAL'
+                          ? (language === 'am' ? 'ተጫወት' : 'PLAY')
+                          : categoryTab === 'WEEKEND' 
+                          ? (language === 'am' ? 'ካርድ ግዛ (1-1500)' : 'Buy Card (1-1500)') 
+                          : (language === 'am' ? 'ካርድ ምረጥ (1-500)' : 'Choose Cards (1-500)')}
                       </span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
@@ -821,9 +837,9 @@ function WeekendLotteryNumberPicker({
   }, [activeGameId, targetGames, getDefaultIdx]);
 
   const selectedGame = targetGames[selectedGameIdx] || targetGames[0];
-  const entryPrice = selectedGame?.entryPrice || (mode === 'FETAN' ? 10 : mode === 'SPECIAL' ? 20 : 50);
+  const entryPrice = selectedGame?.entryPrice || (mode === 'FETAN' ? 10 : 50);
 
-  const TOTAL_NUMBERS = LOTTERY_NUMBERS_TOTAL;
+  const TOTAL_NUMBERS = mode === 'FETAN' ? 500 : 1500;
   const NUM_SLOTS = LOTTERY_MAX_SLOTS;
   const [slotNumbers, setSlotNumbers] = React.useState<(number | null)[]>(
     Array.from({ length: NUM_SLOTS }, () => null)
@@ -954,21 +970,17 @@ function WeekendLotteryNumberPicker({
             )}
             <div>
               <h3 className="text-xs font-black text-slate-900 leading-tight flex items-center gap-1">
-                <span>{mode === 'FETAN' ? '⚡' : mode === 'SPECIAL' ? '🎲' : '🌟'}</span>
+                <span>{mode === 'FETAN' ? '⚡' : '🌟'}</span>
                 <span>
                   {mode === 'FETAN' 
                     ? (isAm ? 'ሃይፐር ፈጣን ካርዶች (1-500)' : 'Hyper Fetan Cards (1-500)')
-                    : mode === 'SPECIAL'
-                    ? (isAm ? 'ሃይፐር ስፔሻል ካርዶች (1-500)' : 'Hyper Special Cards (1-500)')
-                    : (isAm ? 'የሳምንት መጨረሻ ሃይፐር ሎተሪ' : 'Weekend Hyper Lottery')}
+                    : (isAm ? 'የሳምንት መጨረሻ ሃይፐር ሎተሪ (1-1500)' : 'Weekend Hyper Lottery (1-1500)')}
                 </span>
               </h3>
               <span className="text-[10px] text-slate-500 font-bold">
                 {mode === 'FETAN' 
-                  ? (isAm ? '1 ደቂቃ ዙር · 30 ሰከንድ ካርድ መምረጫ' : '1 Min Round · 30s Card Pick Intermission')
-                  : mode === 'SPECIAL'
-                  ? (isAm ? 'መደበኛ ሕግ · እስከ 5 ካርዶች ይምረጡ' : 'Standard Rules · Pick up to 5 cards (S1..S5)')
-                  : (isAm ? 'አርብ · ቅዳሜ · እሑድ 8:00፣ 11:00 እና 1:00' : 'Fri · Sat · Sun: 2 PM, 5 PM & 7 PM')}
+                  ? (isAm ? '1 ደቂቃ ዙር · 30 ሰከንድ ካርድ መምረጫ · 500 ካርዶች' : '1 Min Round · 30s Card Pick · 500 Cards')
+                  : (isAm ? 'አርብ · ቅዳሜ · እሑድ 8:00፣ 11:00 እና 1:00 · 1500 ካርዶች' : 'Fri · Sat · Sun: 2 PM, 5 PM & 7 PM · 1500 Cards')}
               </span>
             </div>
           </div>

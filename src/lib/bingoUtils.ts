@@ -615,14 +615,19 @@ const GLOBAL_LOTTERY_SOLD_SEED: Record<string, number[]> = {
 
 export function generateSoldNumbersForGame(gameId: string, count: number, entryPrice: number): Set<number> {
   const sold = new Set<number>();
+  const isFetan = gameId.includes('fetan') || entryPrice <= 10;
+  const total = isFetan ? 500 : 1500;
   const seeded = GLOBAL_LOTTERY_SOLD_SEED[gameId];
   if (seeded) {
-    seeded.forEach((n) => sold.add(n));
+    seeded.forEach((n) => {
+      if (n <= total) sold.add(n);
+    });
   }
   const seed = entryPrice * 7 + 13;
   let i = 0;
-  while (sold.size < count && i < 2000) {
-    const n = ((seed + i * 53) % LOTTERY_NUMBERS_TOTAL) + 1;
+  const targetCount = isFetan ? Math.min(count, 120) : count;
+  while (sold.size < targetCount && i < 2500) {
+    const n = ((seed + i * 53) % total) + 1;
     sold.add(n);
     i++;
   }

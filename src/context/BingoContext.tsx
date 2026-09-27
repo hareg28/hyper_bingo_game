@@ -1179,14 +1179,15 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const soldSet = new Set(lotterySoldMap[gameId] || []);
     const invalidNums: number[] = [];
     const alreadySold: number[] = [];
+    const maxNumbersForGame = (game.category === 'HYPER_FETAN' || game.name?.includes('Fetan') || game.id.includes('fetan')) ? 500 : LOTTERY_NUMBERS_TOTAL;
     numbers.forEach((n) => {
-      if (n < 1 || n > LOTTERY_NUMBERS_TOTAL || !Number.isInteger(n)) invalidNums.push(n);
+      if (n < 1 || n > maxNumbersForGame || !Number.isInteger(n)) invalidNums.push(n);
       else if (soldSet.has(n)) alreadySold.push(n);
     });
     if (invalidNums.length > 0) {
       return {
         success: false,
-        message: `Invalid numbers: ${invalidNums.join(', ')} (must be 1–${LOTTERY_NUMBERS_TOTAL}).`,
+        message: `Invalid numbers: ${invalidNums.join(', ')} (must be 1–${maxNumbersForGame}).`,
       };
     }
     if (alreadySold.length > 0) {
