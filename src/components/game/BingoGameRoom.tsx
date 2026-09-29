@@ -172,7 +172,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       window.speechSynthesis.cancel();
     } catch {}
   }, [soundEnabled, recheckVoiceHealth]);
-  const [isAutoDrawing, setIsAutoDrawing] = useState(false);
+  const [isAutoDrawing, setIsAutoDrawing] = useState(true);
   const [claimStatus, setClaimStatus] = useState<{ success?: boolean; message?: string; prize?: number } | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
@@ -715,10 +715,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     });
   };
 
-  // Auto Draw interval timer simulation
+  // Auto Draw interval timer simulation — calls balls automatically without requiring player action
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isAutoDrawing && currentGame && currentGame.status !== 'COMPLETED' && currentGame.drawnNumbers.length < 75) {
+    if (isAutoDrawing && currentGame && currentGame.status !== 'COMPLETED' && currentGame.drawnNumbers.length < 75 && !fetanIsIntermission) {
       interval = setInterval(() => {
         const next = drawNextBall(currentGame.id);
         if (!next) {
@@ -726,10 +726,20 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         } else {
           announceBall(next);
         }
-      }, Math.max(3000, (currentGame.drawInterval || 3) * 1000));
+      }, Math.max(2500, (currentGame.drawInterval || 3) * 1000));
     }
     return () => clearInterval(interval);
-  }, [isAutoDrawing, currentGame, drawNextBall, soundEnabled]);
+  }, [isAutoDrawing, currentGame, drawNextBall, soundEnabled, fetanIsIntermission]);
+
+  // Automatically trigger Winner Celebration Modal when game ends or a winner is registered
+  useEffect(() => {
+    if (currentGame && ((currentGame.winners && currentGame.winners.length > 0) || currentGame.status === 'COMPLETED')) {
+      setShowWinnerModal(true);
+      try {
+        confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+      } catch {}
+    }
+  }, [currentGame?.winners?.length, currentGame?.status]);
 
   const handleManualDraw = () => {
     if (!currentGame || currentGame.drawnNumbers.length >= 75 || currentGame.status === 'COMPLETED') return;
@@ -2229,8 +2239,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         }
         winningNumbers.sort((a, b) => a - b);
         return (
-        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-200">
-          <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 border-2 border-amber-400 rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-white text-center relative overflow-hidden">
+        <div 
+          onClick={() => setShowWinnerModal(false)}
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 border-2 border-amber-400 rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-white text-center relative overflow-hidden cursor-default"
+          >
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-400/20 rounded-full blur-2xl pointer-events-none"></div>
             <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
 
@@ -2242,12 +2258,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <h3 className="text-xs font-black tracking-widest uppercase text-amber-400">
                 {language === 'am' ? '🎉 ቢንጎ አሸናፊ ይፋ ሆነ! 🎉' : '🎉 BINGO WINNER ANNOUNCED! 🎉'}
               </h3>
-              <p className="text-xl font-black text-white">
+              <p className="text-2xl font-black text-white tracking-wide">
                 @{latestWinner.username}
               </p>
             </div>
 
-            <div className="bg-white/10 rounded-2xl p-3 border border-white/15 space-y-2 text-left">
+            <div className="bg-white/10 rounded-2xl p-3.5 border border-white/15 space-y-2.5 text-left">
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                 <span className="text-slate-300 font-bold">{language === 'am' ? 'የአሸናፊ ካርድ ቁጥር:' : 'Winning Card #:'}</span>
                 <span className="font-mono font-black text-amber-300 text-base">
@@ -2286,45 +2302,66 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
             </div>
 
-            <button
-              onClick={() => setShowWinnerModal(false)}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs transition cursor-pointer shadow-md"
-            >
-              {language === 'am' ? 'ተቀበል (Continue)' : 'Awesome! Continue'}
-            </button>
+            <div className="flex items-center gap-2 pt-1">
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={() => { setShowWinnerModal(false); onBack(); }}
+                  className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition cursor-pointer border border-slate-700 flex items-center justify-center gap-1.5"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>{language === 'am' ? 'ወደ ሎቢ ተመለስ' : 'Back to Lobby'}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowWinnerModal(false)}
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:brightness-105 text-slate-950 font-black text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+              >
+                <span>{language === 'am' ? 'ቀጥል (Continue)' : 'Awesome! Continue'}</span>
+              </button>
+            </div>
           </div>
         </div>
         );
       })()}
 
-      {/* PATTERN HINTS MODAL — 4 Winning Rules */}
+      {/* PATTERN HINTS MODAL — 4 Winning Rules & Hit Info */}
       {showPatternHintModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-3 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+        <div 
+          onClick={() => setShowPatternHintModal(false)}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden cursor-default border border-slate-200 animate-in zoom-in-95 duration-150"
+          >
+            {/* Header with explicit Back Button */}
+            <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Lightbulb className="w-5 h-5 text-amber-500 fill-amber-100" />
-                <h3 className="text-base font-black text-slate-900">
-                  {language === 'am' ? 'የአሸናፊ ደንቦች' : 'Winning Rules'}
+                <h3 className="text-sm font-black text-slate-900">
+                  {language === 'am' ? 'የአሸናፊ ደንቦች እና Hit' : 'Winning Rules & Hit Guide'}
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setShowPatternHintModal(false)}
-                className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer transition"
               >
-                <X className="w-4 h-4" />
+                <ChevronLeft className="w-4 h-4" />
+                <span>{language === 'am' ? 'ተመለስ' : 'Back'}</span>
               </button>
             </div>
 
-            <p className="px-4 pb-3 text-xs text-slate-600 leading-relaxed">
+            <p className="px-4 pt-3 pb-2 text-xs text-slate-600 leading-relaxed">
               {language === 'am'
                 ? 'በዚህ ጨዋታ ውስጥ ለማሸነፍ 4 ደንቦች አሉ። ከእነዚህ መካከል አንዱን ማሳየት ብቻዎ ይኖርዎታል።'
                 : 'There are 4 ways to win this round. Match any one pattern to claim Bingo!'}
             </p>
 
             {/* 4 Winning Rule Patterns */}
-            <div className="px-4 pb-4 space-y-3">
+            <div className="px-4 pb-3 space-y-2.5 max-h-72 overflow-y-auto">
               {WINNING_RULES_PATTERNS.map((rule, idx) => (
                 <div
                   key={rule.id}
@@ -2365,7 +2402,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   </div>
                   {/* Rule Text */}
                   <div className="flex-1 min-w-0">
-                    <div className={`font-black text-sm ${
+                    <div className={`font-black text-xs ${
                       idx === 0 ? 'text-emerald-800'
                       : idx === 1 ? 'text-blue-800'
                       : idx === 2 ? 'text-purple-800'
@@ -2381,13 +2418,15 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               ))}
             </div>
 
-            {/* Close button */}
-            <div className="px-4 pb-4">
+            {/* Back to Game Action button */}
+            <div className="p-4 pt-2 border-t border-slate-100 bg-slate-50">
               <button
+                type="button"
                 onClick={() => setShowPatternHintModal(false)}
-                className="w-full py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-black text-xs transition cursor-pointer"
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:brightness-105 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-md cursor-pointer flex items-center justify-center gap-2"
               >
-                {language === 'am' ? 'እሺ ተረድቻለሁ' : 'Got it — Close'}
+                <Undo2 className="w-4 h-4" />
+                <span>{language === 'am' ? '🔙 ተመለስ ወደ ጨዋታው (Back to Game)' : '🔙 Return to Game'}</span>
               </button>
             </div>
           </div>

@@ -200,15 +200,27 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
 
     const lowerCmd = cmd.toLowerCase();
 
-    if (lowerCmd === '/start' || lowerCmd.startsWith('/start ') || lowerCmd.startsWith('/start\n')) {
+    if (
+      lowerCmd === '/start' || 
+      lowerCmd.startsWith('/start ') || 
+      lowerCmd.startsWith('/start\n') ||
+      lowerCmd === '/games' ||
+      lowerCmd === '/play' ||
+      lowerCmd === '/menu'
+    ) {
       botResponseText = isAm 
-        ? `🎉 ወደ **ሃይፐር ቢንጎ** እንኳን በደህና መጡ!\nለመጀመር ከታች ካሉት አማራጮች አንዱን ይምረጡ:`
-        : `🎉 Welcome to **Hyper Bingo**!\nChoose an option below to get started:`;
+        ? `🎉 **ወደ ሃይፐር ቢንጎ በደህና መጡ! (Hyper Bingo)**\n\n🇪🇹 በኢትዮጵያ #1 ፈጣን የቀጥታ ቢንጎ!\n• 80% የሽልማት ገንዳ ለአሸናፊዎች\n• ፈጣን ክፍያ በቴሌብር እና በሲቢኢ ብር\n• የቀጥታ እይታ ሞድ (Spectator Mode) ይገኛል!\n\n🎮 **ከታች ከዋና ጨዋታዎች አንዱን ይምረጡና በቀጥታ ይጫወቱ:**`
+        : `🎉 **Welcome to Hyper Bingo Ethiopia!**\n\n🇪🇹 #1 Live 75-Ball Fast Bingo!\n• 80% Prize Pool for Winners\n• Fast Deposits via Telebirr & CBE Birr\n• Live Spectator Mode available!\n\n🎮 **Choose a game below to jump straight in:**`;
       buttons = [
-        { label: isAm ? '🎮 ቢንጎ ይጫወቱ (Mini App)' : '🎮 Play Bingo Mini App', action: () => onOpenMiniApp('lobby'), isPrimary: true },
-        { label: isAm ? '⚡ ፈጣን ቢንጎ (Quick Bingo)' : '⚡ Quick Bingo (Starts soon)', action: () => onOpenMiniApp('game') },
-        { label: isAm ? '🌟 ቅዳሜና እሁድ ሎተሪ' : '🌟 Weekend Special Lottery', action: () => handleCommand('/lottery') },
-        { label: isAm ? '💰 ኪስ ቦርሳ እና ገቢ (Wallet)' : '💰 Wallet & Deposits', action: () => onOpenMiniApp('wallet') },
+        { label: '⚡ Hyper Fetan 5 (5 ETB)', action: () => onOpenMiniApp('game'), isPrimary: true },
+        { label: '⚡ Hyper Fetan 10 (10 ETB)', action: () => onOpenMiniApp('game'), isPrimary: true },
+        { label: '⚡ Hyper Fetan 30 (30 ETB)', action: () => onOpenMiniApp('game') },
+        { label: '⚡ Hyper Fetan 50 (50 ETB)', action: () => onOpenMiniApp('game') },
+        { label: '🎲 Hyper Special 20 (20 ETB)', action: () => onOpenMiniApp('game') },
+        { label: '🌟 Hyper Weekend 50 (50k Pool)', action: () => onOpenMiniApp('lottery'), isPrimary: true },
+        { label: '👑 Hyper Weekend 100 (100k Mega)', action: () => onOpenMiniApp('lottery') },
+        { label: isAm ? '🎮 ሁሉንም ጨዋታዎች እይ (Lobby)' : '🎮 View All Rooms (Lobby)', action: () => onOpenMiniApp('lobby') },
+        { label: isAm ? '💰 ኪስ ቦርሳ (Wallet)' : '💰 Wallet & Deposit', action: () => onOpenMiniApp('wallet') },
         ...(isUserAdmin
           ? [{ label: isAm ? '🛡️ አስተዳዳሪ (Admin)' : '🛡️ Admin Panel', action: () => handleCommand('/admin') }]
           : []),
