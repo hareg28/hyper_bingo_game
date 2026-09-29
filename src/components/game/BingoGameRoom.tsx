@@ -969,6 +969,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   const gameShortId = (currentGame.id || 'game').slice(0, 8);
   const gamePrizeDisplay = getGameLivePrizePool(currentGame);
+  const playableBalance = (wallet?.availableBalance || 0) + (wallet?.bonusBalance || 0);
+  const hasSufficientBalance = playableBalance >= (currentGame?.entryPrice || 0);
 
   // =========================================================================
   // 🔽 SINGLE UNIFIED RENDER (used for both weekend & regular games)
@@ -1795,123 +1797,117 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               )}
             </div>
           </>
+        ) : (
           /* No cards yet — Spectator Mode & Card Purchase Area */
-          (() => {
-            const playableBalance = (wallet?.availableBalance || 0) + (wallet?.bonusBalance || 0);
-            const hasSufficientBalance = playableBalance >= (currentGame.entryPrice || 0);
+          <div className="flex flex-col items-center justify-center py-6 px-3 text-center space-y-3.5 bg-white rounded-2xl border border-slate-200 mx-1 shadow-xs">
+            {/* Live Spectator Mode Indicator */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-900 text-xs font-black shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+              <Eye className="w-3.5 h-3.5 text-blue-600" />
+              <span>{language === 'am' ? 'የቀጥታ እይታ ሞድ · Spectator Mode' : 'Live Spectator Mode'}</span>
+            </div>
 
-            return (
-              <div className="flex flex-col items-center justify-center py-6 px-3 text-center space-y-3.5 bg-white rounded-2xl border border-slate-200 mx-1 shadow-xs">
-                {/* Live Spectator Mode Indicator */}
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-900 text-xs font-black shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
-                  <Eye className="w-3.5 h-3.5 text-blue-600" />
-                  <span>{language === 'am' ? 'የቀጥታ እይታ ሞድ · Spectator Mode' : 'Live Spectator Mode'}</span>
+            <div className="space-y-1 px-4">
+              <h3 className="text-sm font-black text-slate-900">
+                {isWeekendGame
+                  ? (language === 'am' ? '🌟 ሃይፐር ዊክኤንድ ጨዋታ እይታ' : '🌟 Hyper Weekend Live Spectator')
+                  : (language === 'am' ? 'ጨዋታውን በቀጥታ እየተመለከቱ ነው' : 'Watching Live Game')}
+              </h3>
+              <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                {language === 'am'
+                  ? 'ጨዋታውን ያለ ካርድ በቀጥታ መከታተል ይችላሉ። በጨዋታው ለመሳተፍ እና ለማሸነፍ ካርድ ይግዙ።'
+                  : 'You can watch this game live without cards. To participate and win, purchase cards below.'}
+              </p>
+            </div>
+
+            {/* Insufficient Balance Notice with Deposit Action */}
+            {!hasSufficientBalance && (
+              <div className="w-full max-w-xs mx-auto p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs text-center space-y-2 shadow-2xs">
+                <div className="flex items-center justify-center gap-1.5 font-black text-amber-900">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>{language === 'am' ? 'ዝቅተኛ ቀሪ ሒሳብ' : 'Insufficient Balance'}</span>
                 </div>
-
-                <div className="space-y-1 px-4">
-                  <h3 className="text-sm font-black text-slate-900">
-                    {isWeekendGame
-                      ? (language === 'am' ? '🌟 ሃይፐር ዊክኤንድ ጨዋታ እይታ' : '🌟 Hyper Weekend Live Spectator')
-                      : (language === 'am' ? 'ጨዋታውን በቀጥታ እየተመለከቱ ነው' : 'Watching Live Game')}
-                  </h3>
-                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                    {language === 'am'
-                      ? 'ጨዋታውን ያለ ካርድ በቀጥታ መከታተል ይችላሉ። በጨዋታው ለመሳተፍ እና ለማሸነፍ ካርድ ይግዙ።'
-                      : 'You can watch this game live without cards. To participate and win, purchase cards below.'}
-                  </p>
-                </div>
-
-                {/* Insufficient Balance Notice with Deposit Action */}
-                {!hasSufficientBalance && (
-                  <div className="w-full max-w-xs mx-auto p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs text-center space-y-2 shadow-2xs">
-                    <div className="flex items-center justify-center gap-1.5 font-black text-amber-900">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span>{language === 'am' ? 'ዝቅተኛ ቀሪ ሒሳብ' : 'Insufficient Balance'}</span>
-                    </div>
-                    <p className="text-[11px] text-amber-800 leading-tight">
-                      {language === 'am'
-                        ? `ለመጫወት ቢያንስ ${currentGame.entryPrice} ETB ያስፈልጋል። ያለ በቂ ሒሳብ መጫወት አይችሉም (ቀሪ ሒሳብዎ: ${Math.floor(playableBalance)} ETB)። መመልከት ይችላሉ!`
-                        : `At least ${currentGame.entryPrice} ETB required. Without sufficient balance you cannot play (You have: ${Math.floor(playableBalance)} ETB). You can watch!`}
-                    </p>
-                    {onOpenWalletTab && (
-                      <button
-                        type="button"
-                        onClick={onOpenWalletTab}
-                        className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <Wallet className="w-3.5 h-3.5" />
-                        <span>{language === 'am' ? '💳 ሒሳብ ሙላ (Deposit via Telebirr/CBE)' : '💳 Deposit to Play'}</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Action Buttons: Card purchase blocked if balance is insufficient */}
-                {isWeekendGame ? (
-                  <div className="flex flex-col gap-2 px-4 w-full max-w-xs mx-auto">
-                    {onOpenLotteryTab && (
-                      <button
-                        type="button"
-                        onClick={onOpenLotteryTab}
-                        className="w-full px-3 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        <span>{language === 'am' ? '🎟️ ሎተሪ ካርታ ይምረጡ (1-1500)' : '🎟️ Pick Lottery Tickets (1–1500)'}</span>
-                      </button>
-                    )}
-                    <button
-                      disabled={!hasSufficientBalance}
-                      onClick={() => (!user ? openAuthModal('register') : joinGame(currentGame.id))}
-                      className={`w-full px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${
-                        !hasSufficientBalance
-                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
-                          : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white cursor-pointer'
-                      }`}
-                    >
-                      <Zap className="w-4 h-4" />
-                      <span>
-                        {!hasSufficientBalance
-                          ? (language === 'am' ? `ሒሳብ ይሙሉ (${currentGame.entryPrice} ብር)` : `Deposit to Play (${currentGame.entryPrice} ETB)`)
-                          : (language === 'am' ? '🚀 አሁኑኑ ይጫወቱ (Quick Play)' : '🚀 Quick Play (Join Now)')}
-                      </span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col sm:flex-row gap-2 px-4 w-full max-w-xs mx-auto">
-                    <button
-                      disabled={!hasSufficientBalance}
-                      onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
-                      className={`flex-1 px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${
-                        !hasSufficientBalance
-                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
-                          : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white cursor-pointer'
-                      }`}
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>{language === 'am' ? 'ካርድ ቁጥር ይምረጡ' : 'Pick Cards'}</span>
-                    </button>
-                    <button
-                      disabled={!hasSufficientBalance}
-                      onClick={() => (!user ? openAuthModal('register') : joinGame(currentGame.id))}
-                      className={`flex-1 px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${
-                        !hasSufficientBalance
-                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
-                          : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white cursor-pointer'
-                      }`}
-                    >
-                      <Zap className="w-4 h-4" />
-                      <span>
-                        {!hasSufficientBalance
-                          ? (language === 'am' ? `ሒሳብ ይሙሉ (${currentGame.entryPrice} ብር)` : `Deposit (${currentGame.entryPrice} ETB)`)
-                          : (language === 'am' ? 'ፈጣን ጨዋታ' : 'Quick Play')}
-                      </span>
-                    </button>
-                  </div>
+                <p className="text-[11px] text-amber-800 leading-tight">
+                  {language === 'am'
+                    ? `ለመጫወት ቢያንስ ${currentGame.entryPrice} ETB ያስፈልጋል። ያለ በቂ ሒሳብ መጫወት አይችሉም (ቀሪ ሒሳብዎ: ${Math.floor(playableBalance)} ETB)። መመልከት ይችላሉ!`
+                    : `At least ${currentGame.entryPrice} ETB required. Without sufficient balance you cannot play (You have: ${Math.floor(playableBalance)} ETB). You can watch!`}
+                </p>
+                {onOpenWalletTab && (
+                  <button
+                    type="button"
+                    onClick={onOpenWalletTab}
+                    className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Wallet className="w-3.5 h-3.5" />
+                    <span>{language === 'am' ? '💳 ሒሳብ ሙላ (Deposit via Telebirr/CBE)' : '💳 Deposit to Play'}</span>
+                  </button>
                 )}
               </div>
-            );
-          })()
+            )}
+
+            {/* Action Buttons: Card purchase blocked if balance is insufficient */}
+            {isWeekendGame ? (
+              <div className="flex flex-col gap-2 px-4 w-full max-w-xs mx-auto">
+                {onOpenLotteryTab && (
+                  <button
+                    type="button"
+                    onClick={onOpenLotteryTab}
+                    className="w-full px-3 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>{language === 'am' ? '🎟️ ሎተሪ ካርታ ይምረጡ (1-1500)' : '🎟️ Pick Lottery Tickets (1–1500)'}</span>
+                  </button>
+                )}
+                <button
+                  disabled={!hasSufficientBalance}
+                  onClick={() => (!user ? openAuthModal('register') : joinGame(currentGame.id))}
+                  className={`w-full px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${
+                    !hasSufficientBalance
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                      : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white cursor-pointer'
+                  }`}
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>
+                    {!hasSufficientBalance
+                      ? (language === 'am' ? `ሒሳብ ይሙሉ (${currentGame.entryPrice} ብር)` : `Deposit to Play (${currentGame.entryPrice} ETB)`)
+                      : (language === 'am' ? '🚀 አሁኑኑ ይጫወቱ (Quick Play)' : '🚀 Quick Play (Join Now)')}
+                  </span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-2 px-4 w-full max-w-xs mx-auto">
+                <button
+                  disabled={!hasSufficientBalance}
+                  onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
+                  className={`flex-1 px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${
+                    !hasSufficientBalance
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                      : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white cursor-pointer'
+                  }`}
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{language === 'am' ? 'ካርድ ቁጥር ይምረጡ' : 'Pick Cards'}</span>
+                </button>
+                <button
+                  disabled={!hasSufficientBalance}
+                  onClick={() => (!user ? openAuthModal('register') : joinGame(currentGame.id))}
+                  className={`flex-1 px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${
+                    !hasSufficientBalance
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                      : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white cursor-pointer'
+                  }`}
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>
+                    {!hasSufficientBalance
+                      ? (language === 'am' ? `ሒሳብ ይሙሉ (${currentGame.entryPrice} ብር)` : `Deposit (${currentGame.entryPrice} ETB)`)
+                      : (language === 'am' ? 'ፈጣን ጨዋታ' : 'Quick Play')}
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
       </div>
