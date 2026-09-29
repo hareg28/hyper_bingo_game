@@ -58,7 +58,7 @@ export async function GET(_req: NextRequest) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             url: WEBHOOK_URL,
-            allowed_updates: ['message', 'callback_query', 'inline_query'],
+            allowed_updates: ['message', 'callback_query', 'my_chat_member', 'inline_query'],
             drop_pending_updates: false,
             max_connections: 100,
           }),

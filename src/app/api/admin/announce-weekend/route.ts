@@ -49,6 +49,19 @@ export async function POST(req: NextRequest) {
     // Send to the provided chatId (can be a group, channel, or individual)
     const targetChatId = chatId || adminTelegramId;
 
+    const gameInlineKeyboard = {
+      inline_keyboard: [
+        [
+          { text: '⚡ Hyper Fetan', web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` } },
+          { text: '🎲 Hyper Special', web_app: { url: `${appUrl}?tab=lobby&cat=SPECIAL` } },
+        ],
+        [
+          { text: '🌟 Hyper Weekend', web_app: { url: `${appUrl}?tab=lottery` } },
+          { text: '🎮 Play Hyper Bingo', web_app: { url: appUrl } },
+        ],
+      ],
+    };
+
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -56,16 +69,7 @@ export async function POST(req: NextRequest) {
         chat_id: targetChatId,
         parse_mode: 'HTML',
         text: announcementText,
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: '🎮 Join Weekend Games Now!',
-                web_app: { url: appUrl },
-              },
-            ],
-          ],
-        },
+        reply_markup: gameInlineKeyboard,
       }),
     });
 
@@ -83,17 +87,8 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               chat_id: adminTelegramId,
               parse_mode: 'HTML',
-              text: `📢 <b>[Admin Broadcast Preview / የሙከራ መልእክት]</b>\n\n${announcementText}\n\n━━━━━━━━━━━━━━━━━━━━━\nℹ️ <i>ማስታወሻ፡ ቻናሉ ${targetChatId} ስላልተገኘ መልእክቱ በቀጥታ ወደ እርስዎ ቴሌግራም ተልኳል። ቻናል ላይ ለማሰራጨት @HyperBingoBot ን በቻናልዎ ውስጥ አስተዳዳሪ (Admin) ያድርጉት።</i>`,
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: '🎮 Join Weekend Games Now!',
-                      web_app: { url: appUrl },
-                    },
-                  ],
-                ],
-              },
+              text: `📢 <b>[Admin Broadcast Preview]</b>\n\n${announcementText}\n\n━━━━━━━━━━━━━━━━━━━━━\nℹ️ <i>ቻናሉ ${targetChatId} ስላልተገኘ ወደ እርስዎ ቴሌግራም ተልኳል።</i>`,
+              reply_markup: gameInlineKeyboard,
             }),
           });
           const directData = await directRes.json();
