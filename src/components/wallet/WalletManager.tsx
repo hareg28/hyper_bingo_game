@@ -46,9 +46,9 @@ export default function WalletManager() {
 
     // Resolve destination account per provider
     let dest = '';
-    if (provider === 'Telebirr') dest = '0914055464';
-    else if (provider === 'CBE Birr') dest = '0914055464 / 1000383151124';
-    else dest = 'CBE: 1000383151124';
+    if (provider === 'Telebirr') dest = '0938922481';
+    else if (provider === 'CBE Birr') dest = '0938922481 / 1000540829954';
+    else dest = 'CBE: 1000540829954';
 
     setDestinationNumber(dest);
 
@@ -567,8 +567,8 @@ export default function WalletManager() {
 
                 {provider === 'Telebirr' ? (
                   <div className="space-y-1.5 text-slate-800 font-medium">
-                    <p>• Telebirr Number: <strong className="text-slate-950 font-mono font-black">0914055464</strong></p>
-                    <p>• Receiver Name: <strong className="text-amber-800 font-black">Hyper Bingo Games</strong></p>
+                    <p>• Telebirr Number: <strong className="text-slate-950 font-mono font-black">0938922481</strong></p>
+                    <p>• Receiver Name: <strong className="text-amber-800 font-black">Yohannes Tsehaye Bayleyegn</strong></p>
                     <div className="flex items-center justify-between bg-amber-50 p-1.5 rounded-lg border border-amber-200 text-[10px]">
                       <span>Remark Reference: <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">{depositReference}</code></span>
                       <button
@@ -584,9 +584,9 @@ export default function WalletManager() {
                   </div>
                 ) : provider === 'CBE Birr' ? (
                   <div className="space-y-1.5 text-slate-800 font-medium">
-                    <p>• CBE Birr / Phone: <strong className="text-slate-950 font-mono font-black">0914055464</strong></p>
-                    <p>• CBE Account: <strong className="text-slate-950 font-mono font-black">1000383151124</strong></p>
-                    <p>• Name: <strong className="text-amber-800 font-black">Hyper Bingo CBE</strong></p>
+                    <p>• CBE Birr / Phone: <strong className="text-slate-950 font-mono font-black">0938922481</strong></p>
+                    <p>• CBE Account: <strong className="text-slate-950 font-mono font-black">1000540829954</strong></p>
+                    <p>• Name: <strong className="text-amber-800 font-black">Yohannes Tsehaye Bayleyegn</strong></p>
                     <div className="flex items-center justify-between bg-purple-50 p-1.5 rounded-lg border border-purple-200 text-[10px]">
                       <span>Remark Reference: <code className="bg-purple-100 px-1 py-0.5 rounded text-purple-900 font-bold">{depositReference}</code></span>
                       <button
@@ -602,8 +602,8 @@ export default function WalletManager() {
                   </div>
                 ) : (
                   <div className="space-y-1 text-slate-800 font-medium">
-                    <p>• Commercial Bank of Ethiopia (CBE): <strong className="text-slate-950 font-mono font-black">1000383151124</strong></p>
-                    <p>• Account Name: <strong className="text-amber-800 font-black">Hyper Bingo Entertainment</strong></p>
+                    <p>• Commercial Bank of Ethiopia (CBE): <strong className="text-slate-950 font-mono font-black">1000540829954</strong></p>
+                    <p>• Account Name: <strong className="text-amber-800 font-black">Yohannes Tsehaye Bayleyegn</strong></p>
                   </div>
                 )}
 
@@ -1159,8 +1159,8 @@ export default function WalletManager() {
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
                   provider === 'Telebirr'
-                    ? `telebirr://transfer?phone=251914055464&amount=${amount}&ref=${depositReference}`
-                    : `cbe://transfer?account=1000383151124&amount=${amount}&ref=${depositReference}`
+                    ? `telebirr://transfer?phone=251938922481&amount=${amount}&ref=${depositReference}`
+                    : `cbe://transfer?account=1000540829954&amount=${amount}&ref=${depositReference}`
                 )}`}
                 alt="Payment QR Code"
                 className="w-44 h-44 object-contain rounded-lg"
@@ -1177,7 +1177,7 @@ export default function WalletManager() {
               <div className="flex justify-between items-center text-slate-700 font-semibold">
                 <span>Recipient:</span>
                 <span className="font-mono font-black text-slate-900">
-                  {provider === 'Telebirr' ? '0914055464' : '1000383151124'}
+                  {provider === 'Telebirr' ? '0938922481' : '1000540829954'}
                 </span>
               </div>
               <div className="flex justify-between items-center text-slate-700 font-semibold pt-1 border-t border-slate-200">
