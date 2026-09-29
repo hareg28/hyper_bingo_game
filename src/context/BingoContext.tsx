@@ -935,6 +935,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         };
       })
     );
+  };
+
   // 8c. RESET GAME ROUND (Fresh 75-ball table for new round)
   const resetGameRound = (gameId: string) => {
     setGames((prev) =>

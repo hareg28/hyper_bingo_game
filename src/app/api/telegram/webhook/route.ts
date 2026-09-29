@@ -71,52 +71,50 @@ export async function POST(req: NextRequest) {
 
       // Handle /start, /games, /play, or any greeting command
       if (text && (text.startsWith('/start') || text.startsWith('/games') || text.startsWith('/help') || text.startsWith('/play') || text.startsWith('/menu'))) {
-        const welcomeText = 
+        const welcomeText =
           `🎉 <b>እንኳን ወደ ሃይፐር ቢንጎ በደህና መጡ!</b>\n` +
           `<b>Welcome to Hyper Bingo Ethiopia!</b>\n\n` +
           `🇪🇹 በኢትዮጵያ #1 ፈጣን የቀጥታ 75-ቁጥር ቢንጎ መድረክ!\n` +
-          `• በቴሌብር እና በሲቢኢ ብር ፈጣን ገቢና ወጪ (Instant Telebirr & CBE)\n` +
-          `• 80% የሽልማት ገንዳ ለአሸናፊዎች · 20% የቤት ድርሻ\n` +
-          `• የቀጥታ እይታ ሞድ (Live Spectator Mode) ይገኛል!\n\n` +
-          `👇 <b>ከታች ከዋና ጨዋታዎች አንዱን መርጠው በቀጥታ ይጫወቱ፡</b>` +
+          `• 80% ሽልማት · 20% ቤት ድርሻ (80% Prize · 20% House)\n` +
+          `• ቴሌብር እና ሲቢኢ ብር (Telebirr &amp; CBE Birr)\n\n` +
+          `👇 <b>ጨዋታ ይምረጡ / Choose a Game:</b>` +
           (isAdmin ? `\n⭐ <i>(Admin Access Verified)</i>` : '');
 
         const keyboardButtons: any[] = [
           [
             {
-              text: '⚡ ሃይፐር ፈጣን (Hyper Fetan - 1 Min)',
+              text: '⚡ ሃይፐር ፈጣን (10 ETB)',
               web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` },
             },
           ],
           [
             {
-              text: '🎲 ሃይፐር ስፔሻል (Hyper Special)',
+              text: '🎲 ሃይፐር ስፔሻል (20 ETB)',
               web_app: { url: `${appUrl}?tab=lobby&cat=SPECIAL` },
             },
           ],
           [
             {
-              text: '🌟 ሃይፐር ዊክኤንድ ሎተሪ (Hyper Weekend)',
+              text: '🌟 ሃይፐር ዊክኤንድ ሎተሪ',
               web_app: { url: `${appUrl}?tab=lottery` },
             },
           ],
           [
             {
-              text: '🎮 Play Hyper Bingo (ዋና ሎቢ)',
-              web_app: { url: `${appUrl}?tab=lobby` },
+              text: '🎮 ዋና ሎቢ (Main Lobby)',
+              web_app: { url: appUrl },
             },
             {
-              text: '💳 Wallet (ሒሳብ ሙላ)',
+              text: '💳 ሒሳብ (Wallet)',
               web_app: { url: `${appUrl}?tab=wallet` },
             },
           ],
         ];
 
-        // If sender is admin, add direct Admin button
         if (isAdmin) {
           keyboardButtons.push([
             {
-              text: '🛡️ Open Admin Panel (የአስተዳዳሪ ፓነል)',
+              text: '🛡️ Admin Panel (አስተዳዳሪ ፓነል)',
               web_app: { url: `${appUrl}?tab=admin` },
             },
           ]);
@@ -126,62 +124,58 @@ export async function POST(req: NextRequest) {
           chat_id: chatId,
           parse_mode: 'HTML',
           text: welcomeText,
-          reply_markup: {
-            inline_keyboard: keyboardButtons,
-          },
+          reply_markup: { inline_keyboard: keyboardButtons },
         });
 
         return NextResponse.json({ ok: true });
       }
 
+      // Handle /wallet command
+      if (text && text.startsWith('/wallet')) {
+        await sendTelegramMessage({
+          chat_id: chatId,
+          parse_mode: 'HTML',
+          text: `💳 <b>Hyper Bingo Wallet / ሒሳብ</b>\n\nDeposit or check your balance below:`,
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '💳 Open Wallet (ሒሳብ ክፈት)', web_app: { url: `${appUrl}?tab=wallet` } },
+            ]],
+          },
+        });
         return NextResponse.json({ ok: true });
       }
 
-      // Default fallback — responds to ANY text that is not a command
+      // Default fallback — any other text shows the game list
       await sendTelegramMessage({
         chat_id: chatId,
         parse_mode: 'HTML',
-        text: `🤖 <b>Hyper Bingo Games / የሃይፐር ቢንጎ ጨዋታዎች</b>\n\n` +
-              `ከታች ከዋና ጨዋታዎች መካከል አንዱን መርጠው በቀጥታ ወደ ጨዋታው ይግቡ፡\n` +
-              `Tap any game below to jump straight to the room:\n\n` +
-              `🌟 <b>Hyper Weekend Draws:</b> Fri–Sun | 2:00 PM, 5:00 PM &amp; 7:00 PM EAT\n` +
-              `📞 Support: <a href="tel:+251911234567">+251 91 123 4567</a> | @HyperBingoSupport`,
+        text: `🎮 <b>Hyper Bingo / ሃይፐር ቢንጎ</b>\n\nጨዋታ ይምረጡ — Choose a game to play:`,
         reply_markup: {
           inline_keyboard: [
             [
               {
-                text: '⚡ Hyper Fetan 10 (10 ETB)',
-                web_app: { url: `${appUrl}?game=gm_fetan_10` },
+                text: '⚡ Hyper Fetan (10 ETB)',
+                web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` },
               },
               {
-                text: '🎲 Hyper Special 20 (20 ETB)',
-                web_app: { url: `${appUrl}?game=gm_special_20` },
-              },
-            ],
-            [
-              {
-                text: '🌟 Hyper Weekend 50 (50k Pool)',
-                web_app: { url: `${appUrl}?game=gm_weekend_50` },
-              },
-              {
-                text: '👑 Hyper Weekend 100 (100k Jackpot)',
-                web_app: { url: `${appUrl}?game=gm_weekend_100` },
+                text: '🎲 Hyper Special (20 ETB)',
+                web_app: { url: `${appUrl}?tab=lobby&cat=SPECIAL` },
               },
             ],
             [
               {
-                text: '🎮 Play Hyper Bingo (ሁሉንም ጨዋታዎች ክፈት)',
+                text: '🌟 Hyper Weekend Lottery',
+                web_app: { url: `${appUrl}?tab=lottery` },
+              },
+              {
+                text: '🎮 Main Lobby',
                 web_app: { url: appUrl },
               },
             ],
             [
               {
-                text: '💳 Deposit / Wallet (ሒሳብ ሙላ)',
+                text: '💳 Wallet (ሒሳብ ሙላ)',
                 web_app: { url: `${appUrl}?tab=wallet` },
-              },
-              {
-                text: '📞 Support (+251 91 123 4567)',
-                url: 'tel:+251911234567',
               },
             ],
           ],
