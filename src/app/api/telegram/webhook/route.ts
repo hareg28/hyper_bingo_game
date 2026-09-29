@@ -72,52 +72,58 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // Handle /start, /games, /play, or any greeting command
+      // Handle /start, /games, /play, /help, /menu
       if (text && (text.startsWith('/start') || text.startsWith('/games') || text.startsWith('/help') || text.startsWith('/play') || text.startsWith('/menu'))) {
+        // Short, precise welcome text
         const welcomeText =
-          `🎉 <b>እንኳን ወደ ሃይፐር ቢንጎ በደህና መጡ!</b>\n` +
-          `<b>Welcome to Hyper Bingo Ethiopia!</b>\n\n` +
-          `🇪🇹 በኢትዮጵያ #1 ፈጣን የቀጥታ 75-ቁጥር ቢንጎ መድረክ!\n` +
-          `• 80% ሽልማት · 20% ቤት ድርሻ (80% Prize · 20% House)\n` +
-          `• ቴሌብር እና ሲቢኢ ብር (Telebirr &amp; CBE Birr)\n\n` +
-          `👇 <b>ጨዋታ ይምረጡ / Choose a Game:</b>` +
-          (isAdmin ? `\n⭐ <i>(Admin Access Verified)</i>` : '');
+          `🎮 <b>Hyper Bingo Ethiopia</b>\n` +
+          `#1 75-Ball Live Bingo · Telebirr &amp; CBE Birr\n` +
+          `80% Prize · 20% House${isAdmin ? ` · <i>Admin ✅</i>` : ''}\n\n` +
+          `<b>ጨዋታ ይምረጡ / Choose a game:</b>`;
 
         const keyboardButtons: any[] = [
+          // ── Row 1: Hyper Fetan ──────────────────────────────────
           [
             {
-              text: '⚡ ሃይፐር ፈጣን (10 ETB)',
+              text: '⚡ Hyper Fetan — 10 ETB',
               web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` },
             },
           ],
+          // ── Row 2: Hyper Special ────────────────────────────────
           [
             {
-              text: '🎲 ሃይፐር ስፔሻል (20 ETB)',
+              text: '🎲 Hyper Special — 20 ETB',
               web_app: { url: `${appUrl}?tab=lobby&cat=SPECIAL` },
             },
           ],
+          // ── Row 3: Hyper Weekend ────────────────────────────────
           [
             {
-              text: '🌟 ሃይፐር ዊክኤንድ ሎተሪ',
+              text: '🌟 Hyper Weekend Lottery',
               web_app: { url: `${appUrl}?tab=lottery` },
             },
           ],
+          // ── Row 4: Play Hyper Bingo (always present, full width) ─
           [
             {
-              text: '🎮 ዋና ሎቢ (Main Lobby)',
+              text: '🎮 Play Hyper Bingo',
               web_app: { url: appUrl },
             },
+          ],
+          // ── Row 5: Wallet ───────────────────────────────────────
+          [
             {
-              text: '💳 ሒሳብ (Wallet)',
+              text: '💳 Wallet / ሒሳብ',
               web_app: { url: `${appUrl}?tab=wallet` },
             },
           ],
         ];
 
+        // Admin row appended below Wallet
         if (isAdmin) {
           keyboardButtons.push([
             {
-              text: '🛡️ Admin Panel (አስተዳዳሪ ፓነል)',
+              text: '🛡️ Admin Panel',
               web_app: { url: `${appUrl}?tab=admin` },
             },
           ]);
@@ -148,20 +154,23 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // Default fallback — any other text shows the game list
+      // Default fallback — any other text shows the same game menu
       await sendTelegramMessage({
         chat_id: chatId,
         parse_mode: 'HTML',
-        text: `🎮 <b>Hyper Bingo / ሃይፐር ቢንጎ</b>\n\nጨዋታ ይምረጡ — Choose a game to play:`,
+        text: `🎮 <b>Hyper Bingo Ethiopia</b>\n#1 75-Ball Live Bingo\n\n<b>ጨዋታ ይምረጡ / Choose a game:</b>`,
         reply_markup: {
           inline_keyboard: [
+            // ── games first ─────────────────────────────────────
             [
               {
-                text: '⚡ Hyper Fetan (10 ETB)',
+                text: '⚡ Hyper Fetan — 10 ETB',
                 web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` },
               },
+            ],
+            [
               {
-                text: '🎲 Hyper Special (20 ETB)',
+                text: '🎲 Hyper Special — 20 ETB',
                 web_app: { url: `${appUrl}?tab=lobby&cat=SPECIAL` },
               },
             ],
@@ -170,14 +179,18 @@ export async function POST(req: NextRequest) {
                 text: '🌟 Hyper Weekend Lottery',
                 web_app: { url: `${appUrl}?tab=lottery` },
               },
+            ],
+            // ── Play Hyper Bingo always present ─────────────────
+            [
               {
-                text: '🎮 Main Lobby',
+                text: '🎮 Play Hyper Bingo',
                 web_app: { url: appUrl },
               },
             ],
+            // ── Wallet ──────────────────────────────────────────
             [
               {
-                text: '💳 Wallet (ሒሳብ ሙላ)',
+                text: '💳 Wallet / ሒሳብ',
                 web_app: { url: `${appUrl}?tab=wallet` },
               },
             ],
