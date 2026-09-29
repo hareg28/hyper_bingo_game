@@ -639,8 +639,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
     const utter = new SpeechSynthesisUtterance();
     // Choose text + lang based on which branch we're in.
-    const textAmharic = `${amLetter}… ቁጥር ${amWord}.  ${letter} ${num}.`;
-    const textPhonetic = `${phLetter} … kitir ${phWord}.  (${letter} ${num}).`;
+    const textAmharic = `${amLetter}! ቁጥር ${amWord}! ${letter} ${num}.`;
+    const textPhonetic = `${phLetter}! kitir ${phWord}! (${letter} ${num}).`;
 
     // ── MDN-recommended ASSIGNMENT ORDER (critical for Safari / Telegram WebView) ──
     // voice → lang → rate → pitch → volume → text
@@ -654,13 +654,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       utter.lang = /^en/.test(lower(picked?.lang || '')) ? (picked?.lang || 'en-US') : 'en-US';
       utter.text = textPhonetic;
     }
-    utter.rate = 0.85;
+    utter.rate = 1.15;  // Faster, natural energetic pace for ball caller
     utter.pitch = 2.0;   // MAX pitch = girl / young female (also applied to real am-ET Haregeweyen/Tigist)
     utter.volume = 1.0;
 
     // Re-apply tuning defensively (engines often reset params after assign voice/text/lang)
     const reapplyTune = () => {
-      try { utter.rate = 0.85; } catch {}
+      try { utter.rate = 1.15; } catch {}
       try { utter.pitch = 2.0; } catch {}
       try { utter.volume = 1.0; } catch {}
       // Re-assert voice last so it wins over any defaulting

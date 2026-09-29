@@ -16,7 +16,7 @@ const amharicNumbers = [
 export function getAmharicCallPhrase(num: number): string {
   const letter = num <= 15 ? 'ቢ' : num <= 30 ? 'አይ' : num <= 45 ? 'ኤን' : num <= 60 ? 'ጂ' : 'ኦ';
   const amWord = amharicNumbers[num] || String(num);
-  return `${letter}፣ ${amWord}።`;
+  return `${letter}! ${amWord}!`;
 }
 
 export async function GET(req: NextRequest) {

@@ -60,17 +60,25 @@ export async function initDatabaseSchema() {
         username VARCHAR(255),
         type VARCHAR(64) NOT NULL,
         amount NUMERIC(12, 2) NOT NULL,
+        balance_after NUMERIC(12, 2) DEFAULT 0.00,
         provider VARCHAR(64) NOT NULL,
         status VARCHAR(64) NOT NULL,
         reference VARCHAR(255),
+        description TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `;
+    // 3b. Add missing columns to existing transactions table (safe ALTER IF NOT EXISTS)
+    try {
+      await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS balance_after NUMERIC(12, 2) DEFAULT 0.00`;
+      await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS description TEXT`;
+    } catch {}
 
     // 4. Withdrawal Requests Table
     await sql`
       CREATE TABLE IF NOT EXISTS withdrawal_requests (
         id VARCHAR(64) PRIMARY KEY,
+        transaction_id VARCHAR(64),
         user_id VARCHAR(64) REFERENCES users(id) ON DELETE CASCADE,
         username VARCHAR(255),
         amount NUMERIC(12, 2) NOT NULL,
@@ -81,6 +89,10 @@ export async function initDatabaseSchema() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `;
+    // 4b. Add missing transaction_id column to existing table (safe ALTER IF NOT EXISTS)
+    try {
+      await sql`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(64)`;
+    } catch {}
 
     // 5. Linked Payment Accounts Table
     await sql`
@@ -113,7 +125,7 @@ export async function initDatabaseSchema() {
 
     return {
       connected: true,
-      message: 'Neon PostgreSQL tables initialized successfully (users, wallets, transactions, withdrawals, linked_accounts, games).',
+      message: 'Neon PostgreSQL tables initialized successfully (users, wallets, transactions [+balance_after,description], withdrawals [+transaction_id], linked_accounts, games).',
     };
   } catch (error: any) {
     console.error('Neon schema initialization error:', error);
