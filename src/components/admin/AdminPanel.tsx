@@ -49,8 +49,8 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
   }, []);
 
   // Telegram Broadcast Suite
-  const [broadcastTarget, setBroadcastTarget] = useState<'channel' | 'custom'>('channel');
-  const [announceChatId, setAnnounceChatId] = useState('@HyperBingoChannel');
+  const [broadcastTarget, setBroadcastTarget] = useState<'direct' | 'channel' | 'custom'>('direct');
+  const [announceChatId, setAnnounceChatId] = useState('');
   const [broadcastPreset, setBroadcastPreset] = useState<'weekend_draws' | 'daily_spin' | 'custom'>('weekend_draws');
   const [customBroadcastText, setCustomBroadcastText] = useState('');
   const [announcing, setAnnouncing] = useState(false);
@@ -75,7 +75,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
     try {
       const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
-      const rawTarget = overrideTarget || (broadcastTarget === 'channel' ? (announceChatId.trim() || '@HyperBingoChannel') : (announceChatId.trim() || user?.telegramId));
+      const rawTarget = overrideTarget || (broadcastTarget === 'direct' ? (user?.telegramId || '') : broadcastTarget === 'channel' ? (announceChatId.trim() || '@HyperBingoChannel') : (announceChatId.trim() || user?.telegramId || ''));
       const target = rawTarget;
 
       payload = {
@@ -512,11 +512,23 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
                 {language === 'am' ? 'የሚላክበት አድራሻ (Target)' : 'Broadcast Destination'}
               </label>
-              <div className="flex gap-1.5">
+              <div className="flex gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => { setBroadcastTarget('direct'); setAnnounceChatId(''); }}
+                  className={`py-1.5 px-2.5 rounded-xl text-xs font-black border transition cursor-pointer text-left flex items-center gap-1.5 ${
+                    broadcastTarget === 'direct'
+                      ? 'bg-purple-600/30 border-purple-500 text-purple-200 ring-1 ring-purple-400'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  <span>💬</span>
+                  <span className="truncate">{language === 'am' ? 'ለኔ ቴሌግራም' : 'My Telegram Chat'}</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => { setBroadcastTarget('channel'); setAnnounceChatId('@HyperBingoChannel'); }}
-                  className={`flex-1 py-1.5 px-2.5 rounded-xl text-xs font-black border transition cursor-pointer text-left flex items-center gap-1.5 ${
+                  className={`py-1.5 px-2.5 rounded-xl text-xs font-black border transition cursor-pointer text-left flex items-center gap-1.5 ${
                     broadcastTarget === 'channel'
                       ? 'bg-purple-600/30 border-purple-500 text-purple-200 ring-1 ring-purple-400'
                       : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'

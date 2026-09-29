@@ -40,6 +40,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     userCards, 
     daubCell, 
     claimBingo, 
+    blockCard,
+    resetGameRound,
     drawNextBall, 
     autoDaubEnabled, 
     toggleAutoDaub,
@@ -263,14 +265,22 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // Hyper Fetan 1-minute round + 30-second card pick period live loop
   const [fetanSecondsLeft, setFetanSecondsLeft] = useState<number>(60);
   const [fetanIsIntermission, setFetanIsIntermission] = useState<boolean>(false);
+  const lastActiveRoundEpochRef = React.useRef<number | null>(null);
 
   useEffect(() => {
     const updateFetanClock = () => {
       const epochSec = Math.floor(Date.now() / 1000);
       const cycle = epochSec % 90; // 0..59: 60s active game round, 60..89: 30s pick cards intermission
+      const roundEpoch = epochSec - cycle;
       if (cycle < 60) {
         setFetanIsIntermission(false);
         setFetanSecondsLeft(60 - cycle);
+        // When a new round epoch starts, reset table fresh with 0 balls (0/75)
+        if (lastActiveRoundEpochRef.current !== null && lastActiveRoundEpochRef.current !== roundEpoch) {
+          resetGameRound(currentGame.id);
+          setIsAutoDrawing(true);
+        }
+        lastActiveRoundEpochRef.current = roundEpoch;
       } else {
         setFetanIsIntermission(true);
         setFetanSecondsLeft(90 - cycle);
@@ -279,7 +289,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     updateFetanClock();
     const interval = setInterval(updateFetanClock, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [currentGame?.id, resetGameRound]);
 
   // Dynamic Hit Requirement calculation for active cards
   const topHitRequirement = React.useMemo(() => {

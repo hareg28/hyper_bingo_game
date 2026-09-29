@@ -76,6 +76,7 @@ interface BingoContextType {
   daubCell: (cardId: string, row: number, col: number) => void;
   claimBingo: (cardId: string) => { success: boolean; message: string; prize?: number };
   blockCard: (gameId: string, cardNumber: string) => void;
+  resetGameRound: (gameId: string) => void;
   drawNextBall: (gameId: string) => number | null;
   dismissNotification: (id: string) => void;
   addNotification: (title: string, body: string, type?: 'success' | 'info' | 'warning' | 'win') => void;
@@ -934,6 +935,32 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         };
       })
     );
+  // 8c. RESET GAME ROUND (Fresh 75-ball table for new round)
+  const resetGameRound = (gameId: string) => {
+    setGames((prev) =>
+      prev.map((g) =>
+        g.id === gameId
+          ? {
+              ...g,
+              drawnNumbers: [],
+              currentBall: null,
+              blockedCards: [],
+              winners: [],
+              status: 'RUNNING',
+            }
+          : g
+      )
+    );
+    // Reset marks on user cards for this game (keep free center)
+    setUserCards((prev) =>
+      prev.map((card) => {
+        if (card.gameId !== gameId) return card;
+        const freshMarks = Array.from({ length: 5 }, (_, r) =>
+          Array.from({ length: 5 }, (_, c) => (r === 2 && c === 2))
+        );
+        return { ...card, marked: freshMarks };
+      })
+    );
   };
 
   // 9. CLAIM BINGO
@@ -1311,6 +1338,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         daubCell,
         claimBingo,
         blockCard,
+        resetGameRound,
         drawNextBall,
         dismissNotification,
         addNotification,

@@ -83,9 +83,17 @@ export default function MiniAppShell({
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const gParam = urlParams.get('game') || (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
+      const catParam = urlParams.get('cat');
       if (gParam) {
         setActiveGameId(gParam);
         setActiveTab('game');
+      } else if (catParam === 'FETAN' || catParam === 'SPECIAL') {
+        setCategoryTab(catParam);
+        setActiveTab('lobby');
+      } else if (catParam === 'WEEKEND') {
+        setCategoryTab('WEEKEND');
+        setLotteryMode('WEEKEND');
+        setActiveTab('lottery');
       }
     }
   }, [setActiveGameId]);

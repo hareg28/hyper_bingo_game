@@ -73,31 +73,50 @@ export async function POST(req: NextRequest) {
 
     if (!result.ok) {
       const rawError = result.description || 'Telegram API error';
-      let userFriendlyMsg = String(rawError || '');
+      
+      // If channel was not found or bot lacks rights, attempt direct delivery to admin
+      if (adminTelegramId && targetChatId !== adminTelegramId) {
+        try {
+          const directRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: adminTelegramId,
+              parse_mode: 'HTML',
+              text: `📢 <b>[Admin Broadcast Preview / የሙከራ መልእክት]</b>\n\n${announcementText}\n\n━━━━━━━━━━━━━━━━━━━━━\nℹ️ <i>ማስታወሻ፡ ቻናሉ ${targetChatId} ስላልተገኘ መልእክቱ በቀጥታ ወደ እርስዎ ቴሌግራም ተልኳል። ቻናል ላይ ለማሰራጨት @HyperBingoBot ን በቻናልዎ ውስጥ አስተዳዳሪ (Admin) ያድርጉት።</i>`,
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: '🎮 Join Weekend Games Now!',
+                      web_app: { url: appUrl },
+                    },
+                  ],
+                ],
+              },
+            }),
+          });
+          const directData = await directRes.json();
+          if (directData.ok) {
+            return NextResponse.json({
+              success: true,
+              ok: true,
+              message: `✅ Delivered directly to your Telegram chat (ID: ${adminTelegramId})!\n\nℹ️ Note for Channel: To broadcast publicly to ${targetChatId}, add @HyperBingoBot as Administrator of your channel.`,
+            });
+          }
+        } catch {}
+      }
 
-      // Diagnose common failures and give actionable advice to admin
+      let userFriendlyMsg = String(rawError || '');
       if (/chat not found/i.test(userFriendlyMsg)) {
         userFriendlyMsg = [
-          '❌ Bad Request: chat not found — HOW TO FIX THIS:',
+          '❌ Bad Request: chat not found — HOW TO BROADCAST:',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-          '1. 🔐 Add @HyperBingoBot as ADMINISTRATOR of the channel first: @HyperBingoChannel',
-          '   (BotFather → /mybots → HyperBingoBot → Bot Settings → Administrators)',
-          '   OR click: "Add Bot to Channel / Add to Group"',
-          '',
-          '2. 🆔 Channel private channels need NUMERIC chat_id format like: -1001234567890',
-          '   Paste above field "Target Chat ID" instead of @username',
-          '',
-          '3. ✅ Click "Send Test to Me" to prove bot is working before broadcasting',
-          '',
-          '4. Debug: https://api.telegram.org/bot<TOKEN>/getChat?chat_id=@HyperBingoChannel',
-          '   ← if this returns ok=false the bot is NOT added or username is incorrect',
+          '1. 🔐 To broadcast to a channel: Add @HyperBingoBot as ADMINISTRATOR of your channel.',
+          '2. 💬 To test immediately: Select "My Telegram Chat" to receive the broadcast in your private chat.',
           '',
           'Raw error: ' + rawError,
         ].join('\n');
-      } else if (/not enough rights|bot was kicked|forbidden/i.test(userFriendlyMsg)) {
-        userFriendlyMsg = '🚫 Bot KICKED/NO RIGHTS: Add HyperBingoBot is not admin of @HyperBingoChannel — promote @HyperBingoBot to admin role with Post permission on the channel\n' + 'Original error: ' + rawError;
-      } else if (/message is not modified|can't parse/i.test(userFriendlyMsg)) {
-        userFriendlyMsg = '⚠️ ' + userFriendlyMsg + ' — text empty try shorter message or try again';
       }
 
       return NextResponse.json(
@@ -105,9 +124,9 @@ export async function POST(req: NextRequest) {
           error: userFriendlyMsg,
           ok: false,
           telegramRaw: result,
-          tip: 'Try chat_id = numeric format -1001234567890 instead of @username',
+          tip: 'Select "My Telegram Chat" or add @HyperBingoBot as Admin to your channel',
         },
-        { status: 200 } // 200 so admin's UI shows detailed messages (better DX)
+        { status: 200 }
       );
     }
 

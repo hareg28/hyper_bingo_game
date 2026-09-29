@@ -77,89 +77,36 @@ export async function POST(req: NextRequest) {
           `🇪🇹 በኢትዮጵያ #1 ፈጣን የቀጥታ 75-ቁጥር ቢንጎ መድረክ!\n` +
           `• በቴሌብር እና በሲቢኢ ብር ፈጣን ገቢና ወጪ (Instant Telebirr & CBE)\n` +
           `• 80% የሽልማት ገንዳ ለአሸናፊዎች · 20% የቤት ድርሻ\n` +
-          `• የቀጥታ እይታ ሞድ (Spectator Mode) — ያለ ካርድም ጨዋታውን በቀጥታ መመልከት ይችላሉ!\n\n` +
-          `🎮 <b>ዋና ዋና የጨዋታ ዝርዝሮች (Main Game List):</b>\n` +
-          `━━━━━━━━━━━━━━━━━━━━━\n` +
-          `⚡ <b>ሃይፐር ፈጣን (Hyper Fetan - 1 Min / 500 Cards):</b>\n` +
-          `  • ⚡ Fetan 5 ETB  ·  ⚡ Fetan 10 ETB\n` +
-          `  • ⚡ Fetan 30 ETB ·  ⚡ Fetan 50 ETB\n\n` +
-          `🎲 <b>ሃይፐር ስፔሻል (Hyper Special - Live Room):</b>\n` +
-          `  • 🎲 Special 10 ETB · 🎲 Special 20 ETB\n` +
-          `  • 🎯 Special 50 ETB · 💎 Special 100 ETB\n\n` +
-          `🌟 <b>ሃይፐር ዊክኤንድ (Hyper Weekend - Mega Jackpots):</b>\n` +
-          `  • 🌟 Hyper Weekend 30 (🏆 30,000 ETB Pool)\n` +
-          `  • 🌟 Hyper Weekend 50 (🏆 50,000 ETB Pool)\n` +
-          `  • 👑 Hyper Weekend 100 (🏆 100,000 ETB Mega Pool)\n` +
-          `  ⏰ ድራው ሰዓት፡ <b>2:00 PM, 5:00 PM &amp; 7:00 PM (ዓርብ–እሑድ)</b>\n` +
-          `━━━━━━━━━━━━━━━━━━━━━\n` +
-          `👇 <b>ከታች ከዝርዝሩ አንዱን ይጫኑ — ቀጥታ ወደ ጨዋታው ይወስድዎታል!</b>\n` +
-          `(Tap any game below to open and join directly:)` +
-          (isAdmin ? `\n\n⭐ <b>(Admin Access Granted / የአስተዳዳሪ መዳረሻ ተሰጥቶዎታል)</b>` : '');
+          `• የቀጥታ እይታ ሞድ (Live Spectator Mode) ይገኛል!\n\n` +
+          `👇 <b>ከታች ከዋና ጨዋታዎች አንዱን መርጠው በቀጥታ ይጫወቱ፡</b>` +
+          (isAdmin ? `\n⭐ <i>(Admin Access Verified)</i>` : '');
 
         const keyboardButtons: any[] = [
           [
             {
-              text: '⚡ Hyper Fetan 5 (5 ETB)',
-              web_app: { url: `${appUrl}?game=gm_fetan_05` },
-            },
-            {
-              text: '⚡ Hyper Fetan 10 (10 ETB)',
-              web_app: { url: `${appUrl}?game=gm_fetan_10` },
+              text: '⚡ ሃይፐር ፈጣን (Hyper Fetan - 1 Min)',
+              web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` },
             },
           ],
           [
             {
-              text: '⚡ Hyper Fetan 30 (30 ETB)',
-              web_app: { url: `${appUrl}?game=gm_fetan_30` },
-            },
-            {
-              text: '⚡ Hyper Fetan 50 (50 ETB)',
-              web_app: { url: `${appUrl}?game=gm_fetan_50` },
+              text: '🎲 ሃይፐር ስፔሻል (Hyper Special)',
+              web_app: { url: `${appUrl}?tab=lobby&cat=SPECIAL` },
             },
           ],
           [
             {
-              text: '🎲 Special 10 ETB',
-              web_app: { url: `${appUrl}?game=gm_special_10` },
-            },
-            {
-              text: '🎲 Special 20 ETB',
-              web_app: { url: `${appUrl}?game=gm_special_20` },
+              text: '🌟 ሃይፐር ዊክኤንድ ሎተሪ (Hyper Weekend)',
+              web_app: { url: `${appUrl}?tab=lottery` },
             },
           ],
           [
             {
-              text: '🎯 Special 50 ETB',
-              web_app: { url: `${appUrl}?game=gm_special_50` },
-            },
-            {
-              text: '💎 Special 100 ETB',
-              web_app: { url: `${appUrl}?game=gm_special_100` },
-            },
-          ],
-          [
-            {
-              text: '🌟 Hyper Weekend 30 (30k Pool)',
-              web_app: { url: `${appUrl}?game=gm_weekend_30` },
-            },
-            {
-              text: '🌟 Hyper Weekend 50 (50k Pool)',
-              web_app: { url: `${appUrl}?game=gm_weekend_50` },
-            },
-          ],
-          [
-            {
-              text: '👑 Hyper Weekend 100 (100k Jackpot)',
-              web_app: { url: `${appUrl}?game=gm_weekend_100` },
-            },
-          ],
-          [
-            {
-              text: '🎮 Open Hyper Bingo Lobby (ዋና ሎቢ)',
+              text: '🎮 Play Hyper Bingo (ዋና ሎቢ)',
               web_app: { url: `${appUrl}?tab=lobby` },
             },
             {
-              text: '💳 Deposit / Wallet (ሒሳብ ሙላ)',
+              text: '💳 Wallet (ሒሳብ ሙላ)',
               web_app: { url: `${appUrl}?tab=wallet` },
             },
           ],
@@ -183,6 +130,9 @@ export async function POST(req: NextRequest) {
             inline_keyboard: keyboardButtons,
           },
         });
+
+        return NextResponse.json({ ok: true });
+      }
 
         return NextResponse.json({ ok: true });
       }
