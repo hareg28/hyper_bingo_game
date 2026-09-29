@@ -6,13 +6,13 @@ import { createNewBingoCard, generateSoldNumbersForGame } from './bingoUtils';
 
 // ------------------------------------------------------------------
 // PRIZE RULE (per business requirement):
-// REGULAR games   → PrizePool = round((Players × EntryPrice) × 0.85)
-//                    (Owner keeps 15%, remaining 85% goes to winner(s).
-//                     If N winners arrive, they split that 85% equally.)
+// REGULAR games   → PrizePool = round((Players × EntryPrice) × 0.80)
+//                    (Owner keeps 20%, remaining 80% goes to winner(s).
+//                     If N winners arrive, they split that 80% equally.)
 // WEEKEND games   → Fixed prize (as pre-set by owner for promo/draw).
 // ------------------------------------------------------------------
-export const OWNER_CUT_PCT = 0.15; // 15%
-export const WINNERS_CUT_PCT = 1 - OWNER_CUT_PCT; // 85%
+export const OWNER_CUT_PCT = 0.20; // 20% Owner Profit
+export const WINNERS_CUT_PCT = 1 - OWNER_CUT_PCT; // 80% Prize Pool for Winners
 
 export const computeRegularPrizePool = (entryPrice: number, currentPlayers: number): number => {
   const totalCollected = Math.max(0, (entryPrice || 0) * Math.max(0, currentPlayers || 0));
@@ -22,7 +22,7 @@ export const computeRegularPrizePool = (entryPrice: number, currentPlayers: numb
 /**
  * Returns the live prize pool for a game.
  * - Weekend / Lottery specials → use the configured (fixed) prizePool.
- * - All other (regular) games  → derive from (players × price × 85%).
+ * - All other (regular) games  → derive from (players × price × 80%).
  */
 export const getGameLivePrizePool = (game: Game): number => {
   if (!game) return 0;
@@ -260,7 +260,7 @@ export const INITIAL_GAMES: Game[] = [
   // ================================================================
   {
     id: 'gm_weekend_30',
-    name: '🌟 Weekend Hyper 30',
+    name: '🌟 Hyper Weekend 30',
     gameType: 'WEEKEND_LOTTERY',
     category: 'HYPER_WEEKEND',
     winningRule: 'FULL_HOUSE_ONLY',
@@ -280,7 +280,7 @@ export const INITIAL_GAMES: Game[] = [
   },
   {
     id: 'gm_weekend_50',
-    name: '🌟 Weekend Hyper 50',
+    name: '🌟 Hyper Weekend 50',
     gameType: 'WEEKEND_LOTTERY',
     category: 'HYPER_WEEKEND',
     winningRule: 'FULL_HOUSE_ONLY',
@@ -300,7 +300,7 @@ export const INITIAL_GAMES: Game[] = [
   },
   {
     id: 'gm_weekend_100',
-    name: '🌟 Weekend Hyper 100',
+    name: '🌟 Hyper Weekend 100',
     gameType: 'WEEKEND_LOTTERY',
     category: 'HYPER_WEEKEND',
     winningRule: 'FULL_HOUSE_ONLY',

@@ -860,12 +860,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   // 6. CREATE GAME (ADMIN)
   //    · Weekend/Lottery games → use the prizePool passed in by admin (owner-set fixed prize)
   //    · Regular games        → use PrizePool = 0 and compute live at render:
-  //                              PrizePool = round(Players × Price × 0.85)
+  //                              PrizePool = round(Players × Price × 0.80)
   const createGame = (gameData: Omit<Game, 'id' | 'currentPlayers' | 'drawnNumbers' | 'winners' | 'createdAt'>) => {
     const isWeekend = !!gameData.isWeekendSpecial || gameData.gameType === 'WEEKEND_LOTTERY';
     const enforcedPrize = isWeekend
       ? Math.round(gameData.prizePool || 0)
-      : 0; // Regular games → compute live in getGameLivePrizePool (players × price × 0.85)
+      : 0; // Regular games → compute live in getGameLivePrizePool (players × price × 0.80)
 
     const newGame: Game = {
       ...gameData,
@@ -895,7 +895,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       `Created ${newGame.name} with $${newGame.entryPrice} entry ${
         isWeekend
           ? `→ $${newGame.prizePool.toLocaleString()} FIXED Prize (owner-set weekend draw).`
-          : `→ LIVE Prize = (Players × ${newGame.entryPrice} × 85%) — Owner keeps 15%.`
+          : `→ LIVE Prize = (Players × ${newGame.entryPrice} × 80%) — Owner keeps 20%.`
       }`,
       'info'
     );
@@ -984,7 +984,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     // ---- PRIZE LOGIC (business rule) ------------------------------------------
     const totalCollected = Math.max(0, (game.entryPrice || 0) * Math.max(0, game.currentPlayers || 0));
-    const ownerCut = Math.round(totalCollected * OWNER_CUT_PCT); // 15% owner (internal only)
+    const ownerCut = Math.round(totalCollected * OWNER_CUT_PCT); // 20% owner (internal only)
     const isWeekend = !!game.isWeekendSpecial || game.gameType === 'WEEKEND_LOTTERY';
     const totalPrizePoolForWinners = isWeekend
       ? Math.round(game.prizePool || 0)

@@ -460,9 +460,13 @@ export const GAME_NAME_TRANSLATIONS: Record<string, { en: string; am: string }> 
   '⚡ Hyper 10': { en: '⚡ Hyper 10', am: '⚡ ሃይፐር 10' },
   '🎲 Hyper 20': { en: '🎲 Hyper 20', am: '🎲 ሃይፐር 20' },
   '🎯 Hyper 30': { en: '🎯 Hyper 30', am: '🎯 ሃይፐር 30' },
-  '🌟 Weekend Hyper 35': { en: '🌟 Weekend Hyper 35', am: '🌟 የሳምንት መጨረሻ ሃይፐር 35' },
-  '🌟 Weekend Hyper 50': { en: '🌟 Weekend Hyper 50', am: '🌟 የሳምንት መጨረሻ ሃይፐር 50' },
-  '🌟 Weekend Hyper 100': { en: '🌟 Weekend Hyper 100', am: '🌟 የሳምንት መጨረሻ ሃይፐር 100' },
+  '🌟 Hyper Weekend 30': { en: '🌟 Hyper Weekend 30', am: '🌟 ሃይፐር ዊክኤንድ 30' },
+  '🌟 Hyper Weekend 50': { en: '🌟 Hyper Weekend 50', am: '🌟 ሃይፐር ዊክኤንድ 50' },
+  '🌟 Hyper Weekend 100': { en: '🌟 Hyper Weekend 100', am: '🌟 ሃይፐር ዊክኤንድ 100' },
+  '🌟 Weekend Hyper 30': { en: '🌟 Hyper Weekend 30', am: '🌟 ሃይፐር ዊክኤንድ 30' },
+  '🌟 Weekend Hyper 35': { en: '🌟 Hyper Weekend 35', am: '🌟 ሃይፐር ዊክኤንድ 35' },
+  '🌟 Weekend Hyper 50': { en: '🌟 Hyper Weekend 50', am: '🌟 ሃይፐር ዊክኤንድ 50' },
+  '🌟 Weekend Hyper 100': { en: '🌟 Hyper Weekend 100', am: '🌟 ሃይፐር ዊክኤንድ 100' },
   '🔥 Hyper 100': { en: '🔥 Hyper 100', am: '🔥 ሃይፐር 100' },
   '💎 Hyper 200': { en: '💎 Hyper 200', am: '💎 ሃይፐር 200' },
   '🏅 Hyper 300': { en: '🏅 Hyper 300', am: '🏅 ሃይፐር 300' },
@@ -488,9 +492,9 @@ export function localizeGameName(name: string, lang: Language): string {
   else if (name.includes('Mini Birr Starter') || name.includes('Mini Birr')) cleanName = '⚡ Hyper 10';
   else if (name.includes('Casual 20 ETB') || name.includes('Casual 20')) cleanName = '🎲 Hyper 20';
   else if (name.includes('Hyper 30 Quick') || name.includes('Hyper 30')) cleanName = '🎯 Hyper 30';
-  else if (name.includes('Weekend Hyper 35')) cleanName = '🌟 Weekend Hyper 35';
-  else if (name.includes('Weekend Hyper 50')) cleanName = '🌟 Weekend Hyper 50';
-  else if (name.includes('Weekend Hyper 100')) cleanName = '🌟 Weekend Hyper 100';
+  else if (name.includes('Weekend') && (name.includes('30') || name.includes('35'))) cleanName = '🌟 Hyper Weekend 30';
+  else if (name.includes('Weekend') && name.includes('50')) cleanName = '🌟 Hyper Weekend 50';
+  else if (name.includes('Weekend') && name.includes('100')) cleanName = '🌟 Hyper Weekend 100';
   else if (name.includes('Hyper 100 High') || name.includes('Hyper 100 Arena') || name.includes('High Stakes Arena')) cleanName = '🔥 Hyper 100';
   else if (name.includes('Hyper 200')) cleanName = '💎 Hyper 200';
   else if (name.includes('Hyper 300')) cleanName = '🏅 Hyper 300';

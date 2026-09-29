@@ -7,7 +7,7 @@ import {
   Wallet, User as UserIcon, Shield, 
   Share2, Copy, Check, LogOut, Sparkles, 
   ChevronRight, ChevronLeft, Globe, X, Users, Gift,
-  Gamepad2, Zap
+  Gamepad2, Zap, Eye
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
 import WalletManager from '../wallet/WalletManager';
@@ -21,7 +21,7 @@ function getGameDisplayName(g: { entryPrice: number; gameType?: string; isWeeken
     return lang === 'am' ? `⚡ ፈጣን ${g.entryPrice} ብር` : `⚡ Hyper Fetan ${g.entryPrice} ETB`;
   }
   if (g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) {
-    return lang === 'am' ? `🌟 የሳምንት መጨረሻ ${g.entryPrice} ብር` : `🌟 Weekend Hyper ${g.entryPrice} ETB`;
+    return lang === 'am' ? `🌟 ሃይፐር ዊክኤንድ ${g.entryPrice} ብር` : `🌟 Hyper Weekend ${g.entryPrice} ETB`;
   }
   return lang === 'am' ? `🎲 ስፔሻል ${g.entryPrice} ብር` : `🎲 Hyper Special ${g.entryPrice} ETB`;
 }
@@ -29,10 +29,12 @@ function getGameDisplayName(g: { entryPrice: number; gameType?: string; isWeeken
 export default function MiniAppShell({ 
   onClose,
   initialTab = 'lobby',
+  initialGameId,
   embedded = false
 }: { 
   onClose?: () => void;
   initialTab?: 'lobby' | 'game' | 'wallet' | 'profile' | 'admin' | 'lottery';
+  initialGameId?: string;
   embedded?: boolean;
 }) {
   const { 
@@ -69,6 +71,24 @@ export default function MiniAppShell({
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  useEffect(() => {
+    if (initialGameId) {
+      setActiveGameId(initialGameId);
+      setActiveTab('game');
+    }
+  }, [initialGameId, setActiveGameId]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const gParam = urlParams.get('game') || (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
+      if (gParam) {
+        setActiveGameId(gParam);
+        setActiveTab('game');
+      }
+    }
+  }, [setActiveGameId]);
 
   const isUserAdmin = Boolean(
     user && 
@@ -227,7 +247,7 @@ export default function MiniAppShell({
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
               >
-                <span className="flex items-center gap-1 font-black">🌟 {language === 'am' ? 'ዊክኤንድ' : 'Weekend'}</span>
+                <span className="flex items-center gap-1 font-black">🌟 {language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'Hyper Weekend'}</span>
                 <span className={`text-[9px] font-bold ${categoryTab === 'WEEKEND' ? 'text-amber-950' : 'text-slate-500'}`}>
                   30-100 ETB · 1500 {language === 'am' ? 'ካርድ' : 'Cards'}
                 </span>
@@ -329,33 +349,49 @@ export default function MiniAppShell({
                         )}
                       </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        if (categoryTab === 'SPECIAL') {
-                          joinGame(g.id);
+                    <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                      {/* Watch / Spectate Button: Allows player to view live game without buying cards */}
+                      <button
+                        type="button"
+                        onClick={() => {
                           setActiveGameId(g.id);
                           setActiveTab('game');
-                        } else {
-                          handleSelectGameToPickCards(g.id, categoryTab);
-                        }
-                      }}
-                      className={`ml-3 px-3.5 py-2 rounded-xl text-xs font-black transition shrink-0 flex items-center gap-1 shadow-xs cursor-pointer ${
-                        categoryTab === 'SPECIAL'
-                          ? 'bg-slate-950 hover:bg-slate-800 text-white'
-                          : categoryTab === 'WEEKEND'
-                          ? 'bg-purple-600 hover:bg-purple-500 text-white'
-                          : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-                      }`}
-                    >
-                      <span>
-                        {categoryTab === 'SPECIAL'
-                          ? (language === 'am' ? 'ተጫወት' : 'PLAY')
-                          : categoryTab === 'WEEKEND' 
-                          ? (language === 'am' ? 'ካርድ ግዛ (1-1500)' : 'Buy Card (1-1500)') 
-                          : (language === 'am' ? 'ካርድ ምረጥ (1-500)' : 'Choose Cards (1-500)')}
-                      </span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
+                        }}
+                        className="px-2.5 py-2 rounded-xl text-xs font-black bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1 cursor-pointer border border-slate-200"
+                        title={language === 'am' ? 'ጨዋታውን በቀጥታ ይመልከቱ' : 'Watch game live'}
+                      >
+                        <Eye className="w-3.5 h-3.5 text-blue-600" />
+                        <span className="hidden sm:inline">{language === 'am' ? 'እይ' : 'Watch'}</span>
+                      </button>
+
+                      {/* Main Play / Choose Cards Button */}
+                      <button
+                        onClick={() => {
+                          if (categoryTab === 'SPECIAL') {
+                            setActiveGameId(g.id);
+                            setActiveTab('game');
+                          } else {
+                            handleSelectGameToPickCards(g.id, categoryTab);
+                          }
+                        }}
+                        className={`px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-xs cursor-pointer ${
+                          categoryTab === 'SPECIAL'
+                            ? 'bg-slate-950 hover:bg-slate-800 text-white'
+                            : categoryTab === 'WEEKEND'
+                            ? 'bg-purple-600 hover:bg-purple-500 text-white'
+                            : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                        }`}
+                      >
+                        <span>
+                          {categoryTab === 'SPECIAL'
+                            ? (language === 'am' ? 'ተጫወት' : 'PLAY')
+                            : categoryTab === 'WEEKEND' 
+                            ? (language === 'am' ? 'ካርድ ግዛ' : 'Buy Card') 
+                            : (language === 'am' ? 'ካርድ ምረጥ' : 'Choose')}
+                        </span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
             </div>
@@ -415,6 +451,7 @@ export default function MiniAppShell({
             onBack={() => setActiveTab('lobby')}
             onChangeGameId={(newId) => setActiveGameId(newId)}
             onOpenLotteryTab={() => setActiveTab('lottery')}
+            onOpenWalletTab={() => setActiveTab('wallet')}
           />
         )}
 
@@ -974,7 +1011,7 @@ function WeekendLotteryNumberPicker({
                 <span>
                   {mode === 'FETAN' 
                     ? (isAm ? 'ሃይፐር ፈጣን ካርዶች (1-500)' : 'Hyper Fetan Cards (1-500)')
-                    : (isAm ? 'የሳምንት መጨረሻ ሃይፐር ሎተሪ (1-1500)' : 'Weekend Hyper Lottery (1-1500)')}
+                    : (isAm ? 'ሃይፐር ዊክኤንድ ሎተሪ (1-1500)' : 'Hyper Weekend Lottery (1-1500)')}
                 </span>
               </h3>
               <span className="text-[10px] text-slate-500 font-bold">
@@ -986,6 +1023,15 @@ function WeekendLotteryNumberPicker({
           </div>
 
           <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_30', [])}
+              className="px-2 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer"
+              title={isAm ? 'ጨዋታውን በቀጥታ ይመልከቱ' : 'Watch live game'}
+            >
+              <Eye className="w-3 h-3" />
+              <span>{isAm ? 'እይ' : 'Watch'}</span>
+            </button>
             <div className="px-2 py-1 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 font-mono font-black text-[10px] flex items-center gap-1 shadow-2xs">
               <Wallet className="w-3 h-3 text-emerald-600 shrink-0" />
               <span>{wallet.availableBalance} ETB</span>
@@ -1102,7 +1148,7 @@ function WeekendLotteryNumberPicker({
               ? (isAm ? 'የፈጣን ውርርድ ደረጃ (5, 10, 30, 50 ብር)' : 'Hyper Fetan Stakes (5, 10, 30, 50 ETB)')
               : mode === 'SPECIAL'
               ? (isAm ? 'የስፔሻል ውርርድ ደረጃ (10, 20, 30, 50, 100 ብር)' : 'Hyper Special Stakes (10, 20, 30, 50, 100 ETB)')
-              : (isAm ? 'የሳምንት መጨረሻ ውርርድ (30, 50, 100 ብር)' : 'Weekend Stakes (30, 50, 100 ETB)')
+              : (isAm ? 'የሃይፐር ዊክኤንድ ውርርድ (30, 50, 100 ብር)' : 'Hyper Weekend Stakes (30, 50, 100 ETB)')
             }
           </span>
           <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
@@ -1317,6 +1363,16 @@ function WeekendLotteryNumberPicker({
           ) : (
             `🏆 ${isAm ? 'ይግዙ' : 'BUY'} · ${slotCountFilled}×${entryPrice} = ${totalCost} ETB`
           )}
+        </button>
+
+        {/* Spectator Button: Watch live game without buying cards */}
+        <button
+          type="button"
+          onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_30', [])}
+          className="w-full py-2.5 rounded-xl font-bold text-xs bg-slate-200/80 hover:bg-slate-300 text-slate-800 transition flex items-center justify-center gap-1.5 cursor-pointer border border-slate-300/80"
+        >
+          <Eye className="w-3.5 h-3.5 text-blue-600" />
+          <span>{isAm ? '👀 ያለ ካርድ ጨዋታውን በቀጥታ ይመልከቱ (Watch Live Game)' : '👀 Watch Live Game as Spectator'}</span>
         </button>
       </div>
     </div>

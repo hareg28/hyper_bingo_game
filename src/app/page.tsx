@@ -15,12 +15,19 @@ export default function PublicWebsitePage() {
   const [miniAppTab, setMiniAppTab] = useState<
     'lobby' | 'game' | 'wallet' | 'profile' | 'admin' | 'lottery'
   >('lobby');
+  const [initialGameId, setInitialGameId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const requestedTab = urlParams.get('tab');
-      if (
+      const tg = window.Telegram?.WebApp;
+      const requestedGame = urlParams.get('game') || (tg?.initDataUnsafe as any)?.start_param;
+
+      if (requestedGame) {
+        setInitialGameId(requestedGame);
+        setMiniAppTab('game');
+      } else if (
         requestedTab === 'admin' ||
         requestedTab === 'game' ||
         requestedTab === 'wallet' ||
@@ -31,7 +38,6 @@ export default function PublicWebsitePage() {
         setMiniAppTab(requestedTab as any);
       }
 
-      const tg = window.Telegram?.WebApp;
       if (tg) {
         try {
           tg.ready();
@@ -48,7 +54,7 @@ export default function PublicWebsitePage() {
       {/* Mini App fills the whole page — single app, no bot or split views */}
       <div className="flex-1 min-h-0 w-full max-w-[460px] flex items-stretch justify-center">
         <div className="w-full h-full shadow-2xl overflow-hidden rounded-none sm:rounded-2xl border border-slate-200 bg-white flex flex-col">
-          <MiniAppShell initialTab={miniAppTab} embedded={true} />
+          <MiniAppShell initialTab={miniAppTab} initialGameId={initialGameId} embedded={true} />
         </div>
       </div>
     </div>

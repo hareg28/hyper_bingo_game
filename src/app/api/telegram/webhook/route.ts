@@ -69,30 +69,98 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // Handle /start or any greeting command
-      if (text && (text.startsWith('/start') || text.startsWith('/help') || text.startsWith('/play'))) {
+      // Handle /start, /games, /play, or any greeting command
+      if (text && (text.startsWith('/start') || text.startsWith('/games') || text.startsWith('/help') || text.startsWith('/play') || text.startsWith('/menu'))) {
         const welcomeText = 
           `🎉 <b>እንኳን ወደ ሃይፐር ቢንጎ በደህና መጡ!</b>\n` +
           `<b>Welcome to Hyper Bingo Ethiopia!</b>\n\n` +
-          `🇪🇹 በኢትዮጵያ የመጀመሪያው ፈጣን የቀጥታ 75-ቁጥር ቢንጎ መድረክ!\n` +
-          `• በቴሌብር እና በሲቢኢ ብር ፈጣን ገቢና ወጪ\n` +
-          `• የቀጥታ ቁጥሮች እጣ እና አሸናፊዎችን እኩል ማካፈል\n` +
-          `• 100% አስተማማኝ እና ፈጣን የጨዋታ አሰራር\n\n` +
-          `⚡ Play real-time 75-ball bingo, win ETB prizes, and cash out instantly!\n\n` +
-          `🌟 <b>Weekend Hyper Draw Schedule (ዊክኤንድ ጨዋታ ሰዓት):</b>\n` +
-          `  📅 Friday – Sunday (ዓርብ – እሑድ)\n` +
-          `  ⏰ Opens: <b>2:00 PM, 5:00 PM & 7:00 PM EAT (8:00፣ 11:00 እና 1:00 ሰዓት)</b>\n\n` +
-          `📞 <b>Customer Support / ደንበኞች አገልግሎት:</b>\n` +
-          `  📱 Phone: <a href="tel:+251911234567">+251 91 123 4567</a>\n` +
-          `  💬 Telegram: @HyperBingoSupport\n\n` +
-          `የእርስዎ ቴሌግራም መለያ (Your Telegram ID): <code>${userId}</code>` +
-          (isAdmin ? `\n⭐ <b>(Admin Access Granted / የአስተዳዳሪ መዳረሻ ተሰጥቶዎታል)</b>` : '');
+          `🇪🇹 በኢትዮጵያ #1 ፈጣን የቀጥታ 75-ቁጥር ቢንጎ መድረክ!\n` +
+          `• በቴሌብር እና በሲቢኢ ብር ፈጣን ገቢና ወጪ (Instant Telebirr & CBE)\n` +
+          `• 80% የሽልማት ገንዳ ለአሸናፊዎች · 20% የቤት ድርሻ\n` +
+          `• የቀጥታ እይታ ሞድ (Spectator Mode) — ያለ ካርድም ጨዋታውን በቀጥታ መመልከት ይችላሉ!\n\n` +
+          `🎮 <b>ዋና ዋና የጨዋታ ዝርዝሮች (Main Game List):</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━\n` +
+          `⚡ <b>ሃይፐር ፈጣን (Hyper Fetan - 1 Min / 500 Cards):</b>\n` +
+          `  • ⚡ Fetan 5 ETB  ·  ⚡ Fetan 10 ETB\n` +
+          `  • ⚡ Fetan 30 ETB ·  ⚡ Fetan 50 ETB\n\n` +
+          `🎲 <b>ሃይፐር ስፔሻል (Hyper Special - Live Room):</b>\n` +
+          `  • 🎲 Special 10 ETB · 🎲 Special 20 ETB\n` +
+          `  • 🎯 Special 50 ETB · 💎 Special 100 ETB\n\n` +
+          `🌟 <b>ሃይፐር ዊክኤንድ (Hyper Weekend - Mega Jackpots):</b>\n` +
+          `  • 🌟 Hyper Weekend 30 (🏆 30,000 ETB Pool)\n` +
+          `  • 🌟 Hyper Weekend 50 (🏆 50,000 ETB Pool)\n` +
+          `  • 👑 Hyper Weekend 100 (🏆 100,000 ETB Mega Pool)\n` +
+          `  ⏰ ድራው ሰዓት፡ <b>2:00 PM, 5:00 PM &amp; 7:00 PM (ዓርብ–እሑድ)</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━\n` +
+          `👇 <b>ከታች ከዝርዝሩ አንዱን ይጫኑ — ቀጥታ ወደ ጨዋታው ይወስድዎታል!</b>\n` +
+          `(Tap any game below to open and join directly:)` +
+          (isAdmin ? `\n\n⭐ <b>(Admin Access Granted / የአስተዳዳሪ መዳረሻ ተሰጥቶዎታል)</b>` : '');
 
         const keyboardButtons: any[] = [
           [
             {
-              text: '🎮 Play Hyper Bingo (ሚኒ አፕ ክፈት)',
-              web_app: { url: appUrl },
+              text: '⚡ Hyper Fetan 5 (5 ETB)',
+              web_app: { url: `${appUrl}?game=gm_fetan_05` },
+            },
+            {
+              text: '⚡ Hyper Fetan 10 (10 ETB)',
+              web_app: { url: `${appUrl}?game=gm_fetan_10` },
+            },
+          ],
+          [
+            {
+              text: '⚡ Hyper Fetan 30 (30 ETB)',
+              web_app: { url: `${appUrl}?game=gm_fetan_30` },
+            },
+            {
+              text: '⚡ Hyper Fetan 50 (50 ETB)',
+              web_app: { url: `${appUrl}?game=gm_fetan_50` },
+            },
+          ],
+          [
+            {
+              text: '🎲 Special 10 ETB',
+              web_app: { url: `${appUrl}?game=gm_special_10` },
+            },
+            {
+              text: '🎲 Special 20 ETB',
+              web_app: { url: `${appUrl}?game=gm_special_20` },
+            },
+          ],
+          [
+            {
+              text: '🎯 Special 50 ETB',
+              web_app: { url: `${appUrl}?game=gm_special_50` },
+            },
+            {
+              text: '💎 Special 100 ETB',
+              web_app: { url: `${appUrl}?game=gm_special_100` },
+            },
+          ],
+          [
+            {
+              text: '🌟 Hyper Weekend 30 (30k Pool)',
+              web_app: { url: `${appUrl}?game=gm_weekend_30` },
+            },
+            {
+              text: '🌟 Hyper Weekend 50 (50k Pool)',
+              web_app: { url: `${appUrl}?game=gm_weekend_50` },
+            },
+          ],
+          [
+            {
+              text: '👑 Hyper Weekend 100 (100k Jackpot)',
+              web_app: { url: `${appUrl}?game=gm_weekend_100` },
+            },
+          ],
+          [
+            {
+              text: '🎮 Open Hyper Bingo Lobby (ዋና ሎቢ)',
+              web_app: { url: `${appUrl}?tab=lobby` },
+            },
+            {
+              text: '💳 Deposit / Wallet (ሒሳብ ሙላ)',
+              web_app: { url: `${appUrl}?tab=wallet` },
             },
           ],
         ];
@@ -123,20 +191,46 @@ export async function POST(req: NextRequest) {
       await sendTelegramMessage({
         chat_id: chatId,
         parse_mode: 'HTML',
-        text: `🤖 <b>Hyper Bingo Bot</b>\n\nUse /start to open the game or /admin to access admin tools.\n\nጨዋታውን ለመጀመር /start ይጫኑ።\n\n` +
-              `🌟 <b>Weekend Hyper Draw:</b> Fri–Sun | 2:00 PM, 5:00 PM &amp; 7:00 PM EAT\n` +
+        text: `🤖 <b>Hyper Bingo Games / የሃይፐር ቢንጎ ጨዋታዎች</b>\n\n` +
+              `ከታች ከዋና ጨዋታዎች መካከል አንዱን መርጠው በቀጥታ ወደ ጨዋታው ይግቡ፡\n` +
+              `Tap any game below to jump straight to the room:\n\n` +
+              `🌟 <b>Hyper Weekend Draws:</b> Fri–Sun | 2:00 PM, 5:00 PM &amp; 7:00 PM EAT\n` +
               `📞 Support: <a href="tel:+251911234567">+251 91 123 4567</a> | @HyperBingoSupport`,
         reply_markup: {
           inline_keyboard: [
             [
               {
-                text: '🎮 Play Hyper Bingo (ሚኒ አፕ ክፈት)',
+                text: '⚡ Hyper Fetan 10 (10 ETB)',
+                web_app: { url: `${appUrl}?game=gm_fetan_10` },
+              },
+              {
+                text: '🎲 Hyper Special 20 (20 ETB)',
+                web_app: { url: `${appUrl}?game=gm_special_20` },
+              },
+            ],
+            [
+              {
+                text: '🌟 Hyper Weekend 50 (50k Pool)',
+                web_app: { url: `${appUrl}?game=gm_weekend_50` },
+              },
+              {
+                text: '👑 Hyper Weekend 100 (100k Jackpot)',
+                web_app: { url: `${appUrl}?game=gm_weekend_100` },
+              },
+            ],
+            [
+              {
+                text: '🎮 Play Hyper Bingo (ሁሉንም ጨዋታዎች ክፈት)',
                 web_app: { url: appUrl },
               },
             ],
             [
               {
-                text: '📞 Contact Support (+251 91 123 4567)',
+                text: '💳 Deposit / Wallet (ሒሳብ ሙላ)',
+                web_app: { url: `${appUrl}?tab=wallet` },
+              },
+              {
+                text: '📞 Support (+251 91 123 4567)',
                 url: 'tel:+251911234567',
               },
             ],
