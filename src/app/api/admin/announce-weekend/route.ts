@@ -24,7 +24,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'No announcement message or games provided' }, { status: 400 });
       }
 
-      // Build the announcement message
       const gameLines = weekendGames
         .map((g: any, i: number) =>
           `${i + 1}. 🌟 <b>${g.name}</b>\n` +
@@ -46,10 +45,10 @@ export async function POST(req: NextRequest) {
         `🔥 100% ደህንነቱ የተጠበቀ ጨዋታ`;
     }
 
-    // Send to the provided chatId (can be a group, channel, or individual)
     const targetChatId = chatId || adminTelegramId;
 
-    const gameInlineKeyboard = {
+    // Inline keyboard: works in channels, groups, AND private chats
+    const announcementKeyboard = {
       inline_keyboard: [
         [
           { text: '⚡ Hyper Fetan', web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` } },
@@ -62,53 +61,83 @@ export async function POST(req: NextRequest) {
       ],
     };
 
-    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: targetChatId,
-        parse_mode: 'HTML',
-        text: announcementText,
-        reply_markup: gameInlineKeyboard,
-      }),
+    // Persistent bottom keyboard: only works in private chats
+    // Activates the permanent game list keyboard above the text input bar
+    const persistentKeyboard = {
+      keyboard: [
+        [
+          { text: '⚡ Hyper Fetan', web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` } },
+          { text: '🎲 Hyper Special', web_app: { url: `${appUrl}?tab=lobby&cat=SPECIAL` } },
+          { text: '🌟 Hyper Weekend', web_app: { url: `${appUrl}?tab=lottery` } },
+        ],
+        [
+          { text: '🎮 Play Hyper Bingo', web_app: { url: appUrl } },
+          { text: '💳 Wallet', web_app: { url: `${appUrl}?tab=wallet` } },
+        ],
+      ],
+      resize_keyboard: true,
+      is_persistent: true,
+      input_field_placeholder: 'Tap a game button above ⬆️',
+    };
+
+    const sendMsg = async (payload: any) => {
+      const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return res.json();
+    };
+
+    // ── Step 1: Send the announcement with inline keyboard ───────────────────
+    const result = await sendMsg({
+      chat_id: targetChatId,
+      parse_mode: 'HTML',
+      text: announcementText,
+      reply_markup: announcementKeyboard,
     });
 
-    const result = await response.json();
+    // ── Step 2: For private chats (id > 0), send a follow-up that activates ──
+    // the persistent bottom keyboard. This makes game buttons appear at the
+    // bottom of the chat without the user needing to send /start.
+    const isPrivateChat = Number(targetChatId) > 0;
+    if (isPrivateChat) {
+      await sendMsg({
+        chat_id: targetChatId,
+        parse_mode: 'HTML',
+        text: `👇 <b>ጨዋታ ይምረጡ — Tap a game to play now!</b>`,
+        reply_markup: persistentKeyboard,
+      });
+    }
+
+    // ── Step 3: Always also deliver to admin's private chat with keyboard ─────
+    // (so admin always has the keyboard even if they sent to a channel)
+    if (adminTelegramId && String(targetChatId) !== String(adminTelegramId)) {
+      await sendMsg({
+        chat_id: adminTelegramId,
+        parse_mode: 'HTML',
+        text: `📢 <b>[Broadcast Sent]</b>\n\n${announcementText}\n\n<i>Sent to: ${targetChatId}</i>`,
+        reply_markup: announcementKeyboard,
+      }).catch(() => {});
+
+      // Also activate persistent keyboard for admin
+      await sendMsg({
+        chat_id: adminTelegramId,
+        parse_mode: 'HTML',
+        text: `👇 <b>Game list:</b>`,
+        reply_markup: persistentKeyboard,
+      }).catch(() => {});
+    }
 
     if (!result.ok) {
       const rawError = result.description || 'Telegram API error';
-      
-      // If channel was not found or bot lacks rights, attempt direct delivery to admin
-      if (adminTelegramId && targetChatId !== adminTelegramId) {
-        try {
-          const directRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: adminTelegramId,
-              parse_mode: 'HTML',
-              text: `📢 <b>[Admin Broadcast Preview]</b>\n\n${announcementText}\n\n━━━━━━━━━━━━━━━━━━━━━\nℹ️ <i>ቻናሉ ${targetChatId} ስላልተገኘ ወደ እርስዎ ቴሌግራም ተልኳል።</i>`,
-              reply_markup: gameInlineKeyboard,
-            }),
-          });
-          const directData = await directRes.json();
-          if (directData.ok) {
-            return NextResponse.json({
-              success: true,
-              ok: true,
-              message: `✅ Delivered directly to your Telegram chat (ID: ${adminTelegramId})!\n\nℹ️ Note for Channel: To broadcast publicly to ${targetChatId}, add @HyperBingoBot as Administrator of your channel.`,
-            });
-          }
-        } catch {}
-      }
-
       let userFriendlyMsg = String(rawError || '');
       if (/chat not found/i.test(userFriendlyMsg)) {
         userFriendlyMsg = [
-          '❌ Bad Request: chat not found — HOW TO BROADCAST:',
+          '❌ Chat not found — HOW TO BROADCAST:',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-          '1. 🔐 To broadcast to a channel: Add @HyperBingoBot as ADMINISTRATOR of your channel.',
-          '2. 💬 To test immediately: Select "My Telegram Chat" to receive the broadcast in your private chat.',
+          '1. To broadcast to a channel: Add @HyperBingoBot as ADMINISTRATOR.',
+          '2. To test: Select "My Telegram Chat" to receive in your private chat.',
           '',
           'Raw error: ' + rawError,
         ].join('\n');
