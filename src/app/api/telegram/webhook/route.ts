@@ -3,6 +3,9 @@ import { isAdminTelegramId } from '@/lib/authUtils';
 
 const DEFAULT_BOT_TOKEN = '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
 
+// Keep the function alive for up to 30 seconds on Vercel
+export const maxDuration = 30;
+
 export async function POST(req: NextRequest) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bingo-game-rho-five.vercel.app';
