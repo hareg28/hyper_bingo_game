@@ -790,11 +790,123 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     }
   };
 
-  // Pattern Hint Logic
+  // Pattern Hint Logic - tailored to each game type's exact winning rules
   const computePatternHint = (card: typeof activeGameCards[0]): boolean[][] => {
     const hint = Array.from({ length: 5 }, () => Array(5).fill(false));
+    if (!card) return hint;
+
+    // 1. HYPER WEEKEND: Full House Only (all unmarked numbers needed)
+    if (currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND') {
+      for (let r = 0; r < 5; r++) {
+        for (let c = 0; c < 5; c++) {
+          if (!card.marked[r][c]) {
+            hint[r][c] = true;
+          }
+        }
+      }
+      return hint;
+    }
+
+    // 2. HYPER SPECIAL: 15 Official Laws (one law per game round until finished)
+    if (currentGame.category === 'HYPER_SPECIAL' || currentGame.activeSpecialRuleIndex !== undefined) {
+      const ruleIdx = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
+      const activeRule = HYPER_SPECIAL_RULES[ruleIdx];
+
+      // Dynamic 2 lines (Rule 0 or Rule 4)
+      if (ruleIdx === 0 || ruleIdx === 4) {
+        let bestScore = -1;
+        let bestPair: [number, number][] = [];
+        let isRows = true;
+
+        for (let r1 = 0; r1 < 5; r1++) {
+          for (let r2 = r1 + 1; r2 < 5; r2++) {
+            const mCount = [0, 1, 2, 3, 4].filter(c => card.marked[r1][c]).length + [0, 1, 2, 3, 4].filter(c => card.marked[r2][c]).length;
+            if (mCount > bestScore) {
+              bestScore = mCount;
+              bestPair = [[r1, 0], [r2, 0]];
+              isRows = true;
+            }
+          }
+        }
+        for (let c1 = 0; c1 < 5; c1++) {
+          for (let c2 = c1 + 1; c2 < 5; c2++) {
+            const mCount = [0, 1, 2, 3, 4].filter(r => card.marked[r][c1]).length + [0, 1, 2, 3, 4].filter(r => card.marked[r][c2]).length;
+            if (mCount > bestScore) {
+              bestScore = mCount;
+              bestPair = [[0, c1], [0, c2]];
+              isRows = false;
+            }
+          }
+        }
+
+        if (isRows && bestPair.length >= 2) {
+          const r1 = bestPair[0][0];
+          const r2 = bestPair[1][0];
+          for (let c = 0; c < 5; c++) {
+            if (!card.marked[r1][c]) hint[r1][c] = true;
+            if (!card.marked[r2][c]) hint[r2][c] = true;
+          }
+        } else if (bestPair.length >= 2) {
+          const c1 = bestPair[0][1];
+          const c2 = bestPair[1][1];
+          for (let r = 0; r < 5; r++) {
+            if (!card.marked[r][c1]) hint[r][c1] = true;
+            if (!card.marked[r][c2]) hint[r][c2] = true;
+          }
+        }
+        return hint;
+      }
+
+      // Dynamic 3 lines (Rule 1)
+      if (ruleIdx === 1) {
+        const rowScores = [0, 1, 2, 3, 4].map(r => ({ r, score: [0, 1, 2, 3, 4].filter(c => card.marked[r][c]).length })).sort((a, b) => b.score - a.score);
+        const colScores = [0, 1, 2, 3, 4].map(c => ({ c, score: [0, 1, 2, 3, 4].filter(r => card.marked[r][c]).length })).sort((a, b) => b.score - a.score);
+        const top3RowsScore = rowScores[0].score + rowScores[1].score + rowScores[2].score;
+        const top3ColsScore = colScores[0].score + colScores[1].score + colScores[2].score;
+
+        if (top3RowsScore >= top3ColsScore) {
+          for (let i = 0; i < 3; i++) {
+            const r = rowScores[i].r;
+            for (let c = 0; c < 5; c++) {
+              if (!card.marked[r][c]) hint[r][c] = true;
+            }
+          }
+        } else {
+          for (let i = 0; i < 3; i++) {
+            const c = colScores[i].c;
+            for (let r = 0; r < 5; r++) {
+              if (!card.marked[r][c]) hint[r][c] = true;
+            }
+          }
+        }
+        return hint;
+      }
+
+      // Pattern-based rules (Letter X, 4 Corners, Full House, Letter L, Box, Frame, Plus, Stamps, Pyramid, etc.)
+      if (activeRule && activeRule.pattern) {
+        for (let r = 0; r < 5; r++) {
+          for (let c = 0; c < 5; c++) {
+            if (activeRule.pattern[r][c] && !card.marked[r][c]) {
+              hint[r][c] = true;
+            }
+          }
+        }
+        return hint;
+      }
+    }
+
+    // 3. HYPER FETAN (ONE_LINE_OR_CORNERS):
+    // Closest win among: 4 Corners, 5 Rows, 5 Columns, 2 Diagonals
     let bestScore = -1;
     let bestCells: [number, number][] = [];
+
+    // 4 Corners
+    const corners: [number, number][] = [[0, 0], [0, 4], [4, 0], [4, 4]];
+    const markedCorners = corners.filter(([rr, cc]) => card.marked[rr][cc]).length;
+    if (markedCorners < 4 && markedCorners > bestScore) {
+      bestScore = markedCorners;
+      bestCells = corners.filter(([rr, cc]) => !card.marked[rr][cc]);
+    }
 
     // Rows
     for (let r = 0; r < 5; r++) {
@@ -1396,13 +1508,23 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
           {/* Game Info Details: Patterns, Price, Cards, Prize */}
           <div className="px-3 py-1.5 space-y-1.5 border-b border-slate-100 bg-slate-50/50">
-            {/* Row 1: Pattern hints description */}
+            {/* Row 1: Category-specific Pattern hints description */}
             <div className="flex items-center justify-between pr-4">
-              <span className="block text-[11px] text-slate-600 leading-tight">
-                {language === 'am'
-                  ? '🏆 4 የማሸነፊያ ደንቦች: 1 መስመር | 2 መስመሮች | X | ሙሉ ቤት'
-                  : '🏆 4 Winning Rules: 1 Line | 2 Lines | Letter X | Full House'
-                }
+              <span className="block text-[11px] text-slate-700 font-bold leading-tight truncate mr-2">
+                {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
+                  ? (language === 'am'
+                      ? '⚡ 4 የማሸነፊያ ደንቦች: 1 አግድም | 1 ቀጥታ | 1 ዲያጎናል | 4 ማዕዘናት'
+                      : '⚡ 4 Winning Rules: 1 Horizontal | 1 Vertical | 1 Diagonal | 4 Corners')
+                  : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
+                  ? (language === 'am'
+                      ? '🌟 የማሸነፊያ ደንብ: ሙሉ ቤት ብቻ (24/24 ቁጥሮች) — ሜጋ ጃክፖት'
+                      : '🌟 Winning Rule: Full House Only (All 24 Numbers) — Mega Jackpot')
+                  : (() => {
+                      const activeRule = HYPER_SPECIAL_RULES[Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
+                      return language === 'am'
+                        ? `🎲 የዚህ ዙር ሕግ #${(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1}: ${activeRule.nameAm}`
+                        : `🎲 Round Law #${(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1}: ${activeRule.nameEn}`;
+                    })()}
               </span>
               <button
                 onClick={() => setShowPatternHintModal(true)}
