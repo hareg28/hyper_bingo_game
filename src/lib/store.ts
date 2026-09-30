@@ -162,9 +162,8 @@ export const INITIAL_GAMES: Game[] = [
   },
 
   // ================================================================
-  // CATEGORY 2: HYPER SPECIAL (Starting 10, 20, 30, 50, 100 Birr)
-  // - Interface: Classic live 5, 10... Birr room format
-  // - Win Rule: 1 Line, 2 Lines, Letter X, Full House
+  // CATEGORY 2: HYPER SPECIAL (10, 20, 30 Birr)
+  // - Rotating Special Game Law (1 rule active per game until finished)
   // ================================================================
   {
     id: 'gm_special_10',
@@ -172,6 +171,7 @@ export const INITIAL_GAMES: Game[] = [
     gameType: 'HYPER_SPECIAL',
     category: 'HYPER_SPECIAL',
     winningRule: 'STANDARD',
+    activeSpecialRuleIndex: 0,
     entryPrice: 10,
     maxPlayers: 200,
     currentPlayers: 0,
@@ -190,6 +190,7 @@ export const INITIAL_GAMES: Game[] = [
     gameType: 'HYPER_SPECIAL',
     category: 'HYPER_SPECIAL',
     winningRule: 'STANDARD',
+    activeSpecialRuleIndex: 1,
     entryPrice: 20,
     maxPlayers: 150,
     currentPlayers: 0,
@@ -207,6 +208,7 @@ export const INITIAL_GAMES: Game[] = [
     gameType: 'HYPER_SPECIAL',
     category: 'HYPER_SPECIAL',
     winningRule: 'STANDARD',
+    activeSpecialRuleIndex: 2,
     entryPrice: 30,
     maxPlayers: 120,
     currentPlayers: 0,
@@ -217,40 +219,6 @@ export const INITIAL_GAMES: Game[] = [
     drawnNumbers: [],
     winners: [],
     createdAt: '2026-09-15T21:00:00Z',
-  },
-  {
-    id: 'gm_special_50',
-    name: '🔥 Hyper Special 50',
-    gameType: 'HYPER_SPECIAL',
-    category: 'HYPER_SPECIAL',
-    winningRule: 'STANDARD',
-    entryPrice: 50,
-    maxPlayers: 100,
-    currentPlayers: 0,
-    startTime: 'Tonight at 20:00',
-    drawInterval: 4,
-    prizePool: 0,
-    status: 'OPEN',
-    drawnNumbers: [],
-    winners: [],
-    createdAt: '2026-09-15T21:10:00Z',
-  },
-  {
-    id: 'gm_special_100',
-    name: '💎 Hyper Special 100',
-    gameType: 'HYPER_SPECIAL',
-    category: 'HYPER_SPECIAL',
-    winningRule: 'STANDARD',
-    entryPrice: 100,
-    maxPlayers: 100,
-    currentPlayers: 0,
-    startTime: 'Tonight at 21:00',
-    drawInterval: 4,
-    prizePool: 0,
-    status: 'OPEN',
-    drawnNumbers: [],
-    winners: [],
-    createdAt: '2026-09-15T21:20:00Z',
   },
 
   // ================================================================

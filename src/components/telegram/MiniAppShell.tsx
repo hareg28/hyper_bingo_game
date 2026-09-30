@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
-import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS } from '../../lib/bingoUtils';
+import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS, HYPER_SPECIAL_RULES } from '../../lib/bingoUtils';
 import { 
   Wallet, User as UserIcon, Shield, 
   Share2, Copy, Check, LogOut, Sparkles, 
@@ -279,9 +279,9 @@ export default function MiniAppShell({
                 </span>
                 <span className="font-bold truncate text-slate-800">
                   {categoryTab === 'FETAN'
-                    ? (language === 'am' ? '1 መስመር ወይም 4 ማዕዘን (ፈጣን ቢንጎ)' : '1 Line or 4 Corners (Instant Win • 1 Min)')
+                    ? (language === 'am' ? '1 አግድም፣ 1 ቀጥታ፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
                     : categoryTab === 'SPECIAL'
-                    ? (language === 'am' ? 'መደበኛ (1L, 2L, X, ሙሉ ቤት)' : 'Standard Patterns (1L, 2L, X, Full House)')
+                    ? (language === 'am' ? 'የተመረጠ ልዩ ሕግ በየዙሩ (15 የሕግ አማራጮች)' : 'Rotating Special Law Per Game (15 Patterns)')
                     : (language === 'am' ? 'ሙሉ ቤት ብቻ 24/24 (ሜጋ ጃክፖት)' : 'Full House Only 24/24 (Mega Grand Prize)')}
                 </span>
               </div>
@@ -291,7 +291,7 @@ export default function MiniAppShell({
                 : 'bg-purple-600 text-white'
               }`}>
                 {categoryTab === 'FETAN' ? '⚡ 5-50 ETB'
-                : categoryTab === 'SPECIAL' ? '🎲 10-100 ETB'
+                : categoryTab === 'SPECIAL' ? '🎲 10-30 ETB'
                 : '🌟 30-100 ETB'}
               </span>
             </div>
@@ -1057,15 +1057,18 @@ function WeekendLotteryNumberPicker({
           </span>
           <span className="font-bold text-slate-800 truncate">
             {mode === 'FETAN'
-              ? (isAm ? '1 መስመር ወይም 4 ማዕዘን (ፈጣን ቢንጎ)' : '1 Line or 4 Corners to Win')
+              ? (isAm ? '1 አግድም፣ 1 ቀጥታ፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
               : mode === 'SPECIAL'
-              ? (isAm ? '1 ወይም 2 መስመር፣ X፣ ሙሉ ቤት' : '1L, 2L, X, or Full House')
-              : (isAm ? 'ሙሉ ቤት ብቻ 24/24 (ሜጋ ጃክፖት)' : 'Full House Only (24/24) • Mega Jackpot')
+              ? (() => {
+                  const rule = HYPER_SPECIAL_RULES[Math.abs(selectedGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
+                  return isAm ? `የዙሩ ሕግ: ${rule.nameAm}` : `Round Law: ${rule.nameEn}`;
+                })()
+              : (isAm ? 'ሙሉ ቤት ብቻ 24/24 (ሜጋ ጃክፖት)' : 'Full House Only (All 24 Numbers)')
             }
           </span>
         </div>
         <span className="shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-slate-950">
-          {mode === 'FETAN' ? '⚡ 5 SLOTS' : mode === 'SPECIAL' ? '🎲 CLASSIC' : '🌟 FULL HOUSE'}
+          {mode === 'FETAN' ? '⚡ 5 SLOTS' : mode === 'SPECIAL' ? '🎲 SPECIAL' : '🌟 FULL HOUSE'}
         </span>
       </div>
 
@@ -1155,7 +1158,7 @@ function WeekendLotteryNumberPicker({
             {mode === 'FETAN' 
               ? (isAm ? 'የፈጣን ውርርድ ደረጃ (5, 10, 30, 50 ብር)' : 'Hyper Fetan Stakes (5, 10, 30, 50 ETB)')
               : mode === 'SPECIAL'
-              ? (isAm ? 'የስፔሻል ውርርድ ደረጃ (10, 20, 30, 50, 100 ብር)' : 'Hyper Special Stakes (10, 20, 30, 50, 100 ETB)')
+              ? (isAm ? 'የስፔሻል ውርርድ ደረጃ (10, 20, 30 ብር)' : 'Hyper Special Stakes (10, 20, 30 ETB)')
               : (isAm ? 'የሃይፐር ዊክኤንድ ውርርድ (30, 50, 100 ብር)' : 'Hyper Weekend Stakes (30, 50, 100 ETB)')
             }
           </span>
@@ -1163,7 +1166,7 @@ function WeekendLotteryNumberPicker({
             ⚡ {entryPrice} ETB {isAm ? 'ተመርጧል' : 'Selected'}
           </span>
         </div>
-        <div className={`grid gap-1.5 ${mode === 'FETAN' ? 'grid-cols-4' : mode === 'SPECIAL' ? 'grid-cols-5' : 'grid-cols-3'}`}>
+        <div className={`grid gap-1.5 ${mode === 'FETAN' ? 'grid-cols-4' : mode === 'SPECIAL' ? 'grid-cols-3' : 'grid-cols-3'}`}>
           {targetGames.map((wg, idx) => {
             const isSelected = selectedGameIdx === idx;
             return (

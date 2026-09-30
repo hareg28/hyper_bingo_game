@@ -15,6 +15,8 @@ import {
   countRemainingNumbers,
   playBingoVictoryFanfare,
   WINNING_RULES_PATTERNS,
+  HYPER_SPECIAL_RULES,
+  HYPER_FETAN_RULES,
   getBestWinningRule,
   WinningRuleMatch,
   checkOneAwayStatus,
@@ -295,18 +297,18 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const topHitRequirement = React.useMemo(() => {
     const isAm = language === 'am';
     if (activeGameCards.length === 0) {
-      if (currentGame.winningRule === 'ONE_LINE_OR_CORNERS') {
+      if (currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN') {
         return {
           isHit: false,
-          hitTitle: isAm ? '🎯 የሚያስፈልገው: 1 መስመር ወይም 4 ማዕዘናት' : '🎯 Win Condition: 1 Line or 4 Corners',
+          hitTitle: isAm ? '🎯 የሚያስፈልገው: 1 አግድም፣ 1 ቀጥታ (Vertical)፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '🎯 Win Condition: 1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners',
           hitDetail: isAm 
-            ? 'ለመጫወት ካርታ ይምረጡ (ከ1-500 እስከ 5 ካርዶች)። ለማሸነፍ ማንኛውም 1 መስመር ወይም አራቱ ማዕዘናት ያስፈልጋል።' 
-            : 'Pick cards (1–500, up to 5 slots) to enter. Complete any 1 line or the 4 corners to win!',
+            ? 'ለመጫወት ካርታ ይምረጡ (ከ1-500 እስከ 5 ካርዶች)። ለማሸነፍ ማንኛውም 1 መስመር (አግድም፣ ቀጥታ፣ ዲያጎናል) ወይም አራቱ ማዕዘናት ያስፈልጋል።' 
+            : 'Pick cards (1–500, up to 5 slots) to enter. Complete any 1 line (Row, Col, Diagonal) or 4 Corners to win!',
           progressText: isAm ? '5 ክፍተቶች' : '5 Slots',
           neededNumber: null,
         };
       }
-      if (currentGame.winningRule === 'FULL_HOUSE_ONLY') {
+      if (currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND') {
         return {
           isHit: false,
           hitTitle: isAm ? '🏆 የሚያስፈልገው: ሙሉ ቤት ብቻ (Full House Only)' : '🏆 Win Condition: Full House Only',
@@ -317,20 +319,19 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           neededNumber: null,
         };
       }
+      const activeRule = HYPER_SPECIAL_RULES[Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
       return {
         isHit: false,
-        hitTitle: isAm ? '⚡ የሚያስፈልገው: 1 መስመር፣ 2 መስመሮች ወይም ሙሉ ቤት' : '⚡ Win Condition: 1 Line, 2 Lines, or Full House',
-        hitDetail: isAm 
-          ? 'የተጠሩትን ቁጥሮች በማስመር የቢንጎ ድል ያስመዝግቡ።' 
-          : 'Daub called numbers to complete a winning line or full house!',
-        progressText: isAm ? 'መደበኛ' : 'Standard',
+        hitTitle: isAm ? `🎲 የዚህ ዙር ሕግ: ${activeRule.nameAm}` : `🎲 Round Law: ${activeRule.nameEn}`,
+        hitDetail: isAm ? activeRule.descAm : activeRule.descEn,
+        progressText: isAm ? 'ንቁ ሕግ' : 'Active Law',
         neededNumber: null,
       };
     }
 
     // Check if any active card has a 1-away hit
     for (const card of activeGameCards) {
-      const hit = getGameHitRequirement(card.marked, card.numbers, currentGame.winningRule, language);
+      const hit = getGameHitRequirement(card.marked, card.numbers, currentGame.winningRule, language, currentGame.activeSpecialRuleIndex);
       if (hit.isHit) {
         return {
           ...hit,
@@ -340,8 +341,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     }
 
     // Otherwise return best general requirement with progress
-    return getGameHitRequirement(activeGameCards[0].marked, activeGameCards[0].numbers, currentGame.winningRule, language);
-  }, [activeGameCards, currentGame.winningRule, language]);
+    return getGameHitRequirement(activeGameCards[0].marked, activeGameCards[0].numbers, currentGame.winningRule, language, currentGame.activeSpecialRuleIndex);
+  }, [activeGameCards, currentGame.winningRule, currentGame.activeSpecialRuleIndex, currentGame.category, language]);
 
   const formatTimeRemaining = (totalSec: number): string => {
     const m = Math.floor(totalSec / 60);
@@ -915,19 +916,23 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     }
 
     // Check pattern completeness according to game's winning rule:
-    // Fetan: 1 Line or 4 Corners | Weekend: Full House Only | Special: Standard
-    const bestRule: WinningRuleMatch | null = getBestWinningRule(targetCard.marked, currentGame.winningRule);
+    // Fetan: 1 Horizontal, 1 Vertical, 1 Diagonal, 4 Corners | Weekend: Full House Only | Special: Active Rule
+    const bestRule: WinningRuleMatch | null = getBestWinningRule(targetCard.marked, currentGame.winningRule, currentGame.activeSpecialRuleIndex);
 
     if (!bestRule) {
       // FALSE BINGO -> BLOCK THE PLAYER & CARD
       playErrorBuzzer();
       const rem = countRemainingNumbers(targetCard.marked);
       claimBingo(targetCard.id); // This adds card to blockedCards in context
-      const ruleName = currentGame.winningRule === 'ONE_LINE_OR_CORNERS'
-        ? (language === 'am' ? '1 መስመር ወይም 4 ማዕዘናት' : '1 Line or 4 Corners')
-        : currentGame.winningRule === 'FULL_HOUSE_ONLY'
-        ? (language === 'am' ? 'ሙሉ ቤት (Full House)' : 'Full House')
-        : (language === 'am' ? 'የተፈቀደ የድል ጥምረት' : 'a winning pattern');
+      const isAm = language === 'am';
+      const ruleName = currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
+        ? (isAm ? '1 አግድም፣ 1 ቀጥታ (Vertical)፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
+        : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
+        ? (isAm ? 'ሙሉ ቤት (Full House Only)' : 'Full House Only')
+        : (() => {
+            const activeRule = HYPER_SPECIAL_RULES[Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
+            return isAm ? activeRule.nameAm : activeRule.nameEn;
+          })();
 
       setClaimStatus({
         success: false,
@@ -1105,17 +1110,20 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           }`}>
             <div className="flex items-center gap-1.5 min-w-0 truncate text-[11px]">
               <span className="shrink-0 text-sm">
-                {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' ? '⚡' : currentGame.winningRule === 'FULL_HOUSE_ONLY' ? '🌟' : '🎲'}
+                {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN' ? '⚡' : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND' ? '🌟' : '🎲'}
               </span>
               <span className="font-black uppercase tracking-wider shrink-0">
                 {language === 'am' ? 'ሕግ:' : 'Rule:'}
               </span>
               <span className="font-bold truncate">
-                {currentGame.winningRule === 'ONE_LINE_OR_CORNERS'
-                  ? (language === 'am' ? '1 መስመር ወይም 4 ማዕዘን (ፈጣን ቢንጎ)' : '1 Line or 4 Corners to Win')
-                  : currentGame.winningRule === 'FULL_HOUSE_ONLY'
+                {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
+                  ? (language === 'am' ? '1 አግድም፣ 1 ቀጥታ፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
+                  : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
                   ? (language === 'am' ? 'ሙሉ ቤት ብቻ 24/24 (ሜጋ ጃክፖት)' : 'Full House Only (All 24 Numbers)')
-                  : (language === 'am' ? '1 መስመር፣ 2 መስመር፣ X፣ ሙሉ ቤት' : '1L, 2L, X, or Full House to Win')}
+                  : (() => {
+                      const activeRule = HYPER_SPECIAL_RULES[Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
+                      return language === 'am' ? `የዙሩ ሕግ: ${activeRule.nameAm}` : `Round Law: ${activeRule.nameEn}`;
+                    })()}
               </span>
             </div>
 
@@ -1124,10 +1132,18 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-950 text-amber-300 font-mono shadow-xs shrink-0 tabular-nums">
                 {fetanIsIntermission ? `⏳ Pick: ${fetanSecondsLeft}s` : `● Live: ${fetanSecondsLeft}s`}
               </span>
-            ) : (
+            ) : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND' ? (
               <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-white/20 text-white shrink-0">
-                {currentGame.winningRule === 'FULL_HOUSE_ONLY' ? '🌟 FULL HOUSE' : '🎲 75-BALL'}
+                🌟 FULL HOUSE
               </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowPatternHintModal(true)}
+                className="px-2 py-0.5 rounded-full text-[9px] font-black bg-indigo-500/40 hover:bg-indigo-500/60 text-indigo-200 border border-indigo-300/40 transition shrink-0 cursor-pointer flex items-center gap-1"
+              >
+                <span>📜 {language === 'am' ? `ሕግ #${(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1}/15` : `Law #${(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1}/15`}</span>
+              </button>
             )}
           </div>
 
@@ -1616,11 +1632,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           <>
             {/* ── Render EACH card as its own independent table ── */}
             {activeGameCards.map((card, cardIdx) => {
-              const cardIsWin = Boolean(getBestWinningRule(card.marked, currentGame.winningRule));
+              const cardIsWin = Boolean(getBestWinningRule(card.marked, currentGame.winningRule, currentGame.activeSpecialRuleIndex));
               const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
               const cardDrawnSet = new Set(currentGame.drawnNumbers);
               const cardIsHint = hintCardId === card.id;
-              const oneAway = checkOneAwayStatus(card.marked, card.numbers, currentGame.winningRule);
+              const oneAway = checkOneAwayStatus(card.marked, card.numbers, currentGame.winningRule, currentGame.activeSpecialRuleIndex);
 
               return (
                 <div
@@ -2351,7 +2367,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="flex items-center gap-2">
                 <Lightbulb className="w-5 h-5 text-amber-500 fill-amber-100" />
                 <h3 className="text-sm font-black text-slate-900">
-                  {language === 'am' ? 'የአሸናፊ ደንቦች እና Hit' : 'Winning Rules & Hit Guide'}
+                  {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
+                    ? (language === 'am' ? 'የሃይፐር ፈጣን የድል ሕጎች' : 'Hyper Fetan Winning Rules')
+                    : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
+                    ? (language === 'am' ? 'የሃይፐር ዊክኤንድ ሕግ (ሙሉ ቤት)' : 'Hyper Weekend Law (Full House Only)')
+                    : (language === 'am' ? 'የሃይፐር ስፔሻል 15 ሕጎች' : 'Hyper Special 15 Official Laws')}
                 </h3>
               </div>
               <button
@@ -2365,67 +2385,93 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </div>
 
             <p className="px-4 pt-3 pb-2 text-xs text-slate-600 leading-relaxed">
-              {language === 'am'
-                ? 'በዚህ ጨዋታ ውስጥ ለማሸነፍ 4 ደንቦች አሉ። ከእነዚህ መካከል አንዱን ማሳየት ብቻዎ ይኖርዎታል።'
-                : 'There are 4 ways to win this round. Match any one pattern to claim Bingo!'}
+              {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
+                ? (language === 'am'
+                    ? '1 አግድም፣ 1 ቀጥታ (Vertical)፣ 1 ዲያጎናል ወይም 4 ማዕዘናት በማጠናቀቅ ያሸንፉ። (ሙሉ ቤት፣ X እና 2 አግድም ተሰርዘዋል!)'
+                    : 'Complete 1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners to win. (Full House, Letter X, and 2 horizontal lines are excluded!)')
+                : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
+                ? (language === 'am'
+                    ? 'በዚህ ጨዋታ ለማሸነፍ ሙሉ ቤት ብቻ (ሁሉንም 24 ቁጥሮች) ምልክት ማድረግ ያስፈልጋል።'
+                    : 'In Weekend Mega Draw, only Full House (all 24 numbers marked) wins the jackpot!')
+                : (language === 'am'
+                    ? 'በሃይፐር ስፔሻል ለእያንዳንዱ ዙር አንድ የተመረጠ ሕግ ብቻ ይሰራል፤ የዚህ ዙር ንቁ ሕግ በወርቃማ ምልክት ጎልቶ ይታያል።'
+                    : 'In Hyper Special, exactly one law governs each game round until finished. The active law for this round is highlighted in gold.')}
             </p>
 
-            {/* 4 Winning Rule Patterns */}
-            <div className="px-4 pb-3 space-y-2.5 max-h-72 overflow-y-auto">
-              {WINNING_RULES_PATTERNS.map((rule, idx) => (
-                <div
-                  key={rule.id}
-                  className={`flex items-center gap-3 p-2.5 rounded-xl border ${
-                    idx === 0 ? 'border-emerald-200 bg-emerald-50'
-                    : idx === 1 ? 'border-blue-200 bg-blue-50'
-                    : idx === 2 ? 'border-purple-200 bg-purple-50'
-                    : 'border-amber-200 bg-amber-50'
-                  }`}
-                >
-                  {/* Mini Pattern Grid */}
-                  <div className="shrink-0 rounded-lg overflow-hidden border border-slate-200 bg-white">
-                    {rule.pattern.map((row, rIdx) => (
-                      <div key={rIdx} className="flex">
-                        {row.map((filled, cIdx) => {
-                          const isFree = rIdx === 2 && cIdx === 2;
-                          const gridColor =
-                            idx === 0 ? (filled ? 'bg-emerald-400' : 'bg-white')
-                            : idx === 1 ? (filled ? 'bg-blue-400' : 'bg-white')
-                            : idx === 2 ? (filled ? 'bg-purple-400' : 'bg-white')
-                            : (filled ? 'bg-amber-400' : 'bg-white');
-                          return (
-                            <div
-                              key={cIdx}
-                              className={`w-4 h-4 border border-slate-100 ${
-                                isFree
-                                  ? idx === 0 ? 'bg-emerald-200'
-                                  : idx === 1 ? 'bg-blue-200'
-                                  : idx === 2 ? 'bg-purple-200'
-                                  : 'bg-amber-200'
-                                  : gridColor
-                              }`}
-                            />
-                          );
-                        })}
+            {/* Winning Rule Patterns List */}
+            <div className="px-4 pb-3 space-y-2.5 max-h-80 overflow-y-auto">
+              {(currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
+                ? HYPER_FETAN_RULES
+                : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
+                ? [{
+                    id: 'FULL_HOUSE',
+                    title: 'Full House (Blackout)',
+                    titleAm: 'ሙሉ ቤት (Blackout)',
+                    subtitle: 'Every number on the 5x5 card must be marked (24/24)',
+                    subtitleAm: 'በካርዱ ላይ ያሉትን ሁሉንም 24 ቁጥሮች ምልክት ማድረግ',
+                    pattern: Array.from({ length: 5 }, () => Array(5).fill(true)),
+                  }]
+                : HYPER_SPECIAL_RULES.map((r, idx) => ({
+                    id: r.id,
+                    title: r.nameEn,
+                    titleAm: r.nameAm,
+                    subtitle: r.descEn,
+                    subtitleAm: r.descAm,
+                    pattern: r.pattern,
+                    isActive: idx === (Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length),
+                  }))
+              ).map((rule: any, idx: number) => {
+                const isActive = rule.isActive;
+                return (
+                  <div
+                    key={rule.id}
+                    className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${
+                      isActive
+                        ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-400 shadow-md'
+                        : 'border-slate-200 bg-slate-50/70 hover:bg-slate-50'
+                    }`}
+                  >
+                    {/* Mini Pattern Grid */}
+                    <div className="shrink-0 rounded-lg overflow-hidden border border-slate-300 bg-white">
+                      {rule.pattern.map((row: boolean[], rIdx: number) => (
+                        <div key={rIdx} className="flex">
+                          {row.map((filled: boolean, cIdx: number) => {
+                            const isFree = rIdx === 2 && cIdx === 2;
+                            return (
+                              <div
+                                key={cIdx}
+                                className={`w-3.5 h-3.5 border border-slate-100 ${
+                                  isFree
+                                    ? 'bg-amber-300'
+                                    : filled
+                                    ? isActive ? 'bg-amber-500' : 'bg-indigo-600'
+                                    : 'bg-white'
+                                }`}
+                              />
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Rule Text */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`font-black text-xs ${isActive ? 'text-amber-950 font-black' : 'text-slate-900'}`}>
+                          #{idx + 1} · {language === 'am' ? rule.titleAm : rule.title}
+                        </span>
+                        {isActive && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-500 text-slate-950 animate-pulse">
+                            ● {language === 'am' ? 'የዚህ ዙር ንቁ ሕግ' : 'ACTIVE LAW'}
+                          </span>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                  {/* Rule Text */}
-                  <div className="flex-1 min-w-0">
-                    <div className={`font-black text-xs ${
-                      idx === 0 ? 'text-emerald-800'
-                      : idx === 1 ? 'text-blue-800'
-                      : idx === 2 ? 'text-purple-800'
-                      : 'text-amber-800'
-                    }`}>
-                      #{idx + 1} · {language === 'am' ? rule.titleAm : rule.title}
-                    </div>
-                    <div className="text-[10px] font-medium text-slate-600 mt-0.5 leading-snug">
-                      {language === 'am' ? rule.subtitleAm : rule.subtitle}
+                      <div className="text-[10px] font-medium text-slate-600 mt-0.5 leading-snug">
+                        {language === 'am' ? rule.subtitleAm : rule.subtitle}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Back to Game Action button */}

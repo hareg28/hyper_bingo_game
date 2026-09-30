@@ -18,6 +18,7 @@ import {
   checkFullHouseWin, 
   getBestWinningRule,
   WinningRuleMatch,
+  HYPER_SPECIAL_RULES,
   calcLotteryTotalCost,
   formatLotteryCardNumber,
   LOTTERY_NUMBERS_TOTAL,
@@ -940,18 +941,22 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   // 8c. RESET GAME ROUND (Fresh 75-ball table for new round)
   const resetGameRound = (gameId: string) => {
     setGames((prev) =>
-      prev.map((g) =>
-        g.id === gameId
-          ? {
-              ...g,
-              drawnNumbers: [],
-              currentBall: null,
-              blockedCards: [],
-              winners: [],
-              status: 'RUNNING',
-            }
-          : g
-      )
+      prev.map((g) => {
+        if (g.id !== gameId) return g;
+        const isSpecial = g.category === 'HYPER_SPECIAL' || g.gameType === 'HYPER_SPECIAL';
+        const nextSpecialIndex = isSpecial
+          ? ((g.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length
+          : g.activeSpecialRuleIndex;
+        return {
+          ...g,
+          drawnNumbers: [],
+          currentBall: null,
+          blockedCards: [],
+          winners: [],
+          status: 'RUNNING',
+          activeSpecialRuleIndex: nextSpecialIndex,
+        };
+      })
     );
     // Reset marks on user cards for this game (keep free center)
     setUserCards((prev) =>
@@ -987,18 +992,22 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
 
     // ---- WINNING RULE CHECK ACCORDING TO GAME CATEGORY / RULE ----
-    // Hyper Fetan: 1 Line OR 4 Corners
+    // Hyper Fetan: 1 Horizontal, 1 Vertical, 1 Diagonal, 4 Corners (No Full House, No X, No 2 Horizontal)
     // Hyper Weekend: Full House Only
-    // Hyper Special: Standard (1 Line, 2 Lines, Letter X, Full House)
-    const bestRule: WinningRuleMatch | null = getBestWinningRule(card.marked, game.winningRule);
+    // Hyper Special: Specific active rule for this game round until finished
+    const bestRule: WinningRuleMatch | null = getBestWinningRule(card.marked, game.winningRule, game.activeSpecialRuleIndex);
 
     if (!bestRule) {
       blockCard(game.id, card.cardNumber);
+      const isAm = language === 'am';
       const ruleDesc = game.winningRule === 'ONE_LINE_OR_CORNERS'
-        ? (language === 'am' ? '1 መስመር ወይም 4 ማዕዘናት' : '1 Line or 4 Corners')
+        ? (isAm ? '1 አግድም፣ 1 ቀጥታ (Vertical)፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
         : game.winningRule === 'FULL_HOUSE_ONLY'
-        ? (language === 'am' ? 'ሙሉ ቤት (Full House)' : 'Full House')
-        : (language === 'am' ? 'የተፈቀደ የድል ጥምረት' : 'a winning pattern');
+        ? (isAm ? 'ሙሉ ቤት (Full House Only)' : 'Full House Only')
+        : (() => {
+            const activeRule = HYPER_SPECIAL_RULES[Math.abs(game.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
+            return isAm ? activeRule.nameAm : activeRule.nameEn;
+          })();
 
       addNotification(
         '🚫 BLOCKED! False Bingo Claim',
