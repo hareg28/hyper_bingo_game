@@ -242,7 +242,7 @@ export default function MiniAppShell({
               >
                 <span className="flex items-center gap-1 font-black">🎲 {language === 'am' ? 'ሃይፐር ስፔሻል' : 'Hyper Special'}</span>
                 <span className={`text-[9px] font-bold ${categoryTab === 'SPECIAL' ? 'text-amber-950' : 'text-slate-500'}`}>
-                  10-100 ETB · {language === 'am' ? 'ቀጥታ ክፍል' : 'Live Room'}
+                  10-30 ETB · {language === 'am' ? 'ቀጥታ ክፍል' : 'Live Room'}
                 </span>
               </button>
 
@@ -281,7 +281,12 @@ export default function MiniAppShell({
                   {categoryTab === 'FETAN'
                     ? (language === 'am' ? '1 አግድም፣ 1 ቀጥታ፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
                     : categoryTab === 'SPECIAL'
-                    ? (language === 'am' ? 'የተመረጠ ልዩ ሕግ በየዙሩ (15 የሕግ አማራጮች)' : 'Rotating Special Law Per Game (15 Patterns)')
+                    ? (() => {
+                        const specialGames = games.filter((g) => g.category === 'HYPER_SPECIAL' || (!g.name?.includes('Fetan') && g.gameType !== 'WEEKEND_LOTTERY' && !g.isWeekendSpecial && g.entryPrice >= 10));
+                        const firstGame = specialGames.sort((a, b) => a.entryPrice - b.entryPrice)[0];
+                        const rule = HYPER_SPECIAL_RULES[Math.abs(firstGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
+                        return language === 'am' ? `የዙሩ ሕግ: ${rule.nameAm}` : `Round Law: ${rule.nameEn}`;
+                      })()
                     : (language === 'am' ? 'ሙሉ ቤት ብቻ 24/24 (ሜጋ ጃክፖት)' : 'Full House Only 24/24 (Mega Grand Prize)')}
                 </span>
               </div>
@@ -324,7 +329,10 @@ export default function MiniAppShell({
                         }`}>
                           {categoryTab === 'FETAN' ? (language === 'am' ? '1 መስመር/ማዕዘን' : '1 Line / Corners')
                             : categoryTab === 'WEEKEND' ? (language === 'am' ? 'ሙሉ ቤት' : 'Full House Only')
-                            : (language === 'am' ? 'መደበኛ ሕግ' : 'Standard Rules')}
+                            : (() => {
+                                const rule = HYPER_SPECIAL_RULES[Math.abs(g.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
+                                return language === 'am' ? rule.nameAm : rule.nameEn;
+                              })()}
                         </span>
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
                           g.status === 'RUNNING' ? 'bg-rose-100 text-rose-700 border border-rose-200'
