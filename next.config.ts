@@ -4,10 +4,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Enable instrumentation.ts to run on every server startup
-  experimental: {
-    instrumentationHook: true,
-  },
   allowedDevOrigins: ['*.trycloudflare.com', '*.loca.lt', '*.ngrok-free.app', 'localhost:3000'],
   async headers() {
     return [
