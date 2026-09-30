@@ -185,23 +185,26 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const isWeekendGame = currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.category === 'HYPER_WEEKEND' || currentGame.isWeekendSpecial;
   const weekendGames = games.filter((g) => g.gameType === 'WEEKEND_LOTTERY' || g.category === 'HYPER_WEEKEND' || g.isWeekendSpecial);
 
-  // Checks whether the scheduled live draw window is currently active (Fri-Sun: 2pm, 5pm, 7pm)
-  const isWeekendLive = React.useMemo(() => {
-    if (!isWeekendGame) return false;
-    if (currentGame.status === 'RUNNING') return true;
+  // Plain function — NOT a hook — so it can be called inside useState initializer
+  const computeIsWeekendLive = (game: typeof currentGame) => {
+    const isWknd = game.gameType === 'WEEKEND_LOTTERY' || game.category === 'HYPER_WEEKEND' || game.isWeekendSpecial;
+    if (!isWknd) return false;
+    if (game.status === 'RUNNING') return true;
     const now = new Date();
-    const day = now.getDay(); // 0 is Sunday, 5 is Friday, 6 is Saturday
+    const day = now.getDay(); // 0=Sun, 5=Fri, 6=Sat
     const isWeekendDay = day === 0 || day === 5 || day === 6;
     if (!isWeekendDay) return false;
     const hour = now.getHours();
-    if (currentGame.entryPrice === 30 && hour >= 14 && hour < 15) return true;
-    if (currentGame.entryPrice === 50 && hour >= 17 && hour < 18) return true;
-    if (currentGame.entryPrice === 100 && hour >= 19 && hour < 20) return true;
+    if (game.entryPrice === 30 && hour >= 14 && hour < 15) return true;
+    if (game.entryPrice === 50 && hour >= 17 && hour < 18) return true;
+    if (game.entryPrice === 100 && hour >= 19 && hour < 20) return true;
     return false;
-  }, [isWeekendGame, currentGame.status, currentGame.entryPrice]);
+  };
+
+  const isWeekendLive = computeIsWeekendLive(currentGame);
 
   // Outside scheduled live draw times, weekend games remain in scheduled/open entry mode without auto-drawing
-  const [isAutoDrawing, setIsAutoDrawing] = useState(() => !isWeekendGame || isWeekendLive);
+  const [isAutoDrawing, setIsAutoDrawing] = useState(() => !isWeekendGame || computeIsWeekendLive(currentGame));
   const [claimStatus, setClaimStatus] = useState<{ success?: boolean; message?: string; prize?: number } | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
