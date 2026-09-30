@@ -335,11 +335,15 @@ export default function MiniAppShell({
                               })()}
                         </span>
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                          g.status === 'RUNNING' ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                          : g.status === 'STARTING' ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                          : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          (g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) && g.status !== 'RUNNING'
+                            ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                            : g.status === 'RUNNING' ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                            : g.status === 'STARTING' ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                         }`}>
-                          {g.status === 'RUNNING' ? '● LIVE' : g.status === 'STARTING' ? 'STARTING' : 'OPEN'}
+                          {(g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) && g.status !== 'RUNNING'
+                            ? (language === 'am' ? '📅 የተያዘለት (ክፍት)' : '📅 SCHEDULED')
+                            : g.status === 'RUNNING' ? '● LIVE' : g.status === 'STARTING' ? 'STARTING' : 'OPEN'}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">

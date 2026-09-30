@@ -176,7 +176,32 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       window.speechSynthesis.cancel();
     } catch {}
   }, [soundEnabled, recheckVoiceHealth]);
-  const [isAutoDrawing, setIsAutoDrawing] = useState(true);
+  const currentGame = games.find((g) => g.id === gameId) || games[0];
+  const activeGameCards = userCards.filter((c) => c.gameId === currentGame.id);
+  const initialCardNumbers = React.useMemo(
+    () => activeGameCards.map((c) => c.cardNumber),
+    [activeGameCards.map((c) => c.cardNumber).join(',')]
+  );
+  const isWeekendGame = currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.category === 'HYPER_WEEKEND' || currentGame.isWeekendSpecial;
+  const weekendGames = games.filter((g) => g.gameType === 'WEEKEND_LOTTERY' || g.category === 'HYPER_WEEKEND' || g.isWeekendSpecial);
+
+  // Checks whether the scheduled live draw window is currently active (Fri-Sun: 2pm, 5pm, 7pm)
+  const isWeekendLive = React.useMemo(() => {
+    if (!isWeekendGame) return false;
+    if (currentGame.status === 'RUNNING') return true;
+    const now = new Date();
+    const day = now.getDay(); // 0 is Sunday, 5 is Friday, 6 is Saturday
+    const isWeekendDay = day === 0 || day === 5 || day === 6;
+    if (!isWeekendDay) return false;
+    const hour = now.getHours();
+    if (currentGame.entryPrice === 30 && hour >= 14 && hour < 15) return true;
+    if (currentGame.entryPrice === 50 && hour >= 17 && hour < 18) return true;
+    if (currentGame.entryPrice === 100 && hour >= 19 && hour < 20) return true;
+    return false;
+  }, [isWeekendGame, currentGame.status, currentGame.entryPrice]);
+
+  // Outside scheduled live draw times, weekend games remain in scheduled/open entry mode without auto-drawing
+  const [isAutoDrawing, setIsAutoDrawing] = useState(() => !isWeekendGame || isWeekendLive);
   const [claimStatus, setClaimStatus] = useState<{ success?: boolean; message?: string; prize?: number } | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
@@ -208,15 +233,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     }, 2800);
   };
 
-  const currentGame = games.find((g) => g.id === gameId) || games[0];
-  const activeGameCards = userCards.filter((c) => c.gameId === currentGame.id);
-  const initialCardNumbers = React.useMemo(
-    () => activeGameCards.map((c) => c.cardNumber),
-    [activeGameCards.map((c) => c.cardNumber).join(',')]
-  );
-  const isWeekendGame = currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.isWeekendSpecial;
-  const weekendGames = games.filter((g) => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
-  
   // Active card (kept for handlers, but UI now shows ALL cards)
   const activeUserCard = 
     activeGameCards.find((c) => c.id === selectedCardId) || 
@@ -265,33 +281,59 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   }, []);
 
   // Hyper Fetan 1-minute round + 30-second card pick period live loop
+  // RULE: If within 1 minute there is NO winner, game MUST continue drawing balls until a winner arrives!
   const [fetanSecondsLeft, setFetanSecondsLeft] = useState<number>(60);
   const [fetanIsIntermission, setFetanIsIntermission] = useState<boolean>(false);
-  const lastActiveRoundEpochRef = React.useRef<number | null>(null);
+  const [fetanOvertime, setFetanOvertime] = useState<boolean>(false);
 
+  const isFetanGame = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.winningRule === 'ONE_LINE_OR_CORNERS';
+  const hasGameWinner = Boolean((currentGame.winners && currentGame.winners.length > 0) || currentGame.status === 'COMPLETED');
+
+  // When a winner claims Bingo or game finishes in Fetan, transition to 30s intermission
   useEffect(() => {
-    const updateFetanClock = () => {
-      const epochSec = Math.floor(Date.now() / 1000);
-      const cycle = epochSec % 90; // 0..59: 60s active game round, 60..89: 30s pick cards intermission
-      const roundEpoch = epochSec - cycle;
-      if (cycle < 60) {
-        setFetanIsIntermission(false);
-        setFetanSecondsLeft(60 - cycle);
-        // When a new round epoch starts, reset table fresh with 0 balls (0/75)
-        if (lastActiveRoundEpochRef.current !== null && lastActiveRoundEpochRef.current !== roundEpoch) {
-          resetGameRound(currentGame.id);
-          setIsAutoDrawing(true);
-        }
-        lastActiveRoundEpochRef.current = roundEpoch;
+    if (!isFetanGame) return;
+    if (hasGameWinner && !fetanIsIntermission) {
+      setFetanIsIntermission(true);
+      setFetanOvertime(false);
+      setFetanSecondsLeft(30);
+      setIsAutoDrawing(false);
+    }
+  }, [hasGameWinner, isFetanGame, fetanIsIntermission]);
+
+  // Fetan 1-second countdown ticker
+  useEffect(() => {
+    if (!isFetanGame) return;
+
+    const timer = setInterval(() => {
+      if (fetanIsIntermission) {
+        // Intermission countdown: card picking
+        setFetanSecondsLeft((prev) => {
+          if (prev <= 1) {
+            // Intermission ended -> start next round fresh!
+            resetGameRound(currentGame.id);
+            setFetanIsIntermission(false);
+            setFetanOvertime(false);
+            setIsAutoDrawing(true);
+            return 60;
+          }
+          return prev - 1;
+        });
       } else {
-        setFetanIsIntermission(true);
-        setFetanSecondsLeft(90 - cycle);
+        // Active round countdown
+        setFetanSecondsLeft((prev) => {
+          if (prev > 0) {
+            return prev - 1;
+          }
+          // Reached 0 seconds! BUT NO WINNER YET:
+          // Keep drawing until the winner comes!
+          setFetanOvertime(true);
+          return 0;
+        });
       }
-    };
-    updateFetanClock();
-    const interval = setInterval(updateFetanClock, 1000);
-    return () => clearInterval(interval);
-  }, [currentGame?.id, resetGameRound]);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isFetanGame, fetanIsIntermission, currentGame.id, resetGameRound]);
 
   // Dynamic Hit Requirement calculation for active cards
   const topHitRequirement = React.useMemo(() => {
@@ -729,7 +771,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // Auto Draw interval timer simulation — calls balls automatically without requiring player action
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isAutoDrawing && currentGame && currentGame.status !== 'COMPLETED' && currentGame.drawnNumbers.length < 75 && !fetanIsIntermission) {
+    const canAutoDraw = isAutoDrawing && 
+      currentGame && 
+      currentGame.status !== 'COMPLETED' && 
+      currentGame.drawnNumbers.length < 75 && 
+      !fetanIsIntermission &&
+      (!isWeekendGame || isWeekendLive);
+
+    if (canAutoDraw) {
       interval = setInterval(() => {
         const next = drawNextBall(currentGame.id);
         if (!next) {
@@ -740,7 +789,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       }, Math.max(2500, (currentGame.drawInterval || 3) * 1000));
     }
     return () => clearInterval(interval);
-  }, [isAutoDrawing, currentGame, drawNextBall, soundEnabled, fetanIsIntermission]);
+  }, [isAutoDrawing, currentGame, drawNextBall, soundEnabled, fetanIsIntermission, isWeekendGame, isWeekendLive]);
 
   // Automatically trigger Winner Celebration Modal when game ends or a winner is registered
   useEffect(() => {
@@ -1082,7 +1131,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     }
     // Always join/update with the exact selected card numbers
     joinGame(currentGame.id, selectedCardNumbers);
-    setIsAutoDrawing(true);
+    if (!isWeekendGame || isWeekendLive) {
+      setIsAutoDrawing(true);
+    }
     setIsSelectorOpen(false);
   };
 
@@ -1099,6 +1150,18 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const gameStatus = ((): string => {
     if ((currentGame.winners && currentGame.winners.length > 0) || (currentGame.blockedCards && currentGame.blockedCards.length > 0)) {
       return language === 'am' ? 'የተጠናቀቀ' : 'Checking';
+    }
+    if (isWeekendGame) {
+      if (isWeekendLive) {
+        return language === 'am' ? 'በመጫወት ላይ' : 'Playing';
+      }
+      return language === 'am' ? 'የተያዘለት (ክፍት)' : 'Scheduled (Open)';
+    }
+    if (fetanOvertime) {
+      return language === 'am' ? 'ተጨማሪ ሰዓት (እስከ አሸናፊ)' : 'Overtime (Until Winner)';
+    }
+    if (fetanIsIntermission) {
+      return language === 'am' ? 'ካርድ መምረጫ' : 'Picking Cards';
     }
     if (currentGame.drawnNumbers.length > 0) return language === 'am' ? 'በመጫወት ላይ' : 'Playing';
     return language === 'am' ? 'የሚጠበቅ' : 'Waiting';
@@ -1241,12 +1304,22 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
             {/* Fetan 1-min live counter badge or Category Badge */}
             {(currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN') ? (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-950 text-amber-300 font-mono shadow-xs shrink-0 tabular-nums">
-                {fetanIsIntermission ? `⏳ Pick: ${fetanSecondsLeft}s` : `● Live: ${fetanSecondsLeft}s`}
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black font-mono shadow-xs shrink-0 tabular-nums ${
+                fetanIsIntermission 
+                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' 
+                  : fetanOvertime 
+                  ? 'bg-rose-950 text-rose-300 border border-rose-500/50 animate-pulse' 
+                  : 'bg-slate-950 text-amber-300'
+              }`}>
+                {fetanIsIntermission 
+                  ? `⏳ Pick: ${fetanSecondsLeft}s` 
+                  : fetanOvertime 
+                  ? (language === 'am' ? '⚡ ተጨማሪ ሰዓት (እስከ አሸናፊ)' : '⚡ Overtime (Till Winner)')
+                  : `● Live: ${fetanSecondsLeft}s`}
               </span>
             ) : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND' ? (
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-white/20 text-white shrink-0">
-                🌟 FULL HOUSE
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black shrink-0 ${isWeekendLive ? 'bg-rose-600 text-white animate-pulse' : 'bg-white/20 text-white'}`}>
+                {isWeekendLive ? '● LIVE' : `📅 ${currentGame.startTime || 'Fri-Sun'}`}
               </span>
             ) : (
               <button
@@ -1369,38 +1442,47 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
               {/* Controls: Auto + Call Ball + Sound */}
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setIsAutoDrawing((prev) => !prev)}
-                  className={`text-[10px] font-black px-2 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer shadow-xs ${
-                    isAutoDrawing
-                      ? 'bg-emerald-100 border border-emerald-300 text-emerald-800'
-                      : 'bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700'
-                  }`}
-                  title="Toggle automated number caller"
-                >
-                  {isAutoDrawing ? (
-                    <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                      <span>{language === 'am' ? '⏸ አቁም' : '⏸ Auto'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>{language === 'am' ? '▶ ጀምር' : '▶ Auto'}</span>
-                    </>
-                  )}
-                </button>
+                {isWeekendGame && !isWeekendLive ? (
+                  <div className="flex items-center gap-1 px-2 py-0.5 bg-purple-50 border border-purple-200 rounded-lg text-purple-900 text-[10px] font-bold">
+                    <span>📅</span>
+                    <span>{language === 'am' ? `ስዕል: ${currentGame.startTime}` : `Draw: ${currentGame.startTime}`}</span>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsAutoDrawing((prev) => !prev)}
+                      className={`text-[10px] font-black px-2 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer shadow-xs ${
+                        isAutoDrawing
+                          ? 'bg-emerald-100 border border-emerald-300 text-emerald-800'
+                          : 'bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700'
+                      }`}
+                      title="Toggle automated number caller"
+                    >
+                      {isAutoDrawing ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                          <span>{language === 'am' ? '⏸ አቁም' : '⏸ Auto'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>{language === 'am' ? '▶ ጀምር' : '▶ Auto'}</span>
+                        </>
+                      )}
+                    </button>
 
-                <button
-                  type="button"
-                  disabled={currentGame.drawnNumbers.length >= 75 || currentGame.status === 'COMPLETED'}
-                  onClick={handleManualDraw}
-                  className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] px-2 py-1 rounded-lg transition flex items-center gap-0.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Call next number now"
-                >
-                  <Zap className="w-3 h-3 fill-slate-950" />
-                  <span>{language === 'am' ? 'ኳስ ጥራ' : 'Call Ball'}</span>
-                </button>
+                    <button
+                      type="button"
+                      disabled={currentGame.drawnNumbers.length >= 75 || currentGame.status === 'COMPLETED'}
+                      onClick={handleManualDraw}
+                      className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] px-2 py-1 rounded-lg transition flex items-center gap-0.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Call next number now"
+                    >
+                      <Zap className="w-3 h-3 fill-slate-950" />
+                      <span>{language === 'am' ? 'ኳስ ጥራ' : 'Call Ball'}</span>
+                    </button>
+                  </>
+                )}
 
                 <button
                   type="button"
