@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/telegram/keepalive",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 6 * * *"
     }
   ]
 }
