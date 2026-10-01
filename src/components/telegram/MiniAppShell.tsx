@@ -81,7 +81,7 @@ export default function MiniAppShell({
       const res = await fetch('/api/announcements');
       if (res.ok) {
         const data = await res.json();
-        if (data.announcement && data.announcement.text) {
+        if (data.announcement && (data.announcement.text || data.announcement.mediaUrl)) {
           setActiveAnnouncement(data.announcement);
           const dismissedId = typeof window !== 'undefined' ? sessionStorage.getItem('dismissed_announcement_id') : null;
           if (dismissedId === data.announcement.id) {
@@ -281,7 +281,7 @@ export default function MiniAppShell({
                 <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping inline-block" />
               </span>
               <p className="text-xs font-bold truncate text-slate-950 leading-tight">
-                {activeAnnouncement.text.replace(/<[^>]*>?/gm, '')}
+                {(activeAnnouncement.text || (activeAnnouncement.mediaType === 'photo' ? '📸 New Photo Broadcast' : '📄 New Document Broadcast')).replace(/<[^>]*>?/gm, '')}
               </p>
             </div>
           </div>
@@ -899,11 +899,18 @@ export default function MiniAppShell({
 
             {/* Attached Photo Preview */}
             {activeAnnouncement.mediaUrl && (activeAnnouncement.mediaType === 'photo' || !activeAnnouncement.mediaType) && (
-              <div className="relative w-full rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 flex items-center justify-center max-h-56">
+              <div className="relative w-full rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 flex items-center justify-center max-h-72 shadow-lg">
                 <img
                   src={activeAnnouncement.mediaUrl}
                   alt="Announcement Media"
-                  className="w-full max-h-56 object-contain"
+                  className="w-full max-h-72 object-contain rounded-xl"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (!target.src.includes('/api/telegram/media') && activeAnnouncement.mediaUrl?.includes('api.telegram.org')) {
+                      const match = activeAnnouncement.mediaUrl.match(/file_[^.]+/);
+                      if (match) target.src = `/api/telegram/media?file_id=${match[0]}`;
+                    }
+                  }}
                 />
               </div>
             )}
@@ -914,23 +921,24 @@ export default function MiniAppShell({
                 href={activeAnnouncement.mediaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between p-3 rounded-2xl bg-indigo-950/40 border border-indigo-700/50 hover:bg-indigo-900/40 transition text-indigo-200"
+                download={activeAnnouncement.fileName || 'document.pdf'}
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-indigo-950/60 border border-indigo-500/50 hover:bg-indigo-900/60 transition text-indigo-200 shadow-md cursor-pointer"
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="text-2xl shrink-0">📄</span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-3xl shrink-0">📄</span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-white truncate">{activeAnnouncement.fileName || 'Attached Document'}</p>
-                    <span className="text-[10px] text-indigo-300">Tap to view / download document</span>
+                    <p className="text-xs font-black text-white truncate">{activeAnnouncement.fileName || 'Attached Document'}</p>
+                    <span className="text-[10px] text-indigo-300 font-bold">Tap to view / download document</span>
                   </div>
                 </div>
-                <span className="text-[10px] font-black bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded-lg shrink-0">
-                  Open
+                <span className="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl shrink-0 shadow-xs">
+                  Download
                 </span>
               </a>
             )}
 
             <div className="max-h-64 overflow-y-auto pr-1 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800/80">
-              {activeAnnouncement.text.replace(/<[^>]*>?/gm, '')}
+              {(activeAnnouncement.text || (activeAnnouncement.mediaType === 'photo' ? '📸 Picture Announcement' : '📄 Document Announcement')).replace(/<[^>]*>?/gm, '')}
             </div>
 
             <div className="flex items-center gap-2 pt-1">

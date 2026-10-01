@@ -97,27 +97,13 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Regular message updates ─────────────────────────────────────────────────
-    // ── Regular message updates ─────────────────────────────────────────────────
     if (update.message) {
       const { chat, from, text, photo, document, caption } = update.message;
       const chatId = chat.id;
       const userId = from?.id;
       const userName = from?.first_name || 'Player';
-      const isAdmin = isAdminTelegramId(userId);
-
-      // Helper to fetch direct Telegram file download URL
-      const resolveTelegramFileUrl = async (fileId: string): Promise<string> => {
-        try {
-          const res = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
-          const data = await res.json();
-          if (data.ok && data.result?.file_path) {
-            return `https://api.telegram.org/file/bot${botToken}/${data.result.file_path}`;
-          }
-        } catch (e) {
-          console.error('Error fetching file path from Telegram:', e);
-        }
-        return '';
-      };
+      const userInDb = userId ? await db.getUserByTelegramId(String(userId)).catch(() => null) : null;
+      const isAdmin = isAdminTelegramId(userId) || isAdminTelegramId(from?.username) || userInDb?.role === 'admin';
 
       // ── Handle Admin Photo Upload / Broadcast ───────────────────────────────────
       if (photo && Array.isArray(photo) && photo.length > 0) {
@@ -133,7 +119,7 @@ export async function POST(req: NextRequest) {
 
         const highestPhoto = photo[photo.length - 1];
         const fileId = highestPhoto.file_id;
-        const fileUrl = await resolveTelegramFileUrl(fileId);
+        const proxyUrl = `${appUrl}/api/telegram/media?file_id=${fileId}`;
         const postCaption = caption ? caption.trim() : '📸 New Picture Announcement';
 
         // Save to DB so all mini app and web app users see this photo announcement!
@@ -142,14 +128,14 @@ export async function POST(req: NextRequest) {
             postCaption,
             'Admin Photo Broadcast',
             'BROADCAST',
-            fileUrl || undefined,
+            proxyUrl,
             'photo'
           );
         } catch (e) {
           console.error('Failed to save photo announcement:', e);
         }
 
-        // Also broadcast photo to channel if configured
+        // Broadcast to channel if configured
         try {
           await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
             method: 'POST',
@@ -171,15 +157,21 @@ export async function POST(req: NextRequest) {
           });
         } catch {}
 
-        await sendMessage({
-          chat_id: chatId,
-          parse_mode: 'HTML',
-          text:
-            `✅ <b>Picture Received & Published!</b>\n\n` +
-            `🖼️ <b>Media:</b> Photo saved successfully\n` +
-            (caption ? `📝 <b>Caption:</b>\n${caption}\n\n` : '\n') +
-            `<i>This picture announcement is now live for all users opening the bot or mini app! Use /clear to remove it.</i>`,
-          reply_markup: buildPersistentKeyboard(true),
+        // Respond directly in chat with the actual photo and fancy announcement confirmation
+        await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            photo: fileId,
+            caption:
+              `✅ <b>Picture Announcement Published!</b>\n\n` +
+              `🖼️ <b>Media:</b> Photo successfully published\n` +
+              (caption ? `📝 <b>Caption:</b>\n${caption}\n\n` : '\n') +
+              `<i>✨ This picture announcement is now live for all users opening the bot or mini app! Use /clear to remove it.</i>`,
+            parse_mode: 'HTML',
+            reply_markup: buildPersistentKeyboard(true),
+          }),
         });
         return NextResponse.json({ ok: true });
       }
@@ -198,7 +190,7 @@ export async function POST(req: NextRequest) {
 
         const fileId = document.file_id;
         const fileName = document.file_name || 'document.pdf';
-        const fileUrl = await resolveTelegramFileUrl(fileId);
+        const proxyUrl = `${appUrl}/api/telegram/media?file_id=${fileId}`;
         const postCaption = caption ? caption.trim() : `📄 Document: ${fileName}`;
 
         // Save to DB so all users see this document announcement
@@ -207,7 +199,7 @@ export async function POST(req: NextRequest) {
             postCaption,
             `Admin Document: ${fileName}`,
             'BROADCAST',
-            fileUrl || undefined,
+            proxyUrl,
             'document',
             fileName
           );
@@ -215,7 +207,7 @@ export async function POST(req: NextRequest) {
           console.error('Failed to save document announcement:', e);
         }
 
-        // Also broadcast document to channel if configured
+        // Broadcast document to channel if configured
         try {
           await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
             method: 'POST',
@@ -234,15 +226,21 @@ export async function POST(req: NextRequest) {
           });
         } catch {}
 
-        await sendMessage({
-          chat_id: chatId,
-          parse_mode: 'HTML',
-          text:
-            `✅ <b>Document Received & Published!</b>\n\n` +
-            `📄 <b>File:</b> ${fileName}\n` +
-            (caption ? `📝 <b>Caption:</b>\n${caption}\n\n` : '\n') +
-            `<i>This document announcement is now active for all players! Use /clear to remove it.</i>`,
-          reply_markup: buildPersistentKeyboard(true),
+        // Respond directly in chat with the actual document and fancy announcement confirmation
+        await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            document: fileId,
+            caption:
+              `✅ <b>Document Announcement Published!</b>\n\n` +
+              `📄 <b>File:</b> ${fileName}\n` +
+              (caption ? `📝 <b>Caption:</b>\n${caption}\n\n` : '\n') +
+              `<i>✨ This document announcement is now active for all players! Use /clear to remove it.</i>`,
+            parse_mode: 'HTML',
+            reply_markup: buildPersistentKeyboard(true),
+          }),
         });
         return NextResponse.json({ ok: true });
       }

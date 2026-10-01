@@ -21,29 +21,22 @@ export async function POST(req: NextRequest) {
     if (customText && typeof customText === 'string' && customText.trim().length > 0) {
       announcementText = customText.trim();
     } else {
-      if (!weekendGames || weekendGames.length === 0) {
-        return NextResponse.json({ error: 'No announcement message or games provided' }, { status: 400 });
-      }
-
-      const gameLines = weekendGames
-        .map((g: any, i: number) =>
-          `${i + 1}. 🌟 <b>${g.name}</b>\n` +
-          `   💵 Entry: <b>${g.entryPrice} ETB</b> | 🏆 Prize Pool: <b>${g.prizePool.toLocaleString()} ETB</b>\n` +
-          `   👥 Players: <b>${g.currentPlayers}/${g.maxPlayers}</b> | ⏱ Draw every ${g.drawInterval}s`
-        )
-        .join('\n\n');
-
       announcementText =
-        `🎉🌟 <b>WEEKEND HYPER BINGO — Special Lottery Games!</b> 🌟🎉\n` +
-        `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `🇪🇹 <b>የሳምንቱ መጨረሻ ልዩ ቢንጎ ጨዋታዎች!</b>\n` +
-        `⏰ የጨዋታ ሰዓቶች፡ <b>2:00 PM | 5:00 PM | 7:00 PM</b>\n\n` +
-        `${gameLines}\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━━\n` +
-        `⚡ <b>Win big ETB prizes this weekend!</b>\n` +
-        `📲 Open the app and join now — seats fill up fast!\n\n` +
-        `💰 ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር\n` +
-        `🔥 100% ደህንነቱ የተጠበቀ ጨዋታ`;
+        `🌟👑 <b>HYPER BINGO ETHIOPIA — WEEKEND MEGA EXTRAVAGANZA!</b> 👑🌟\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `🇪🇹 <b>የሳምንቱ መጨረሻ ታላቅ የቢንጎ እና የሎተሪ ፌስቲቫል!</b>\n` +
+        `💰 <b>የጃክፖት ፈንድ / Total Prize Pool: 100,000+ ETB!</b>\n\n` +
+        `⏰ <b>የቀጥታ ዕጣ ማውጣት ሰዓቶች (Official Draw Times):</b>\n` +
+        `   🏆 <b>2:00 PM (ከሰዓት 8:00)</b> — ⚡ Mega Kickoff Draw\n` +
+        `   🏆 <b>5:00 PM (ከቀኑ 11:00)</b> — 🎲 Golden Rush Mega Draw\n` +
+        `   🏆 <b>7:00 PM (ምሽት 1:00)</b> — 👑 Super Jackpot Finale\n\n` +
+        `💎 <b>ልዩ ጥቅሞች (Why Play Now):</b>\n` +
+        `   ✅ <b>80% የተጣራ ክፍያ ለአሸናፊዎች</b> (80% Return to Players)\n` +
+        `   ✅ <b>ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር</b> (Instant Cashout)\n` +
+        `   🎁 <b>20 ETB የመመዝገቢያ ቦነስ</b> (Play-only Welcome Bonus)\n\n` +
+        `🚀 <i>ዕድልዎን አሁኑኑ ይሞክሩ! ካርዶችዎን ቀድመው ይያዙ!</i>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `👇 <b>ከታች ያለውን አዝራር ተጭነው አሁኑኑ ይቀላቀሉ!</b>`;
     }
 
     // Persist announcement in database with media so all users opening the bot or web app see it!
@@ -76,27 +69,34 @@ export async function POST(req: NextRequest) {
       ],
     };
 
-    // Persistent bottom keyboard: only works in private chats
-    const persistentKeyboard = {
-      keyboard: [
-        [
-          { text: '⚡ Hyper Fetan', web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` } },
-          { text: '🎲 Hyper Special', web_app: { url: `${appUrl}?tab=lobby&cat=SPECIAL` } },
-          { text: '🌟 Hyper Weekend', web_app: { url: `${appUrl}?tab=lottery` } },
-        ],
-        [
-          { text: '🎮 Play Hyper Bingo', web_app: { url: appUrl } },
-          { text: '💳 Wallet', web_app: { url: `${appUrl}?tab=wallet` } },
-        ],
-      ],
-      resize_keyboard: true,
-      is_persistent: true,
-      input_field_placeholder: 'Tap a game button above ⬆️',
-    };
-
-    // Helper to send message, photo, or document based on media type
+    // Helper to send message, photo, or document based on media type (supports both URLs and base64 uploads)
     const sendTelegramPayload = async (targetId: string | number) => {
       if (mediaType === 'photo' && mediaUrl) {
+        if (mediaUrl.startsWith('data:')) {
+          try {
+            const [meta, base64Data] = mediaUrl.split(',');
+            const mimeMatch = meta.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+            const buffer = Buffer.from(base64Data, 'base64');
+            const blob = new Blob([buffer], { type: mimeType });
+
+            const formData = new FormData();
+            formData.append('chat_id', String(targetId));
+            formData.append('caption', announcementText);
+            formData.append('parse_mode', 'HTML');
+            formData.append('reply_markup', JSON.stringify(announcementKeyboard));
+            formData.append('photo', blob, fileName || 'broadcast_image.jpg');
+
+            const res = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+              method: 'POST',
+              body: formData,
+            });
+            return res.json();
+          } catch (e: any) {
+            console.error('Error sending multipart photo:', e);
+          }
+        }
+
         const res = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -110,6 +110,31 @@ export async function POST(req: NextRequest) {
         });
         return res.json();
       } else if (mediaType === 'document' && mediaUrl) {
+        if (mediaUrl.startsWith('data:')) {
+          try {
+            const [meta, base64Data] = mediaUrl.split(',');
+            const mimeMatch = meta.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : 'application/pdf';
+            const buffer = Buffer.from(base64Data, 'base64');
+            const blob = new Blob([buffer], { type: mimeType });
+
+            const formData = new FormData();
+            formData.append('chat_id', String(targetId));
+            formData.append('caption', announcementText);
+            formData.append('parse_mode', 'HTML');
+            formData.append('reply_markup', JSON.stringify(announcementKeyboard));
+            formData.append('document', blob, fileName || 'document.pdf');
+
+            const res = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+              method: 'POST',
+              body: formData,
+            });
+            return res.json();
+          } catch (e: any) {
+            console.error('Error sending multipart document:', e);
+          }
+        }
+
         const res = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -137,38 +162,12 @@ export async function POST(req: NextRequest) {
       }
     };
 
-    const sendTextMessage = async (payload: any) => {
-      const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      return res.json();
-    };
-
-    // ── Step 1: Send the announcement (with photo/document if attached) ───────
+    // Send the standalone announcement (NO redundant follow-up game list messages!)
     const result = await sendTelegramPayload(targetChatId);
 
-    // ── Step 2: For private chats (id > 0), send persistent bottom keyboard ───
-    const isPrivateChat = Number(targetChatId) > 0;
-    if (isPrivateChat) {
-      await sendTextMessage({
-        chat_id: targetChatId,
-        parse_mode: 'HTML',
-        text: `👇 <b>ጨዋታ ይምረጡ — Tap a game to play now!</b>`,
-        reply_markup: persistentKeyboard,
-      });
-    }
-
-    // ── Step 3: Always also deliver to admin's private chat with keyboard ─────
+    // If sent to a channel, also deliver a preview copy to admin's private chat without any game list spam
     if (adminTelegramId && String(targetChatId) !== String(adminTelegramId)) {
       await sendTelegramPayload(adminTelegramId).catch(() => {});
-      await sendTextMessage({
-        chat_id: adminTelegramId,
-        parse_mode: 'HTML',
-        text: `👇 <b>Game list:</b>`,
-        reply_markup: persistentKeyboard,
-      }).catch(() => {});
     }
 
     if (!result.ok) {
