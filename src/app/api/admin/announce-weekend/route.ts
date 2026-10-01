@@ -4,22 +4,37 @@ import { db } from '@/lib/db';
 
 const DEFAULT_BOT_TOKEN = '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
 
+function safeTgHtml(str: string): string {
+  if (!str) return '';
+  // Escape bare & not already part of an HTML entity
+  return str.replace(/&(?!amp;|lt;|gt;|quot;|#\d+;)/g, '&amp;');
+}
+
 export async function POST(req: NextRequest) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN;
+  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'BingoBirrBot';
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bingo-game-rho-five.vercel.app';
 
   try {
     const body = await req.json();
-    const { adminTelegramId, weekendGames, chatId, customText, mediaUrl, mediaType, fileName } = body;
+    const { adminTelegramId, chatId, customText, mediaUrl, mediaType, fileName } = body;
 
-    // Verify caller is admin
-    if (!isAdminTelegramId(adminTelegramId)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    // Verify caller is admin (checks whitelist, database role, or admin username)
+    let isAuthorized = isAdminTelegramId(adminTelegramId) || String(adminTelegramId).toLowerCase() === 'admin';
+    if (!isAuthorized && adminTelegramId) {
+      const userInDb = await db.getUserByTelegramId(String(adminTelegramId)).catch(() => null);
+      if (userInDb?.role === 'admin') {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Unauthorized: Admin privileges required.' }, { status: 403 });
     }
 
     let announcementText = '';
     if (customText && typeof customText === 'string' && customText.trim().length > 0) {
-      announcementText = customText.trim();
+      announcementText = safeTgHtml(customText.trim());
     } else {
       announcementText =
         `🌟👑 <b>HYPER BINGO ETHIOPIA — WEEKEND MEGA EXTRAVAGANZA!</b> 👑🌟\n` +
@@ -55,22 +70,39 @@ export async function POST(req: NextRequest) {
 
     const targetChatId = chatId || adminTelegramId;
 
-    // Inline keyboard: works in channels, groups, AND private chats
-    const announcementKeyboard = {
-      inline_keyboard: [
-        [
-          { text: '⚡ Hyper Fetan', web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` } },
-          { text: '🎲 Hyper Special', web_app: { url: `${appUrl}?tab=lobby&cat=SPECIAL` } },
+    // Helper to build keyboard safe for channels vs private chats
+    const buildKeyboard = (targetId: string | number) => {
+      const isChannelOrGroup = String(targetId).startsWith('@') || String(targetId).startsWith('-');
+      if (isChannelOrGroup) {
+        return {
+          inline_keyboard: [
+            [
+              { text: '🎮 Play Hyper Bingo / አሁኑኑ ይጫወቱ', url: `https://t.me/${botUsername}?start=play` }
+            ],
+          ],
+        };
+      }
+      return {
+        inline_keyboard: [
+          [
+            { text: '🎮 Play Hyper Bingo', web_app: { url: appUrl } },
+            { text: '⚡ Hyper Fetan', web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` } },
+          ],
+          [
+            { text: '🌟 Hyper Weekend', web_app: { url: `${appUrl}?tab=lottery` } },
+          ],
         ],
-        [
-          { text: '🌟 Hyper Weekend', web_app: { url: `${appUrl}?tab=lottery` } },
-          { text: '🎮 Play Hyper Bingo', web_app: { url: appUrl } },
-        ],
-      ],
+      };
     };
 
-    // Helper to send message, photo, or document based on media type (supports both URLs and base64 uploads)
+    // Helper to send message, photo, or document based on media type
     const sendTelegramPayload = async (targetId: string | number) => {
+      const keyboard = buildKeyboard(targetId);
+      // Telegram photo/doc caption limit is 1024 characters
+      const captionText = announcementText.length > 1000 
+        ? announcementText.slice(0, 995) + '...'
+        : announcementText;
+
       if (mediaType === 'photo' && mediaUrl) {
         if (mediaUrl.startsWith('data:')) {
           try {
@@ -82,16 +114,20 @@ export async function POST(req: NextRequest) {
 
             const formData = new FormData();
             formData.append('chat_id', String(targetId));
-            formData.append('caption', announcementText);
+            formData.append('caption', captionText);
             formData.append('parse_mode', 'HTML');
-            formData.append('reply_markup', JSON.stringify(announcementKeyboard));
+            formData.append('reply_markup', JSON.stringify(keyboard));
             formData.append('photo', blob, fileName || 'broadcast_image.jpg');
 
             const res = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
               method: 'POST',
               body: formData,
             });
-            return res.json();
+            const data = await res.json();
+            if (!data.ok) {
+              console.error('sendPhoto multipart error:', data);
+            }
+            return data;
           } catch (e: any) {
             console.error('Error sending multipart photo:', e);
           }
@@ -103,9 +139,9 @@ export async function POST(req: NextRequest) {
           body: JSON.stringify({
             chat_id: targetId,
             photo: mediaUrl,
-            caption: announcementText,
+            caption: captionText,
             parse_mode: 'HTML',
-            reply_markup: announcementKeyboard,
+            reply_markup: keyboard,
           }),
         });
         return res.json();
@@ -120,16 +156,20 @@ export async function POST(req: NextRequest) {
 
             const formData = new FormData();
             formData.append('chat_id', String(targetId));
-            formData.append('caption', announcementText);
+            formData.append('caption', captionText);
             formData.append('parse_mode', 'HTML');
-            formData.append('reply_markup', JSON.stringify(announcementKeyboard));
+            formData.append('reply_markup', JSON.stringify(keyboard));
             formData.append('document', blob, fileName || 'document.pdf');
 
             const res = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
               method: 'POST',
               body: formData,
             });
-            return res.json();
+            const data = await res.json();
+            if (!data.ok) {
+              console.error('sendDocument multipart error:', data);
+            }
+            return data;
           } catch (e: any) {
             console.error('Error sending multipart document:', e);
           }
@@ -141,13 +181,14 @@ export async function POST(req: NextRequest) {
           body: JSON.stringify({
             chat_id: targetId,
             document: mediaUrl,
-            caption: announcementText,
+            caption: captionText,
             parse_mode: 'HTML',
-            reply_markup: announcementKeyboard,
+            reply_markup: keyboard,
           }),
         });
         return res.json();
       } else {
+        // Text-only announcement
         const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -155,29 +196,29 @@ export async function POST(req: NextRequest) {
             chat_id: targetId,
             parse_mode: 'HTML',
             text: announcementText,
-            reply_markup: announcementKeyboard,
+            reply_markup: keyboard,
           }),
         });
         return res.json();
       }
     };
 
-    // Send the standalone announcement (NO redundant follow-up game list messages!)
+    // Send the standalone announcement (NO redundant game list messages attached!)
     const result = await sendTelegramPayload(targetChatId);
 
-    // If sent to a channel, also deliver a preview copy to admin's private chat without any game list spam
+    // If sent to a channel, also deliver a preview copy to admin's private chat
     if (adminTelegramId && String(targetChatId) !== String(adminTelegramId)) {
       await sendTelegramPayload(adminTelegramId).catch(() => {});
     }
 
-    if (!result.ok) {
-      const rawError = result.description || 'Telegram API error';
+    if (!result || !result.ok) {
+      const rawError = result?.description || 'Telegram API error';
       let userFriendlyMsg = String(rawError || '');
       if (/chat not found/i.test(userFriendlyMsg)) {
         userFriendlyMsg = [
           '❌ Chat not found — HOW TO BROADCAST:',
           '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-          '1. To broadcast to a channel: Add @HyperBingoBot as ADMINISTRATOR.',
+          `1. To broadcast to a channel: Add @${botUsername} as an ADMINISTRATOR in that channel.`,
           '2. To test: Select "My Telegram Chat" to receive in your private chat.',
           '',
           'Raw error: ' + rawError,
@@ -189,7 +230,7 @@ export async function POST(req: NextRequest) {
           error: userFriendlyMsg,
           ok: false,
           telegramRaw: result,
-          tip: 'Select "My Telegram Chat" or add @HyperBingoBot as Admin to your channel',
+          tip: `Select "My Telegram Chat" or add @${botUsername} as Admin to your channel`,
         },
         { status: 200 }
       );

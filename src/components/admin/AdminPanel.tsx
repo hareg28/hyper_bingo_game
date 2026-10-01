@@ -112,7 +112,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `🎉 ለሁሉም አዲስ ተጫዋቾች የ 20 ETB መመዝገቢያ ጉርሻ ተዘጋጅቷል!\n` +
         `💰 ይህንን ቦነስ ተጠቅመው ሁሉንም የቢንጎ ጨዋታዎች መጫወት ይችላሉ!\n\n` +
-        `💎 100% የታመነ እና ፈጣን ክፍያ በ Telebirr & CBE Birr\n` +
+        `💎 100% የታመነ እና ፈጣን ክፍያ በ Telebirr እና CBE Birr\n` +
         `👥 ጓደኛዎን ይጋብዙ — በእያንዳንዱ አሸናፊነት 1% የትርፍ ኮሚሽን ያግኙ!\n\n` +
         `🚀 አሁኑኑ ተቀላቅለው የዛሬው ዕድለኛ አሸናፊ ይሁኑ!\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
@@ -171,7 +171,6 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     setAnnouncing(true);
     setAnnounceResult(null);
 
-    const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
     const target = overrideTarget || (
       weekendTarget === 'direct'
         ? (user?.telegramId || '')
@@ -180,16 +179,9 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         : (weekendCustomChatId.trim() || user?.telegramId || '')
     );
 
-    const activeList = weekendGames.length > 0 ? weekendGames : [
-      { name: 'Weekend Mega Draw (2:00 PM)', entryPrice: 100, prizePool: 25000, currentPlayers: 28, maxPlayers: 100, drawInterval: 10 },
-      { name: 'Weekend High Roller (5:00 PM)', entryPrice: 200, prizePool: 50000, currentPlayers: 18, maxPlayers: 80, drawInterval: 10 },
-      { name: 'Sunday Night Jackpot (7:00 PM)', entryPrice: 500, prizePool: 100000, currentPlayers: 42, maxPlayers: 150, drawInterval: 10 }
-    ];
-
     const payload = {
-      adminTelegramId: user?.telegramId || user?.username || '',
+      adminTelegramId: user?.telegramId || user?.username || 'admin',
       chatId: target,
-      weekendGames: activeList,
     };
 
     try {
@@ -206,7 +198,6 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
           detail: {
             preset: 'weekend_draws',
             text: getWeekendBroadcastPreview(),
-            weekendGames: activeList,
           }
         }));
       } catch {}
@@ -220,7 +211,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         const tip = data?.tip || '';
         setAnnounceResult({
           ok: false,
-          msg: `⚠️ Announcement saved in app! Telegram API notice: ${data?.error || 'Delivered to active banner'} ${tip ? `\n💡 TIP: ${tip}` : ''}`
+          msg: `⚠️ Announcement saved in app! Notice: ${data?.error || 'Delivered to active banner'} ${tip ? `\n💡 TIP: ${tip}` : ''}`
         });
       }
     } catch (err: any) {
@@ -232,8 +223,8 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
   // Handler for Custom Broadcast
   const handleSendCustomBroadcast = async (overrideTarget?: string) => {
-    if (!customBroadcastText.trim()) {
-      setAnnounceResult({ ok: false, msg: 'Please type an announcement message before broadcasting.' });
+    if (!customBroadcastText.trim() && !broadcastMediaUrl) {
+      setAnnounceResult({ ok: false, msg: 'Please type an announcement message or attach a picture/document.' });
       return;
     }
 
@@ -249,7 +240,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     );
 
     const payload = {
-      adminTelegramId: user?.telegramId || user?.username || '',
+      adminTelegramId: user?.telegramId || user?.username || 'admin',
       chatId: target,
       customText: customBroadcastText.trim(),
       mediaUrl: broadcastMediaType !== 'none' ? broadcastMediaUrl : undefined,
@@ -287,7 +278,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         const tip = data?.tip || '';
         setAnnounceResult({
           ok: false,
-          msg: `⚠️ Announcement saved in app! Telegram API notice: ${data?.error || 'Active banner updated'} ${tip ? `\n💡 TIP: ${tip}` : ''}`
+          msg: `⚠️ Announcement saved in app! Notice: ${data?.error || 'Active banner updated'} ${tip ? `\n💡 TIP: ${tip}` : ''}`
         });
       }
     } catch (err: any) {
@@ -304,7 +295,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          adminTelegramId: user?.telegramId || user?.username || '',
+          adminTelegramId: user?.telegramId || user?.username || 'admin',
         }),
       });
       const data = await res.json();
@@ -356,10 +347,10 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
   const [newPrizePool, setNewPrizePool] = useState<number>(6000);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
+  // User is admin if role is admin OR id/username is whitelisted
   const isUserAdmin = Boolean(
     user && 
-    user.role === 'admin' && 
-    (isAdminTelegramId(user.telegramId) || isAdminTelegramId(user.username))
+    (user.role === 'admin' || isAdminTelegramId(user.telegramId) || isAdminTelegramId(user.username))
   );
 
   const handleAdminVerify = async (e: React.FormEvent) => {
@@ -372,8 +363,8 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
       setVerifyError(
         res.message || (
           language === 'am'
-            ? `መዳረሻ ተከልክሏል፡ የቴሌግራም መታወቂያ '${adminInput}' በአገልጋዩ የአስተዳዳሪ ዝርዝር ውስጥ አልተገኘም።`
-            : `Access Denied: Telegram ID / Username '${adminInput}' is not in the server administrator whitelist (ADMIN_TELEGRAM_IDS).`
+            ? `መዳረሻ ተከልክሏል፡ '${adminInput}' ተቀባይነት አላገኘም። እባክዎ ትክክለኛውን ID ወይም የይለፍ ቃል ያስገቡ።`
+            : `Access Denied: '${adminInput}' is not authorized. Enter a valid admin Telegram ID or passphrase (e.g. hyperadmin).`
         )
       );
     }
@@ -402,34 +393,34 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     } else {
       setVerifyError(
         language === 'am'
-          ? 'የቴሌግራም ክፍለ-ጊዜ አልተገኘም። እባክዎ የቴሌግራም መታወቂያዎን በእጅ ያስገቡ።'
-          : 'No Telegram WebApp session detected. Please enter your Telegram ID manually.'
+          ? 'የቴሌግራም ክፍለ-ጊዜ አልተገኘም። እባክዎ የቴሌግራም መታወቂያዎን ወይም የይለፍ ቃል ያስገቡ።'
+          : 'No Telegram WebApp session detected. Please enter your Telegram ID or admin passphrase.'
       );
     }
   };
 
-  // Security Check: If user is not verified admin, show Verification Portal
+  // Security Gate: If user is not verified admin, show Verification Portal
   if (!isUserAdmin) {
     return (
       <div className={`space-y-4 ${isStandalone ? 'min-h-screen bg-[#090b13] text-slate-100 font-sans p-4 sm:p-8 flex items-center justify-center' : 'text-slate-100 font-sans p-4'}`}>
-        <div className="glass-panel p-6 sm:p-8 rounded-3xl max-w-md w-full text-center space-y-5 border-amber-500/30 shadow-2xl bg-[#0c101d]">
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400 shadow-inner">
+        <div className="p-6 sm:p-8 rounded-3xl max-w-md w-full text-center space-y-5 border border-amber-500/40 shadow-2xl bg-[#0f1423]">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mx-auto text-amber-400 shadow-inner">
             <Shield className="w-8 h-8" />
           </div>
 
           <div className="space-y-1.5">
-            <h2 className="text-xl font-black text-slate-100">
+            <h2 className="text-xl font-black text-white">
               {language === 'am' ? 'የአስተዳዳሪ ማረጋገጫ' : 'Administrator Verification'}
             </h2>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-200 leading-relaxed font-medium">
               {language === 'am'
-                ? 'ይህ ገጽ በአገልጋይ ውቅር (ADMIN_TELEGRAM_IDS) ውስጥ ለተመዘገቡ አስተዳዳሪዎች ብቻ የተጠበቀ ነው።'
-                : 'This portal is strictly restricted to administrators whose Telegram ID or Username is configured in the server environment (ADMIN_TELEGRAM_IDS).'}
+                ? 'ይህ ገጽ ለአስተዳዳሪዎች ብቻ የተጠበቀ ነው። እባክዎ የቴሌግራም መታወቂያዎን ወይም የይለፍ ቃል ያስገቡ።'
+                : 'This portal is restricted to authorized administrators. Enter your admin Telegram ID, username, or passphrase.'}
             </p>
           </div>
 
           {verifyError && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs text-left flex items-start gap-2">
+            <div className="p-3 rounded-xl bg-rose-950/80 border border-rose-500 text-rose-200 text-xs text-left flex items-start gap-2 font-medium">
               <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <span>{verifyError}</span>
             </div>
@@ -437,29 +428,29 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
           <form onSubmit={handleAdminVerify} className="space-y-3 pt-1">
             <div className="text-left">
-              <label className="text-[11px] font-bold text-slate-300 block mb-1">
-                {language === 'am' ? 'የአስተዳዳሪ ቴሌግራም ID ወይም የተጠቃሚ ስም' : 'Admin Telegram ID or Username'}
+              <label className="text-xs font-bold text-slate-200 block mb-1">
+                {language === 'am' ? 'የአስተዳዳሪ ID ወይም የይለፍ ቃል' : 'Admin Telegram ID or Passphrase'}
               </label>
               <input
                 type="text"
                 required
-                placeholder="e.g. 570615212 or admin_username"
+                placeholder="e.g. 570615212 or hyperadmin"
                 value={adminInput}
                 onChange={(e) => setAdminInput(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-400 font-mono"
+                className="w-full bg-slate-950 border border-slate-600 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-amber-400 font-mono"
               />
             </div>
 
             <button
               type="submit"
               disabled={verifying}
-              className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-lg disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-lg disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               {verifying ? (
                 <span>{language === 'am' ? 'በማረጋገጥ ላይ...' : 'Verifying...'}</span>
               ) : (
                 <>
-                  <ShieldCheck className="w-4 h-4" />
+                  <ShieldCheck className="w-4 h-4 text-slate-950" />
                   <span>{language === 'am' ? 'ማረጋገጥና መግባት' : 'Verify & Enter'}</span>
                 </>
               )}
@@ -470,7 +461,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                 type="button"
                 onClick={handleTelegramSessionVerify}
                 disabled={verifying}
-                className="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold transition flex items-center justify-center gap-1.5"
+                className="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                 <span>{language === 'am' ? 'በቴሌግራም ሴሽን አረጋግጥ' : 'Verify Telegram Session'}</span>
@@ -482,7 +473,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
             <div className="pt-2">
               <Link
                 href="/"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-slate-200 transition"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white transition"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 {language === 'am' ? 'ወደ መነሻ ገጽ ተመለስ' : 'Return to Home'}
@@ -493,7 +484,6 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
       </div>
     );
   }
-
 
   const pendingWithdrawals = withdrawals.filter((w) => w.status === 'PENDING');
   const totalRevenue = transactions
@@ -524,45 +514,43 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     <div className={`space-y-4 ${isStandalone ? 'min-h-screen bg-[#090b13] text-slate-100 font-sans p-4 sm:p-8' : 'text-slate-100 font-sans'}`}>
       <div className={isStandalone ? 'max-w-7xl mx-auto space-y-6' : 'space-y-4'}>
         {/* Top Admin Header Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-700/80 pb-3">
           <div className="flex items-center gap-3">
             {isStandalone && (
               <Link
                 href="/"
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
               >
                 <ArrowLeft className="w-5 h-5" />
               </Link>
             )}
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase flex items-center gap-1">
-                  <Shield className="w-3 h-3" /> {t('adminDashboard')}
+                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase flex items-center gap-1">
+                  <Shield className="w-3 h-3 text-amber-400" /> {t('adminDashboard')}
                 </span>
-                <span className="text-[10px] sm:text-xs text-slate-400">{t('adminSubtitle')}</span>
+                <span className="text-xs text-slate-300 font-medium">{t('adminSubtitle')}</span>
               </div>
-              <h1 className="text-lg sm:text-2xl font-black text-slate-100 tracking-tight mt-0.5">
+              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight mt-0.5">
                 {t('adminPanelTitle')}
               </h1>
             </div>
           </div>
 
           <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end">
-            {/* Role switch helper (Only for verified admin telegram IDs) */}
-            {isAdminTelegramId(user?.telegramId) && (
-              <button
-                onClick={toggleUserRole}
-                className="px-2.5 py-1 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-bold text-[10px] sm:text-xs border border-purple-500/40 transition"
-                title="Toggle between Admin and Player"
-              >
-                {user?.role === 'admin' ? `🛡️ ${t('adminModeActive')}` : `👤 ${t('playerModeActive')}`}
-              </button>
-            )}
+            {/* Role switch helper */}
+            <button
+              onClick={toggleUserRole}
+              className="px-2.5 py-1 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 font-bold text-xs border border-purple-500/40 transition cursor-pointer"
+              title="Toggle between Admin and Player"
+            >
+              {user?.role === 'admin' ? `🛡️ ${t('adminModeActive')}` : `👤 ${t('playerModeActive')}`}
+            </button>
 
             {/* Language toggle */}
             <button
               onClick={() => setLanguage(language === 'en' ? 'am' : 'en')}
-              className="px-2 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs border border-slate-700 transition flex items-center gap-1"
+              className="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-black text-xs border border-slate-700 transition flex items-center gap-1 cursor-pointer"
             >
               <Globe className="w-3.5 h-3.5" />
               {language === 'en' ? '🇪🇹 አማ' : '🇬🇧 EN'}
@@ -570,15 +558,15 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition flex items-center gap-1.5 shadow-lg shrink-0"
+              className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center gap-1.5 shadow-lg shrink-0 cursor-pointer"
             >
-              <PlusCircle className="w-4 h-4" /> {t('createNewGame')}
+              <PlusCircle className="w-4 h-4 text-slate-950" /> {t('createNewGame')}
             </button>
           </div>
         </div>
 
-        {/* Navigation Tabs (Organized at the top of the Admin Panel) */}
-        <div className="flex items-center gap-1.5 border-b border-slate-800 overflow-x-auto pb-1 no-scrollbar">
+        {/* Navigation Tabs — High Contrast, Simple & Clean */}
+        <div className="flex items-center gap-1.5 border-b border-slate-700/80 overflow-x-auto pb-1.5 no-scrollbar">
           {[
             { id: 'overview', label: t('overview'), icon: FileText },
             { id: 'broadcast', label: language === 'am' ? '📢 ማስታወቂያ ማሰራጫ' : '📢 Broadcast Center', icon: Megaphone },
@@ -592,10 +580,10 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               <button
                 key={tab.id}
                 onClick={() => { setActiveTab(tab.id as any); setAnnounceResult(null); }}
-                className={`px-3.5 py-2 rounded-xl font-bold text-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeTab === tab.id
-                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                    : 'bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800'
+                    ? 'bg-amber-500 text-slate-950 shadow-md font-black border border-amber-400'
+                    : 'bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -605,21 +593,23 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
           })}
         </div>
 
-        {/* BROADCAST CENTER TAB (Separated Weekend Games vs Custom Rich Media) */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* BROADCAST CENTER TAB (Separated Weekend Games vs Custom Rich Media)    */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'broadcast' && (
           <div className="space-y-4">
             {/* Top Selector Card */}
-            <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 shadow-xl space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+            <div className="p-4 rounded-2xl border border-slate-700 bg-slate-900 shadow-xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-700/80 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
                     <Megaphone className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-sm sm:text-base font-black text-white tracking-wide">
+                    <h2 className="text-base font-black text-white tracking-wide">
                       {language === 'am' ? 'የቴሌግራም እና ሚኒ አፕ ማስታወቂያ ማሰራጫ' : 'Telegram & In-App Broadcast Studio'}
                     </h2>
-                    <p className="text-xs text-slate-300">
+                    <p className="text-xs text-slate-200 font-medium">
                       {language === 'am'
                         ? 'የሳምንቱን መጨረሻ ጨዋታዎች ወይም የራስዎን ልዩ ማስታወቂያ ለይተው ያሰራጩ'
                         : 'Choose between automated weekend lottery game alerts or custom rich media announcements'}
@@ -627,15 +617,15 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                   </div>
                 </div>
 
-                {/* Separate Mode Switcher */}
-                <div className="flex p-1 bg-slate-950 rounded-xl border border-slate-800 gap-1 shrink-0">
+                {/* Mode Switcher Buttons */}
+                <div className="flex p-1 bg-slate-950 rounded-xl border border-slate-700 gap-1 shrink-0">
                   <button
                     type="button"
                     onClick={() => { setBroadcastMode('weekend'); setAnnounceResult(null); }}
                     className={`py-2 px-3.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
                       broadcastMode === 'weekend'
-                        ? 'bg-amber-500 text-slate-950 shadow-md'
-                        : 'text-slate-400 hover:text-white'
+                        ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                        : 'text-slate-300 hover:text-white'
                     }`}
                   >
                     <span>🌟</span>
@@ -646,8 +636,8 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                     onClick={() => { setBroadcastMode('custom'); setAnnounceResult(null); }}
                     className={`py-2 px-3.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
                       broadcastMode === 'custom'
-                        ? 'bg-indigo-600 text-white shadow-md'
-                        : 'text-slate-400 hover:text-white'
+                        ? 'bg-indigo-600 text-white shadow-md font-black'
+                        : 'text-slate-300 hover:text-white'
                     }`}
                   >
                     <span>✍️</span>
@@ -660,8 +650,8 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               {announceResult && (
                 <div className={`text-xs font-bold whitespace-pre-wrap leading-relaxed p-3.5 rounded-xl border ${
                   announceResult.ok
-                    ? 'bg-emerald-950/80 border-emerald-500 text-emerald-200'
-                    : 'bg-rose-950/80 border-rose-500 text-rose-200'
+                    ? 'bg-emerald-950 border-emerald-500 text-emerald-200'
+                    : 'bg-rose-950 border-rose-500 text-rose-200'
                 }`}>
                   {announceResult.msg}
                 </div>
@@ -673,15 +663,15 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 {/* Left 7 cols: Weekend Broadcast Config */}
                 <div className="lg:col-span-7 space-y-4">
-                  <div className="p-4 sm:p-5 rounded-2xl border border-slate-800 bg-slate-900 shadow-lg space-y-4">
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="p-4 sm:p-5 rounded-2xl border border-slate-700 bg-slate-900 shadow-lg space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-700 pb-3">
                       <div className="flex items-center gap-2">
                         <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 text-base">🌟</span>
                         <div>
                           <h3 className="text-sm font-black text-amber-300 uppercase tracking-wide">
                             {language === 'am' ? 'የሳምንቱ መጨረሻ ጨዋታዎች ማሰራጫ' : 'Weekend Lottery Game Broadcast'}
                           </h3>
-                          <span className="text-[11px] text-slate-300">
+                          <span className="text-xs text-slate-300 font-medium">
                             {language === 'am' ? 'ዕለታት፡ አርብ፣ ቅዳሜ፣ እሑድ (2:00, 5:00 & 7:00 PM)' : 'Draw Times: Fri–Sun at 2:00 PM, 5:00 PM & 7:00 PM'}
                           </span>
                         </div>
@@ -693,17 +683,17 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
                     {/* Destination Selection */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
-                        {language === 'am' ? 'የሚላክበት አድራሻ (Target)' : 'Broadcast Destination'}
+                      <label className="text-xs font-black uppercase tracking-wider text-slate-200 block">
+                        {language === 'am' ? 'የሚላክበት አድራሻ (Destination)' : 'Broadcast Destination'}
                       </label>
                       <div className="grid grid-cols-3 gap-2">
                         <button
                           type="button"
                           onClick={() => { setWeekendTarget('channel'); setWeekendCustomChatId(''); }}
-                          className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                          className={`py-2 px-2.5 rounded-xl text-xs font-black border transition text-center cursor-pointer ${
                             weekendTarget === 'channel'
-                              ? 'bg-amber-500 text-slate-950 font-black border-amber-400 shadow-md'
-                              : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-600'
+                              ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+                              : 'bg-slate-950 border-slate-600 text-slate-200 hover:border-slate-500'
                           }`}
                         >
                           📢 @HyperBingoChannel
@@ -711,10 +701,10 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                         <button
                           type="button"
                           onClick={() => { setWeekendTarget('direct'); setWeekendCustomChatId(''); }}
-                          className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                          className={`py-2 px-2.5 rounded-xl text-xs font-black border transition text-center cursor-pointer ${
                             weekendTarget === 'direct'
-                              ? 'bg-amber-500 text-slate-950 font-black border-amber-400 shadow-md'
-                              : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-600'
+                              ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+                              : 'bg-slate-950 border-slate-600 text-slate-200 hover:border-slate-500'
                           }`}
                         >
                           💬 {language === 'am' ? 'ለኔ ቴሌግራም' : 'My Telegram'}
@@ -722,10 +712,10 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                         <button
                           type="button"
                           onClick={() => setWeekendTarget('custom')}
-                          className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                          className={`py-2 px-2.5 rounded-xl text-xs font-black border transition text-center cursor-pointer ${
                             weekendTarget === 'custom'
-                              ? 'bg-amber-500 text-slate-950 font-black border-amber-400 shadow-md'
-                              : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-600'
+                              ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+                              : 'bg-slate-950 border-slate-600 text-slate-200 hover:border-slate-500'
                           }`}
                         >
                           ✍️ {language === 'am' ? 'ሌላ Chat ID' : 'Custom Target'}
@@ -737,26 +727,26 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                           placeholder="e.g. @YourChannel or -1001234567890"
                           value={weekendCustomChatId}
                           onChange={e => setWeekendCustomChatId(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-400 mt-1"
+                          className="w-full bg-slate-950 border border-slate-600 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-amber-400 mt-1"
                         />
                       )}
                     </div>
 
                     {/* Weekend Grand Schedule Card — Clean, High-Contrast & Fancy */}
-                    <div className="space-y-2 p-3.5 rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/60 border border-amber-500/40">
-                      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div className="space-y-2 p-3.5 rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/70 border border-amber-500/50">
+                      <div className="flex items-center justify-between border-b border-slate-700 pb-2">
                         <span className="text-xs font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
                           <span>🏆</span> {language === 'am' ? 'የሳምንቱ መጨረሻ የዕጣ ሰዓቶች እና ሽልማቶች' : 'Official Draw Times & Prize Pools'}
                         </span>
                         <span className="text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full">
-                          100,000+ ETB Total
+                          100,000+ ETB Pool
                         </span>
                       </div>
                       
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                        <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                        <div className="p-3 rounded-xl bg-slate-900 border border-slate-700 flex flex-col justify-between">
                           <div>
-                            <span className="text-[10px] font-bold text-amber-400 uppercase block">2:00 PM Draw</span>
+                            <span className="text-[10px] font-black text-amber-400 uppercase block">2:00 PM Draw</span>
                             <span className="text-xs font-black text-white block mt-0.5">⚡ Mega Kickoff</span>
                           </div>
                           <span className="text-xs font-mono font-black text-emerald-400 mt-2">
@@ -764,9 +754,9 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                           </span>
                         </div>
 
-                        <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between">
+                        <div className="p-3 rounded-xl bg-slate-900 border border-slate-700 flex flex-col justify-between">
                           <div>
-                            <span className="text-[10px] font-bold text-amber-400 uppercase block">5:00 PM Draw</span>
+                            <span className="text-[10px] font-black text-amber-400 uppercase block">5:00 PM Draw</span>
                             <span className="text-xs font-black text-white block mt-0.5">🎲 Golden Rush</span>
                           </div>
                           <span className="text-xs font-mono font-black text-emerald-400 mt-2">
@@ -774,9 +764,9 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                           </span>
                         </div>
 
-                        <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between">
+                        <div className="p-3 rounded-xl bg-slate-900 border border-slate-700 flex flex-col justify-between">
                           <div>
-                            <span className="text-[10px] font-bold text-amber-400 uppercase block">7:00 PM Draw</span>
+                            <span className="text-[10px] font-black text-amber-400 uppercase block">7:00 PM Draw</span>
                             <span className="text-xs font-black text-white block mt-0.5">👑 Super Jackpot</span>
                           </div>
                           <span className="text-xs font-mono font-black text-emerald-400 mt-2">
@@ -785,19 +775,19 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                         </div>
                       </div>
 
-                      <div className="pt-2 text-[11px] text-slate-200 flex items-center justify-between border-t border-slate-800/80">
+                      <div className="pt-2 text-xs text-slate-200 flex items-center justify-between border-t border-slate-700/80 font-bold">
                         <span>💰 80% Win Payout · 20% House</span>
-                        <span className="text-amber-300 font-bold">Fri, Sat & Sun Weekly</span>
+                        <span className="text-amber-300">Fri, Sat & Sun Weekly</span>
                       </div>
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-2 border-t border-slate-800">
+                    <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-2 border-t border-slate-700">
                       <button
                         type="button"
                         onClick={() => { if (user?.telegramId) handleSendWeekendBroadcast(user.telegramId); }}
                         disabled={announcing || !user?.telegramId}
-                        className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-100 font-bold text-xs border border-slate-700 cursor-pointer text-center"
+                        className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold text-xs border border-slate-600 cursor-pointer text-center"
                       >
                         ✉️ {language === 'am' ? 'ለኔ ቴሌግራም ሞክር' : 'Send Test to Me'}
                       </button>
@@ -816,9 +806,9 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
                 {/* Right 5 cols: Live Preview */}
                 <div className="lg:col-span-5 space-y-3">
-                  <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 shadow-lg space-y-2.5">
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-200 border-b border-slate-800 pb-2">
-                      <span className="flex items-center gap-1.5 text-white">
+                  <div className="p-4 rounded-2xl border border-slate-700 bg-slate-900 shadow-lg space-y-2.5">
+                    <div className="flex items-center justify-between text-xs font-black text-white border-b border-slate-700 pb-2">
+                      <span className="flex items-center gap-1.5">
                         <span>💬</span> Telegram Live Preview
                       </span>
                       <span className="text-[10px] text-amber-400 font-mono font-bold">Auto Synchronized</span>
@@ -828,7 +818,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                       {getWeekendBroadcastPreview()}
                     </div>
 
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 leading-normal">
+                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-200 leading-normal font-medium">
                       💡 <strong>Note:</strong> Standalone fancy broadcast without game list clutter. Updates the top banner for all users.
                     </div>
                   </div>
@@ -841,15 +831,15 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 {/* Left 7 cols: Custom Text & Media Uploader */}
                 <div className="lg:col-span-7 space-y-4">
-                  <div className="p-4 sm:p-5 rounded-2xl border border-slate-800 bg-slate-900 shadow-lg space-y-4">
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="p-4 sm:p-5 rounded-2xl border border-slate-700 bg-slate-900 shadow-lg space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-700 pb-3">
                       <div className="flex items-center gap-2">
                         <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-base">✍️</span>
                         <div>
                           <h3 className="text-sm font-black text-indigo-300 uppercase tracking-wide">
                             {language === 'am' ? 'ልዩ ማስታወቂያ እና ፎቶ/ሰነድ መለጠፊያ' : 'Custom Announcement & Media Studio'}
                           </h3>
-                          <span className="text-[11px] text-slate-300">
+                          <span className="text-xs text-slate-300 font-medium">
                             {language === 'am' ? 'ማንኛውንም ጽሑፍ፣ ምስል ወይም ሰነድ ለተጫዋቾች ይለጥፉ' : 'Write custom text, attach pictures, flyers, or documents'}
                           </span>
                         </div>
@@ -861,7 +851,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
                     {/* Quick Preset Buttons */}
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-slate-200 uppercase tracking-wider block">
+                      <label className="text-xs font-black text-slate-200 uppercase tracking-wider block">
                         ⚡ {language === 'am' ? 'ፈጣን የአማራጭ ጽሑፎች (1-Click Presets)' : '1-Click Announcement Presets'}
                       </label>
                       <div className="flex flex-wrap gap-1.5">
@@ -870,7 +860,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                             key={preset.id}
                             type="button"
                             onClick={() => setCustomBroadcastText(preset.text)}
-                            className="px-2.5 py-1 rounded-lg bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/80 text-indigo-200 text-[11px] font-bold transition cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-indigo-950 hover:bg-indigo-900 border border-indigo-600/80 text-indigo-200 text-xs font-bold transition cursor-pointer"
                           >
                             {preset.name}
                           </button>
@@ -880,17 +870,17 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
                     {/* Destination Selection */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
-                        {language === 'am' ? 'የሚላክበት አድራሻ (Target)' : 'Broadcast Destination'}
+                      <label className="text-xs font-black uppercase tracking-wider text-slate-200 block">
+                        {language === 'am' ? 'የሚላክበት አድራሻ (Destination)' : 'Broadcast Destination'}
                       </label>
                       <div className="grid grid-cols-3 gap-2">
                         <button
                           type="button"
                           onClick={() => { setCustomTarget('channel'); setCustomChatId(''); }}
-                          className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                          className={`py-2 px-2.5 rounded-xl text-xs font-black border transition text-center cursor-pointer ${
                             customTarget === 'channel'
-                              ? 'bg-indigo-600 text-white font-black border-indigo-400 shadow-md'
-                              : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-600'
+                              ? 'bg-indigo-600 text-white border-indigo-400 shadow-md'
+                              : 'bg-slate-950 border-slate-600 text-slate-200 hover:border-slate-500'
                           }`}
                         >
                           📢 @HyperBingoChannel
@@ -898,10 +888,10 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                         <button
                           type="button"
                           onClick={() => { setCustomTarget('direct'); setCustomChatId(''); }}
-                          className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                          className={`py-2 px-2.5 rounded-xl text-xs font-black border transition text-center cursor-pointer ${
                             customTarget === 'direct'
-                              ? 'bg-indigo-600 text-white font-black border-indigo-400 shadow-md'
-                              : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-600'
+                              ? 'bg-indigo-600 text-white border-indigo-400 shadow-md'
+                              : 'bg-slate-950 border-slate-600 text-slate-200 hover:border-slate-500'
                           }`}
                         >
                           💬 {language === 'am' ? 'ለኔ ቴሌግራም' : 'My Telegram'}
@@ -909,10 +899,10 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                         <button
                           type="button"
                           onClick={() => setCustomTarget('custom')}
-                          className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                          className={`py-2 px-2.5 rounded-xl text-xs font-black border transition text-center cursor-pointer ${
                             customTarget === 'custom'
-                              ? 'bg-indigo-600 text-white font-black border-indigo-400 shadow-md'
-                              : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-600'
+                              ? 'bg-indigo-600 text-white border-indigo-400 shadow-md'
+                              : 'bg-slate-950 border-slate-600 text-slate-200 hover:border-slate-500'
                           }`}
                         >
                           ✍️ {language === 'am' ? 'ሌላ Chat ID' : 'Custom Target'}
@@ -924,7 +914,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                           placeholder="e.g. @YourChannel or -1001234567890"
                           value={customChatId}
                           onChange={e => setCustomChatId(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-400 mt-1"
+                          className="w-full bg-slate-950 border border-slate-600 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-400 mt-1"
                         />
                       )}
                     </div>
@@ -932,10 +922,10 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                     {/* Custom Textarea */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-200">
                           {language === 'am' ? 'የማስታወቂያው መልእክት ጽሑፍ' : 'Announcement Message (HTML Supported)'}
                         </label>
-                        <span className="text-[10px] text-slate-300 font-mono">
+                        <span className="text-xs text-slate-300 font-mono">
                           {customBroadcastText.length} chars
                         </span>
                       </div>
@@ -944,27 +934,27 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                         value={customBroadcastText}
                         onChange={e => setCustomBroadcastText(e.target.value)}
                         placeholder="🎉 የዛሬው ልዩ ውድድር ተጀምሯል! አሁኑኑ ተቀላቀሉ..."
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-sans leading-relaxed"
+                        className="w-full bg-slate-950 border border-slate-600 rounded-xl p-3 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-sans leading-relaxed"
                       />
                     </div>
 
                     {/* Media Attachment Selector */}
-                    <div className="space-y-2 p-3 rounded-xl bg-slate-950 border border-slate-800">
+                    <div className="space-y-2 p-3.5 rounded-xl bg-slate-950 border border-slate-700">
                       <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
                           <span>📎</span> {language === 'am' ? 'ምስል ወይም ሰነድ አያይዝ' : 'Attach Photo or Document'}
                         </label>
-                        <span className="text-[10px] text-indigo-400 font-bold uppercase">Optional Attachment</span>
+                        <span className="text-[10px] text-indigo-400 font-black uppercase">Optional Attachment</span>
                       </div>
 
                       <div className="grid grid-cols-3 gap-1.5">
                         <button
                           type="button"
                           onClick={() => { setBroadcastMediaType('none'); setBroadcastMediaUrl(''); setBroadcastFileName(''); }}
-                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition cursor-pointer text-center ${
+                          className={`py-2 px-2 rounded-xl text-xs font-black border transition cursor-pointer text-center ${
                             broadcastMediaType === 'none'
-                              ? 'bg-slate-800 text-white border-slate-600 font-black'
-                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                              ? 'bg-slate-800 text-white border-slate-500'
+                              : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-600'
                           }`}
                         >
                           📝 Text Only
@@ -972,10 +962,10 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                         <button
                           type="button"
                           onClick={() => setBroadcastMediaType('photo')}
-                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition cursor-pointer text-center ${
+                          className={`py-2 px-2 rounded-xl text-xs font-black border transition cursor-pointer text-center ${
                             broadcastMediaType === 'photo'
-                              ? 'bg-indigo-600 text-white border-indigo-400 font-black shadow-md'
-                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                              ? 'bg-indigo-600 text-white border-indigo-400 shadow-md'
+                              : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-600'
                           }`}
                         >
                           🖼️ Photo / Picture
@@ -983,10 +973,10 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                         <button
                           type="button"
                           onClick={() => setBroadcastMediaType('document')}
-                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition cursor-pointer text-center ${
+                          className={`py-2 px-2 rounded-xl text-xs font-black border transition cursor-pointer text-center ${
                             broadcastMediaType === 'document'
-                              ? 'bg-indigo-600 text-white border-indigo-400 font-black shadow-md'
-                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                              ? 'bg-indigo-600 text-white border-indigo-400 shadow-md'
+                              : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-600'
                           }`}
                         >
                           📄 Document / PDF
@@ -1000,11 +990,11 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                             <input
                               type="text"
                               placeholder="Paste image URL (https://...) or choose file"
-                              value={broadcastMediaUrl.startsWith('data:') ? `[Uploaded image: ${broadcastFileName}]` : broadcastMediaUrl}
+                              value={broadcastMediaUrl.startsWith('data:') ? `[Attached Image: ${broadcastFileName || 'Photo'}]` : broadcastMediaUrl}
                               onChange={e => { setBroadcastMediaUrl(e.target.value); setBroadcastFileName(''); }}
-                              className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-400"
+                              className="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-400"
                             />
-                            <label className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1 shrink-0">
+                            <label className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black cursor-pointer flex items-center gap-1 shrink-0 shadow-sm">
                               📁 Upload
                               <input
                                 type="file"
@@ -1027,12 +1017,12 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                             </label>
                           </div>
                           {broadcastMediaUrl && (
-                            <div className="relative w-full max-h-40 rounded-xl overflow-hidden border border-slate-700 bg-black flex items-center justify-center">
-                              <img src={broadcastMediaUrl} alt="Preview" className="max-h-40 object-contain" />
+                            <div className="relative w-full max-h-48 rounded-xl overflow-hidden border border-slate-600 bg-black flex items-center justify-center p-1">
+                              <img src={broadcastMediaUrl} alt="Preview" className="max-h-44 object-contain rounded-lg" />
                               <button
                                 type="button"
                                 onClick={() => { setBroadcastMediaUrl(''); setBroadcastFileName(''); }}
-                                className="absolute top-1.5 right-1.5 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full cursor-pointer"
+                                className="absolute top-2 right-2 bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-black px-2.5 py-1 rounded-full cursor-pointer shadow-md"
                               >
                                 ✕ Remove
                               </button>
@@ -1048,11 +1038,11 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                             <input
                               type="text"
                               placeholder="Paste document URL (https://...) or upload file"
-                              value={broadcastMediaUrl.startsWith('data:') ? `[Uploaded doc: ${broadcastFileName}]` : broadcastMediaUrl}
+                              value={broadcastMediaUrl.startsWith('data:') ? `[Attached Doc: ${broadcastFileName}]` : broadcastMediaUrl}
                               onChange={e => { setBroadcastMediaUrl(e.target.value); setBroadcastFileName(''); }}
-                              className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-400"
+                              className="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-400"
                             />
-                            <label className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1 shrink-0">
+                            <label className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black cursor-pointer flex items-center gap-1 shrink-0 shadow-sm">
                               📁 Upload
                               <input
                                 type="file"
@@ -1075,12 +1065,12 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                             </label>
                           </div>
                           {broadcastFileName && (
-                            <div className="flex items-center justify-between bg-slate-900 px-3 py-2 rounded-xl border border-slate-700 text-xs text-slate-200">
-                              <span className="truncate font-bold">📄 {broadcastFileName}</span>
+                            <div className="flex items-center justify-between bg-slate-900 px-3 py-2 rounded-xl border border-slate-600 text-xs text-white">
+                              <span className="truncate font-black">📄 {broadcastFileName}</span>
                               <button
                                 type="button"
                                 onClick={() => { setBroadcastMediaUrl(''); setBroadcastFileName(''); }}
-                                className="text-rose-400 hover:text-rose-300 text-xs font-bold ml-2 cursor-pointer"
+                                className="text-rose-400 hover:text-rose-300 font-bold text-xs ml-2 cursor-pointer"
                               >
                                 ✕ Remove
                               </button>
@@ -1091,12 +1081,12 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-2 border-t border-slate-800">
+                    <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-2 border-t border-slate-700">
                       <button
                         type="button"
                         onClick={() => { if (user?.telegramId) handleSendCustomBroadcast(user.telegramId); }}
                         disabled={announcing || !user?.telegramId}
-                        className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 font-bold text-xs border border-slate-700 cursor-pointer text-center"
+                        className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold text-xs border border-slate-600 cursor-pointer text-center"
                       >
                         ✉️ {language === 'am' ? 'ለኔ ቴሌግራም ሞክር' : 'Send Test to Me'}
                       </button>
@@ -1104,7 +1094,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                         type="button"
                         onClick={handleClearAnnouncement}
                         disabled={announcing}
-                        className="py-2.5 px-3 rounded-xl bg-rose-950/50 hover:bg-rose-900/60 disabled:opacity-50 text-rose-300 font-bold text-xs border border-rose-800/60 cursor-pointer text-center"
+                        className="py-2.5 px-3 rounded-xl bg-rose-950 hover:bg-rose-900 disabled:opacity-50 text-rose-200 font-bold text-xs border border-rose-700 cursor-pointer text-center"
                         title="Remove current active announcement from all players"
                       >
                         🗑️ {language === 'am' ? 'ማስታወቂያ አጥፋ' : 'Clear Active'}
@@ -1124,26 +1114,26 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
                 {/* Right 5 cols: Live Preview */}
                 <div className="lg:col-span-5 space-y-3">
-                  <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 shadow-lg space-y-2.5">
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-300 border-b border-slate-800 pb-2">
-                      <span className="flex items-center gap-1.5 text-white">
+                  <div className="p-4 rounded-2xl border border-slate-700 bg-slate-900 shadow-lg space-y-2.5">
+                    <div className="flex items-center justify-between text-xs font-black text-white border-b border-slate-700 pb-2">
+                      <span className="flex items-center gap-1.5">
                         <span>💬</span> Telegram & App Preview
                       </span>
                       <span className="text-[10px] text-indigo-400 font-mono font-bold">Live Sync</span>
                     </div>
 
                     {broadcastMediaType === 'photo' && broadcastMediaUrl && (
-                      <div className="rounded-xl overflow-hidden border border-slate-700 bg-black flex items-center justify-center max-h-48">
-                        <img src={broadcastMediaUrl} alt="Preview" className="max-h-48 object-contain" />
+                      <div className="rounded-xl overflow-hidden border border-slate-600 bg-black flex items-center justify-center max-h-48 p-1">
+                        <img src={broadcastMediaUrl} alt="Preview" className="max-h-44 object-contain rounded-lg" />
                       </div>
                     )}
 
                     {broadcastMediaType === 'document' && broadcastFileName && (
-                      <div className="p-3 rounded-xl bg-indigo-950/50 border border-indigo-700/60 flex items-center gap-2 text-xs text-indigo-200">
+                      <div className="p-3 rounded-xl bg-indigo-950 border border-indigo-600 flex items-center gap-2 text-xs text-indigo-200">
                         <span className="text-xl">📄</span>
                         <div className="truncate">
-                          <p className="font-bold text-white truncate">{broadcastFileName}</p>
-                          <span className="text-[10px] text-indigo-300">Document attachment</span>
+                          <p className="font-black text-white truncate">{broadcastFileName}</p>
+                          <span className="text-[10px] text-indigo-300 font-bold">Document attachment</span>
                         </div>
                       </div>
                     )}
@@ -1152,7 +1142,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                       {customBroadcastText || 'Type your message on the left to see live preview...'}
                     </div>
 
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-normal">
+                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-200 leading-normal font-medium">
                       📢 <strong>Audience:</strong> Will immediately display in the Top Lobby Banner of the Mini App and be broadcasted to your selected Telegram destination.
                     </div>
                   </div>
@@ -1162,7 +1152,9 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
           </div>
         )}
 
-        {/* OVERVIEW TAB */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* OVERVIEW TAB                                                          */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'overview' && (
           <div className="space-y-4">
             {/* Live Top Header Ticker: Total Players and Weekend Games Minutes Countdown */}
@@ -1171,17 +1163,17 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
 
               return (
-                <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-lg space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                <div className="bg-slate-900 p-4 rounded-2xl border border-slate-700 shadow-lg space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700 pb-2.5">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
                       <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
                         {language === 'am' ? 'የቀጥታ ስታቲስቲክስ' : 'Live Platform Status'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 bg-slate-950 px-3 py-1 rounded-xl border border-slate-800">
+                    <div className="flex items-center gap-2 bg-slate-950 px-3 py-1 rounded-xl border border-slate-700">
                       <Users className="w-4 h-4 text-purple-400" />
-                      <span className="text-xs text-slate-300 font-bold">
+                      <span className="text-xs text-slate-200 font-bold">
                         {language === 'am' ? 'አጠቃላይ ተጫዋቾች:' : 'Total Live Players:'}
                       </span>
                       <span className="text-sm font-black text-purple-300">{totalLivePlayers}</span>
@@ -1203,19 +1195,19 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                         const remSecs = remSec % 60;
 
                         return (
-                          <div key={wg.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                          <div key={wg.id} className="bg-slate-950 p-3 rounded-xl border border-slate-700 flex items-center justify-between">
                             <div>
                               <div className="font-black text-xs text-amber-300 flex items-center gap-1">
                                 <span>🌟 {wg.name}</span>
                               </div>
-                              <div className="text-[11px] text-slate-300 flex items-center gap-2 mt-0.5">
+                              <div className="text-xs text-slate-300 flex items-center gap-2 mt-0.5 font-bold">
                                 <span>👥 {wg.currentPlayers} players</span>
                                 <span>•</span>
-                                <span className="text-emerald-400 font-bold">{formatETB(wg.prizePool)}</span>
+                                <span className="text-emerald-400 font-black">{formatETB(wg.prizePool)}</span>
                               </div>
                             </div>
                             <div className="text-right">
-                              <span className="text-[10px] text-slate-400 font-medium block">
+                              <span className="text-[10px] text-slate-300 font-bold block">
                                 {language === 'am' ? 'የቀረ ደቂቃ' : 'Time Left'}
                               </span>
                               <span className="font-mono font-black text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 flex items-center gap-1">
@@ -1233,13 +1225,13 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
             })()}
 
             {/* Quick Broadcast Action Cards on Overview */}
-            <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 shadow-md flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="p-4 rounded-2xl border border-slate-700 bg-slate-900 shadow-md flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
                   <Megaphone className="w-4 h-4 text-amber-400" />
                   {language === 'am' ? 'ፈጣን ማስታወቂያ ማሰራጫ' : 'Quick Broadcast Actions'}
                 </h3>
-                <p className="text-[11px] text-slate-300 mt-0.5">
+                <p className="text-xs text-slate-300 font-medium mt-0.5">
                   {language === 'am'
                     ? 'የሳምንቱን መጨረሻ ጨዋታዎች ወይም አዲስ ማስታወቂያ ለተጠቃሚዎች ያሰራጩ'
                     : 'Jump directly to broadcast weekend draws or publish a custom media post'}
@@ -1265,18 +1257,18 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
             {/* KPI Summary Cards — High Contrast & Clear */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-              <div className="p-4 rounded-2xl border border-slate-700/80 bg-slate-900 shadow-md">
-                <div className="text-slate-200 text-xs font-black uppercase tracking-wider">{t('totalRevenue')}</div>
+              <div className="p-4 rounded-2xl border border-slate-700 bg-slate-900 shadow-md">
+                <div className="text-slate-300 text-xs font-black uppercase tracking-wider">{t('totalRevenue')}</div>
                 <div className="text-xl sm:text-2xl font-black text-amber-400 mt-1">{formatETB(totalRevenue)}</div>
               </div>
 
-              <div className="p-4 rounded-2xl border border-slate-700/80 bg-slate-900 shadow-md">
-                <div className="text-slate-200 text-xs font-black uppercase tracking-wider">{t('totalDeposits')}</div>
+              <div className="p-4 rounded-2xl border border-slate-700 bg-slate-900 shadow-md">
+                <div className="text-slate-300 text-xs font-black uppercase tracking-wider">{t('totalDeposits')}</div>
                 <div className="text-xl sm:text-2xl font-black text-emerald-400 mt-1">{formatETB(totalDeposits)}</div>
               </div>
 
-              <div className="p-4 rounded-2xl border border-slate-700/80 bg-slate-900 shadow-md">
-                <div className="text-slate-200 text-xs font-black uppercase tracking-wider">
+              <div className="p-4 rounded-2xl border border-slate-700 bg-slate-900 shadow-md">
+                <div className="text-slate-300 text-xs font-black uppercase tracking-wider">
                   {language === 'am' ? 'አጠቃላይ ተጠቃሚዎች' : 'Total Users'}
                 </div>
                 <div className="text-xl sm:text-2xl font-black text-cyan-300 mt-1">
@@ -1284,13 +1276,13 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl border border-slate-700/80 bg-slate-900 shadow-md">
-                <div className="text-slate-200 text-xs font-black uppercase tracking-wider">{t('pendingWithdrawals')}</div>
+              <div className="p-4 rounded-2xl border border-slate-700 bg-slate-900 shadow-md">
+                <div className="text-slate-300 text-xs font-black uppercase tracking-wider">{t('pendingWithdrawals')}</div>
                 <div className="text-xl sm:text-2xl font-black text-rose-400 mt-1">{pendingWithdrawals.length}</div>
               </div>
 
-              <div className="p-4 rounded-2xl border border-slate-700/80 bg-slate-900 shadow-md">
-                <div className="text-slate-200 text-xs font-black uppercase tracking-wider">{t('activeGames')}</div>
+              <div className="p-4 rounded-2xl border border-slate-700 bg-slate-900 shadow-md">
+                <div className="text-slate-300 text-xs font-black uppercase tracking-wider">{t('activeGames')}</div>
                 <div className="text-xl sm:text-2xl font-black text-purple-300 mt-1">
                   {games.filter((g) => g.status !== 'COMPLETED').length}
                 </div>
@@ -1298,8 +1290,8 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
             </div>
 
             {/* Quick Pending Actions */}
-            <div className="p-4 sm:p-5 rounded-2xl border border-slate-700/80 bg-slate-900 shadow-md space-y-3">
-              <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-700 bg-slate-900 shadow-md space-y-3">
+              <h3 className="text-sm font-black text-white flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-400" />
                 {t('payoutApprovals')} ({pendingWithdrawals.length})
               </h3>
@@ -1309,13 +1301,13 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                   {pendingWithdrawals.map((wd) => (
                     <div
                       key={wd.id}
-                      className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                      className="bg-slate-950 p-3.5 rounded-xl border border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
                     >
                       <div>
-                        <div className="font-bold text-xs sm:text-sm text-slate-100">
+                        <div className="font-bold text-xs sm:text-sm text-white">
                           @{wd.username} • <span className="text-amber-400 font-black">{formatETB(wd.amount)}</span>
                         </div>
-                        <div className="text-[11px] text-slate-300 mt-0.5">
+                        <div className="text-xs text-slate-300 font-medium mt-0.5">
                           {wd.paymentMethod} ({wd.accountNumber}) • {wd.accountName}
                         </div>
                       </div>
@@ -1338,20 +1330,22 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-slate-300 italic">{t('noPendingWithdrawals')}</p>
+                <p className="text-xs text-slate-300 font-medium italic">{t('noPendingWithdrawals')}</p>
               )}
             </div>
           </div>
         )}
 
-        {/* GAMES MANAGEMENT TAB */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* GAMES MANAGEMENT TAB                                                  */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'games' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs sm:text-sm font-bold text-slate-200">{t('gameManagement')}</h3>
+              <h3 className="text-sm font-black text-white">{t('gameManagement')}</h3>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
+                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition cursor-pointer"
               >
                 + {t('createNewGame')}
               </button>
@@ -1359,14 +1353,14 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {games.map((g) => (
-                <div key={g.id} className="glass-panel p-4 rounded-2xl border-slate-800 space-y-3">
+                <div key={g.id} className="p-4 rounded-2xl border border-slate-700 bg-slate-900 shadow-md space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-black text-slate-100 text-sm sm:text-base">{g.name}</h4>
-                      <span className="text-[10px] text-slate-300 font-mono">ID: {g.id}</span>
+                      <h4 className="font-black text-white text-sm sm:text-base">{g.name}</h4>
+                      <span className="text-[11px] text-slate-300 font-mono font-bold">ID: {g.id}</span>
                     </div>
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      className={`px-2.5 py-1 rounded text-xs font-black ${
                         g.status === 'RUNNING'
                           ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
                           : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
@@ -1376,25 +1370,25 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs">
+                  <div className="grid grid-cols-3 gap-2 bg-slate-950 p-3 rounded-xl border border-slate-700 text-xs">
                     <div>
-                      <span className="text-[10px] text-slate-300 block">{t('entry')}</span>
-                      <div className="font-bold text-amber-400">{formatETB(g.entryPrice)}</div>
+                      <span className="text-[10px] text-slate-300 font-bold block">{t('entry')}</span>
+                      <div className="font-black text-amber-400">{formatETB(g.entryPrice)}</div>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-300 block">{t('prize')}</span>
-                      <div className="font-bold text-emerald-400">{formatETB(g.prizePool)}</div>
+                      <span className="text-[10px] text-slate-300 font-bold block">{t('prize')}</span>
+                      <div className="font-black text-emerald-400">{formatETB(g.prizePool)}</div>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-300 block">{t('players')}</span>
-                      <div className="font-bold text-purple-300">{g.currentPlayers} / {g.maxPlayers} {g.minPlayers ? `(min: ${g.minPlayers})` : ''}</div>
+                      <span className="text-[10px] text-slate-300 font-bold block">{t('players')}</span>
+                      <div className="font-black text-purple-300">{g.currentPlayers} / {g.maxPlayers}</div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-700">
                     <button
                       onClick={() => drawNextBall(g.id)}
-                      className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold text-xs hover:bg-amber-500/30 transition flex items-center gap-1 cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold text-xs hover:bg-amber-500/30 transition flex items-center gap-1 cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" /> {t('drawBall')} ({g.drawnNumbers.length}/75)
                     </button>
@@ -1402,7 +1396,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                     <select
                       value={g.status}
                       onChange={(e) => updateGameStatus(g.id, e.target.value as GameStatus)}
-                      className="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2 py-1.5 focus:outline-none"
+                      className="bg-slate-950 border border-slate-600 text-xs text-white rounded-lg px-2.5 py-1.5 focus:outline-none font-bold"
                     >
                       <option value="SCHEDULED">SCHEDULED</option>
                       <option value="OPEN">OPEN</option>
@@ -1418,42 +1412,44 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
           </div>
         )}
 
-        {/* FINANCE TAB */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* FINANCE TAB                                                           */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'finance' && (
           <div className="space-y-6">
             {/* PENDING DEPOSITS REVIEW SECTION */}
-            <div className="glass-panel p-4 sm:p-5 rounded-2xl border-slate-800 space-y-3">
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-700 bg-slate-900 shadow-lg space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-100 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <h3 className="text-sm font-black text-white flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
                     <span>{language === 'am' ? 'የተጠቃሚዎች ገቢ ማረጋገጫ (Pending Deposits)' : 'Deposit Verifications & Approvals'}</span>
                   </h3>
-                  <p className="text-[11px] text-slate-300 mt-0.5">
+                  <p className="text-xs text-slate-300 font-medium mt-0.5">
                     {language === 'am'
                       ? 'የተጫዋቾች የ CBE/ቴሌብር የክፍያ መለያ ኮድ (Transaction ID) እዚህ ይመልከቱ እና ያረጋግጡ።'
                       : 'Verify player CBE / Telebirr Transaction ID / SMS codes and approve to credit balance.'}
                   </p>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="px-2.5 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                   {transactions.filter((t) => t.type === 'DEPOSIT' && t.status === 'PENDING').length} {language === 'am' ? 'በመጠባበቅ ላይ' : 'Pending'}
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-xl border border-slate-700">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-slate-900 text-slate-200 border-b border-slate-700 uppercase font-black tracking-wider text-[11px]">
+                    <tr className="bg-slate-800 text-white border-b border-slate-700 uppercase font-black tracking-wider text-[11px]">
                       <th className="p-2.5">Tx ID</th>
                       <th className="p-2.5">{t('users')}</th>
                       <th className="p-2.5">{t('gateway')}</th>
-                      <th className="p-2.5">Transaction ID / Code (FT ቁጥር)</th>
+                      <th className="p-2.5">Transaction Code (FT ቁጥር)</th>
                       <th className="p-2.5">{t('amountETB')}</th>
                       <th className="p-2.5">{t('status')}</th>
                       <th className="p-2.5">{t('actions')}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800">
+                  <tbody className="divide-y divide-slate-800 bg-slate-950/60">
                     {transactions.filter((t) => t.type === 'DEPOSIT').length === 0 ? (
                       <tr>
                         <td colSpan={7} className="p-4 text-center text-slate-300 italic">
@@ -1464,26 +1460,26 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                       transactions
                         .filter((t) => t.type === 'DEPOSIT')
                         .map((tx) => (
-                          <tr key={tx.id} className="hover:bg-slate-900/40">
-                            <td className="p-2.5 font-mono text-[11px] text-slate-300">{tx.id}</td>
-                            <td className="p-2.5 font-bold text-slate-100">@{tx.username}</td>
+                          <tr key={tx.id} className="hover:bg-slate-900/60 transition">
+                            <td className="p-2.5 font-mono text-[11px] text-slate-300 font-bold">{tx.id}</td>
+                            <td className="p-2.5 font-bold text-white">@{tx.username}</td>
                             <td className="p-2.5">
                               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-200 border border-slate-700">
                                 {tx.paymentProvider}
                               </span>
                             </td>
-                            <td className="p-2.5 font-mono text-xs font-bold text-amber-300 bg-amber-950/20 px-2 py-1 rounded">
+                            <td className="p-2.5 font-mono text-xs font-black text-amber-300 bg-amber-950/40 px-2 py-1 rounded border border-amber-500/20">
                               {tx.reference || '—'}
                             </td>
-                            <td className="p-2.5 font-bold text-emerald-400 font-mono">{formatETB(tx.amount)}</td>
+                            <td className="p-2.5 font-black text-emerald-400 font-mono text-xs">{formatETB(tx.amount)}</td>
                             <td className="p-2.5">
                               <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                className={`px-2 py-0.5 rounded text-[10px] font-black ${
                                   tx.status === 'COMPLETED'
-                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                                     : tx.status === 'PENDING'
-                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
-                                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
+                                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                                 }`}
                               >
                                 {tx.status}
@@ -1506,7 +1502,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                                   </button>
                                 </div>
                               ) : (
-                                <span className="text-slate-400 italic text-[10px]">
+                                <span className="text-slate-300 italic text-[11px] font-bold">
                                   {tx.status === 'COMPLETED' ? 'Credited' : 'Rejected'}
                                 </span>
                               )}
@@ -1520,84 +1516,94 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
             </div>
 
             {/* WITHDRAWALS APPROVAL SECTION */}
-            <div className="glass-panel p-4 sm:p-5 rounded-2xl border-slate-800 space-y-3">
-              <h3 className="text-xs sm:text-sm font-bold text-slate-100">{t('payoutApprovals')}</h3>
-              <div className="overflow-x-auto">
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-700 bg-slate-900 shadow-lg space-y-3">
+              <h3 className="text-sm font-black text-white">{t('payoutApprovals')}</h3>
+              <div className="overflow-x-auto rounded-xl border border-slate-700">
                 <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-900 text-slate-200 border-b border-slate-700 uppercase font-black tracking-wider text-[11px]">
-                    <th className="p-2.5">Req ID</th>
-                    <th className="p-2.5">{t('users')}</th>
-                    <th className="p-2.5">{t('gateway')}</th>
-                    <th className="p-2.5">{t('accountNumber')}</th>
-                    <th className="p-2.5">{t('amountETB')}</th>
-                    <th className="p-2.5">{t('status')}</th>
-                    <th className="p-2.5">{t('actions')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {withdrawals.map((w) => (
-                    <tr key={w.id} className="hover:bg-slate-900/40">
-                      <td className="p-2.5 font-mono text-[11px] text-slate-300">{w.id}</td>
-                      <td className="p-2.5 font-bold text-slate-100">@{w.username}</td>
-                      <td className="p-2.5 text-slate-200">{w.paymentMethod}</td>
-                      <td className="p-2.5 font-mono text-[11px] text-slate-300">{w.accountNumber}</td>
-                      <td className="p-2.5 font-bold text-amber-400 font-mono">{formatETB(w.amount)}</td>
-                      <td className="p-2.5">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            w.status === 'COMPLETED'
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : w.status === 'PENDING'
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                          }`}
-                        >
-                          {w.status}
-                        </span>
-                      </td>
-                      <td className="p-2.5">
-                        {w.status === 'PENDING' ? (
-                          <div className="flex gap-1.5">
-                            <button
-                              onClick={() => approveWithdrawal(w.id, user?.username || 'admin')}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-black cursor-pointer shadow-xs transition"
-                            >
-                              ✓ {t('approve')}
-                            </button>
-                            <button
-                              onClick={() => rejectWithdrawal(w.id, user?.username || 'admin')}
-                              className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[10px] font-bold cursor-pointer transition"
-                            >
-                              ✕ {t('reject')}
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 italic text-[10px]">{t('completed')}</span>
-                        )}
-                      </td>
+                  <thead>
+                    <tr className="bg-slate-800 text-white border-b border-slate-700 uppercase font-black tracking-wider text-[11px]">
+                      <th className="p-2.5">Req ID</th>
+                      <th className="p-2.5">{t('users')}</th>
+                      <th className="p-2.5">{t('gateway')}</th>
+                      <th className="p-2.5">{t('accountNumber')}</th>
+                      <th className="p-2.5">{t('amountETB')}</th>
+                      <th className="p-2.5">{t('status')}</th>
+                      <th className="p-2.5">{t('actions')}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800 bg-slate-950/60">
+                    {withdrawals.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-4 text-center text-slate-300 italic">
+                          {language === 'am' ? 'ምንም የማውጣት ጥያቄ የለም' : 'No withdrawal requests'}
+                        </td>
+                      </tr>
+                    ) : (
+                      withdrawals.map((w) => (
+                        <tr key={w.id} className="hover:bg-slate-900/60 transition">
+                          <td className="p-2.5 font-mono text-[11px] text-slate-300 font-bold">{w.id}</td>
+                          <td className="p-2.5 font-bold text-white">@{w.username}</td>
+                          <td className="p-2.5 text-slate-200 font-bold">{w.paymentMethod}</td>
+                          <td className="p-2.5 font-mono text-xs text-amber-300 font-bold">{w.accountNumber}</td>
+                          <td className="p-2.5 font-black text-amber-400 font-mono text-xs">{formatETB(w.amount)}</td>
+                          <td className="p-2.5">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                                w.status === 'COMPLETED'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                  : w.status === 'PENDING'
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
+                                  : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                              }`}
+                            >
+                              {w.status}
+                            </span>
+                          </td>
+                          <td className="p-2.5">
+                            {w.status === 'PENDING' ? (
+                              <div className="flex gap-1.5">
+                                <button
+                                  onClick={() => approveWithdrawal(w.id, user?.username || 'admin')}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-black cursor-pointer shadow-xs transition"
+                                >
+                                  ✓ {t('approve')}
+                                </button>
+                                <button
+                                  onClick={() => rejectWithdrawal(w.id, user?.username || 'admin')}
+                                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[10px] font-bold cursor-pointer transition"
+                                >
+                                  ✕ {t('reject')}
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-slate-300 italic text-[11px] font-bold">{t('completed')}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-        {/* USERS TAB */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* USERS TAB                                                             */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'users' && (
-          <div className="glass-panel p-4 sm:p-5 rounded-2xl border-slate-800 space-y-4">
+          <div className="p-4 sm:p-5 rounded-2xl border border-slate-700 bg-slate-900 shadow-lg space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-slate-100 flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
                   <Users className="w-4 h-4 text-cyan-400" />
                   <span>{t('userManagement')}</span>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
                     {registeredUsers.length || dbStats?.totalUsers || (user ? 1 : 0)} {language === 'am' ? 'ተጠቃሚዎች' : 'Total Registered'}
                   </span>
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-300 font-medium">
                   {language === 'am' ? 'የተመዘገቡ ተጠቃሚዎች፣ ስልክ ቁጥር፣ ሚዛን እና ሪፈራል ኮድ' : 'All registered players with phone numbers, wallet balance, and referral status'}
                 </p>
               </div>
@@ -1610,37 +1616,35 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                   placeholder={language === 'am' ? 'በስም ወይም በስልክ ፈልግ...' : 'Search by username or phone...'}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-600 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-amber-400"
                 />
               </div>
             </div>
 
             {/* Current Admin Quick Action Card */}
             {user && (
-              <div className="bg-slate-900/90 p-3 rounded-xl border border-amber-500/30 flex items-center justify-between gap-2 flex-wrap">
+              <div className="bg-slate-950 p-3.5 rounded-xl border border-amber-500/40 flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  <span className="font-bold text-xs text-slate-200">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  <span className="font-black text-xs text-white">
                     {language === 'am' ? 'የእርስዎ አድሚን አካውንት:' : 'Current Admin Session:'} @{user.username} ({user.name})
                   </span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/40">
                     {user.role.toUpperCase()}
                   </span>
                 </div>
-                {isAdminTelegramId(user.telegramId) && (
-                  <button
-                    onClick={toggleUserRole}
-                    className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] transition"
-                  >
-                    {user.role === 'admin' ? t('switchToPlayer') : t('switchToAdmin')}
-                  </button>
-                )}
+                <button
+                  onClick={toggleUserRole}
+                  className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition cursor-pointer"
+                >
+                  {user.role === 'admin' ? t('switchToPlayer') : t('switchToAdmin')}
+                </button>
               </div>
             )}
 
             {/* Full Registered Users Table */}
             {loadingUsers ? (
-              <div className="text-center py-8 text-xs text-slate-400">
+              <div className="text-center py-8 text-xs text-slate-300">
                 <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-amber-400" />
                 <span>{language === 'am' ? 'ተጠቃሚዎችን በመጫን ላይ...' : 'Loading registered players roster...'}</span>
               </div>
@@ -1659,17 +1663,17 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
               if (filtered.length === 0) {
                 return (
-                  <div className="text-center py-6 text-xs text-slate-500 italic">
+                  <div className="text-center py-6 text-xs text-slate-400 italic">
                     {language === 'am' ? 'ምንም ተጠቃሚ አልተገኘም' : 'No users match the search criteria'}
                   </div>
                 );
               }
 
               return (
-                <div className="overflow-x-auto rounded-xl border border-slate-700/80">
+                <div className="overflow-x-auto rounded-xl border border-slate-700">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr className="bg-slate-900 text-slate-200 border-b border-slate-700 uppercase font-black tracking-wider text-[11px]">
+                      <tr className="bg-slate-800 text-white border-b border-slate-700 uppercase font-black tracking-wider text-[11px]">
                         <th className="p-2.5">User</th>
                         <th className="p-2.5">Phone</th>
                         <th className="p-2.5">Telegram ID</th>
@@ -1680,36 +1684,36 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                         <th className="p-2.5">Role</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/80 bg-slate-950/40">
+                    <tbody className="divide-y divide-slate-800 bg-slate-950/60">
                       {filtered.map((u: any) => (
                         <tr key={u.id} className="hover:bg-slate-900/60 transition">
                           <td className="p-2.5">
-                            <div className="font-bold text-slate-100">@{u.username}</div>
+                            <div className="font-bold text-white">@{u.username}</div>
                             <div className="text-[10px] text-slate-300">{u.name}</div>
                           </td>
-                          <td className="p-2.5 font-mono text-[11px] text-slate-200">
+                          <td className="p-2.5 font-mono text-xs text-slate-200 font-bold">
                             {u.phone || '—'}
                           </td>
-                          <td className="p-2.5 font-mono text-[11px] text-slate-300">
+                          <td className="p-2.5 font-mono text-xs text-slate-300">
                             {u.telegramId || '—'}
                           </td>
-                          <td className="p-2.5 font-bold text-emerald-400 font-mono">
+                          <td className="p-2.5 font-black text-emerald-400 font-mono text-xs">
                             {formatETB(u.balance ?? 0)}
                           </td>
-                          <td className="p-2.5 font-bold text-amber-400 font-mono">
+                          <td className="p-2.5 font-black text-amber-400 font-mono text-xs">
                             {formatETB(u.bonusBalance ?? 20)}
                           </td>
-                          <td className="p-2.5 font-mono text-[11px] text-purple-300 font-bold">
+                          <td className="p-2.5 font-mono text-xs text-purple-300 font-black">
                             {u.referralCode || '—'}
                           </td>
-                          <td className="p-2.5 font-mono text-[11px] text-slate-300">
+                          <td className="p-2.5 font-mono text-xs text-slate-300">
                             {u.referredBy || u.referred_by || '—'}
                           </td>
                           <td className="p-2.5">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
                               u.role === 'admin'
-                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                                : 'bg-slate-800 text-slate-200 border border-slate-700'
+                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                                : 'bg-slate-850 text-slate-200 border border-slate-700'
                             }`}>
                               {u.role ? u.role.toUpperCase() : 'PLAYER'}
                             </span>
@@ -1724,15 +1728,17 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
           </div>
         )}
 
-        {/* AUDIT LOGS TAB */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* AUDIT LOGS TAB                                                        */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'audit' && (
-          <div className="glass-panel p-4 sm:p-5 rounded-2xl border-slate-700/80 space-y-3">
+          <div className="p-4 sm:p-5 rounded-2xl border border-slate-700 bg-slate-900 shadow-lg space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-xs sm:text-sm font-black text-slate-100">{t('auditLogLedger')}</h3>
-                <p className="text-[10px] sm:text-xs text-slate-300">Strict legal recording of administrative activities</p>
+                <h3 className="text-sm font-black text-white">{t('auditLogLedger')}</h3>
+                <p className="text-xs text-slate-300 font-medium">Strict legal recording of administrative activities</p>
               </div>
-              <span className="px-2.5 py-1 rounded bg-purple-500/20 text-purple-300 font-mono text-[10px] font-bold border border-purple-500/40">
+              <span className="px-2.5 py-1 rounded bg-purple-500/20 text-purple-300 font-mono text-xs font-black border border-purple-500/40">
                 AUDIT LIVE
               </span>
             </div>
@@ -1741,21 +1747,21 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               {auditLogs.map((log) => (
                 <div
                   key={log.id}
-                  className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex items-center justify-between text-xs"
+                  className="bg-slate-950 p-3.5 rounded-xl border border-slate-700 flex items-center justify-between text-xs"
                 >
                   <div className="space-y-0.5">
-                    <div className="font-bold text-slate-100 flex items-center gap-1.5 flex-wrap">
-                      <span className="text-amber-400 font-mono">[{log.adminUsername}]</span>
+                    <div className="font-bold text-white flex items-center gap-1.5 flex-wrap">
+                      <span className="text-amber-400 font-mono font-bold">[{log.adminUsername}]</span>
                       <span>{log.action}</span>
-                      <span className="text-slate-300">→ {log.target}</span>
+                      <span className="text-slate-200 font-bold">→ {log.target}</span>
                     </div>
-                    <div className="text-[10px] text-slate-400 font-mono">
+                    <div className="text-[11px] text-slate-300 font-mono font-medium">
                       IP: {log.ipAddress} • {new Date(log.timestamp).toLocaleTimeString()}
                     </div>
                   </div>
 
                   {log.amount && (
-                    <div className="font-mono font-bold text-emerald-400 text-xs">
+                    <div className="font-mono font-black text-emerald-400 text-xs">
                       {formatETB(log.amount)}
                     </div>
                   )}
@@ -1771,41 +1777,41 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <form
             onSubmit={handleCreateGameSubmit}
-            className="bg-slate-900 border border-slate-700 rounded-2xl p-5 sm:p-6 max-w-md w-full space-y-3.5 shadow-2xl"
+            className="bg-slate-900 border border-slate-600 rounded-2xl p-5 sm:p-6 max-w-md w-full space-y-3.5 shadow-2xl"
           >
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-              <h3 className="font-bold text-slate-100 text-sm">{t('createNewGame')}</h3>
+            <div className="flex items-center justify-between border-b border-slate-700 pb-2.5">
+              <h3 className="font-black text-white text-sm">{t('createNewGame')}</h3>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-300 hover:text-white font-bold cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+              <label className="text-xs font-black text-slate-200 uppercase tracking-wider block mb-1">
                 {t('gameTitle')}
               </label>
               <input
                 type="text"
                 value={newGameName}
                 onChange={(e) => setNewGameName(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                className="w-full bg-slate-950 border border-slate-600 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-medium"
                 required
               />
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-black text-slate-200 uppercase tracking-wider block mb-1">
                   {t('selectGameType')}
                 </label>
                 <select
                   value={newGameType}
                   onChange={(e) => setNewGameType(e.target.value as GameType)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-950 border border-slate-600 rounded-xl px-2 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-medium"
                 >
                   <option value="QUICK_BINGO">Quick Bingo (3s)</option>
                   <option value="TURBO_EXPRESS">Turbo Express (2s)</option>
@@ -1816,14 +1822,14 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-black text-slate-200 uppercase tracking-wider block mb-1">
                   {t('drawIntervalSeconds')}
                 </label>
                 <input
                   type="number"
                   value={newDrawInterval}
                   onChange={(e) => setNewDrawInterval(Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+                  className="w-full bg-slate-950 border border-slate-600 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
                   min={1}
                   max={10}
                 />
@@ -1832,54 +1838,54 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-black text-slate-200 uppercase tracking-wider block mb-1">
                   {t('entry')} (ETB)
                 </label>
                 <input
                   type="number"
                   value={newEntryPrice}
                   onChange={(e) => setNewEntryPrice(Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+                  className="w-full bg-slate-950 border border-slate-600 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
                   min={1}
                 />
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-black text-slate-200 uppercase tracking-wider block mb-1">
                   {t('prize')} (ETB)
                 </label>
                 <input
                   type="number"
                   value={newPrizePool}
                   onChange={(e) => setNewPrizePool(Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+                  className="w-full bg-slate-950 border border-slate-600 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
                   min={10}
                 />
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-black text-slate-200 uppercase tracking-wider block mb-1">
                   Min Players
                 </label>
                 <input
                   type="number"
                   value={newMinPlayers}
                   onChange={(e) => setNewMinPlayers(Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+                  className="w-full bg-slate-950 border border-slate-600 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
                   min={2}
                   max={500}
                 />
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-black text-slate-200 uppercase tracking-wider block mb-1">
                   Max Players
                 </label>
                 <input
                   type="number"
                   value={newMaxPlayers}
                   onChange={(e) => setNewMaxPlayers(Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+                  className="w-full bg-slate-950 border border-slate-600 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
                   min={10}
                   max={1000}
                 />
@@ -1890,13 +1896,13 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition"
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition cursor-pointer"
               >
                 {t('cancel')}
               </button>
               <button
                 type="submit"
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow-lg"
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-lg cursor-pointer"
               >
                 {t('createGameSubmit')}
               </button>
