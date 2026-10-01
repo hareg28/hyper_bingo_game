@@ -294,32 +294,8 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [];
 // No mock withdrawals — populated by real user withdrawal requests
 export const INITIAL_WITHDRAWALS: WithdrawalRequest[] = [];
 
-export const INITIAL_PROMOTIONS: Promotion[] = [
-  {
-    id: 'prm_1',
-    title: '\u{1F389} Welcome 100% Match Bonus',
-    code: 'WELCOME100',
-    description: 'Double your first Telebirr or CBE Birr deposit up to 1,000 ETB!',
-    bonusPercentage: 100,
-    maxBonus: 1000,
-    minDeposit: 100,
-    startDate: '2026-09-01',
-    endDate: '2026-09-30',
-    active: true,
-  },
-  {
-    id: 'prm_2',
-    title: '\u26A1 Quick Bingo Rush Hour',
-    code: 'RUSHRUSH',
-    description: 'Get 20% bonus balance back on all Quick Bingo games played after 8 PM.',
-    bonusPercentage: 20,
-    maxBonus: 300,
-    minDeposit: 50,
-    startDate: '2026-09-10',
-    endDate: '2026-09-20',
-    active: true,
-  },
-];
+// Promotions are managed dynamically via announcements and admin panel — no static fake ones
+export const INITIAL_PROMOTIONS: Promotion[] = [];
 
 // No mock audit logs — populated by real admin actions
 export const INITIAL_AUDIT_LOGS: AuditLog[] = [];

@@ -6,7 +6,7 @@ import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS, HYPER_SPECIAL_RULE
 import { 
   Wallet, User as UserIcon, Shield, 
   Share2, Copy, Check, LogOut, Sparkles, 
-  ChevronRight, ChevronLeft, Globe, X, Users, Gift,
+  ChevronRight, ChevronLeft, Globe, X, Users,
   Gamepad2, Zap, Eye, Megaphone
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
@@ -346,44 +346,7 @@ export default function MiniAppShell({
               </button>
             </div>
 
-            {/* ONE-LINE COMPACT RULE & HIT BANNER */}
-            <div className={`px-3 py-1.5 rounded-xl border flex items-center justify-between gap-2 shadow-2xs text-[11px] transition-all ${
-              categoryTab === 'FETAN'
-                ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300 text-amber-950'
-                : categoryTab === 'SPECIAL'
-                ? 'bg-gradient-to-r from-indigo-50 to-slate-50 border-indigo-300 text-indigo-950'
-                : 'bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-300 text-purple-950'
-            }`}>
-              <div className="flex items-center gap-1.5 min-w-0 truncate">
-                <span className="shrink-0 text-sm">
-                  {categoryTab === 'FETAN' ? '⚡' : categoryTab === 'SPECIAL' ? '🎲' : '🌟'}
-                </span>
-                <span className="font-black shrink-0">
-                  {language === 'am' ? 'ሕግ:' : 'Rule:'}
-                </span>
-                <span className="font-bold truncate text-slate-800">
-                  {categoryTab === 'FETAN'
-                    ? (language === 'am' ? '1 አግድም፣ 1 ቀጥታ፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
-                    : categoryTab === 'SPECIAL'
-                    ? (() => {
-                        const specialGames = games.filter((g) => g.category === 'HYPER_SPECIAL' || (!g.name?.includes('Fetan') && g.gameType !== 'WEEKEND_LOTTERY' && !g.isWeekendSpecial && g.entryPrice >= 10));
-                        const firstGame = specialGames.sort((a, b) => a.entryPrice - b.entryPrice)[0];
-                        const rule = HYPER_SPECIAL_RULES[Math.abs(firstGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
-                        return language === 'am' ? `የዙሩ ሕግ: ${rule.nameAm}` : `Round Law: ${rule.nameEn}`;
-                      })()
-                    : (language === 'am' ? 'ሙሉ ቤት ብቻ 24/24 (ሜጋ ጃክፖት)' : 'Full House Only 24/24 (Mega Grand Prize)')}
-                </span>
-              </div>
-              <span className={`shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full ${
-                categoryTab === 'FETAN' ? 'bg-amber-500 text-slate-950'
-                : categoryTab === 'SPECIAL' ? 'bg-indigo-600 text-white'
-                : 'bg-purple-600 text-white'
-              }`}>
-                {categoryTab === 'FETAN' ? '⚡ 5-50 ETB'
-                : categoryTab === 'SPECIAL' ? '🎲 10-30 ETB'
-                : '🌟 30-100 ETB'}
-              </span>
-            </div>
+
 
             {/* Category Games List (Styled like Hyper Special Live Room) */}
             <div className="space-y-2">
@@ -500,15 +463,29 @@ export default function MiniAppShell({
                 ))}
             </div>
 
-            {/* Promotions */}
-            {promotions.length > 0 && (
-              <div className="bg-purple-50 border border-purple-200 p-3 rounded-2xl">
-                <h4 className="text-xs font-bold text-purple-900 mb-1 flex items-center gap-1.5">
-                  <Gift className="w-3.5 h-3.5 text-purple-600" /> {t('activePromotion')}
-                </h4>
-                <div className="text-xs">
-                  <div className="font-bold text-purple-950">{promotions[0].title}</div>
-                  <p className="text-purple-700 text-[11px] mt-0.5">{promotions[0].description}</p>
+            {/* 🎁 Welcome Bonus Info Card - shown only for non-logged-in users */}
+            {!user && (
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 p-3 rounded-2xl">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 text-white text-base">
+                    🎁
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-xs font-black text-emerald-900">
+                      {language === 'am' ? '🎉 20 ብር የእንኳን ደህና መጡ ቦነስ!' : '🎉 20 ETB Welcome Bonus!'}
+                    </h4>
+                    <p className="text-[10px] text-emerald-700 mt-0.5 leading-snug">
+                      {language === 'am'
+                        ? 'አካውንት ሲፈጥሩ 20 ብር ቦነስ ወዲያው ይጨምርልዎታል። ቦነስ ለጨዋታ ብቻ ያገለግላል — ማውጣት አይቻልም።'
+                        : 'Create an account and get 20 ETB bonus instantly. Bonus is for playing only — cannot be withdrawn.'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => openAuthModal('register')}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-black text-[10px] transition cursor-pointer shrink-0 shadow-xs"
+                  >
+                    {language === 'am' ? 'ክፈት' : 'Join'}
+                  </button>
                 </div>
               </div>
             )}

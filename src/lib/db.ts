@@ -309,7 +309,7 @@ const db = {
     const wallet: Wallet = {
       userId,
       availableBalance: 0,
-      bonusBalance: 0,
+      bonusBalance: 20, // 20 ETB welcome bonus — play-only, cannot be withdrawn
       winningBalance: 0,
       totalDeposited: 0,
       totalWithdrawn: 0,

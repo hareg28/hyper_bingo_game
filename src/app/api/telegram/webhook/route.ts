@@ -29,9 +29,24 @@ export async function POST(req: NextRequest) {
       ? `📢 <b>ማስታወቂያ / ANNOUNCEMENT:</b>\n${activeAnnouncement.text}\n━━━━━━━━━━━━━━━━━━━━━\n\n`
       : '';
 
+    // ── Game list for welcome messages ─────────────────────────────────────────
+    const gameListText =
+      `🎮 <b>Available Games / የተዘጋጁ ጨዋታዎች:</b>\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n` +
+      `⚡ <b>Hyper Fetan</b> (ሃይፐር ፈጣን)\n` +
+      `   └ 5, 10, 30, 50 ETB · 1 ደቂቃ ዙር · 500 ካርዶች\n` +
+      `   └ አሸናፊ ሕግ: 1 መስመር ወይም 4 ማዕዘናት\n\n` +
+      `🎲 <b>Hyper Special</b> (ሃይፐር ስፔሻል)\n` +
+      `   └ 10, 20, 30 ETB · ቀጥታ ክፍል\n` +
+      `   └ ልዩ ሕግ ዙር በዙር ይለዋወጣል\n\n` +
+      `🌟 <b>Hyper Weekend</b> (ሃይፐር ዊክኤንድ)\n` +
+      `   └ 30, 50, 100 ETB · 30,000–100,000 ETB ጃክፖት\n` +
+      `   └ አሸናፊ ሕግ: ሙሉ ቤት (Full House) ብቻ\n` +
+      `   └ ዕለቶች: አርብ · ቅዳሜ · እሑድ 2:00, 5:00 & 7:00 PM\n` +
+      `━━━━━━━━━━━━━━━━━━━━━\n` +
+      `🎁 <i>አካውንት ሲፈጥሩ 20 ETB ቦነስ ወዲያው ይጨምርልዎታል! (ለጨዋታ ብቻ)</i>`;
+
     // ── Persistent bottom keyboard (ReplyKeyboardMarkup) ───────────────────────
-    // `is_persistent: true` pins the keyboard permanently above the input bar —
-    // exactly like the "Play" button — no /start needed once the bot has sent it once.
     const buildPersistentKeyboard = (admin: boolean) => ({
       keyboard: [
         // Row 1 — Three game categories
@@ -52,22 +67,18 @@ export async function POST(req: NextRequest) {
               { text: '💳 Wallet', web_app: { url: `${appUrl}?tab=wallet` } },
             ],
       ],
-      resize_keyboard: true,   // compact — no wasted vertical space
-      is_persistent: true,     // stays pinned even when user isn't typing
+      resize_keyboard: true,
+      is_persistent: true,
       input_field_placeholder: 'Tap a game button above ⬆️',
     });
 
     // ── my_chat_member — fires the INSTANT a user starts / unblocks the bot ───
-    // This is what makes the keyboard appear WITHOUT needing /start.
-    // When Telegram delivers this event the user has already pressed "Start" in
-    // the bot's welcome screen, so we immediately send the game keyboard.
     if (update.my_chat_member) {
       const member = update.my_chat_member;
       const chatId = member.chat?.id;
       const userId = member.from?.id;
       const newStatus = member.new_chat_member?.status;
 
-      // Only handle private chats where the user just started the bot
       if (chatId && (newStatus === 'member' || newStatus === 'administrator')) {
         const isAdmin = isAdminTelegramId(userId);
         await sendMessage({
@@ -77,6 +88,7 @@ export async function POST(req: NextRequest) {
             `${announcementHeader}🎮 <b>Hyper Bingo Ethiopia</b>\n` +
             `#1 Live 75-Ball Bingo · Telebirr &amp; CBE Birr\n` +
             `80% Prize Pool · 20% House\n\n` +
+            `${gameListText}\n\n` +
             `<b>👇 Tap any game to start playing instantly!</b>`,
           reply_markup: buildPersistentKeyboard(isAdmin),
         });
@@ -109,18 +121,110 @@ export async function POST(req: NextRequest) {
           text:
             `👑 <b>Hyper Bingo Admin Center</b>\n` +
             `Welcome <b>${userName}</b>! ID: <code>${userId}</code>\n\n` +
-            `Use the 🛡️ Admin button in the keyboard below.`,
+            `<b>Admin Commands:</b>\n` +
+            `🛡️ Use the Admin button in the keyboard below\n` +
+            `📢 /post [message] — Broadcast a message to all users\n` +
+            `🗑️ /clear — Clear the active announcement\n` +
+            `📋 /games — Show all available games`,
           reply_markup: buildPersistentKeyboard(true),
         });
         return NextResponse.json({ ok: true });
       }
 
-      // ── /start, /games, /play, /help, /menu — OR any first message ──────────
-      // We show the keyboard on EVERY response so it's always activated
+      // ── /post [message] — Admin posts a message visible to everyone ───────────
+      if (text && text.startsWith('/post')) {
+        if (!isAdmin) {
+          await sendMessage({
+            chat_id: chatId,
+            parse_mode: 'HTML',
+            text: `⛔ <b>Access Restricted</b>\nOnly admins can use /post.`,
+            reply_markup: buildPersistentKeyboard(false),
+          });
+          return NextResponse.json({ ok: true });
+        }
+
+        const postContent = text.replace('/post', '').trim();
+        if (!postContent) {
+          await sendMessage({
+            chat_id: chatId,
+            parse_mode: 'HTML',
+            text:
+              `📢 <b>How to use /post:</b>\n\n` +
+              `<code>/post Your announcement message here</code>\n\n` +
+              `<i>This will be saved as an active announcement and shown to all users who open the bot or the mini app.</i>`,
+            reply_markup: buildPersistentKeyboard(true),
+          });
+          return NextResponse.json({ ok: true });
+        }
+
+        // Save announcement to DB
+        try {
+          await db.saveAnnouncement(postContent, 'Admin Broadcast', 'BROADCAST');
+        } catch (e) {
+          console.error('Failed to save announcement:', e);
+        }
+
+        await sendMessage({
+          chat_id: chatId,
+          parse_mode: 'HTML',
+          text:
+            `✅ <b>Announcement Posted!</b>\n\n` +
+            `📢 <b>Your message:</b>\n${postContent}\n\n` +
+            `<i>This announcement is now visible to all users who open the bot or mini app. Use /clear to remove it.</i>`,
+          reply_markup: buildPersistentKeyboard(true),
+        });
+        return NextResponse.json({ ok: true });
+      }
+
+      // ── /clear — Admin clears the active announcement ─────────────────────────
+      if (text && text.startsWith('/clear')) {
+        if (!isAdmin) {
+          await sendMessage({
+            chat_id: chatId,
+            parse_mode: 'HTML',
+            text: `⛔ <b>Access Restricted</b>\nOnly admins can use /clear.`,
+            reply_markup: buildPersistentKeyboard(false),
+          });
+          return NextResponse.json({ ok: true });
+        }
+
+        try {
+          const current = await db.getActiveAnnouncement();
+          if (current) {
+            await db.clearActiveAnnouncement(current.id);
+          }
+        } catch (e) {
+          console.error('Failed to clear announcement:', e);
+        }
+
+        await sendMessage({
+          chat_id: chatId,
+          parse_mode: 'HTML',
+          text: `✅ <b>Announcement cleared!</b>\nUsers will no longer see the announcement banner.`,
+          reply_markup: buildPersistentKeyboard(true),
+        });
+        return NextResponse.json({ ok: true });
+      }
+
+      // ── /games — Show list of all available games ──────────────────────────────
+      if (text && (text.startsWith('/games') || text.startsWith('/play') || text.startsWith('/menu'))) {
+        await sendMessage({
+          chat_id: chatId,
+          parse_mode: 'HTML',
+          text:
+            `${announcementHeader}${gameListText}\n\n` +
+            `<b>👇 Tap a game button below to start playing!</b>`,
+          reply_markup: buildPersistentKeyboard(isAdmin),
+        });
+        return NextResponse.json({ ok: true });
+      }
+
+      // ── /start, /help — OR any first message ─────────────────────────────────
       const welcomeText =
         `${announcementHeader}🎮 <b>Hyper Bingo Ethiopia</b>\n` +
         `#1 Live 75-Ball Bingo · Telebirr &amp; CBE Birr\n` +
         `80% Prize Pool · 20% House${isAdmin ? ` · <i>Admin ✅</i>` : ''}\n\n` +
+        `${gameListText}\n\n` +
         `<b>👇 Tap a game to start playing!</b>`;
 
       await sendMessage({
