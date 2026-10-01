@@ -12,6 +12,7 @@ import {
   User, Wallet, Transaction, WithdrawalRequest,
   LinkedPaymentAccount, LinkedAccountType, LinkedAccountStatus,
   TransactionType, TransactionStatus, PaymentProvider,
+  SystemAnnouncement,
 } from './types';
 import { TelegramUser } from './types';
 import { isAdminTelegramId } from './authUtils';
@@ -24,6 +25,8 @@ const walletsMap = new Map<string, Wallet>();
 const transactionsMap = new Map<string, Transaction>();
 const withdrawalsMap = new Map<string, WithdrawalRequest>();
 const linkedAccountsMap = new Map<string, LinkedPaymentAccount[]>();
+const announcementsMap = new Map<string, SystemAnnouncement>();
+let activeAnnouncementInMemory: SystemAnnouncement | null = null;
 
 function generateId(prefix = 'id'): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -843,6 +846,118 @@ const db = {
       return true;
     }
     return false;
+  },
+
+  /**
+   * Save a new announcement and set it active
+   */
+  async saveAnnouncement(text: string, title?: string, type = 'BROADCAST'): Promise<SystemAnnouncement> {
+    const id = generateId('ann');
+    const now = new Date().toISOString();
+    const newRecord: SystemAnnouncement = {
+      id,
+      text,
+      title: title || '',
+      type: type as any,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        await initDatabaseSchema();
+        // Deactivate older announcements first
+        await sql`UPDATE announcements SET is_active = FALSE WHERE is_active = TRUE`;
+        // Insert new active announcement
+        await sql`
+          INSERT INTO announcements (id, text, title, type, is_active, created_at, updated_at)
+          VALUES (${id}, ${text}, ${title || ''}, ${type}, TRUE, NOW(), NOW())
+        `;
+        return newRecord;
+      } catch (e) {
+        console.error('Neon saveAnnouncement error:', e);
+      }
+    }
+
+    // In-memory fallback
+    for (const ann of announcementsMap.values()) {
+      ann.isActive = false;
+    }
+    announcementsMap.set(id, newRecord);
+    activeAnnouncementInMemory = newRecord;
+    return newRecord;
+  },
+
+  /**
+   * Get the current active announcement
+   */
+  async getActiveAnnouncement(): Promise<SystemAnnouncement | null> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        await initDatabaseSchema();
+        const rows = await sql`
+          SELECT * FROM announcements 
+          WHERE is_active = TRUE 
+          ORDER BY created_at DESC 
+          LIMIT 1
+        `;
+        if (rows.length > 0) {
+          const r = rows[0];
+          return {
+            id: r.id,
+            text: r.text,
+            title: r.title || '',
+            type: r.type || 'BROADCAST',
+            isActive: Boolean(r.is_active),
+            createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+            updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : new Date().toISOString(),
+          };
+        }
+        return null;
+      } catch (e) {
+        console.error('Neon getActiveAnnouncement error:', e);
+      }
+    }
+
+    // In-memory fallback
+    if (activeAnnouncementInMemory && activeAnnouncementInMemory.isActive) {
+      return activeAnnouncementInMemory;
+    }
+    const active = [...announcementsMap.values()].find((a) => a.isActive);
+    return active || null;
+  },
+
+  /**
+   * Deactivate/dismiss active announcement
+   */
+  async clearActiveAnnouncement(id?: string): Promise<boolean> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        if (id) {
+          await sql`UPDATE announcements SET is_active = FALSE WHERE id = ${id}`;
+        } else {
+          await sql`UPDATE announcements SET is_active = FALSE WHERE is_active = TRUE`;
+        }
+        return true;
+      } catch (e) {
+        console.error('Neon clearActiveAnnouncement error:', e);
+      }
+    }
+
+    if (id) {
+      const ann = announcementsMap.get(id);
+      if (ann) ann.isActive = false;
+    } else {
+      for (const ann of announcementsMap.values()) {
+        ann.isActive = false;
+      }
+      activeAnnouncementInMemory = null;
+    }
+    return true;
   },
 };
 

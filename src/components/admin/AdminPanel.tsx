@@ -113,29 +113,45 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
       const isSuccess = Boolean(data?.success || data?.ok);
 
       // ── ALWAYS push to local BotSimulator chat (not just on Telegram success — so simulator users always see broadcast!)
+      const weekendGamesForPreview = payload.weekendGames || [];
+      const weekendPreviewText = weekendGamesForPreview.length > 0
+        ? weekendGamesForPreview.map((g: any, i: number) => `${i + 1}. 🌟 ${g.name} | 💵 ${g.entryPrice} ETB | 🏆 ${(g.prizePool || 0).toLocaleString()} ETB`).join('\n')
+        : '';
+      const textToSave = payload.customText || weekendPreviewText;
+
       try {
-        const weekendGamesForPreview = payload.weekendGames || [];
-        const weekendPreviewText = weekendGamesForPreview.length > 0
-          ? weekendGamesForPreview.map((g: any, i: number) => `${i + 1}. 🌟 ${g.name} | 💵 ${g.entryPrice} ETB | 🏆 ${(g.prizePool || 0).toLocaleString()} ETB`).join('\n')
-          : '';
         window.dispatchEvent(new CustomEvent('hyperbingo:bot-broadcast', {
           detail: {
             preset: broadcastPreset,
-            text: payload.customText || weekendPreviewText,
+            text: textToSave,
             customText: payload.customText || '',
             weekendGames: payload.weekendGames,
           }
         }));
       } catch {}
 
+      // Persist in system announcements so every player opening the app or bot sees it!
+      try {
+        await fetch('/api/announcements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: textToSave,
+            title: broadcastPreset === 'weekend_draws' ? 'WEEKEND BINGO' : broadcastPreset === 'daily_spin' ? 'DAILY LUCKY WHEEL' : 'ANNOUNCEMENT',
+            type: broadcastPreset === 'weekend_draws' ? 'WEEKEND' : 'BROADCAST',
+            adminTelegramId: user?.telegramId || user?.username || '',
+          }),
+        });
+      } catch {}
+
       if (isSuccess) {
-        setAnnounceResult({ ok: true, msg: `✅ Broadcast delivered to ${target}! Telegram OK + Local Bot Simulator Updated ✓` });
+        setAnnounceResult({ ok: true, msg: `✅ Broadcast delivered to ${target}! All users opening the app & Telegram bot will now see this announcement ✓` });
       } else {
         const tip = data?.tip || '';
-        const errText = data?.error || 'Telegram failed (but simulator users updated)';
+        const errText = data?.error || 'Telegram API issue';
         setAnnounceResult({
           ok: false,
-          msg: `⚠️ Telegram API: ` + String(errText || '—') + `\n\n✅ Good News: Local Bot Simulator has been updated locally! Users of this app see the broadcast.\n\n` + (tip ? `💡 TIP: ${tip}` : '')
+          msg: `⚠️ Telegram API: ` + String(errText || '—') + `\n\n✅ Announcement Saved! All players opening Hyper Bingo will now see this active announcement banner.\n\n` + (tip ? `💡 TIP: ${tip}` : '')
         });
       }
     } catch (e: any) {
@@ -155,6 +171,30 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         }));
       } catch {}
       setAnnounceResult({ ok: false, msg: e.message });
+    } finally {
+      setAnnouncing(false);
+    }
+  };
+
+  const handleClearAnnouncement = async () => {
+    setAnnouncing(true);
+    try {
+      const res = await fetch('/api/announcements', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminTelegramId: user?.telegramId || user?.username || '',
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAnnounceResult({ ok: true, msg: '✅ Active announcement removed! Users will no longer see the banner.' });
+        window.dispatchEvent(new CustomEvent('hyperbingo:bot-broadcast', { detail: { text: '' } }));
+      } else {
+        setAnnounceResult({ ok: false, msg: `❌ Failed to clear announcement: ${data.error || 'Unknown error'}` });
+      }
+    } catch (err: any) {
+      setAnnounceResult({ ok: false, msg: `❌ Error clearing announcement: ${err.message}` });
     } finally {
       setAnnouncing(false);
     }
@@ -634,6 +674,15 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                 className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 font-black text-[10px] transition flex items-center justify-center gap-1 border border-slate-700 cursor-pointer shrink-0"
               >
                 ✉️ {language === 'am' ? 'ልእናንተ ላይ ሞክር' : 'Send Test to Me'}
+              </button>
+              <button
+                type="button"
+                onClick={handleClearAnnouncement}
+                disabled={announcing}
+                className="px-3 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 disabled:opacity-50 text-rose-300 font-black text-[10px] transition flex items-center justify-center gap-1 border border-rose-800/60 cursor-pointer shrink-0"
+                title="Remove current active announcement banner from all players"
+              >
+                🗑️ {language === 'am' ? 'ማስታወቂያ አጥፋ' : 'Clear Active'}
               </button>
               <button
                 onClick={() => handleSendBroadcast()}

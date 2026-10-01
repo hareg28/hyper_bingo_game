@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdminTelegramId } from '@/lib/authUtils';
+import { db } from '@/lib/db';
 
 const DEFAULT_BOT_TOKEN = '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
 
@@ -21,6 +22,12 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify(payload),
       });
     };
+
+    // ── Check for active admin announcement ────────────────────────────────────
+    const activeAnnouncement = await db.getActiveAnnouncement().catch(() => null);
+    const announcementHeader = activeAnnouncement?.text
+      ? `📢 <b>ማስታወቂያ / ANNOUNCEMENT:</b>\n${activeAnnouncement.text}\n━━━━━━━━━━━━━━━━━━━━━\n\n`
+      : '';
 
     // ── Persistent bottom keyboard (ReplyKeyboardMarkup) ───────────────────────
     // `is_persistent: true` pins the keyboard permanently above the input bar —
@@ -67,7 +74,7 @@ export async function POST(req: NextRequest) {
           chat_id: chatId,
           parse_mode: 'HTML',
           text:
-            `🎮 <b>Hyper Bingo Ethiopia</b>\n` +
+            `${announcementHeader}🎮 <b>Hyper Bingo Ethiopia</b>\n` +
             `#1 Live 75-Ball Bingo · Telebirr &amp; CBE Birr\n` +
             `80% Prize Pool · 20% House\n\n` +
             `<b>👇 Tap any game to start playing instantly!</b>`,
@@ -111,7 +118,7 @@ export async function POST(req: NextRequest) {
       // ── /start, /games, /play, /help, /menu — OR any first message ──────────
       // We show the keyboard on EVERY response so it's always activated
       const welcomeText =
-        `🎮 <b>Hyper Bingo Ethiopia</b>\n` +
+        `${announcementHeader}🎮 <b>Hyper Bingo Ethiopia</b>\n` +
         `#1 Live 75-Ball Bingo · Telebirr &amp; CBE Birr\n` +
         `80% Prize Pool · 20% House${isAdmin ? ` · <i>Admin ✅</i>` : ''}\n\n` +
         `<b>👇 Tap a game to start playing!</b>`;

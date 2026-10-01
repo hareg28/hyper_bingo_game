@@ -123,6 +123,34 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
     hasRefreshedForUserRef.current = key;
   }, [user?.id, isUserAdmin]);
 
+  // Load active announcement from server so any user opening the bot sees it
+  useEffect(() => {
+    fetch('/api/announcements')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.announcement?.text) {
+          const time = new Date(data.announcement.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const rawText = data.announcement.text.replace(/<[^>]*>?/gm, '');
+          setChatHistory((prev) => {
+            if (prev.some((m) => m.id === `msg_api_ann_${data.announcement.id}`)) return prev;
+            const annMsg: ChatMessage = {
+              id: `msg_api_ann_${data.announcement.id}`,
+              sender: 'bot',
+              text: `📢 <b>[ANNOUNCEMENT / ማስታወቂያ]</b>\n\n${rawText}`,
+              reaction: '📢',
+              buttons: [
+                { label: language === 'am' ? '🎮 አሁኑኑ ይጫወቱ' : '🎮 Play Now', action: () => onOpenMiniApp('lobby'), isPrimary: true },
+                { label: language === 'am' ? '🌟 ልዩ ጨዋታዎች' : '🌟 Weekend Draws', action: () => handleCommand('/lottery'), isPrimary: true },
+              ],
+              time,
+            };
+            return [...prev, annMsg];
+          });
+        }
+      })
+      .catch(() => {});
+  }, [language, onOpenMiniApp]);
+
   // Listen for external admin broadcast events (from AdminPanel after real Telegram API succeeds)
   useEffect(() => {
     const handler = (e: any) => {

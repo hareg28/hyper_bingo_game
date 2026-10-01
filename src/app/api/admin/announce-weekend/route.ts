@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdminTelegramId } from '@/lib/authUtils';
+import { db } from '@/lib/db';
 
 const DEFAULT_BOT_TOKEN = '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
 
@@ -43,6 +44,13 @@ export async function POST(req: NextRequest) {
         `📲 Open the app and join now — seats fill up fast!\n\n` +
         `💰 ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር\n` +
         `🔥 100% ደህንነቱ የተጠበቀ ጨዋታ`;
+    }
+
+    // Persist announcement in database so all users opening the bot or web app see it!
+    try {
+      await db.saveAnnouncement(announcementText, 'HYPER BINGO BROADCAST', 'BROADCAST');
+    } catch (saveErr) {
+      console.error('Failed to save announcement to DB in announce-weekend:', saveErr);
     }
 
     const targetChatId = chatId || adminTelegramId;

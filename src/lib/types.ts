@@ -207,3 +207,14 @@ export interface NotificationMessage {
   timestamp: string;
 }
 
+// ── System Announcement ────────────────────────────────────────
+export interface SystemAnnouncement {
+  id: string;
+  text: string;
+  title?: string;
+  type?: 'BROADCAST' | 'WEEKEND' | 'PROMO' | 'ALERT';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+

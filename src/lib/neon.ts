@@ -123,9 +123,22 @@ export async function initDatabaseSchema() {
       );
     `;
 
+    // 7. Announcements Table
+    await sql`
+      CREATE TABLE IF NOT EXISTS announcements (
+        id VARCHAR(64) PRIMARY KEY,
+        text TEXT NOT NULL,
+        title VARCHAR(255),
+        type VARCHAR(64) DEFAULT 'BROADCAST',
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+
     return {
       connected: true,
-      message: 'Neon PostgreSQL tables initialized successfully (users, wallets, transactions [+balance_after,description], withdrawals [+transaction_id], linked_accounts, games).',
+      message: 'Neon PostgreSQL tables initialized successfully (users, wallets, transactions, withdrawals, linked_accounts, games, announcements).',
     };
   } catch (error: any) {
     console.error('Neon schema initialization error:', error);
