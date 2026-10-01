@@ -33,7 +33,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     verifyAdminAccess
   } = useBingo();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'games' | 'finance' | 'users' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'broadcast' | 'games' | 'finance' | 'users' | 'audit'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Admin Registered Users Roster and Stats
@@ -48,78 +48,84 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     return () => clearInterval(timer);
   }, []);
 
-  // Telegram Broadcast Suite
-  const [broadcastTarget, setBroadcastTarget] = useState<'direct' | 'channel' | 'custom'>('direct');
-  const [announceChatId, setAnnounceChatId] = useState('');
-  const [broadcastPreset, setBroadcastPreset] = useState<'weekend_draws' | 'daily_spin' | 'custom'>('weekend_draws');
+  // ── Separate Broadcast State ──────────────────────────────────────────────
+  const [broadcastMode, setBroadcastMode] = useState<'weekend' | 'custom'>('weekend');
+
+  // 1. Weekend Game Broadcast State
+  const [weekendTarget, setWeekendTarget] = useState<'channel' | 'direct' | 'custom'>('channel');
+  const [weekendCustomChatId, setWeekendCustomChatId] = useState('');
+
+  // 2. Custom Announcement & Media Broadcast State
+  const [customTarget, setCustomTarget] = useState<'channel' | 'direct' | 'custom'>('channel');
+  const [customChatId, setCustomChatId] = useState('');
   const [customBroadcastText, setCustomBroadcastText] = useState('');
   const [broadcastMediaType, setBroadcastMediaType] = useState<'none' | 'photo' | 'document'>('none');
   const [broadcastMediaUrl, setBroadcastMediaUrl] = useState('');
   const [broadcastFileName, setBroadcastFileName] = useState('');
+
+  // Shared Broadcast Status
   const [announcing, setAnnouncing] = useState(false);
   const [announceResult, setAnnounceResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const getBroadcastPreview = () => {
+  // Helper to format Weekend Broadcast preview
+  const getWeekendBroadcastPreview = () => {
+    const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
+    const activeWeekendList = weekendGames.length > 0 ? weekendGames : [
+      { name: 'Weekend Mega Draw (2:00 PM)', entryPrice: 100, prizePool: 25000, currentPlayers: 28, maxPlayers: 100, drawInterval: 10 },
+      { name: 'Weekend High Roller (5:00 PM)', entryPrice: 200, prizePool: 50000, currentPlayers: 18, maxPlayers: 80, drawInterval: 10 },
+      { name: 'Sunday Night Jackpot (7:00 PM)', entryPrice: 500, prizePool: 100000, currentPlayers: 42, maxPlayers: 150, drawInterval: 10 }
+    ];
+
+    const lines = activeWeekendList.map((g: any, i: number) =>
+      `${i + 1}. 🌟 ${g.name} | 💵 ${g.entryPrice} ETB | 🏆 ${formatETB(g.prizePool)}`
+    ).join('\n');
+
+    return (
+      `🎉🌟 WEEKEND HYPER BINGO — Special Lottery Draws!\n` +
+      `⏰ Live Draw Schedule: 2:00 PM, 5:00 PM, and 7:00 PM (Fri–Sun)\n\n` +
+      `${lines}\n\n` +
+      `⚡ Pick your cards now on Hyper Bingo Telegram Mini App!`
+    );
+  };
+
+  // Helper to format Custom Broadcast preview
+  const getCustomBroadcastPreview = () => {
     let mediaPrefix = '';
     if (broadcastMediaType === 'photo') {
       mediaPrefix = `[📸 PICTURE ATTACHED: ${broadcastFileName || 'Image'}]\n\n`;
     } else if (broadcastMediaType === 'document') {
       mediaPrefix = `[📄 DOCUMENT ATTACHED: ${broadcastFileName || 'Document'}]\n\n`;
     }
-
-    if (broadcastPreset === 'weekend_draws') {
-      const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
-      const lines = weekendGames.map((g, i) => `${i + 1}. 🌟 ${g.name} | 💵 ${g.entryPrice} ETB | 🏆 ${formatETB(g.prizePool)}`).join('\n');
-      return mediaPrefix + `🎉🌟 WEEKEND HYPER BINGO — Special Lottery Draws!\n⏰ Live Draw Schedule: 2:00 PM, 5:00 PM, and 7:00 PM (Fri–Sun)\n\n${lines || '1. Weekend Mega Draw (25,000 ETB)'}\n\n⚡ Pick your cards now on Hyper Bingo Telegram Mini App!`;
-    }
-    if (broadcastPreset === 'daily_spin') {
-      return mediaPrefix + `🎁 Daily Free Lucky Spin Wheel is Ready!\n\nSpin every 24 hours to win free ETB bonus credits or free card tickets! Open Hyper Bingo and claim your spin today. 🎡✨`;
-    }
-    return mediaPrefix + (customBroadcastText || 'Enter your custom announcement message here...');
+    return mediaPrefix + (customBroadcastText || 'Type your custom announcement text above to see live preview...');
   };
 
-  const handleSendBroadcast = async (overrideTarget?: string) => {
+  // Handler for Weekend Broadcast
+  const handleSendWeekendBroadcast = async (overrideTarget?: string) => {
     setAnnouncing(true);
     setAnnounceResult(null);
-    let payload: any = {};
+
+    const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
+    const target = overrideTarget || (
+      weekendTarget === 'direct'
+        ? (user?.telegramId || '')
+        : weekendTarget === 'channel'
+        ? '@HyperBingoChannel'
+        : (weekendCustomChatId.trim() || user?.telegramId || '')
+    );
+
+    const activeList = weekendGames.length > 0 ? weekendGames : [
+      { name: 'Weekend Mega Draw (2:00 PM)', entryPrice: 100, prizePool: 25000, currentPlayers: 28, maxPlayers: 100, drawInterval: 10 },
+      { name: 'Weekend High Roller (5:00 PM)', entryPrice: 200, prizePool: 50000, currentPlayers: 18, maxPlayers: 80, drawInterval: 10 },
+      { name: 'Sunday Night Jackpot (7:00 PM)', entryPrice: 500, prizePool: 100000, currentPlayers: 42, maxPlayers: 150, drawInterval: 10 }
+    ];
+
+    const payload = {
+      adminTelegramId: user?.telegramId || user?.username || '',
+      chatId: target,
+      weekendGames: activeList,
+    };
 
     try {
-      const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
-      const rawTarget = overrideTarget || (broadcastTarget === 'direct' ? (user?.telegramId || '') : broadcastTarget === 'channel' ? (announceChatId.trim() || '@HyperBingoChannel') : (announceChatId.trim() || user?.telegramId || ''));
-      const target = rawTarget;
-
-      payload = {
-        adminTelegramId: user?.telegramId || user?.username || '',
-        chatId: target,
-      };
-
-      if (broadcastMediaType !== 'none' && broadcastMediaUrl) {
-        payload.mediaUrl = broadcastMediaUrl;
-        payload.mediaType = broadcastMediaType;
-        if (broadcastFileName) payload.fileName = broadcastFileName;
-      }
-
-      if (broadcastPreset === 'weekend_draws') {
-        payload.weekendGames = weekendGames.length > 0 ? weekendGames : [
-          { name: 'Weekend Mega Draw (2:00 PM)', entryPrice: 100, prizePool: 25000, currentPlayers: 28, maxPlayers: 100, drawInterval: 10 },
-          { name: 'Weekend High Roller (5:00 PM)', entryPrice: 200, prizePool: 50000, currentPlayers: 18, maxPlayers: 80, drawInterval: 10 },
-          { name: 'Sunday Night Jackpot (7:00 PM)', entryPrice: 500, prizePool: 100000, currentPlayers: 42, maxPlayers: 150, drawInterval: 10 }
-        ];
-      } else if (broadcastPreset === 'daily_spin') {
-        payload.customText = `🎁 <b>Daily Free Lucky Spin Wheel is Ready!</b> 🎡\n━━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `🇪🇹 <b>የዕለቱ የነጻ ዕድል ማዞሪያ ዝግጁ ነው!</b>\n\n` +
-          `በየቀኑ ያሽከርክሩ እና እስከ <b>200 ETB የቦነስ ሽልማት</b> ወይም ነፃ የቢንጎ ቲኬቶችን ያሸንፉ! ✨\n\n` +
-          `📲 አሁኑኑ አፑን ከፍተው ዕድልዎን ይሞክሩ!\n\n` +
-          `💰 ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር`;
-      } else {
-        if (!customBroadcastText.trim()) {
-          setAnnounceResult({ ok: false, msg: 'Please type an announcement text.' });
-          setAnnouncing(false);
-          return;
-        }
-        payload.customText = customBroadcastText.trim();
-      }
-
       const res = await fetch('/api/admin/announce-weekend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -128,71 +134,97 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
       const data = await res.json();
       const isSuccess = Boolean(data?.success || data?.ok);
 
-      // ── ALWAYS push to local BotSimulator chat (not just on Telegram success — so simulator users always see broadcast!)
-      const weekendGamesForPreview = payload.weekendGames || [];
-      const weekendPreviewText = weekendGamesForPreview.length > 0
-        ? weekendGamesForPreview.map((g: any, i: number) => `${i + 1}. 🌟 ${g.name} | 💵 ${g.entryPrice} ETB | 🏆 ${(g.prizePool || 0).toLocaleString()} ETB`).join('\n')
-        : '';
-      const textToSave = payload.customText || weekendPreviewText;
-
       try {
         window.dispatchEvent(new CustomEvent('hyperbingo:bot-broadcast', {
           detail: {
-            preset: broadcastPreset,
-            text: textToSave,
-            customText: payload.customText || '',
-            weekendGames: payload.weekendGames,
-            mediaUrl: payload.mediaUrl,
-            mediaType: payload.mediaType,
-            fileName: payload.fileName,
+            preset: 'weekend_draws',
+            text: getWeekendBroadcastPreview(),
+            weekendGames: activeList,
           }
         }));
-      } catch {}
-
-      // Persist in system announcements so every player opening the app or bot sees it!
-      try {
-        await fetch('/api/announcements', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: textToSave,
-            title: broadcastPreset === 'weekend_draws' ? 'WEEKEND BINGO' : broadcastPreset === 'daily_spin' ? 'DAILY LUCKY WHEEL' : 'ANNOUNCEMENT',
-            type: broadcastPreset === 'weekend_draws' ? 'WEEKEND' : 'BROADCAST',
-            adminTelegramId: user?.telegramId || user?.username || '',
-            mediaUrl: payload.mediaUrl,
-            mediaType: payload.mediaType,
-            fileName: payload.fileName,
-          }),
-        });
       } catch {}
 
       if (isSuccess) {
-        setAnnounceResult({ ok: true, msg: `✅ Broadcast delivered to ${target}! All users opening the app & Telegram bot will now see this announcement ✓` });
+        setAnnounceResult({
+          ok: true,
+          msg: `✅ Weekend games successfully broadcasted to ${target}! Active announcement is now visible to all players.`
+        });
       } else {
         const tip = data?.tip || '';
-        const errText = data?.error || 'Telegram API issue';
         setAnnounceResult({
           ok: false,
-          msg: `⚠️ Telegram API: ` + String(errText || '—') + `\n\n✅ Announcement Saved! All players opening Hyper Bingo will now see this active announcement banner.\n\n` + (tip ? `💡 TIP: ${tip}` : '')
+          msg: `⚠️ Announcement saved in app! Telegram API notice: ${data?.error || 'Delivered to active banner'} ${tip ? `\n💡 TIP: ${tip}` : ''}`
         });
       }
-    } catch (e: any) {
-      // Even on network error — still push to local BotSimulator
+    } catch (err: any) {
+      setAnnounceResult({ ok: false, msg: `Broadcast error: ${err.message}` });
+    } finally {
+      setAnnouncing(false);
+    }
+  };
+
+  // Handler for Custom Broadcast
+  const handleSendCustomBroadcast = async (overrideTarget?: string) => {
+    if (!customBroadcastText.trim()) {
+      setAnnounceResult({ ok: false, msg: 'Please type an announcement message before broadcasting.' });
+      return;
+    }
+
+    setAnnouncing(true);
+    setAnnounceResult(null);
+
+    const target = overrideTarget || (
+      customTarget === 'direct'
+        ? (user?.telegramId || '')
+        : customTarget === 'channel'
+        ? (customChatId.trim() || '@HyperBingoChannel')
+        : (customChatId.trim() || user?.telegramId || '')
+    );
+
+    const payload = {
+      adminTelegramId: user?.telegramId || user?.username || '',
+      chatId: target,
+      customText: customBroadcastText.trim(),
+      mediaUrl: broadcastMediaType !== 'none' ? broadcastMediaUrl : undefined,
+      mediaType: broadcastMediaType !== 'none' ? broadcastMediaType : undefined,
+      fileName: broadcastMediaType === 'document' ? broadcastFileName : undefined,
+    };
+
+    try {
+      const res = await fetch('/api/admin/announce-weekend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      const isSuccess = Boolean(data?.success || data?.ok);
+
       try {
-        const weekendGamesForPreview = payload?.weekendGames || [];
-        const weekendPreviewText = weekendGamesForPreview.length > 0
-          ? weekendGamesForPreview.map((g: any, i: number) => `${i + 1}. 🌟 ${g.name} | 💵 ${g.entryPrice} ETB | 🏆 ${(g.prizePool || 0).toLocaleString()} ETB`).join('\n')
-          : '';
         window.dispatchEvent(new CustomEvent('hyperbingo:bot-broadcast', {
           detail: {
-            preset: broadcastPreset,
-            text: payload?.customText || weekendPreviewText,
-            customText: payload?.customText || '',
-            weekendGames: payload?.weekendGames
+            preset: 'custom',
+            text: customBroadcastText.trim(),
+            mediaUrl: payload.mediaUrl,
+            mediaType: payload.mediaType,
+            fileName: payload.fileName,
           }
         }));
       } catch {}
-      setAnnounceResult({ ok: false, msg: e.message });
+
+      if (isSuccess) {
+        setAnnounceResult({
+          ok: true,
+          msg: `✅ Custom announcement published to ${target}! Players opening the bot or app will see this announcement.`
+        });
+      } else {
+        const tip = data?.tip || '';
+        setAnnounceResult({
+          ok: false,
+          msg: `⚠️ Announcement saved in app! Telegram API notice: ${data?.error || 'Active banner updated'} ${tip ? `\n💡 TIP: ${tip}` : ''}`
+        });
+      }
+    } catch (err: any) {
+      setAnnounceResult({ ok: false, msg: `Broadcast error: ${err.message}` });
     } finally {
       setAnnouncing(false);
     }
@@ -478,406 +510,11 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
           </div>
         </div>
 
-        {/* Live Top Header Ticker: Total Players and Weekend Games Minutes Countdown */}
-        {(() => {
-          const totalLivePlayers = games.reduce((acc, g) => acc + (g.currentPlayers || 0), 0);
-          const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
-
-          return (
-            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-3.5 rounded-2xl border border-amber-500/30 shadow-lg space-y-2.5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-                  <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
-                    {language === 'am' ? 'የቀጥታ ስታቲስቲክስ' : 'Live Platform Status'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 bg-slate-950/80 px-3 py-1 rounded-xl border border-slate-700">
-                  <Users className="w-4 h-4 text-purple-400" />
-                  <span className="text-xs text-slate-300 font-bold">
-                    {language === 'am' ? 'አጠቃላይ ተጫዋቾች በሁሉም ጨዋታዎች:' : 'Total Live Players:'}
-                  </span>
-                  <span className="text-sm font-black text-purple-300">{totalLivePlayers}</span>
-                </div>
-              </div>
-
-              {/* Weekend Games Live Countdown Bar */}
-              <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
-                <div className="text-[11px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                  <Flame className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{language === 'am' ? 'የሳምንቱ መጨረሻ ጨዋታዎች የቀረ ደቂቃ (Weekend Games Live Countdown)' : 'Weekend Lottery Games Countdown & Players'}</span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {weekendGames.map((wg, idx) => {
-                    // Calculate mock or real minutes left based on simulated next draw
-                    const cycleMinutes = idx === 0 ? 15 : idx === 1 ? 8 : 22;
-                    const elapsedSec = Math.floor(now / 1000) % (cycleMinutes * 60);
-                    const remSec = (cycleMinutes * 60) - elapsedSec;
-                    const remMins = Math.floor(remSec / 60);
-                    const remSecs = remSec % 60;
-
-                    return (
-                      <div key={wg.id} className="bg-slate-950/90 p-2.5 rounded-xl border border-amber-500/20 flex items-center justify-between">
-                        <div>
-                          <div className="font-black text-xs text-amber-300 flex items-center gap-1">
-                            <span>🌟 {wg.name}</span>
-                          </div>
-                          <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
-                            <span>👥 {wg.currentPlayers} {language === 'am' ? 'ተጫዋቾች' : 'players'}</span>
-                            <span>•</span>
-                            <span className="text-emerald-400 font-bold">{formatETB(wg.prizePool)}</span>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[10px] text-slate-400 font-medium block">
-                            {language === 'am' ? 'የቀረ ደቂቃ' : 'Time Left'}
-                          </span>
-                          <span className="font-mono font-black text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 flex items-center gap-1">
-                            <Timer className="w-3 h-3 animate-spin" />
-                            {remMins}m {remSecs < 10 ? `0${remSecs}` : remSecs}s
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Admin Telegram Broadcast Studio */}
-        <div className="bg-gradient-to-r from-purple-950/70 via-slate-900 to-indigo-950/70 p-4 rounded-2xl border border-purple-500/30 shadow-xl space-y-3.5">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-purple-500/20 pb-2.5">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300">
-                <Megaphone className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-xs font-black uppercase tracking-wider text-purple-300">
-                  {language === 'am' ? 'የቴሌግራም ማስታወቂያ ማሰራጫ ስቱዲዮ' : 'Telegram Broadcast Studio'}
-                </h3>
-                <p className="text-[10px] text-slate-400">
-                  {language === 'am' ? 'ወደ ኦፊሴላዊ ቻናል ወይም ተጫዋቾች ቀጥታ መልእክት ያስተላልፉ' : 'Broadcast draw times, promotions, and updates to Telegram channels'}
-                </p>
-              </div>
-            </div>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">
-              Bot Broadcast Active
-            </span>
-          </div>
-
-          {/* Target & Preset Selection */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {/* Target Channel */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                {language === 'am' ? 'የሚላክበት አድራሻ (Target)' : 'Broadcast Destination'}
-              </label>
-              <div className="flex gap-1.5 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => { setBroadcastTarget('direct'); setAnnounceChatId(''); }}
-                  className={`py-1.5 px-2.5 rounded-xl text-xs font-black border transition cursor-pointer text-left flex items-center gap-1.5 ${
-                    broadcastTarget === 'direct'
-                      ? 'bg-purple-600/30 border-purple-500 text-purple-200 ring-1 ring-purple-400'
-                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                  }`}
-                >
-                  <span>💬</span>
-                  <span className="truncate">{language === 'am' ? 'ለኔ ቴሌግራም' : 'My Telegram Chat'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setBroadcastTarget('channel'); setAnnounceChatId('@HyperBingoChannel'); }}
-                  className={`py-1.5 px-2.5 rounded-xl text-xs font-black border transition cursor-pointer text-left flex items-center gap-1.5 ${
-                    broadcastTarget === 'channel'
-                      ? 'bg-purple-600/30 border-purple-500 text-purple-200 ring-1 ring-purple-400'
-                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                  }`}
-                >
-                  <span>📢</span>
-                  <span className="truncate">@HyperBingoChannel</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setBroadcastTarget('custom'); setAnnounceChatId(''); }}
-                  className={`py-1.5 px-3 rounded-xl text-xs font-black border transition cursor-pointer flex items-center gap-1 ${
-                    broadcastTarget === 'custom'
-                      ? 'bg-purple-600/30 border-purple-500 text-purple-200 ring-1 ring-purple-400'
-                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                  }`}
-                >
-                  <span>✍️ Custom</span>
-                </button>
-              </div>
-              {broadcastTarget === 'custom' && (
-                <input
-                  type="text"
-                  placeholder="Chat ID, @channel, or Group ID"
-                  value={announceChatId}
-                  onChange={e => setAnnounceChatId(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 mt-1"
-                />
-              )}
-            </div>
-
-            {/* Template Presets */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                {language === 'am' ? 'የመልእክት ዓይነት (Preset)' : 'Broadcast Template'}
-              </label>
-              <div className="grid grid-cols-3 gap-1">
-                {[
-                  { id: 'weekend_draws', label: '🌟 2/5/7 PM' },
-                  { id: 'daily_spin', label: '🎁 Lucky Spin' },
-                  { id: 'custom', label: '📝 Custom' },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setBroadcastPreset(item.id as any)}
-                    className={`py-1.5 px-2 rounded-xl text-[10px] font-black border transition cursor-pointer truncate ${
-                      broadcastPreset === item.id
-                        ? 'bg-amber-500/20 border-amber-400 text-amber-300 ring-1 ring-amber-400'
-                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Custom text editor if custom preset */}
-          {broadcastPreset === 'custom' && (
-            <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                {language === 'am' ? 'የመልእክት ጽሑፍ አስገባ' : 'Type Broadcast Message (HTML Supported)'}
-              </label>
-              <textarea
-                rows={3}
-                value={customBroadcastText}
-                onChange={e => setCustomBroadcastText(e.target.value)}
-                placeholder="🎉 Big weekend jackpots are live! Join now..."
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono"
-              />
-            </div>
-          )}
-
-          {/* Media Attachment Selector (Picture / Document) */}
-          <div className="space-y-2 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <span>📎</span>
-                {language === 'am' ? 'ምስል ወይም ሰነድ አያይዝ' : 'Attach Picture or Document'}
-              </label>
-              <span className="text-[9px] text-purple-400 font-medium">Telegram Bot + Mini App Banner</span>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => { setBroadcastMediaType('none'); setBroadcastMediaUrl(''); setBroadcastFileName(''); }}
-                className={`py-1.5 px-2 rounded-xl text-[10px] font-black border transition cursor-pointer text-center ${
-                  broadcastMediaType === 'none'
-                    ? 'bg-purple-600/30 border-purple-500 text-purple-200 ring-1 ring-purple-400'
-                    : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                }`}
-              >
-                📝 Text Only
-              </button>
-              <button
-                type="button"
-                onClick={() => setBroadcastMediaType('photo')}
-                className={`py-1.5 px-2 rounded-xl text-[10px] font-black border transition cursor-pointer text-center ${
-                  broadcastMediaType === 'photo'
-                    ? 'bg-indigo-600/30 border-indigo-400 text-indigo-200 ring-1 ring-indigo-400'
-                    : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                }`}
-              >
-                🖼️ Picture / Image
-              </button>
-              <button
-                type="button"
-                onClick={() => setBroadcastMediaType('document')}
-                className={`py-1.5 px-2 rounded-xl text-[10px] font-black border transition cursor-pointer text-center ${
-                  broadcastMediaType === 'document'
-                    ? 'bg-blue-600/30 border-blue-400 text-blue-200 ring-1 ring-blue-400'
-                    : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
-                }`}
-              >
-                📄 Document / PDF
-              </button>
-            </div>
-
-            {broadcastMediaType === 'photo' && (
-              <div className="space-y-2 pt-1">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Enter image URL (https://...) or choose file"
-                    value={broadcastMediaUrl.startsWith('data:') ? `[Local image file: ${broadcastFileName}]` : broadcastMediaUrl}
-                    onChange={e => {
-                      setBroadcastMediaUrl(e.target.value);
-                      setBroadcastFileName('');
-                    }}
-                    className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500"
-                  />
-                  <label className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-[11px] font-bold text-slate-200 cursor-pointer flex items-center gap-1 shrink-0">
-                    📁 Upload Image
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setBroadcastFileName(file.name);
-                          const reader = new FileReader();
-                          reader.onload = () => {
-                            if (typeof reader.result === 'string') {
-                              setBroadcastMediaUrl(reader.result);
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-                {broadcastMediaUrl && (
-                  <div className="relative w-full max-h-36 rounded-lg overflow-hidden border border-slate-700 bg-black flex items-center justify-center">
-                    <img src={broadcastMediaUrl} alt="Preview" className="max-h-36 object-contain" />
-                    <button
-                      type="button"
-                      onClick={() => { setBroadcastMediaUrl(''); setBroadcastFileName(''); }}
-                      className="absolute top-1 right-1 bg-rose-600/90 hover:bg-rose-600 text-white rounded-full px-2 py-0.5 text-[10px] font-bold"
-                    >
-                      ✕ Remove
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {broadcastMediaType === 'document' && (
-              <div className="space-y-2 pt-1">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Enter document URL (https://...) or upload file"
-                    value={broadcastMediaUrl.startsWith('data:') ? `[Local document file: ${broadcastFileName}]` : broadcastMediaUrl}
-                    onChange={e => {
-                      setBroadcastMediaUrl(e.target.value);
-                      setBroadcastFileName('');
-                    }}
-                    className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500"
-                  />
-                  <label className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-[11px] font-bold text-slate-200 cursor-pointer flex items-center gap-1 shrink-0">
-                    📁 Upload Document
-                    <input
-                      type="file"
-                      accept=".pdf,.doc,.docx,.xlsx,.png,.jpg,.jpeg"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setBroadcastFileName(file.name);
-                          const reader = new FileReader();
-                          reader.onload = () => {
-                            if (typeof reader.result === 'string') {
-                              setBroadcastMediaUrl(reader.result);
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-                {broadcastFileName && (
-                  <div className="flex items-center justify-between bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-300">
-                    <span className="truncate">📄 <b>{broadcastFileName}</b></span>
-                    <button
-                      type="button"
-                      onClick={() => { setBroadcastMediaUrl(''); setBroadcastFileName(''); }}
-                      className="text-rose-400 hover:text-rose-300 text-[10px] font-bold ml-2 cursor-pointer"
-                    >
-                      ✕ Remove
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Telegram Preview Box */}
-          <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 space-y-1 text-xs">
-            <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-              <span>Telegram Message Preview</span>
-              <span className="text-purple-400 font-mono">HTML Formatted</span>
-            </div>
-            <pre className="text-[11px] text-slate-300 font-sans whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto pr-1">
-              {getBroadcastPreview()}
-            </pre>
-          </div>
-
-          {/* Action Button & Status */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
-            <div className="flex flex-col gap-1.5">
-              <div className="text-[10px] text-slate-400">
-                Target: <code className="text-purple-300 font-bold">{announceChatId || '@HyperBingoChannel'}</code>
-              </div>
-              <div className="bg-amber-950/30 border border-amber-700/40 rounded-lg px-2 py-1.5 text-[10px] text-amber-200 leading-relaxed">
-                <strong className="text-amber-300">⚠️ Chat-not-found fix steps:</strong>
-                <span className="opacity-80"> 1. Add @HyperBingoBot as channel ADMIN. 2. Private? Use numeric ID like -1001234567890. 3. Verify bot works via Send Test to Me below.</span>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row items-stretch gap-1.5">
-              <button
-                type="button"
-                onClick={() => { if (user?.telegramId) handleSendBroadcast(user.telegramId); }}
-                disabled={announcing || !user?.telegramId}
-                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 font-black text-[10px] transition flex items-center justify-center gap-1 border border-slate-700 cursor-pointer shrink-0"
-              >
-                ✉️ {language === 'am' ? 'ልእናንተ ላይ ሞክር' : 'Send Test to Me'}
-              </button>
-              <button
-                type="button"
-                onClick={handleClearAnnouncement}
-                disabled={announcing}
-                className="px-3 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 disabled:opacity-50 text-rose-300 font-black text-[10px] transition flex items-center justify-center gap-1 border border-rose-800/60 cursor-pointer shrink-0"
-                title="Remove current active announcement banner from all players"
-              >
-                🗑️ {language === 'am' ? 'ማስታወቂያ አጥፋ' : 'Clear Active'}
-              </button>
-              <button
-                onClick={() => handleSendBroadcast()}
-                disabled={announcing}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white font-black text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-purple-900/30 cursor-pointer"
-              >
-                <Megaphone className="w-4 h-4" />
-                {announcing ? 'Broadcasting...' : (language === 'am' ? 'መልእክቱን በቴሌግራም አሰራጭ' : 'Broadcast to Telegram')}
-              </button>
-            </div>
-          </div>
-
-          {announceResult && (
-            <div className={`text-[11px] font-bold whitespace-pre-wrap leading-relaxed px-3 py-2.5 rounded-xl border ${
-              announceResult.ok
-                ? 'bg-emerald-900/40 border-emerald-500/40 text-emerald-300'
-                : 'bg-rose-950/50 border-rose-500/40 text-rose-200'
-            }`}>
-              {announceResult.msg}
-            </div>
-          )}
-        </div>
-
-        {/* Navigation Tabs */}
+        {/* Navigation Tabs (Organized at the top of the Admin Panel) */}
         <div className="flex items-center gap-1.5 border-b border-slate-800 overflow-x-auto pb-1 no-scrollbar">
           {[
             { id: 'overview', label: t('overview'), icon: FileText },
+            { id: 'broadcast', label: language === 'am' ? '📢 ማስታወቂያ ማሰራጫ' : '📢 Broadcast Center', icon: Megaphone },
             { id: 'games', label: t('games'), icon: Gamepad2 },
             { id: 'finance', label: `${t('finance')} (${pendingWithdrawals.length})`, icon: Wallet },
             { id: 'users', label: `${t('users')} (${registeredUsers.length || dbStats?.totalUsers || 0})`, icon: Users },
@@ -887,11 +524,11 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`px-3 py-2 rounded-xl font-bold text-xs transition flex items-center gap-1.5 shrink-0 ${
+                onClick={() => { setActiveTab(tab.id as any); setAnnounceResult(null); }}
+                className={`px-3.5 py-2 rounded-xl font-bold text-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeTab === tab.id
                     ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                    : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800'
+                    : 'bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -901,23 +538,639 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
           })}
         </div>
 
+        {/* BROADCAST CENTER TAB (Separated Weekend Games vs Custom Rich Media) */}
+        {activeTab === 'broadcast' && (
+          <div className="space-y-4">
+            {/* Top Selector Card */}
+            <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 shadow-xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                    <Megaphone className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm sm:text-base font-black text-white tracking-wide">
+                      {language === 'am' ? 'የቴሌግራም እና ሚኒ አፕ ማስታወቂያ ማሰራጫ' : 'Telegram & In-App Broadcast Studio'}
+                    </h2>
+                    <p className="text-xs text-slate-300">
+                      {language === 'am'
+                        ? 'የሳምንቱን መጨረሻ ጨዋታዎች ወይም የራስዎን ልዩ ማስታወቂያ ለይተው ያሰራጩ'
+                        : 'Choose between automated weekend lottery game alerts or custom rich media announcements'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Separate Mode Switcher */}
+                <div className="flex p-1 bg-slate-950 rounded-xl border border-slate-800 gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => { setBroadcastMode('weekend'); setAnnounceResult(null); }}
+                    className={`py-2 px-3.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+                      broadcastMode === 'weekend'
+                        ? 'bg-amber-500 text-slate-950 shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span>🌟</span>
+                    <span>{language === 'am' ? 'የሳምንቱ መጨረሻ ጨዋታዎች' : 'Weekend Games Broadcast'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setBroadcastMode('custom'); setAnnounceResult(null); }}
+                    className={`py-2 px-3.5 rounded-lg text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+                      broadcastMode === 'custom'
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span>✍️</span>
+                    <span>{language === 'am' ? 'ልዩ ማስታወቂያ እና ፎቶ/ሰነድ' : 'Custom Announcement & Media'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Alert Notification */}
+              {announceResult && (
+                <div className={`text-xs font-bold whitespace-pre-wrap leading-relaxed p-3.5 rounded-xl border ${
+                  announceResult.ok
+                    ? 'bg-emerald-950/80 border-emerald-500 text-emerald-200'
+                    : 'bg-rose-950/80 border-rose-500 text-rose-200'
+                }`}>
+                  {announceResult.msg}
+                </div>
+              )}
+            </div>
+
+            {/* ── MODE 1: WEEKEND GAMES ANNOUNCEMENT ────────────────────────── */}
+            {broadcastMode === 'weekend' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                {/* Left 7 cols: Weekend Broadcast Config */}
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="p-4 sm:p-5 rounded-2xl border border-slate-800 bg-slate-900 shadow-lg space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 text-base">🌟</span>
+                        <div>
+                          <h3 className="text-sm font-black text-amber-300 uppercase tracking-wide">
+                            {language === 'am' ? 'የሳምንቱ መጨረሻ ጨዋታዎች ማሰራጫ' : 'Weekend Lottery Game Broadcast'}
+                          </h3>
+                          <span className="text-[11px] text-slate-300">
+                            {language === 'am' ? 'ዕለታት፡ አርብ፣ ቅዳሜ፣ እሑድ (2:00, 5:00 & 7:00 PM)' : 'Draw Times: Fri–Sun at 2:00 PM, 5:00 PM & 7:00 PM'}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-full uppercase">
+                        Automated Format
+                      </span>
+                    </div>
+
+                    {/* Destination Selection */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
+                        {language === 'am' ? 'የሚላክበት አድራሻ (Target)' : 'Broadcast Destination'}
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setWeekendTarget('channel'); setWeekendCustomChatId(''); }}
+                          className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                            weekendTarget === 'channel'
+                              ? 'bg-amber-500 text-slate-950 font-black border-amber-400 shadow-md'
+                              : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-600'
+                          }`}
+                        >
+                          📢 @HyperBingoChannel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setWeekendTarget('direct'); setWeekendCustomChatId(''); }}
+                          className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                            weekendTarget === 'direct'
+                              ? 'bg-amber-500 text-slate-950 font-black border-amber-400 shadow-md'
+                              : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-600'
+                          }`}
+                        >
+                          💬 {language === 'am' ? 'ለኔ ቴሌግራም' : 'My Telegram'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWeekendTarget('custom')}
+                          className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                            weekendTarget === 'custom'
+                              ? 'bg-amber-500 text-slate-950 font-black border-amber-400 shadow-md'
+                              : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-600'
+                          }`}
+                        >
+                          ✍️ {language === 'am' ? 'ሌላ Chat ID' : 'Custom Target'}
+                        </button>
+                      </div>
+                      {weekendTarget === 'custom' && (
+                        <input
+                          type="text"
+                          placeholder="e.g. @YourChannel or -1001234567890"
+                          value={weekendCustomChatId}
+                          onChange={e => setWeekendCustomChatId(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-400 mt-1"
+                        />
+                      )}
+                    </div>
+
+                    {/* Included Weekend Games Summary */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
+                        {language === 'am' ? 'በማሰራጫው ውስጥ የተካተቱ ጨዋታዎች' : 'Weekend Lottery Games Included'}
+                      </label>
+                      <div className="space-y-2">
+                        {(games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial).length > 0
+                          ? games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial)
+                          : [
+                              { id: 'def1', name: 'Weekend Mega Draw (2:00 PM)', entryPrice: 100, prizePool: 25000, currentPlayers: 28, maxPlayers: 100 },
+                              { id: 'def2', name: 'Weekend High Roller (5:00 PM)', entryPrice: 200, prizePool: 50000, currentPlayers: 18, maxPlayers: 80 },
+                              { id: 'def3', name: 'Sunday Night Jackpot (7:00 PM)', entryPrice: 500, prizePool: 100000, currentPlayers: 42, maxPlayers: 150 },
+                            ]
+                        ).map((wg: any, i: number) => (
+                          <div key={wg.id || i} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-xs text-white block">🌟 {wg.name}</span>
+                              <span className="text-[11px] text-slate-300">
+                                Entry: <strong className="text-amber-300 font-bold">{wg.entryPrice} ETB</strong> · Players: {wg.currentPlayers || 0}/{wg.maxPlayers || 100}
+                              </span>
+                            </div>
+                            <span className="font-mono font-black text-xs text-emerald-300 bg-emerald-950/60 border border-emerald-500/40 px-2.5 py-1 rounded-lg">
+                              🏆 {formatETB(wg.prizePool)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-2 border-t border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => { if (user?.telegramId) handleSendWeekendBroadcast(user.telegramId); }}
+                        disabled={announcing || !user?.telegramId}
+                        className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 font-bold text-xs border border-slate-700 cursor-pointer text-center"
+                      >
+                        ✉️ {language === 'am' ? 'ለኔ ቴሌግራም ሞክር' : 'Send Test to Me'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSendWeekendBroadcast()}
+                        disabled={announcing}
+                        className="flex-1 py-2.5 px-5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:brightness-105 active:scale-98 disabled:opacity-50 text-slate-950 font-black text-xs transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <Megaphone className="w-4 h-4 text-slate-950" />
+                        {announcing ? 'Broadcasting...' : (language === 'am' ? 'የሳምንቱን መጨረሻ ጨዋታዎች አሰራጭ' : 'Broadcast Weekend Games Now')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right 5 cols: Live Preview */}
+                <div className="lg:col-span-5 space-y-3">
+                  <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 shadow-lg space-y-2.5">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-300 border-b border-slate-800 pb-2">
+                      <span className="flex items-center gap-1.5 text-white">
+                        <span>💬</span> Telegram Live Preview
+                      </span>
+                      <span className="text-[10px] text-amber-400 font-mono font-bold">Auto Synchronized</span>
+                    </div>
+
+                    <div className="bg-[#17212b] p-4 rounded-xl border border-sky-900/40 text-slate-100 text-xs font-sans leading-relaxed whitespace-pre-wrap max-h-96 overflow-y-auto">
+                      {getWeekendBroadcastPreview()}
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-normal">
+                      💡 <strong>Note:</strong> Automatically attaches live game launch buttons and updates the active announcement banner across the bot and mini app.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── MODE 2: CUSTOM ANNOUNCEMENT & MEDIA POST ─────────────────── */}
+            {broadcastMode === 'custom' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                {/* Left 7 cols: Custom Text & Media Uploader */}
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="p-4 sm:p-5 rounded-2xl border border-slate-800 bg-slate-900 shadow-lg space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-base">✍️</span>
+                        <div>
+                          <h3 className="text-sm font-black text-indigo-300 uppercase tracking-wide">
+                            {language === 'am' ? 'ልዩ ማስታወቂያ እና ፎቶ/ሰነድ መለጠፊያ' : 'Custom Announcement & Media Studio'}
+                          </h3>
+                          <span className="text-[11px] text-slate-300">
+                            {language === 'am' ? 'ማንኛውንም ጽሑፍ፣ ምስል ወይም ሰነድ ለተጫዋቾች ይለጥፉ' : 'Write custom text, attach pictures, flyers, or documents'}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2.5 py-1 rounded-full uppercase">
+                        Custom Media
+                      </span>
+                    </div>
+
+                    {/* Destination Selection */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
+                        {language === 'am' ? 'የሚላክበት አድራሻ (Target)' : 'Broadcast Destination'}
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setCustomTarget('channel'); setCustomChatId(''); }}
+                          className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                            customTarget === 'channel'
+                              ? 'bg-indigo-600 text-white font-black border-indigo-400 shadow-md'
+                              : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-600'
+                          }`}
+                        >
+                          📢 @HyperBingoChannel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setCustomTarget('direct'); setCustomChatId(''); }}
+                          className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                            customTarget === 'direct'
+                              ? 'bg-indigo-600 text-white font-black border-indigo-400 shadow-md'
+                              : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-600'
+                          }`}
+                        >
+                          💬 {language === 'am' ? 'ለኔ ቴሌግራም' : 'My Telegram'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCustomTarget('custom')}
+                          className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                            customTarget === 'custom'
+                              ? 'bg-indigo-600 text-white font-black border-indigo-400 shadow-md'
+                              : 'bg-slate-950 border-slate-700 text-slate-300 hover:border-slate-600'
+                          }`}
+                        >
+                          ✍️ {language === 'am' ? 'ሌላ Chat ID' : 'Custom Target'}
+                        </button>
+                      </div>
+                      {customTarget === 'custom' && (
+                        <input
+                          type="text"
+                          placeholder="e.g. @YourChannel or -1001234567890"
+                          value={customChatId}
+                          onChange={e => setCustomChatId(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-400 mt-1"
+                        />
+                      )}
+                    </div>
+
+                    {/* Custom Textarea */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                          {language === 'am' ? 'የማስታወቂያው መልእክት ጽሑፍ' : 'Announcement Message (HTML Supported)'}
+                        </label>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {customBroadcastText.length} chars
+                        </span>
+                      </div>
+                      <textarea
+                        rows={4}
+                        value={customBroadcastText}
+                        onChange={e => setCustomBroadcastText(e.target.value)}
+                        placeholder="🎉 የዛሬው ልዩ ውድድር ተጀምሯል! አሁኑኑ ተቀላቀሉ..."
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-sans leading-relaxed"
+                      />
+                    </div>
+
+                    {/* Media Attachment Selector */}
+                    <div className="space-y-2 p-3 rounded-xl bg-slate-950 border border-slate-800">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                          <span>📎</span> {language === 'am' ? 'ምስል ወይም ሰነድ አያይዝ' : 'Attach Photo or Document'}
+                        </label>
+                        <span className="text-[10px] text-indigo-400 font-bold uppercase">Optional Attachment</span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => { setBroadcastMediaType('none'); setBroadcastMediaUrl(''); setBroadcastFileName(''); }}
+                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition cursor-pointer text-center ${
+                            broadcastMediaType === 'none'
+                              ? 'bg-slate-800 text-white border-slate-600 font-black'
+                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          📝 Text Only
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBroadcastMediaType('photo')}
+                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition cursor-pointer text-center ${
+                            broadcastMediaType === 'photo'
+                              ? 'bg-indigo-600 text-white border-indigo-400 font-black shadow-md'
+                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          🖼️ Photo / Picture
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBroadcastMediaType('document')}
+                          className={`py-2 px-2 rounded-xl text-xs font-bold border transition cursor-pointer text-center ${
+                            broadcastMediaType === 'document'
+                              ? 'bg-indigo-600 text-white border-indigo-400 font-black shadow-md'
+                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          📄 Document / PDF
+                        </button>
+                      </div>
+
+                      {/* Photo Attachment inputs */}
+                      {broadcastMediaType === 'photo' && (
+                        <div className="space-y-2 pt-1.5">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="Paste image URL (https://...) or choose file"
+                              value={broadcastMediaUrl.startsWith('data:') ? `[Uploaded image: ${broadcastFileName}]` : broadcastMediaUrl}
+                              onChange={e => { setBroadcastMediaUrl(e.target.value); setBroadcastFileName(''); }}
+                              className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-400"
+                            />
+                            <label className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1 shrink-0">
+                              📁 Upload
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={e => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setBroadcastFileName(file.name);
+                                    const reader = new FileReader();
+                                    reader.onload = () => {
+                                      if (typeof reader.result === 'string') {
+                                        setBroadcastMediaUrl(reader.result);
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                          {broadcastMediaUrl && (
+                            <div className="relative w-full max-h-40 rounded-xl overflow-hidden border border-slate-700 bg-black flex items-center justify-center">
+                              <img src={broadcastMediaUrl} alt="Preview" className="max-h-40 object-contain" />
+                              <button
+                                type="button"
+                                onClick={() => { setBroadcastMediaUrl(''); setBroadcastFileName(''); }}
+                                className="absolute top-1.5 right-1.5 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full cursor-pointer"
+                              >
+                                ✕ Remove
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Document Attachment inputs */}
+                      {broadcastMediaType === 'document' && (
+                        <div className="space-y-2 pt-1.5">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="Paste document URL (https://...) or upload file"
+                              value={broadcastMediaUrl.startsWith('data:') ? `[Uploaded doc: ${broadcastFileName}]` : broadcastMediaUrl}
+                              onChange={e => { setBroadcastMediaUrl(e.target.value); setBroadcastFileName(''); }}
+                              className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-400"
+                            />
+                            <label className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1 shrink-0">
+                              📁 Upload
+                              <input
+                                type="file"
+                                accept=".pdf,.doc,.docx,.xlsx,.png,.jpg"
+                                className="hidden"
+                                onChange={e => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setBroadcastFileName(file.name);
+                                    const reader = new FileReader();
+                                    reader.onload = () => {
+                                      if (typeof reader.result === 'string') {
+                                        setBroadcastMediaUrl(reader.result);
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                          {broadcastFileName && (
+                            <div className="flex items-center justify-between bg-slate-900 px-3 py-2 rounded-xl border border-slate-700 text-xs text-slate-200">
+                              <span className="truncate font-bold">📄 {broadcastFileName}</span>
+                              <button
+                                type="button"
+                                onClick={() => { setBroadcastMediaUrl(''); setBroadcastFileName(''); }}
+                                className="text-rose-400 hover:text-rose-300 text-xs font-bold ml-2 cursor-pointer"
+                              >
+                                ✕ Remove
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-2 border-t border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => { if (user?.telegramId) handleSendCustomBroadcast(user.telegramId); }}
+                        disabled={announcing || !user?.telegramId}
+                        className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 font-bold text-xs border border-slate-700 cursor-pointer text-center"
+                      >
+                        ✉️ {language === 'am' ? 'ለኔ ቴሌግራም ሞክር' : 'Send Test to Me'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleClearAnnouncement}
+                        disabled={announcing}
+                        className="py-2.5 px-3 rounded-xl bg-rose-950/50 hover:bg-rose-900/60 disabled:opacity-50 text-rose-300 font-bold text-xs border border-rose-800/60 cursor-pointer text-center"
+                        title="Remove current active announcement from all players"
+                      >
+                        🗑️ {language === 'am' ? 'ማስታወቂያ አጥፋ' : 'Clear Active'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSendCustomBroadcast()}
+                        disabled={announcing}
+                        className="flex-1 py-2.5 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-98 disabled:opacity-50 text-white font-black text-xs transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <Megaphone className="w-4 h-4 text-white" />
+                        {announcing ? 'Publishing...' : (language === 'am' ? 'ማስታወቂያውን አሰራጭ' : 'Broadcast Custom Post')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right 5 cols: Live Preview */}
+                <div className="lg:col-span-5 space-y-3">
+                  <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 shadow-lg space-y-2.5">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-300 border-b border-slate-800 pb-2">
+                      <span className="flex items-center gap-1.5 text-white">
+                        <span>💬</span> Telegram & App Preview
+                      </span>
+                      <span className="text-[10px] text-indigo-400 font-mono font-bold">Live Sync</span>
+                    </div>
+
+                    {broadcastMediaType === 'photo' && broadcastMediaUrl && (
+                      <div className="rounded-xl overflow-hidden border border-slate-700 bg-black flex items-center justify-center max-h-48">
+                        <img src={broadcastMediaUrl} alt="Preview" className="max-h-48 object-contain" />
+                      </div>
+                    )}
+
+                    {broadcastMediaType === 'document' && broadcastFileName && (
+                      <div className="p-3 rounded-xl bg-indigo-950/50 border border-indigo-700/60 flex items-center gap-2 text-xs text-indigo-200">
+                        <span className="text-xl">📄</span>
+                        <div className="truncate">
+                          <p className="font-bold text-white truncate">{broadcastFileName}</p>
+                          <span className="text-[10px] text-indigo-300">Document attachment</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="bg-[#17212b] p-4 rounded-xl border border-sky-900/40 text-slate-100 text-xs font-sans leading-relaxed whitespace-pre-wrap max-h-80 overflow-y-auto">
+                      {customBroadcastText || 'Type your message on the left to see live preview...'}
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-normal">
+                      📢 <strong>Audience:</strong> Will immediately display in the Top Lobby Banner of the Mini App and be broadcasted to your selected Telegram destination.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
           <div className="space-y-4">
+            {/* Live Top Header Ticker: Total Players and Weekend Games Minutes Countdown */}
+            {(() => {
+              const totalLivePlayers = games.reduce((acc, g) => acc + (g.currentPlayers || 0), 0);
+              const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
+
+              return (
+                <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-lg space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                      <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                        {language === 'am' ? 'የቀጥታ ስታቲስቲክስ' : 'Live Platform Status'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-slate-950 px-3 py-1 rounded-xl border border-slate-800">
+                      <Users className="w-4 h-4 text-purple-400" />
+                      <span className="text-xs text-slate-300 font-bold">
+                        {language === 'am' ? 'አጠቃላይ ተጫዋቾች:' : 'Total Live Players:'}
+                      </span>
+                      <span className="text-sm font-black text-purple-300">{totalLivePlayers}</span>
+                    </div>
+                  </div>
+
+                  {/* Weekend Games Live Countdown Bar */}
+                  <div className="space-y-2">
+                    <div className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                      <Flame className="w-4 h-4 text-amber-400" />
+                      <span>{language === 'am' ? 'የሳምንቱ መጨረሻ ጨዋታዎች የቀረ ደቂቃ' : 'Weekend Lottery Games Countdown & Live Players'}</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                      {weekendGames.map((wg, idx) => {
+                        const cycleMinutes = idx === 0 ? 15 : idx === 1 ? 8 : 22;
+                        const elapsedSec = Math.floor(now / 1000) % (cycleMinutes * 60);
+                        const remSec = (cycleMinutes * 60) - elapsedSec;
+                        const remMins = Math.floor(remSec / 60);
+                        const remSecs = remSec % 60;
+
+                        return (
+                          <div key={wg.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                            <div>
+                              <div className="font-black text-xs text-amber-300 flex items-center gap-1">
+                                <span>🌟 {wg.name}</span>
+                              </div>
+                              <div className="text-[11px] text-slate-300 flex items-center gap-2 mt-0.5">
+                                <span>👥 {wg.currentPlayers} players</span>
+                                <span>•</span>
+                                <span className="text-emerald-400 font-bold">{formatETB(wg.prizePool)}</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] text-slate-400 font-medium block">
+                                {language === 'am' ? 'የቀረ ደቂቃ' : 'Time Left'}
+                              </span>
+                              <span className="font-mono font-black text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 flex items-center gap-1">
+                                <Timer className="w-3 h-3 animate-spin" />
+                                {remMins}m {remSecs < 10 ? `0${remSecs}` : remSecs}s
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Quick Broadcast Action Cards on Overview */}
+            <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 shadow-md flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
+                  <Megaphone className="w-4 h-4 text-amber-400" />
+                  {language === 'am' ? 'ፈጣን ማስታወቂያ ማሰራጫ' : 'Quick Broadcast Actions'}
+                </h3>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  {language === 'am'
+                    ? 'የሳምንቱን መጨረሻ ጨዋታዎች ወይም አዲስ ማስታወቂያ ለተጠቃሚዎች ያሰራጩ'
+                    : 'Jump directly to broadcast weekend draws or publish a custom media post'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('broadcast'); setBroadcastMode('weekend'); }}
+                  className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-sm cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>🌟</span> {language === 'am' ? 'የሳምንቱ ጨዋታዎች' : 'Weekend Draws'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('broadcast'); setBroadcastMode('custom'); }}
+                  className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-sm cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>✍️</span> {language === 'am' ? 'ልዩ ማስታወቂያ' : 'Custom Post'}
+                </button>
+              </div>
+            </div>
+
             {/* KPI Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
-              <div className="glass-panel p-3.5 sm:p-5 rounded-2xl border-slate-800">
-                <div className="text-slate-400 text-[11px] font-semibold">{t('totalRevenue')}</div>
+              <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 shadow-md">
+                <div className="text-slate-400 text-xs font-bold uppercase tracking-wider">{t('totalRevenue')}</div>
                 <div className="text-xl sm:text-2xl font-black text-amber-400 mt-1">{formatETB(totalRevenue)}</div>
               </div>
 
-              <div className="glass-panel p-3.5 sm:p-5 rounded-2xl border-slate-800">
-                <div className="text-slate-400 text-[11px] font-semibold">{t('totalDeposits')}</div>
+              <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 shadow-md">
+                <div className="text-slate-400 text-xs font-bold uppercase tracking-wider">{t('totalDeposits')}</div>
                 <div className="text-xl sm:text-2xl font-black text-emerald-400 mt-1">{formatETB(totalDeposits)}</div>
               </div>
 
-              <div className="glass-panel p-3.5 sm:p-5 rounded-2xl border-slate-800">
-                <div className="text-slate-400 text-[11px] font-semibold">
+              <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 shadow-md">
+                <div className="text-slate-400 text-xs font-bold uppercase tracking-wider">
                   {language === 'am' ? 'አጠቃላይ ተጠቃሚዎች' : 'Total Users'}
                 </div>
                 <div className="text-xl sm:text-2xl font-black text-cyan-400 mt-1">
@@ -925,21 +1178,20 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                 </div>
               </div>
 
-              <div className="glass-panel p-3.5 sm:p-5 rounded-2xl border-slate-800">
-                <div className="text-slate-400 text-[11px] font-semibold">{t('pendingWithdrawals')}</div>
+              <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 shadow-md">
+                <div className="text-slate-400 text-xs font-bold uppercase tracking-wider">{t('pendingWithdrawals')}</div>
                 <div className="text-xl sm:text-2xl font-black text-rose-400 mt-1">{pendingWithdrawals.length}</div>
               </div>
 
-              <div className="glass-panel p-3.5 sm:p-5 rounded-2xl border-slate-800">
-                <div className="text-slate-400 text-[11px] font-semibold">{t('activeGames')}</div>
+              <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900 shadow-md">
+                <div className="text-slate-400 text-xs font-bold uppercase tracking-wider">{t('activeGames')}</div>
                 <div className="text-xl sm:text-2xl font-black text-purple-400 mt-1">
                   {games.filter((g) => g.status !== 'COMPLETED').length}
                 </div>
               </div>
             </div>
-
             {/* Quick Pending Actions */}
-            <div className="glass-panel p-4 sm:p-5 rounded-2xl border-slate-800 space-y-3">
+            <div className="p-4 sm:p-5 rounded-2xl border border-slate-800 bg-slate-900 shadow-md space-y-3">
               <h3 className="text-xs sm:text-sm font-bold text-slate-200 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-400" />
                 {t('payoutApprovals')} ({pendingWithdrawals.length})
