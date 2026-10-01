@@ -218,7 +218,8 @@ export default function WalletManager() {
         setDepositStep(1);
         setTransactionCode('');
         handleRemoveScreenshot();
-      } finally {
+      }
+    } finally {
       setIsProcessing(false);
     }
   };
