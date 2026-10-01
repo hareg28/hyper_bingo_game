@@ -851,7 +851,14 @@ const db = {
   /**
    * Save a new announcement and set it active
    */
-  async saveAnnouncement(text: string, title?: string, type = 'BROADCAST'): Promise<SystemAnnouncement> {
+  async saveAnnouncement(
+    text: string,
+    title?: string,
+    type = 'BROADCAST',
+    mediaUrl?: string,
+    mediaType?: 'photo' | 'document' | 'image',
+    fileName?: string
+  ): Promise<SystemAnnouncement> {
     const id = generateId('ann');
     const now = new Date().toISOString();
     const newRecord: SystemAnnouncement = {
@@ -859,6 +866,9 @@ const db = {
       text,
       title: title || '',
       type: type as any,
+      mediaUrl: mediaUrl || undefined,
+      mediaType: mediaType || undefined,
+      fileName: fileName || undefined,
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -870,10 +880,10 @@ const db = {
         await initDatabaseSchema();
         // Deactivate older announcements first
         await sql`UPDATE announcements SET is_active = FALSE WHERE is_active = TRUE`;
-        // Insert new active announcement
+        // Insert new active announcement with media if present
         await sql`
-          INSERT INTO announcements (id, text, title, type, is_active, created_at, updated_at)
-          VALUES (${id}, ${text}, ${title || ''}, ${type}, TRUE, NOW(), NOW())
+          INSERT INTO announcements (id, text, title, type, media_url, media_type, file_name, is_active, created_at, updated_at)
+          VALUES (${id}, ${text}, ${title || ''}, ${type}, ${mediaUrl || null}, ${mediaType || null}, ${fileName || null}, TRUE, NOW(), NOW())
         `;
         return newRecord;
       } catch (e) {
@@ -911,6 +921,9 @@ const db = {
             text: r.text,
             title: r.title || '',
             type: r.type || 'BROADCAST',
+            mediaUrl: r.media_url || undefined,
+            mediaType: r.media_type || undefined,
+            fileName: r.file_name || undefined,
             isActive: Boolean(r.is_active),
             createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
             updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : new Date().toISOString(),

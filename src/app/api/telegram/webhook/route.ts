@@ -97,12 +97,155 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Regular message updates ─────────────────────────────────────────────────
+    // ── Regular message updates ─────────────────────────────────────────────────
     if (update.message) {
-      const { chat, from, text } = update.message;
+      const { chat, from, text, photo, document, caption } = update.message;
       const chatId = chat.id;
       const userId = from?.id;
       const userName = from?.first_name || 'Player';
       const isAdmin = isAdminTelegramId(userId);
+
+      // Helper to fetch direct Telegram file download URL
+      const resolveTelegramFileUrl = async (fileId: string): Promise<string> => {
+        try {
+          const res = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
+          const data = await res.json();
+          if (data.ok && data.result?.file_path) {
+            return `https://api.telegram.org/file/bot${botToken}/${data.result.file_path}`;
+          }
+        } catch (e) {
+          console.error('Error fetching file path from Telegram:', e);
+        }
+        return '';
+      };
+
+      // ── Handle Admin Photo Upload / Broadcast ───────────────────────────────────
+      if (photo && Array.isArray(photo) && photo.length > 0) {
+        if (!isAdmin) {
+          await sendMessage({
+            chat_id: chatId,
+            parse_mode: 'HTML',
+            text: `ℹ️ <b>Hyper Bingo Bot</b>\nOnly administrators can broadcast pictures or documents. Tap a game below to play!`,
+            reply_markup: buildPersistentKeyboard(false),
+          });
+          return NextResponse.json({ ok: true });
+        }
+
+        const highestPhoto = photo[photo.length - 1];
+        const fileId = highestPhoto.file_id;
+        const fileUrl = await resolveTelegramFileUrl(fileId);
+        const postCaption = caption ? caption.trim() : '📸 New Picture Announcement';
+
+        // Save to DB so all mini app and web app users see this photo announcement!
+        try {
+          await db.saveAnnouncement(
+            postCaption,
+            'Admin Photo Broadcast',
+            'BROADCAST',
+            fileUrl || undefined,
+            'photo'
+          );
+        } catch (e) {
+          console.error('Failed to save photo announcement:', e);
+        }
+
+        // Also broadcast photo to channel if configured
+        try {
+          await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: '@HyperBingoChannel',
+              photo: fileId,
+              caption: `📢 <b>ANNOUNCEMENT / ማስታወቂያ:</b>\n\n${postCaption}`,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: '🎮 Play Hyper Bingo', web_app: { url: appUrl } },
+                    { text: '⚡ Hyper Fetan', web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` } },
+                  ],
+                ],
+              },
+            }),
+          });
+        } catch {}
+
+        await sendMessage({
+          chat_id: chatId,
+          parse_mode: 'HTML',
+          text:
+            `✅ <b>Picture Received & Published!</b>\n\n` +
+            `🖼️ <b>Media:</b> Photo saved successfully\n` +
+            (caption ? `📝 <b>Caption:</b>\n${caption}\n\n` : '\n') +
+            `<i>This picture announcement is now live for all users opening the bot or mini app! Use /clear to remove it.</i>`,
+          reply_markup: buildPersistentKeyboard(true),
+        });
+        return NextResponse.json({ ok: true });
+      }
+
+      // ── Handle Admin Document / PDF Upload ─────────────────────────────────────
+      if (document) {
+        if (!isAdmin) {
+          await sendMessage({
+            chat_id: chatId,
+            parse_mode: 'HTML',
+            text: `ℹ️ <b>Hyper Bingo Bot</b>\nOnly administrators can broadcast documents. Tap a game below to play!`,
+            reply_markup: buildPersistentKeyboard(false),
+          });
+          return NextResponse.json({ ok: true });
+        }
+
+        const fileId = document.file_id;
+        const fileName = document.file_name || 'document.pdf';
+        const fileUrl = await resolveTelegramFileUrl(fileId);
+        const postCaption = caption ? caption.trim() : `📄 Document: ${fileName}`;
+
+        // Save to DB so all users see this document announcement
+        try {
+          await db.saveAnnouncement(
+            postCaption,
+            `Admin Document: ${fileName}`,
+            'BROADCAST',
+            fileUrl || undefined,
+            'document',
+            fileName
+          );
+        } catch (e) {
+          console.error('Failed to save document announcement:', e);
+        }
+
+        // Also broadcast document to channel if configured
+        try {
+          await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: '@HyperBingoChannel',
+              document: fileId,
+              caption: `📢 <b>DOCUMENT / ማስታወቂያ:</b>\n\n${postCaption}`,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🎮 Play Hyper Bingo', web_app: { url: appUrl } }],
+                ],
+              },
+            }),
+          });
+        } catch {}
+
+        await sendMessage({
+          chat_id: chatId,
+          parse_mode: 'HTML',
+          text:
+            `✅ <b>Document Received & Published!</b>\n\n` +
+            `📄 <b>File:</b> ${fileName}\n` +
+            (caption ? `📝 <b>Caption:</b>\n${caption}\n\n` : '\n') +
+            `<i>This document announcement is now active for all players! Use /clear to remove it.</i>`,
+          reply_markup: buildPersistentKeyboard(true),
+        });
+        return NextResponse.json({ ok: true });
+      }
 
       // ── /admin command ────────────────────────────────────────────────────────
       if (text && text.startsWith('/admin')) {
@@ -121,11 +264,13 @@ export async function POST(req: NextRequest) {
           text:
             `👑 <b>Hyper Bingo Admin Center</b>\n` +
             `Welcome <b>${userName}</b>! ID: <code>${userId}</code>\n\n` +
-            `<b>Admin Commands:</b>\n` +
-            `🛡️ Use the Admin button in the keyboard below\n` +
-            `📢 /post [message] — Broadcast a message to all users\n` +
-            `🗑️ /clear — Clear the active announcement\n` +
-            `📋 /games — Show all available games`,
+            `<b>Admin Capabilities:</b>\n` +
+            `📸 <b>Send any Photo:</b> Just send or forward a photo with caption to broadcast an image!\n` +
+            `📄 <b>Send any Document:</b> Send PDF or doc to broadcast documents to players!\n` +
+            `📢 <b>/post [text]</b> — Broadcast a text announcement\n` +
+            `🗑️ <b>/clear</b> — Clear the active announcement\n` +
+            `📋 <b>/games</b> — Show all available games\n` +
+            `🛡️ <b>Admin Panel:</b> Tap the Admin button in the keyboard below`,
           reply_markup: buildPersistentKeyboard(true),
         });
         return NextResponse.json({ ok: true });

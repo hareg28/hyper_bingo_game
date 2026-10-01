@@ -22,7 +22,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { text, title, type, adminTelegramId } = body;
+    const { text, title, type, adminTelegramId, mediaUrl, mediaType, fileName } = body;
 
     if (!isAdminTelegramId(adminTelegramId)) {
       return NextResponse.json({ success: false, error: 'Unauthorized: Admin access required' }, { status: 403 });
@@ -32,7 +32,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Announcement text is required' }, { status: 400 });
     }
 
-    const saved = await db.saveAnnouncement(text.trim(), title?.trim() || '', type || 'BROADCAST');
+    const saved = await db.saveAnnouncement(
+      text.trim(),
+      title?.trim() || '',
+      type || 'BROADCAST',
+      mediaUrl || undefined,
+      mediaType || undefined,
+      fileName || undefined
+    );
     return NextResponse.json({
       success: true,
       announcement: saved,

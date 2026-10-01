@@ -53,19 +53,29 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
   const [announceChatId, setAnnounceChatId] = useState('');
   const [broadcastPreset, setBroadcastPreset] = useState<'weekend_draws' | 'daily_spin' | 'custom'>('weekend_draws');
   const [customBroadcastText, setCustomBroadcastText] = useState('');
+  const [broadcastMediaType, setBroadcastMediaType] = useState<'none' | 'photo' | 'document'>('none');
+  const [broadcastMediaUrl, setBroadcastMediaUrl] = useState('');
+  const [broadcastFileName, setBroadcastFileName] = useState('');
   const [announcing, setAnnouncing] = useState(false);
   const [announceResult, setAnnounceResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const getBroadcastPreview = () => {
+    let mediaPrefix = '';
+    if (broadcastMediaType === 'photo') {
+      mediaPrefix = `[📸 PICTURE ATTACHED: ${broadcastFileName || 'Image'}]\n\n`;
+    } else if (broadcastMediaType === 'document') {
+      mediaPrefix = `[📄 DOCUMENT ATTACHED: ${broadcastFileName || 'Document'}]\n\n`;
+    }
+
     if (broadcastPreset === 'weekend_draws') {
       const weekendGames = games.filter(g => g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial);
       const lines = weekendGames.map((g, i) => `${i + 1}. 🌟 ${g.name} | 💵 ${g.entryPrice} ETB | 🏆 ${formatETB(g.prizePool)}`).join('\n');
-      return `🎉🌟 WEEKEND HYPER BINGO — Special Lottery Draws!\n⏰ Live Draw Schedule: 2:00 PM, 5:00 PM, and 7:00 PM (Fri–Sun)\n\n${lines || '1. Weekend Mega Draw (25,000 ETB)'}\n\n⚡ Pick your cards now on Hyper Bingo Telegram Mini App!`;
+      return mediaPrefix + `🎉🌟 WEEKEND HYPER BINGO — Special Lottery Draws!\n⏰ Live Draw Schedule: 2:00 PM, 5:00 PM, and 7:00 PM (Fri–Sun)\n\n${lines || '1. Weekend Mega Draw (25,000 ETB)'}\n\n⚡ Pick your cards now on Hyper Bingo Telegram Mini App!`;
     }
     if (broadcastPreset === 'daily_spin') {
-      return `🎁 Daily Free Lucky Spin Wheel is Ready!\n\nSpin every 24 hours to win free ETB bonus credits or free card tickets! Open Hyper Bingo and claim your spin today. 🎡✨`;
+      return mediaPrefix + `🎁 Daily Free Lucky Spin Wheel is Ready!\n\nSpin every 24 hours to win free ETB bonus credits or free card tickets! Open Hyper Bingo and claim your spin today. 🎡✨`;
     }
-    return customBroadcastText || 'Enter your custom announcement message here...';
+    return mediaPrefix + (customBroadcastText || 'Enter your custom announcement message here...');
   };
 
   const handleSendBroadcast = async (overrideTarget?: string) => {
@@ -82,6 +92,12 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         adminTelegramId: user?.telegramId || user?.username || '',
         chatId: target,
       };
+
+      if (broadcastMediaType !== 'none' && broadcastMediaUrl) {
+        payload.mediaUrl = broadcastMediaUrl;
+        payload.mediaType = broadcastMediaType;
+        if (broadcastFileName) payload.fileName = broadcastFileName;
+      }
 
       if (broadcastPreset === 'weekend_draws') {
         payload.weekendGames = weekendGames.length > 0 ? weekendGames : [
@@ -126,6 +142,9 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
             text: textToSave,
             customText: payload.customText || '',
             weekendGames: payload.weekendGames,
+            mediaUrl: payload.mediaUrl,
+            mediaType: payload.mediaType,
+            fileName: payload.fileName,
           }
         }));
       } catch {}
@@ -140,6 +159,9 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
             title: broadcastPreset === 'weekend_draws' ? 'WEEKEND BINGO' : broadcastPreset === 'daily_spin' ? 'DAILY LUCKY WHEEL' : 'ANNOUNCEMENT',
             type: broadcastPreset === 'weekend_draws' ? 'WEEKEND' : 'BROADCAST',
             adminTelegramId: user?.telegramId || user?.username || '',
+            mediaUrl: payload.mediaUrl,
+            mediaType: payload.mediaType,
+            fileName: payload.fileName,
           }),
         });
       } catch {}
@@ -643,6 +665,152 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               />
             </div>
           )}
+
+          {/* Media Attachment Selector (Picture / Document) */}
+          <div className="space-y-2 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <span>📎</span>
+                {language === 'am' ? 'ምስል ወይም ሰነድ አያይዝ' : 'Attach Picture or Document'}
+              </label>
+              <span className="text-[9px] text-purple-400 font-medium">Telegram Bot + Mini App Banner</span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                type="button"
+                onClick={() => { setBroadcastMediaType('none'); setBroadcastMediaUrl(''); setBroadcastFileName(''); }}
+                className={`py-1.5 px-2 rounded-xl text-[10px] font-black border transition cursor-pointer text-center ${
+                  broadcastMediaType === 'none'
+                    ? 'bg-purple-600/30 border-purple-500 text-purple-200 ring-1 ring-purple-400'
+                    : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                }`}
+              >
+                📝 Text Only
+              </button>
+              <button
+                type="button"
+                onClick={() => setBroadcastMediaType('photo')}
+                className={`py-1.5 px-2 rounded-xl text-[10px] font-black border transition cursor-pointer text-center ${
+                  broadcastMediaType === 'photo'
+                    ? 'bg-indigo-600/30 border-indigo-400 text-indigo-200 ring-1 ring-indigo-400'
+                    : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                }`}
+              >
+                🖼️ Picture / Image
+              </button>
+              <button
+                type="button"
+                onClick={() => setBroadcastMediaType('document')}
+                className={`py-1.5 px-2 rounded-xl text-[10px] font-black border transition cursor-pointer text-center ${
+                  broadcastMediaType === 'document'
+                    ? 'bg-blue-600/30 border-blue-400 text-blue-200 ring-1 ring-blue-400'
+                    : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                }`}
+              >
+                📄 Document / PDF
+              </button>
+            </div>
+
+            {broadcastMediaType === 'photo' && (
+              <div className="space-y-2 pt-1">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter image URL (https://...) or choose file"
+                    value={broadcastMediaUrl.startsWith('data:') ? `[Local image file: ${broadcastFileName}]` : broadcastMediaUrl}
+                    onChange={e => {
+                      setBroadcastMediaUrl(e.target.value);
+                      setBroadcastFileName('');
+                    }}
+                    className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                  />
+                  <label className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-[11px] font-bold text-slate-200 cursor-pointer flex items-center gap-1 shrink-0">
+                    📁 Upload Image
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setBroadcastFileName(file.name);
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            if (typeof reader.result === 'string') {
+                              setBroadcastMediaUrl(reader.result);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                {broadcastMediaUrl && (
+                  <div className="relative w-full max-h-36 rounded-lg overflow-hidden border border-slate-700 bg-black flex items-center justify-center">
+                    <img src={broadcastMediaUrl} alt="Preview" className="max-h-36 object-contain" />
+                    <button
+                      type="button"
+                      onClick={() => { setBroadcastMediaUrl(''); setBroadcastFileName(''); }}
+                      className="absolute top-1 right-1 bg-rose-600/90 hover:bg-rose-600 text-white rounded-full px-2 py-0.5 text-[10px] font-bold"
+                    >
+                      ✕ Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {broadcastMediaType === 'document' && (
+              <div className="space-y-2 pt-1">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter document URL (https://...) or upload file"
+                    value={broadcastMediaUrl.startsWith('data:') ? `[Local document file: ${broadcastFileName}]` : broadcastMediaUrl}
+                    onChange={e => {
+                      setBroadcastMediaUrl(e.target.value);
+                      setBroadcastFileName('');
+                    }}
+                    className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                  />
+                  <label className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-[11px] font-bold text-slate-200 cursor-pointer flex items-center gap-1 shrink-0">
+                    📁 Upload Document
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xlsx,.png,.jpg,.jpeg"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setBroadcastFileName(file.name);
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            if (typeof reader.result === 'string') {
+                              setBroadcastMediaUrl(reader.result);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                {broadcastFileName && (
+                  <div className="flex items-center justify-between bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-300">
+                    <span className="truncate">📄 <b>{broadcastFileName}</b></span>
+                    <button
+                      type="button"
+                      onClick={() => { setBroadcastMediaUrl(''); setBroadcastFileName(''); }}
+                      className="text-rose-400 hover:text-rose-300 text-[10px] font-bold ml-2 cursor-pointer"
+                    >
+                      ✕ Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Telegram Preview Box */}
           <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 space-y-1 text-xs">

@@ -213,6 +213,9 @@ export interface SystemAnnouncement {
   text: string;
   title?: string;
   type?: 'BROADCAST' | 'WEEKEND' | 'PROMO' | 'ALERT';
+  mediaUrl?: string;
+  mediaType?: 'photo' | 'document' | 'image';
+  fileName?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

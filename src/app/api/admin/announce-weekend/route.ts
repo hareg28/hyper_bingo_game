@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { adminTelegramId, weekendGames, chatId, customText } = body;
+    const { adminTelegramId, weekendGames, chatId, customText, mediaUrl, mediaType, fileName } = body;
 
     // Verify caller is admin
     if (!isAdminTelegramId(adminTelegramId)) {
@@ -46,9 +46,16 @@ export async function POST(req: NextRequest) {
         `🔥 100% ደህንነቱ የተጠበቀ ጨዋታ`;
     }
 
-    // Persist announcement in database so all users opening the bot or web app see it!
+    // Persist announcement in database with media so all users opening the bot or web app see it!
     try {
-      await db.saveAnnouncement(announcementText, 'HYPER BINGO BROADCAST', 'BROADCAST');
+      await db.saveAnnouncement(
+        announcementText,
+        'HYPER BINGO BROADCAST',
+        'BROADCAST',
+        mediaUrl || undefined,
+        mediaType || undefined,
+        fileName || undefined
+      );
     } catch (saveErr) {
       console.error('Failed to save announcement to DB in announce-weekend:', saveErr);
     }
@@ -70,7 +77,6 @@ export async function POST(req: NextRequest) {
     };
 
     // Persistent bottom keyboard: only works in private chats
-    // Activates the permanent game list keyboard above the text input bar
     const persistentKeyboard = {
       keyboard: [
         [
@@ -88,7 +94,50 @@ export async function POST(req: NextRequest) {
       input_field_placeholder: 'Tap a game button above ⬆️',
     };
 
-    const sendMsg = async (payload: any) => {
+    // Helper to send message, photo, or document based on media type
+    const sendTelegramPayload = async (targetId: string | number) => {
+      if (mediaType === 'photo' && mediaUrl) {
+        const res = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: targetId,
+            photo: mediaUrl,
+            caption: announcementText,
+            parse_mode: 'HTML',
+            reply_markup: announcementKeyboard,
+          }),
+        });
+        return res.json();
+      } else if (mediaType === 'document' && mediaUrl) {
+        const res = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: targetId,
+            document: mediaUrl,
+            caption: announcementText,
+            parse_mode: 'HTML',
+            reply_markup: announcementKeyboard,
+          }),
+        });
+        return res.json();
+      } else {
+        const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: targetId,
+            parse_mode: 'HTML',
+            text: announcementText,
+            reply_markup: announcementKeyboard,
+          }),
+        });
+        return res.json();
+      }
+    };
+
+    const sendTextMessage = async (payload: any) => {
       const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -97,20 +146,13 @@ export async function POST(req: NextRequest) {
       return res.json();
     };
 
-    // ── Step 1: Send the announcement with inline keyboard ───────────────────
-    const result = await sendMsg({
-      chat_id: targetChatId,
-      parse_mode: 'HTML',
-      text: announcementText,
-      reply_markup: announcementKeyboard,
-    });
+    // ── Step 1: Send the announcement (with photo/document if attached) ───────
+    const result = await sendTelegramPayload(targetChatId);
 
-    // ── Step 2: For private chats (id > 0), send a follow-up that activates ──
-    // the persistent bottom keyboard. This makes game buttons appear at the
-    // bottom of the chat without the user needing to send /start.
+    // ── Step 2: For private chats (id > 0), send persistent bottom keyboard ───
     const isPrivateChat = Number(targetChatId) > 0;
     if (isPrivateChat) {
-      await sendMsg({
+      await sendTextMessage({
         chat_id: targetChatId,
         parse_mode: 'HTML',
         text: `👇 <b>ጨዋታ ይምረጡ — Tap a game to play now!</b>`,
@@ -119,17 +161,9 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Step 3: Always also deliver to admin's private chat with keyboard ─────
-    // (so admin always has the keyboard even if they sent to a channel)
     if (adminTelegramId && String(targetChatId) !== String(adminTelegramId)) {
-      await sendMsg({
-        chat_id: adminTelegramId,
-        parse_mode: 'HTML',
-        text: `📢 <b>[Broadcast Sent]</b>\n\n${announcementText}\n\n<i>Sent to: ${targetChatId}</i>`,
-        reply_markup: announcementKeyboard,
-      }).catch(() => {});
-
-      // Also activate persistent keyboard for admin
-      await sendMsg({
+      await sendTelegramPayload(adminTelegramId).catch(() => {});
+      await sendTextMessage({
         chat_id: adminTelegramId,
         parse_mode: 'HTML',
         text: `👇 <b>Game list:</b>`,

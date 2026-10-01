@@ -130,11 +130,20 @@ export async function initDatabaseSchema() {
         text TEXT NOT NULL,
         title VARCHAR(255),
         type VARCHAR(64) DEFAULT 'BROADCAST',
+        media_url TEXT,
+        media_type VARCHAR(64),
+        file_name VARCHAR(255),
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
     `;
+    // 7b. Safe ALTER for existing announcements table
+    try {
+      await sql`ALTER TABLE announcements ADD COLUMN IF NOT EXISTS media_url TEXT`;
+      await sql`ALTER TABLE announcements ADD COLUMN IF NOT EXISTS media_type VARCHAR(64)`;
+      await sql`ALTER TABLE announcements ADD COLUMN IF NOT EXISTS file_name VARCHAR(255)`;
+    } catch {}
 
     return {
       connected: true,
