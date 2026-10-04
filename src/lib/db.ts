@@ -215,6 +215,22 @@ const db = {
     return [...usersMap.values()].find(u => u.phone === phone) ?? null;
   },
 
+  async getUserByUsername(username: string): Promise<User | null> {
+    const clean = username.trim().toLowerCase().replace(/^@/, '');
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`SELECT * FROM users WHERE LOWER(username) = ${clean} LIMIT 1`;
+        return rows.length > 0 ? rowToUser(rows[0]) : null;
+      } catch (e) { console.error('Neon getUserByUsername error:', e); }
+    }
+    return [...usersMap.values()].find(u => u.username?.toLowerCase().replace(/^@/, '') === clean) ?? null;
+  },
+
+  async getUser(userId: string): Promise<User | null> {
+    return this.getUserById(userId);
+  },
+
   async getUserByReferralCode(referralCode: string): Promise<User | null> {
     const normalizedCode = referralCode.trim().toUpperCase();
     const sql = getNeonSql();
@@ -251,11 +267,12 @@ const db = {
           SELECT * FROM users WHERE telegram_id = ${telegramId} OR (phone = ${params.phone} AND phone != '') LIMIT 1
         `;
         if (existing.length > 0) {
+          const effectiveRole = existing[0].role === 'admin' ? 'admin' : role;
           // If user exists but has no referred_by and we now have one, update it
           if (!existing[0].referred_by && normalizedReferredBy) {
             const updated = await sql`
               UPDATE users
-              SET name = ${params.name}, phone = ${params.phone}, username = ${username}, role = ${role}, referred_by = ${normalizedReferredBy}
+              SET name = ${params.name}, phone = ${params.phone}, username = ${username}, role = ${effectiveRole}, referred_by = ${normalizedReferredBy}
               WHERE id = ${existing[0].id}
               RETURNING *
             `;
@@ -263,7 +280,7 @@ const db = {
           }
           const updated = await sql`
             UPDATE users
-            SET name = ${params.name}, phone = ${params.phone}, username = ${username}, role = ${role}
+            SET name = ${params.name}, phone = ${params.phone}, username = ${username}, role = ${effectiveRole}
             WHERE id = ${existing[0].id}
             RETURNING *
           `;
@@ -286,12 +303,13 @@ const db = {
       u => (params.telegramId && u.telegramId === telegramId) || (params.phone && u.phone === params.phone)
     );
     if (existing) {
+      const effectiveRole = existing.role === 'admin' ? 'admin' : role;
       const updated: User = {
         ...existing,
         name: params.name,
         phone: params.phone,
         username,
-        role,
+        role: effectiveRole,
         referredBy: normalizedReferredBy ?? existing.referredBy,
       };
       usersMap.set(existing.id, updated);
@@ -312,6 +330,49 @@ const db = {
     };
     usersMap.set(newUser.id, newUser);
     return newUser;
+  },
+
+  /**
+   * Update a user's role (e.g. promote to 'admin' or demote to 'user')
+   */
+  async updateUserRole(userId: string, role: UserRole): Promise<User | null> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          UPDATE users
+          SET role = ${role}
+          WHERE id = ${userId}
+          RETURNING *
+        `;
+        if (rows.length > 0) {
+          const u = rowToUser(rows[0]);
+          usersMap.set(u.id, u);
+          return u;
+        }
+      } catch (e) {
+        console.error('Neon updateUserRole error:', e);
+      }
+    }
+    const user = usersMap.get(userId);
+    if (user) {
+      user.role = role;
+      usersMap.set(userId, user);
+      return user;
+    }
+    return null;
+  },
+
+  /**
+   * Add / promote an admin by identifier (telegramId, username, or phone)
+   */
+  async addAdminByIdentifier(identifier: string): Promise<User | null> {
+    const clean = identifier.trim().toLowerCase().replace(/^@/, '');
+    const user = (await this.getUserByTelegramId(clean)) ||
+                 (await this.getUserByUsername(clean)) ||
+                 (await this.getUserByPhone(identifier.trim()));
+    if (!user) return null;
+    return this.updateUserRole(user.id, 'admin');
   },
 
   /**

@@ -39,7 +39,7 @@ interface NotificationMessage {
 export const EMPTY_WALLET: Wallet = {
   userId: '',
   availableBalance: 0,
-  bonusBalance: 0,
+  bonusBalance: 20, // 20 ETB welcome bonus for new players
   winningBalance: 0,
   totalDeposited: 0,
   totalWithdrawn: 0,
@@ -85,6 +85,8 @@ interface BingoContextType {
   autoDaubEnabled: boolean;
   toggleUserRole: () => void;
   setUserRole: (role: UserRole) => void;
+  updateUserRoleInDb: (targetUserId: string, role: UserRole) => Promise<{ success: boolean; message?: string }>;
+  addAdminByIdentifier: (identifier: string) => Promise<{ success: boolean; message?: string }>;
   creditBonusBalance: (amount: number, reason: string) => void;
   // Weekend Lottery
   getLotterySoldNumbers: (gameId: string) => Set<number>;
@@ -177,26 +179,50 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return;
 
     try {
-      // Clear legacy mock test balances so all user accounts start with real 0 ETB
-      const cleanRealBalance = localStorage.getItem('hyper_bingo_real_balance_v1');
-      if (!cleanRealBalance) {
+      // Clear legacy mock test balances (250 ETB, etc.) so all user accounts start with real 20 ETB welcome bonus
+      const cleanRealBalanceV2 = localStorage.getItem('hyper_bingo_clean_balance_v2');
+      if (!cleanRealBalanceV2) {
         localStorage.removeItem('hyper_bingo_wallet');
-        localStorage.setItem('hyper_bingo_real_balance_v1', 'true');
+        localStorage.setItem('hyper_bingo_clean_balance_v2', 'true');
       }
 
       const savedUserStr = localStorage.getItem('hyper_bingo_user');
       const savedWalletStr = localStorage.getItem('hyper_bingo_wallet');
       if (savedUserStr) {
         const savedUser: User = JSON.parse(savedUserStr);
-        // Refresh admin role strictly based on current env
-        const isAdm = isAdminTelegramId(savedUser.telegramId) || isAdminTelegramId(savedUser.username);
+        // Refresh admin role: check env whitelist OR existing DB admin status
+        const isAdm = isAdminTelegramId(savedUser.telegramId) || isAdminTelegramId(savedUser.username) || savedUser.role === 'admin';
         savedUser.role = isAdm ? 'admin' : 'user';
         setUser(savedUser);
         if (savedWalletStr) {
-          setWallet(JSON.parse(savedWalletStr));
+          const parsedWallet: Wallet = JSON.parse(savedWalletStr);
+          // Purge stale 250 ETB / 50 bonus mock data if present in legacy storage
+          if (parsedWallet.availableBalance === 250 || (parsedWallet.winningBalance === 150 && parsedWallet.bonusBalance === 50)) {
+            parsedWallet.availableBalance = 0;
+            parsedWallet.winningBalance = 0;
+            parsedWallet.bonusBalance = 20;
+            localStorage.setItem('hyper_bingo_wallet', JSON.stringify(parsedWallet));
+          }
+          setWallet(parsedWallet);
         } else {
           setWallet({ ...INITIAL_WALLET, userId: savedUser.id });
         }
+
+        // Live sync with server DB wallet & profile
+        const query = savedUser.id ? `userId=${encodeURIComponent(savedUser.id)}` : savedUser.telegramId ? `telegramId=${encodeURIComponent(savedUser.telegramId)}` : `phone=${encodeURIComponent(savedUser.phone)}`;
+        fetch(`/api/wallet?${query}`)
+          .then((res) => res.json())
+          .then((result) => {
+            if (result.success && result.data?.wallet) {
+              setWallet(result.data.wallet);
+              localStorage.setItem('hyper_bingo_wallet', JSON.stringify(result.data.wallet));
+              if (result.data.user) {
+                setUser((prev) => (prev ? { ...prev, ...result.data.user } : prev));
+                localStorage.setItem('hyper_bingo_user', JSON.stringify({ ...savedUser, ...result.data.user }));
+              }
+            }
+          })
+          .catch(() => {});
       } else {
         setWallet(INITIAL_WALLET);
       }
@@ -218,7 +244,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           setUser((prev) => {
             if (prev) {
               const newTgId = String(tgUser.id);
-              const targetRole = isAdm ? 'admin' : prev.role;
+              const targetRole = isAdm || prev.role === 'admin' ? 'admin' : prev.role;
               const updated = {
                 ...prev,
                 name: `${tgUser.first_name || ''}${tgUser.last_name ? ' ' + tgUser.last_name : ''}`.trim() || prev.name,
@@ -231,6 +257,28 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             }
             return prev;
           });
+
+          // Check if user is promoted in DB to admin
+          fetch('/api/auth/verify-admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: tgUser.id }),
+          })
+            .then((r) => r.json())
+            .then((res) => {
+              if (res.success && res.data?.isAdmin) {
+                setUser((prev) => {
+                  if (prev && prev.role !== 'admin') {
+                    const updated = { ...prev, role: 'admin' as UserRole };
+                    localStorage.setItem('hyper_bingo_user', JSON.stringify(updated));
+                    return updated;
+                  }
+                  return prev;
+                });
+              }
+            })
+            .catch(() => {});
+
           return true;
         }
       }
@@ -274,7 +322,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         const newWallet: Wallet = result.data.wallet || {
           userId: newUser.id,
           availableBalance: 0,
-          bonusBalance: 0,
+          bonusBalance: 20, // 20 ETB welcome bonus
           winningBalance: 0,
           totalDeposited: 0,
           totalWithdrawn: 0,
@@ -314,7 +362,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         const loggedWallet: Wallet = result.data.wallet || {
           userId: loggedUser.id,
           availableBalance: 0,
-          bonusBalance: 0,
+          bonusBalance: 20, // 20 ETB welcome bonus
           winningBalance: 0,
           totalDeposited: 0,
           totalWithdrawn: 0,
@@ -414,6 +462,64 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       return;
     }
     setUser((prev) => (prev ? { ...prev, role } : null));
+  };
+
+  const updateUserRoleInDb = async (targetUserId: string, role: UserRole): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const res = await fetch('/api/admin/set-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminTelegramId: user?.telegramId || user?.username || 'admin',
+          targetUserId,
+          role,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        addNotification(
+          language === 'am' ? 'የአስተዳዳሪ ፈቃድ ተስተካክሏል' : 'Admin Role Updated',
+          data.message || `User role updated to ${role.toUpperCase()}`,
+          'success'
+        );
+        return { success: true, message: data.message };
+      } else {
+        addNotification('Role Update Failed', data.error || 'Could not update role', 'warning');
+        return { success: false, message: data.error };
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error updating role';
+      return { success: false, message: msg };
+    }
+  };
+
+  const addAdminByIdentifier = async (identifier: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const res = await fetch('/api/admin/set-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminTelegramId: user?.telegramId || user?.username || 'admin',
+          identifier,
+          role: 'admin',
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        addNotification(
+          language === 'am' ? 'አዲስ አስተዳዳሪ ተጨምሯል' : 'Admin Added Successfully',
+          data.message || `Administrator privileges granted to ${identifier}`,
+          'success'
+        );
+        return { success: true, message: data.message };
+      } else {
+        addNotification('Failed to Add Admin', data.error || 'User not found', 'warning');
+        return { success: false, message: data.error };
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error adding admin';
+      return { success: false, message: msg };
+    }
   };
 
   const creditBonusBalance = (amount: number, reason: string) => {
@@ -980,16 +1086,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         };
       })
     );
-    // Reset marks on user cards for this game (keep free center)
-    setUserCards((prev) =>
-      prev.map((card) => {
-        if (card.gameId !== gameId) return card;
-        const freshMarks = Array.from({ length: 5 }, (_, r) =>
-          Array.from({ length: 5 }, (_, c) => (r === 2 && c === 2))
-        );
-        return { ...card, marked: freshMarks };
-      })
-    );
+    // 1-Game Card Rule: Cards are valid for ONE game only!
+    // After the game finishes, player must purchase new cards for the next round
+    setUserCards((prev) => prev.filter((card) => card.gameId !== gameId));
   };
 
   // 9. CLAIM BINGO
@@ -1379,6 +1478,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         autoDaubEnabled,
         toggleUserRole,
         setUserRole,
+        updateUserRoleInDb,
+        addAdminByIdentifier,
         creditBonusBalance,
         getLotterySoldNumbers,
         purchaseLotteryNumbers,

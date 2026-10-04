@@ -14,6 +14,10 @@ import WalletManager from '../wallet/WalletManager';
 import AdminPanel from '../admin/AdminPanel';
 import DailyLuckyWheelModal from '../rewards/DailyLuckyWheelModal';
 import { isAdminTelegramId } from '../../lib/authUtils';
+import { getGameLivePrizePool } from '../../lib/store';
+
+const SUPPORT_PHONE_1 = process.env.NEXT_PUBLIC_SUPPORT_PHONE_1 || '+251 91 123 4567';
+const SUPPORT_PHONE_2 = process.env.NEXT_PUBLIC_SUPPORT_PHONE_2 || '+251 92 234 5678';
 
 // Dynamic reliable display title formatter
 function getGameDisplayName(g: { entryPrice: number; gameType?: string; isWeekendSpecial?: boolean; name?: string; category?: string }, lang: string): string {
@@ -438,6 +442,9 @@ export default function MiniAppShell({
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                         <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
+                        <span className="flex items-center gap-1 text-amber-700 font-black">
+                          🏆 {language === 'am' ? 'ሽልማት' : 'Prize'}: <strong className="text-amber-900">{formatETB(getGameLivePrizePool(g))}</strong>
+                        </span>
                         <span className="flex items-center gap-1 text-emerald-700 font-black">
                           <Users className="w-3 h-3" />
                           {g.currentPlayers || 0} {language === 'am' ? 'ተጫዋቾች' : 'players'}
@@ -540,20 +547,28 @@ export default function MiniAppShell({
                   📞
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-wider text-amber-400 leading-none mb-0.5">
-                    Support / ድጋፍ
+                  <p className="text-[11px] font-black uppercase tracking-wider text-amber-400 leading-none mb-1">
+                    Support / ድጋፍ (24/7)
                   </p>
-                  <a
-                    href="tel:+251911234567"
-                    className="text-sm font-black text-white hover:text-amber-300 transition block leading-tight"
-                  >
-                    +251 91 123 4567
-                  </a>
+                  <div className="flex flex-col gap-0.5">
+                    <a
+                      href={`tel:${SUPPORT_PHONE_1.replace(/\s+/g, '')}`}
+                      className="text-xs font-black text-white hover:text-amber-300 transition flex items-center gap-1"
+                    >
+                      <span className="text-[10px] text-amber-300 font-bold">1:</span> {SUPPORT_PHONE_1}
+                    </a>
+                    <a
+                      href={`tel:${SUPPORT_PHONE_2.replace(/\s+/g, '')}`}
+                      className="text-xs font-black text-white hover:text-amber-300 transition flex items-center gap-1"
+                    >
+                      <span className="text-[10px] text-amber-300 font-bold">2:</span> {SUPPORT_PHONE_2}
+                    </a>
+                  </div>
                   <a
                     href="https://t.me/HyperBingoSupport"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[10px] text-slate-300 hover:text-amber-300 transition block leading-tight mt-0.5"
+                    className="text-[10px] text-slate-300 hover:text-amber-300 transition block leading-tight mt-1"
                   >
                     @HyperBingoSupport
                   </a>
@@ -660,9 +675,13 @@ export default function MiniAppShell({
                   >
                     {language === 'am' ? 'አካውንት አለኝ • ግባ' : 'Already have an account? Sign In'}
                   </button>
-                  <div className="pt-2 text-center text-[11px] text-slate-500">
-                    <span>📞 {language === 'am' ? 'ጥያቄ ካለዎት:' : 'Need help?'} </span>
-                    <a href="tel:+251911234567" className="font-bold text-amber-600 hover:underline">+251 91 123 4567</a>
+                  <div className="pt-2 text-center text-[11px] text-slate-500 space-y-0.5">
+                    <div>📞 {language === 'am' ? 'የደንበኞች ድጋፍ:' : 'Customer Support:'}</div>
+                    <div className="flex items-center justify-center gap-2 font-bold text-amber-600 flex-wrap">
+                      <a href={`tel:${SUPPORT_PHONE_1.replace(/\s+/g, '')}`} className="hover:underline">{SUPPORT_PHONE_1}</a>
+                      <span>•</span>
+                      <a href={`tel:${SUPPORT_PHONE_2.replace(/\s+/g, '')}`} className="hover:underline">{SUPPORT_PHONE_2}</a>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -790,9 +809,15 @@ export default function MiniAppShell({
                   </div>
                   <div className="text-xs space-y-1.5">
                     <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
-                      <span className="text-slate-400 text-[11px] font-medium">ስልክ (Phone):</span>
-                      <a href="tel:+251911234567" className="font-bold text-amber-300 hover:underline">
-                        +251 91 123 4567
+                      <span className="text-slate-400 text-[11px] font-medium">ስልክ 1 (Phone 1):</span>
+                      <a href={`tel:${SUPPORT_PHONE_1.replace(/\s+/g, '')}`} className="font-bold text-amber-300 hover:underline">
+                        {SUPPORT_PHONE_1}
+                      </a>
+                    </div>
+                    <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
+                      <span className="text-slate-400 text-[11px] font-medium">ስልክ 2 (Phone 2):</span>
+                      <a href={`tel:${SUPPORT_PHONE_2.replace(/\s+/g, '')}`} className="font-bold text-amber-300 hover:underline">
+                        {SUPPORT_PHONE_2}
                       </a>
                     </div>
                     <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
@@ -1445,58 +1470,79 @@ function WeekendLotteryNumberPicker({
         </div>
       </div>
 
-      {/* Selected Slots Card (Right at top so user sees their pick immediately!) */}
+      {/* Selected Slots Card: 2 slots per visible page with horizontal scrolling */}
       <div className="mx-2 mt-2 bg-white rounded-2xl border border-slate-200 p-2.5 shadow-xs space-y-1.5 shrink-0">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-            {isAm ? 'የተመረጡ ካርዶች' : 'Your Selected Slots'} ({slotCountFilled}/{NUM_SLOTS})
-          </span>
-          <span className="text-[11px] font-black text-amber-700 font-mono">
-            {totalCost > 0 ? `${totalCost} ETB` : ''}
-          </span>
+          <div>
+            <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              {isAm ? 'የተመረጡ ካርዶች' : 'Your Selected Slots'} ({slotCountFilled}/{NUM_SLOTS})
+            </span>
+            <span className="text-[9px] text-slate-400 font-bold block">
+              {isAm ? 'ወደ ጎን ያሸብልሉ (2 ስሎት በአንድ ገጽ)' : 'Scroll sideways (2 slots per page)'}
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="text-xs font-black text-amber-700 font-mono">
+              {totalCost > 0 ? `${totalCost} ETB` : ''}
+            </span>
+            <span className="text-[9px] text-slate-400 font-medium block">
+              {isAm ? '1 ጨዋታ ብቻ' : '1 Game Only'}
+            </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-5 gap-1.5">
+        {/* Minimized 2-slot per page scroll container */}
+        <div className="flex gap-2 overflow-x-auto pb-1.5 pt-0.5 px-0.5 snap-x snap-mandatory scrollbar-thin">
           {Array.from({ length: NUM_SLOTS }, (_, i) => {
             const num = slotNumbers[i];
             const filled = num !== null;
             return (
               <div
                 key={i}
-                className={`h-14 rounded-xl border-2 flex flex-col items-center justify-center relative transition-all ${
+                className={`w-[calc(50%-0.25rem)] min-w-[calc(50%-0.25rem)] shrink-0 snap-start h-11 rounded-xl border-2 flex items-center justify-between px-2.5 relative transition-all ${
                   filled
                     ? 'border-amber-400 bg-amber-50 text-slate-950 shadow-2xs'
                     : 'border-dashed border-slate-300 bg-slate-50 text-slate-500'
                 }`}
               >
-                <span className={`text-[9px] font-black uppercase tracking-widest px-1 rounded ${
-                  filled ? 'text-amber-700 bg-amber-200/80' : 'text-slate-400'
-                }`}>
-                  S{i + 1}
-                </span>
-                {filled ? (
-                  <>
-                    <span className="text-sm font-black font-mono tabular-nums text-slate-950 leading-tight mt-0.5">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
+                    filled ? 'text-amber-800 bg-amber-200/80' : 'text-slate-400 bg-slate-200/60'
+                  }`}>
+                    S{i + 1}
+                  </span>
+                  {filled ? (
+                    <span className="text-xs font-black font-mono tabular-nums text-slate-950 truncate">
                       #{String(num).padStart(4, '0')}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => clearSlot(i)}
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center hover:bg-rose-500 hover:text-white transition cursor-pointer shrink-0 border-2 border-white shadow-xs"
-                      title="Remove"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 font-bold">
+                      {isAm ? 'ባዶ' : 'Empty'}
+                    </span>
+                  )}
+                </div>
+                {filled ? (
+                  <button
+                    type="button"
+                    onClick={() => clearSlot(i)}
+                    className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center hover:bg-rose-500 hover:text-white transition cursor-pointer shrink-0 border border-white shadow-2xs"
+                    title="Remove"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 ) : (
-                  <div className="flex items-center justify-center gap-0.5 mt-0.5">
-                    <span className="text-slate-400 font-black">+</span>
-                  </div>
+                  <span className="text-slate-300 text-xs font-black shrink-0">+</span>
                 )}
               </div>
             );
           })}
+        </div>
+
+        {/* Visual scroll hint */}
+        <div className="flex items-center justify-between text-[9px] text-slate-400 px-1 pt-0.5 border-t border-slate-100">
+          <span>{isAm ? '← ወደ ጎን ያሸብልሉ →' : '← Swipe to see S3, S4, S5 →'}</span>
+          <span>{slotCountFilled} {isAm ? 'ተመርጧል' : 'selected'}</span>
         </div>
       </div>
 

@@ -356,8 +356,8 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
       }
     } else if (lowerCmd === '/help' || lowerCmd.includes('help') || lowerCmd.includes('እርዳታ')) {
       botResponseText = isAm 
-        ? `❓ **እርዳታ እና ድጋፍ**\n\n• እንዴት መጫወት ይቻላል: ትኬት ይግዙ፣ የወጡ ቁጥሮችን ምልክት ያድርጉ (daub)። መስመር ወይም ሙሉ ካርድ በመሙላት ያሸንፉ!\n• የደንበኞች ድጋፍ: @HyperBingoSupport ያነጋግሩ ወይም በ support@hyperbingo.et ኢሜይል ያድርጉ`
-        : `❓ **Help & Support**\n\n• How to play: Purchase a ticket, daub numbers as drawn. Form a line or full house!\n• Support: Contact @HyperBingoSupport or email support@hyperbingo.et`;
+        ? `❓ **እርዳታ እና ድጋፍ**\n\n• እንዴት መጫወት ይቻላል: ትኬት ይግዙ፣ የወጡ ቁጥሮችን ምልክት ያድርጉ (daub)። መስመር ወይም ሙሉ ካርድ በመሙላት ያሸንፉ!\n• የደንበኞች ድጋፍ: @HyperBingoSupport\n• ስልክ (Phone 1): +251 91 123 4567\n• ስልክ (Phone 2): +251 92 234 5678`
+        : `❓ **Help & Support**\n\n• How to play: Purchase a ticket, daub numbers as drawn. Form a line or full house!\n• Support: @HyperBingoSupport\n• Phone 1: +251 91 123 4567\n• Phone 2: +251 92 234 5678`;
       buttons = [
         { label: isAm ? '🎮 ቢንጎ ይጫወቱ (Mini App)' : '🎮 Play Mini App', action: () => onOpenMiniApp('lobby'), isPrimary: true },
       ];

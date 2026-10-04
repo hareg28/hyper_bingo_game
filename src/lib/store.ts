@@ -66,7 +66,7 @@ export const INITIAL_USER: User = {
 export const INITIAL_WALLET: Wallet = {
   userId: 'usr_guest',
   availableBalance: 0,
-  bonusBalance: 0,
+  bonusBalance: 20, // 20 ETB welcome bonus for new players
   winningBalance: 0,
   totalDeposited: 0,
   totalWithdrawn: 0,
