@@ -44,7 +44,8 @@ export async function POST(req: NextRequest) {
       phone: cleanPhone,
       username: username?.trim(),
       telegramId: telegramId?.trim(),
-      referredBy: referralCode?.trim(),
+      // Normalize referral code: uppercase so lookup always matches
+      referredBy: referralCode?.trim().toUpperCase() || undefined,
     });
 
     const wallet = await db.getOrCreateWallet(user.id);
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
     let telegramNotified = false;
 
     // 1. Telegram Welcome Notification (if user has telegramId) - Non-blocking
+    const botUser = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot';
     if (user.telegramId && !user.telegramId.startsWith('web_')) {
       const welcomeText = 
         `🎉 <b>እንኳን ወደ ሃይፐር ቢንጎ በደህና መጡ! / Welcome to Hyper Bingo!</b> 🎉\n\n` +
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
         `🎁 <b>የመመዝገቢያ ቦነስ:</b> <b>20 ETB</b> ወደ ዋሌትዎ ገብቷል!\n` +
         `<i>(ይህ ቦነስ ለጨዋታ መጫወቻ ብቻ የሚያገለግል ሲሆን በቀጥታ ማውጣት አይቻልም)</i>\n\n` +
         `🚀 <b>የግብዣ ኮድዎ:</b> <code>${user.referralCode}</code>\n` +
-        `🔗 <b>የግብዣ ሊንክዎ:</b> https://t.me/HyperBingoBot?start=${user.referralCode}\n\n` +
+        `🔗 <b>የግብዣ ሊንክዎ:</b> https://t.me/${botUser}?start=${user.referralCode}\n\n` +
         `💡 <i>ጓደኛዎን ይጋብዙ! የጋበዙት ሰው ሲያሸንፍ የቤቱን 1% ትርፍ ቦነስ ያገኛሉ!</i>\n` +
         `መልካም የጨዋታ ጊዜ! 🏆`;
 
@@ -82,7 +84,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. SMS Welcome Notification (simulated / gateway dispatch)
-    console.log(`[SMS GATEWAY DISPATCH] Sent to ${cleanPhone}: "Welcome to Hyper Bingo, ${user.name}! Your account is active with 20 ETB game bonus. Play directly on Telegram: https://t.me/HyperBingoBot?start=${user.referralCode}"`);
+    console.log(`[SMS GATEWAY DISPATCH] Sent to ${cleanPhone}: "Welcome to Hyper Bingo, ${user.name}! Your account is active with 20 ETB game bonus. Play directly on Telegram: https://t.me/${botUser}?start=${user.referralCode}"`);
 
     return NextResponse.json<ApiResponse>({
       success: true,

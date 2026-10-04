@@ -10,12 +10,14 @@ import { ApiResponse } from '@/lib/types';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const code = searchParams.get('code')?.trim().toUpperCase();
+    // Normalize: always uppercase, strip whitespace
+    const raw = searchParams.get('code')?.trim() || '';
+    const code = raw.toUpperCase();
 
     if (!code || code.length < 4) {
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'Valid referral code is required',
+        error: 'Valid referral code is required (minimum 4 characters)',
       }, { status: 400 });
     }
 
@@ -24,7 +26,7 @@ export async function GET(req: NextRequest) {
     if (!referrer) {
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: `No user found with referral code "${code}". Please check the link and try again.`,
+        error: `Referral code "${code}" was not found. Please check the code and try again, or register without one.`,
       }, { status: 404 });
     }
 

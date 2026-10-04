@@ -505,7 +505,7 @@ export default function AuthModal() {
                       <div className="text-[11px] text-blue-800">
                         {telegramId 
                           ? `Telegram ID ${telegramId} linked & ready to verify.` 
-                          : 'Linked with @HyperBingoBot for secure automatic login & win alerts.'}
+                          : `Linked with @${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot'} for secure automatic login & win alerts.`}
                       </div>
                     </div>
                   </div>

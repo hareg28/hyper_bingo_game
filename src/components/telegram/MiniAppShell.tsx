@@ -144,6 +144,9 @@ export default function MiniAppShell({
       const refParam = urlParams.get('ref') || urlParams.get('start') || (!gameParam && tgStart && !tgStart.startsWith('gm_') && tgStart !== 'play' ? tgStart : null);
       if (refParam) {
         sessionStorage.setItem('hb_referral_code', refParam);
+        if (!user) {
+          openAuthModal('register');
+        }
       }
       const gParam = gameParam || (tgStart && tgStart.startsWith('gm_') ? tgStart : null);
       const catParam = urlParams.get('cat');
@@ -171,7 +174,8 @@ export default function MiniAppShell({
       openAuthModal('register');
       return;
     }
-    navigator.clipboard.writeText(`https://t.me/HyperBingoBot?start=${user.referralCode}`);
+    const botUser = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot';
+    navigator.clipboard.writeText(`https://t.me/${botUser}?start=${user.referralCode}`);
     setCopiedRef(true);
     setTimeout(() => setCopiedRef(false), 2000);
   };
@@ -744,7 +748,7 @@ export default function MiniAppShell({
                     <input
                       type="text"
                       readOnly
-                      value={`https://t.me/HyperBingoBot?start=${user.referralCode}`}
+                      value={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot'}?start=${user.referralCode}`}
                       className="flex-1 bg-transparent text-xs text-slate-700 font-mono focus:outline-none px-2"
                     />
                     <button

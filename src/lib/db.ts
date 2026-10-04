@@ -216,14 +216,16 @@ const db = {
   },
 
   async getUserByReferralCode(referralCode: string): Promise<User | null> {
+    const normalizedCode = referralCode.trim().toUpperCase();
     const sql = getNeonSql();
     if (sql) {
       try {
-        const rows = await sql`SELECT * FROM users WHERE referral_code = ${referralCode} LIMIT 1`;
+        // Case-insensitive lookup — referral codes are stored uppercase but be safe
+        const rows = await sql`SELECT * FROM users WHERE UPPER(referral_code) = ${normalizedCode} LIMIT 1`;
         return rows.length > 0 ? rowToUser(rows[0]) : null;
       } catch (e) { console.error('Neon getUserByReferralCode error:', e); }
     }
-    return [...usersMap.values()].find(u => u.referralCode === referralCode) ?? null;
+    return [...usersMap.values()].find(u => u.referralCode?.toUpperCase() === normalizedCode) ?? null;
   },
 
   async registerUser(params: {
@@ -240,6 +242,8 @@ const db = {
     const username = params.username || `user_${params.phone.replace(/\D/g, '').slice(-4)}`;
     const referralCode = generateReferralCode();
     const newId = generateId('usr');
+    // Normalize: referredBy should be stored as uppercase for consistent lookup
+    const normalizedReferredBy = params.referredBy ? params.referredBy.trim().toUpperCase() : null;
 
     if (sql) {
       try {
@@ -247,6 +251,16 @@ const db = {
           SELECT * FROM users WHERE telegram_id = ${telegramId} OR (phone = ${params.phone} AND phone != '') LIMIT 1
         `;
         if (existing.length > 0) {
+          // If user exists but has no referred_by and we now have one, update it
+          if (!existing[0].referred_by && normalizedReferredBy) {
+            const updated = await sql`
+              UPDATE users
+              SET name = ${params.name}, phone = ${params.phone}, username = ${username}, role = ${role}, referred_by = ${normalizedReferredBy}
+              WHERE id = ${existing[0].id}
+              RETURNING *
+            `;
+            return rowToUser(updated[0]);
+          }
           const updated = await sql`
             UPDATE users
             SET name = ${params.name}, phone = ${params.phone}, username = ${username}, role = ${role}
@@ -258,7 +272,7 @@ const db = {
 
         const inserted = await sql`
           INSERT INTO users (id, telegram_id, name, username, phone, role, referral_code, referred_by)
-          VALUES (${newId}, ${telegramId}, ${params.name}, ${username}, ${params.phone}, ${role}, ${referralCode}, ${params.referredBy || null})
+          VALUES (${newId}, ${telegramId}, ${params.name}, ${username}, ${params.phone}, ${role}, ${referralCode}, ${normalizedReferredBy})
           RETURNING *
         `;
         return rowToUser(inserted[0]);
@@ -278,7 +292,7 @@ const db = {
         phone: params.phone,
         username,
         role,
-        referredBy: params.referredBy || existing.referredBy,
+        referredBy: normalizedReferredBy ?? existing.referredBy,
       };
       usersMap.set(existing.id, updated);
       return updated;
@@ -293,7 +307,7 @@ const db = {
       role,
       status: 'active',
       referralCode,
-      referredBy: params.referredBy,
+      referredBy: normalizedReferredBy ?? undefined,
       createdAt: new Date().toISOString(),
     };
     usersMap.set(newUser.id, newUser);
@@ -830,10 +844,11 @@ const db = {
    * Credit 1% owner profit commission to referrer's bonus balance (play-only).
    */
   async creditReferrerCommission(referrerCode: string, amount: number): Promise<boolean> {
+    const normalizedCode = referrerCode.trim().toUpperCase();
     const sql = getNeonSql();
     if (sql) {
       try {
-        const userRows = await sql`SELECT id FROM users WHERE referral_code = ${referrerCode} LIMIT 1`;
+        const userRows = await sql`SELECT id FROM users WHERE UPPER(referral_code) = ${normalizedCode} LIMIT 1`;
         if (userRows.length > 0) {
           const referrerUserId = userRows[0].id;
           await sql`
@@ -841,6 +856,7 @@ const db = {
             SET bonus_balance = bonus_balance + ${amount}
             WHERE user_id = ${referrerUserId}
           `;
+          console.log(`[Referral Commission] +${amount} ETB bonus credited to user ${referrerUserId} (code: ${normalizedCode})`);
           return true;
         }
       } catch (e) {
@@ -848,7 +864,7 @@ const db = {
       }
     }
     // In-memory fallback
-    const referrer = [...usersMap.values()].find((u) => u.referralCode === referrerCode);
+    const referrer = [...usersMap.values()].find((u) => u.referralCode?.toUpperCase() === normalizedCode);
     if (referrer) {
       const wallet = walletsMap.get(referrer.id);
       if (wallet) {
