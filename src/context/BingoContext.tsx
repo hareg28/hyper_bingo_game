@@ -114,7 +114,29 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
   const [referrals] = useState<Referral[]>(INITIAL_REFERRALS);
   const [autoDaubEnabled, setAutoDaubEnabled] = useState<boolean>(true);
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguageState] = useState<Language>('en');
+
+  // Load persisted language from localStorage or Telegram WebApp
+  useEffect(() => {
+    try {
+      const savedLang = localStorage.getItem('hyperbingo_lang');
+      if (savedLang === 'en' || savedLang === 'am') {
+        setLanguageState(savedLang);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const setLanguage = (newLang: Language) => {
+    setLanguageState(newLang);
+    try {
+      localStorage.setItem('hyperbingo_lang', newLang);
+    } catch {
+      // ignore
+    }
+  };
+
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'register' | 'login'>('register');
 
