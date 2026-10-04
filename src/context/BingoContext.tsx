@@ -622,7 +622,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
-  // 2. WITHDRAWAL REQUEST FLOW
+  // 2. WITHDRAWAL REQUEST FLOW — fully automated, no admin approval needed
   const requestWithdrawal = async (
     amount: number,
     provider: PaymentProvider,
@@ -650,54 +650,70 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    await new Promise((res) => setTimeout(res, 600));
+    try {
+      const res = await fetch('/api/payments/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, amount, paymentMethod: provider, accountNumber, accountName }),
+      });
+      const data = await res.json();
 
-    const txId = `WD_${Date.now().toString().slice(-6)}`;
-    const newBalance = wallet.availableBalance - amount;
+      if (!res.ok || !data.success) {
+        addNotification('❌ Withdrawal Failed', data.error || 'Could not process withdrawal. Please try again.', 'error');
+        return false;
+      }
 
-    const newTx: Transaction = {
-      id: txId,
-      userId: user.id,
-      username: user.username,
-      type: 'WITHDRAWAL',
-      amount: -amount,
-      balanceAfter: newBalance,
-      reference: `WD-${provider.substring(0, 3)}-${accountNumber.slice(-4)}`,
-      paymentProvider: provider,
-      status: 'PENDING',
-      description: `Withdrawal to ${provider} (${accountNumber})`,
-      createdAt: new Date().toISOString(),
-    };
+      // Reflect deduction locally — COMPLETED immediately
+      const txId = data.data?.withdrawalId || `WD_${Date.now().toString().slice(-6)}`;
+      const newBalance = wallet.availableBalance - amount;
 
-    const newWdRequest: WithdrawalRequest = {
-      id: `req_${Date.now().toString().slice(-6)}`,
-      transactionId: txId,
-      userId: user.id,
-      username: user.username,
-      amount,
-      paymentMethod: provider,
-      accountNumber,
-      accountName,
-      status: 'PENDING',
-      createdAt: new Date().toISOString(),
-    };
+      const newTx: Transaction = {
+        id: txId,
+        userId: user.id,
+        username: user.username,
+        type: 'WITHDRAWAL',
+        amount: -amount,
+        balanceAfter: newBalance,
+        reference: `WD-${provider.substring(0, 3)}-${accountNumber.slice(-4)}`,
+        paymentProvider: provider,
+        status: 'COMPLETED',   // System auto-processes — no admin wait
+        description: `Withdrawal to ${provider} (${accountNumber})`,
+        createdAt: new Date().toISOString(),
+      };
 
+      const newWdRequest: WithdrawalRequest = {
+        id: `req_${Date.now().toString().slice(-6)}`,
+        transactionId: txId,
+        userId: user.id,
+        username: user.username,
+        amount,
+        paymentMethod: provider,
+        accountNumber,
+        accountName,
+        status: 'COMPLETED',   // System auto-processes — no admin wait
+        createdAt: new Date().toISOString(),
+      };
 
-    setWallet((prev) => ({
-      ...prev,
-      availableBalance: prev.availableBalance - amount,
-    }));
+      setWallet((prev) => ({
+        ...prev,
+        availableBalance: prev.availableBalance - amount,
+      }));
 
-    setTransactions((prev) => [newTx, ...prev]);
-    setWithdrawals((prev) => [newWdRequest, ...prev]);
+      setTransactions((prev) => [newTx, ...prev]);
+      setWithdrawals((prev) => [newWdRequest, ...prev]);
 
-    addNotification(
-      '💸 Withdrawal Request Submitted',
-      `Your request for ${amount} ETB to ${accountNumber} (${provider}) is pending admin review.`,
-      'info'
-    );
+      addNotification(
+        '✅ Withdrawal Processed!',
+        `⚡ ${amount} ETB sent to ${accountNumber} (${provider}) instantly. Funds will arrive shortly!`,
+        'success'
+      );
 
-    return true;
+      return true;
+    } catch (err) {
+      console.error('[requestWithdrawal] Error:', err);
+      addNotification('❌ Withdrawal Error', 'Network error. Please try again.', 'error');
+      return false;
+    }
   };
 
   // 3. ADMIN APPROVE WITHDRAWAL

@@ -604,7 +604,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
             { id: 'overview', label: t('overview'), icon: FileText },
             { id: 'broadcast', label: language === 'am' ? '📢 ማስታወቂያ ማሰራጫ' : '📢 Broadcast Center', icon: Megaphone },
             { id: 'games', label: t('games'), icon: Gamepad2 },
-            { id: 'finance', label: `${t('finance')} (${pendingWithdrawals.length})`, icon: Wallet },
+            { id: 'finance', label: `${t('finance')} (${withdrawals.length})`, icon: Wallet },
             { id: 'users', label: `${t('users')} (${registeredUsers.length || dbStats?.totalUsers || 0})`, icon: Users },
             { id: 'audit', label: t('audit'), icon: ShieldCheck },
           ].map((tab) => {
@@ -1310,8 +1310,10 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               </div>
 
               <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-xs">
-                <div className="text-slate-500 text-xs font-black uppercase tracking-wider">{t('pendingWithdrawals')}</div>
-                <div className="text-xl sm:text-2xl font-black text-rose-600 mt-1">{pendingWithdrawals.length}</div>
+                <div className="text-slate-500 text-xs font-black uppercase tracking-wider">
+                  {language === 'am' ? 'ጠቅላላ ወጪዎች' : 'Total Withdrawals'}
+                </div>
+                <div className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">{withdrawals.length}</div>
               </div>
 
               <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-xs">
@@ -1322,48 +1324,40 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               </div>
             </div>
 
-            {/* Quick Pending Actions */}
-            <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-3">
-              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                {t('payoutApprovals')} ({pendingWithdrawals.length})
+            {/* Recent Auto-Processed Withdrawals */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-emerald-200 bg-emerald-50 shadow-xs space-y-3">
+              <h3 className="text-sm font-black text-emerald-900 flex items-center gap-2">
+                <span>⚡</span>
+                {language === 'am' ? 'የቅርብ ጊዜ ወጪዎች (ራስ-ሰር ተሰርቷል)' : 'Recent Withdrawals (Auto-Processed)'}
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-200 text-emerald-900 border border-emerald-400">
+                  {withdrawals.length} Total
+                </span>
               </h3>
-
-              {pendingWithdrawals.length > 0 ? (
-                <div className="space-y-2">
-                  {pendingWithdrawals.map((wd) => (
+              {withdrawals.length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {withdrawals.slice(0, 5).map((wd) => (
                     <div
                       key={wd.id}
-                      className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                      className="bg-white p-3 rounded-xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                     >
                       <div>
                         <div className="font-bold text-xs sm:text-sm text-slate-900">
-                          @{wd.username} • <span className="text-amber-700 font-black">{formatETB(wd.amount)}</span>
+                          @{wd.username} • <span className="text-emerald-700 font-black">{formatETB(wd.amount)}</span>
                         </div>
                         <div className="text-xs text-slate-500 font-medium mt-0.5">
-                          {wd.paymentMethod} ({wd.accountNumber}) • {wd.accountName}
+                          {wd.paymentMethod} ({wd.accountNumber})
                         </div>
                       </div>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => approveWithdrawal(wd.id, user?.username || 'admin')}
-                          className="flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition cursor-pointer shadow-2xs"
-                        >
-                          ✓ {t('approve')}
-                        </button>
-                        <button
-                          onClick={() => rejectWithdrawal(wd.id, user?.username || 'admin')}
-                          className="flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-black text-xs transition cursor-pointer shadow-2xs"
-                        >
-                          ✕ {t('reject')}
-                        </button>
-                      </div>
+                      <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-black">
+                        ✅ AUTO-PAID
+                      </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-slate-500 font-medium italic">{t('noPendingWithdrawals')}</p>
+                <p className="text-xs text-emerald-700 font-medium italic">
+                  {language === 'am' ? 'ምንም ወጪ ገና የለም' : 'No withdrawal history yet'}
+                </p>
               )}
             </div>
           </div>
@@ -1548,9 +1542,16 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               </div>
             </div>
 
-            {/* WITHDRAWALS APPROVAL SECTION */}
+            {/* WITHDRAWALS LOG — Auto-Processed, Read-Only */}
             <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-3">
-              <h3 className="text-sm font-black text-slate-900">{t('payoutApprovals')}</h3>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h3 className="text-sm font-black text-slate-900">
+                  {language === 'am' ? 'የወጪ ምዝገባ (ራስ-ሰር ተሰርቷል)' : 'Withdrawal Log (Auto-Processed)'}
+                </h3>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  ⚡ {language === 'am' ? 'ምንም አዲሚን ማፅደቂያ አያስፈልግም' : 'No admin approval needed'}
+                </span>
+              </div>
               <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
@@ -1561,14 +1562,13 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                       <th className="p-2.5">{t('accountNumber')}</th>
                       <th className="p-2.5">{t('amountETB')}</th>
                       <th className="p-2.5">{t('status')}</th>
-                      <th className="p-2.5">{t('actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {withdrawals.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-4 text-center text-slate-500 italic">
-                          {language === 'am' ? 'ምንም የማውጣት ጥያቄ የለም' : 'No withdrawal requests'}
+                        <td colSpan={6} className="p-4 text-center text-slate-500 italic">
+                          {language === 'am' ? 'ምንም የማውጣት ምዝገባ የለም' : 'No withdrawal records yet'}
                         </td>
                       </tr>
                     ) : (
@@ -1580,37 +1580,9 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                           <td className="p-2.5 font-mono text-xs text-amber-800 font-bold">{w.accountNumber}</td>
                           <td className="p-2.5 font-black text-amber-700 font-mono text-xs">{formatETB(w.amount)}</td>
                           <td className="p-2.5">
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-black ${
-                                w.status === 'COMPLETED'
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                  : w.status === 'PENDING'
-                                  ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
-                                  : 'bg-rose-100 text-rose-800 border border-rose-300'
-                              }`}
-                            >
-                              {w.status}
+                            <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              ✅ AUTO-PAID
                             </span>
-                          </td>
-                          <td className="p-2.5">
-                            {w.status === 'PENDING' ? (
-                              <div className="flex gap-1.5">
-                                <button
-                                  onClick={() => approveWithdrawal(w.id, user?.username || 'admin')}
-                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-black cursor-pointer shadow-xs transition"
-                                >
-                                  ✓ {t('approve')}
-                                </button>
-                                <button
-                                  onClick={() => rejectWithdrawal(w.id, user?.username || 'admin')}
-                                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[10px] font-bold cursor-pointer transition"
-                                >
-                                  ✕ {t('reject')}
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="text-slate-500 italic text-[11px] font-bold">{t('completed')}</span>
-                            )}
                           </td>
                         </tr>
                       ))

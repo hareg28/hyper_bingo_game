@@ -662,25 +662,25 @@ const db = {
         `;
         const newBalance = parseFloat(updatedWallet[0].winning_balance);
 
-        // Insert transaction
+        // Insert transaction — COMPLETED immediately (system auto-processes withdrawals)
         const txId = generateId('tx');
         const wdrRef = generateId('WDR');
         const txRows = await sql`
           INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
           VALUES (
             ${txId}, ${params.userId}, ${username}, 'WITHDRAWAL', ${-params.amount}, ${newBalance},
-            ${params.paymentMethod}, 'PENDING', ${wdrRef},
+            ${params.paymentMethod}, 'COMPLETED', ${wdrRef},
             ${'Withdrawal to ' + params.paymentMethod + ' ' + params.accountNumber}
           )
           RETURNING *
         `;
         const tx = rowToTransaction(txRows[0]);
 
-        // Insert withdrawal request
+        // Insert withdrawal request — COMPLETED immediately (no admin review)
         const wdrId = generateId('wdr');
         const wdrRows = await sql`
-          INSERT INTO withdrawal_requests (id, user_id, username, amount, provider, account_number, account_holder, transaction_id)
-          VALUES (${wdrId}, ${params.userId}, ${username}, ${params.amount}, ${params.paymentMethod}, ${params.accountNumber}, ${params.accountName}, ${txId})
+          INSERT INTO withdrawal_requests (id, user_id, username, amount, provider, account_number, account_holder, transaction_id, status)
+          VALUES (${wdrId}, ${params.userId}, ${username}, ${params.amount}, ${params.paymentMethod}, ${params.accountNumber}, ${params.accountName}, ${txId}, 'COMPLETED')
           RETURNING *
         `;
         const withdrawal = rowToWithdrawal(wdrRows[0]);
@@ -707,7 +707,7 @@ const db = {
       balanceAfter: wallet.winningBalance,
       reference: generateId('WDR'),
       paymentProvider: params.paymentMethod,
-      status: 'PENDING',
+      status: 'COMPLETED',  // Auto-processed — no admin approval needed
       description: `Withdrawal to ${params.paymentMethod} ${params.accountNumber}`,
       createdAt: new Date().toISOString(),
     };
@@ -722,7 +722,7 @@ const db = {
       paymentMethod: params.paymentMethod,
       accountNumber: params.accountNumber,
       accountName: params.accountName,
-      status: 'PENDING',
+      status: 'COMPLETED',  // Auto-processed — no admin approval needed
       createdAt: new Date().toISOString(),
     };
     withdrawalsMap.set(withdrawal.id, withdrawal);
