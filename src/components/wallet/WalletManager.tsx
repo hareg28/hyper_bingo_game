@@ -142,7 +142,7 @@ export default function WalletManager() {
   // ── Deposit ──────────────────────────────────────────────────────────────
   const handleDepositSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
+    if (!user || user.id === 'usr_guest') {
       openAuthModal('register');
       return;
     }
@@ -206,19 +206,12 @@ export default function WalletManager() {
         setTransactionCode('');
         handleRemoveScreenshot();
       } else {
-        // Fallback: Still credit instantly with instant verification
-        await depositWallet(depositAmt, provider, code || depositReference);
-        showStatus(
-          'success',
-          isAm
-            ? `🎉 ክፍያዎ በራስ-ሰር ወዲያውኑ ተረጋግጧል! ${depositAmt} ብር ወደ ሂሳብዎ ገብቷል!`
-            : `🎉 Instant Verification Successful! ${depositAmt} ETB credited immediately to your balance.`
-        );
-        setActiveTab('balance');
-        setDepositStep(1);
-        setTransactionCode('');
-        handleRemoveScreenshot();
+        // API call returned error — show proper error message instead of silently crediting
+        showStatus('error', data.error ?? (isAm ? 'ክፍያ ሂደት አልተሳካም። ደጋፊ ቡድን ያሳዩ።' : 'Deposit processing failed. Please contact support with your receipt.'));
       }
+    } catch (err: any) {
+      console.error('[Deposit UI Error]:', err);
+      showStatus('error', err?.message || (isAm ? 'የኔትወርክ ችግር አጋጥሟል። እባክዎ እንደገና ይሞክሩ።' : 'Network error during deposit. Please try again.'));
     } finally {
       setIsProcessing(false);
     }

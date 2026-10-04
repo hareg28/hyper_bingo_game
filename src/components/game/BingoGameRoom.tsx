@@ -1128,7 +1128,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const isFullHouseWin = activeUserCard ? checkFullHouseWin(activeUserCard.marked) : false;
 
   const handleConfirmCardNumbers = (selectedCardNumbers: string[]) => {
-    if (!user) {
+    if (!user || user.id === 'usr_guest') {
       openAuthModal('register');
       return;
     }
@@ -1138,6 +1138,17 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       setIsAutoDrawing(true);
     }
     setIsSelectorOpen(false);
+  };
+
+  const handleQuickPlay = () => {
+    if (!user || user.id === 'usr_guest') {
+      openAuthModal('register');
+      return;
+    }
+    const joined = joinGame(currentGame.id);
+    if (joined && (!isWeekendGame || isWeekendLive)) {
+      setIsAutoDrawing(true);
+    }
   };
 
   // 75-Ball rows for master board (always visible inline, not a modal)
@@ -2103,7 +2114,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 )}
                 <button
                   disabled={!hasSufficientBalance}
-                  onClick={() => (!user ? openAuthModal('register') : joinGame(currentGame.id))}
+                  onClick={handleQuickPlay}
                   className={`w-full px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${
                     !hasSufficientBalance
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
@@ -2122,7 +2133,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="flex flex-col sm:flex-row gap-2 px-4 w-full max-w-xs mx-auto">
                 <button
                   disabled={!hasSufficientBalance}
-                  onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
+                  onClick={() => (!user || user.id === 'usr_guest' ? openAuthModal('register') : setIsSelectorOpen(true))}
                   className={`flex-1 px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${
                     !hasSufficientBalance
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
@@ -2134,7 +2145,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 </button>
                 <button
                   disabled={!hasSufficientBalance}
-                  onClick={() => (!user ? openAuthModal('register') : joinGame(currentGame.id))}
+                  onClick={handleQuickPlay}
                   className={`flex-1 px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${
                     !hasSufficientBalance
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'

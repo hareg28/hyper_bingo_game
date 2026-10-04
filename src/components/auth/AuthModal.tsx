@@ -38,6 +38,10 @@ export default function AuthModal() {
   const [otpSentNotice, setOtpSentNotice] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(30);
 
+  const [referrerInfo, setReferrerInfo] = useState<{ name: string; username?: string } | null>(null);
+  const [referrerChecking, setReferrerChecking] = useState(false);
+  const [referrerStatusMsg, setReferrerStatusMsg] = useState<string | null>(null);
+
   useEffect(() => {
     if (authModalMode) {
       setActiveTab(authModalMode);
@@ -61,8 +65,55 @@ export default function AuthModal() {
           setTelegramId(String(tgUser.id));
         }
       }
+
+      // Auto-prefill referral code from sessionStorage, URL, or Telegram start_param
+      if (!referralCode) {
+        let foundRef = '';
+        try {
+          foundRef = sessionStorage.getItem('hb_referral_code') || '';
+        } catch {}
+        if (!foundRef) {
+          const urlParams = new URLSearchParams(window.location.search);
+          foundRef = urlParams.get('ref') || urlParams.get('start') || '';
+        }
+        if (!foundRef && tg?.initDataUnsafe?.start_param && !tg.initDataUnsafe.start_param.startsWith('gm_') && tg.initDataUnsafe.start_param !== 'play') {
+          foundRef = tg.initDataUnsafe.start_param;
+        }
+        if (foundRef) {
+          setReferralCode(foundRef);
+        }
+      }
     }
-  }, [isAuthModalOpen, name, username, telegramId]);
+  }, [isAuthModalOpen, name, username, telegramId, referralCode]);
+
+  // Live validation of referral code
+  useEffect(() => {
+    const trimmed = referralCode.trim();
+    if (!trimmed) {
+      setReferrerInfo(null);
+      setReferrerStatusMsg(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setReferrerChecking(true);
+      try {
+        const res = await fetch(`/api/referrals?code=${encodeURIComponent(trimmed)}`);
+        const json = await res.json();
+        if (json.success && json.data) {
+          setReferrerInfo({ name: json.data.name, username: json.data.username });
+          setReferrerStatusMsg(null);
+        } else {
+          setReferrerInfo(null);
+          setReferrerStatusMsg(language === 'am' ? 'የጋባዥ ኮድ አልተገኘም (ምዝገባው ያለ ኮድ ይቀጥላል)' : 'Referral code not found (registration continues without referral)');
+        }
+      } catch {
+        setReferrerInfo(null);
+      } finally {
+        setReferrerChecking(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [referralCode, language]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -341,6 +392,23 @@ export default function AuthModal() {
                   onChange={(e) => setReferralCode(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono uppercase font-bold focus:bg-white focus:outline-none focus:border-amber-500"
                 />
+                {referrerChecking && (
+                  <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 font-medium">
+                    <span className="inline-block animate-spin">⏳</span>
+                    <span>{language === 'am' ? 'ኮዱ እየተረጋገጠ ነው...' : 'Verifying code...'}</span>
+                  </div>
+                )}
+                {referrerInfo && (
+                  <div className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 mt-1 font-semibold flex items-center gap-1.5">
+                    <span>✅</span>
+                    <span>{language === 'am' ? `በ ${referrerInfo.name} ተጋብዘዋል` : `Invited by ${referrerInfo.name}`}</span>
+                  </div>
+                )}
+                {referrerStatusMsg && !referrerChecking && !referrerInfo && (
+                  <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 mt-1 font-medium">
+                    {referrerStatusMsg}
+                  </div>
+                )}
               </div>
 
               {/* 🎁 Welcome 20 Birr Bonus Badge (Play Only) */}

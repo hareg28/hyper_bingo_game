@@ -48,6 +48,7 @@ function rowToUser(row: any): User {
     role: row.role || 'user',
     status: (row.status || 'active') as User['status'],
     referralCode: row.referral_code || '',
+    referredBy: row.referred_by || undefined,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
   };
 }
@@ -212,6 +213,17 @@ const db = {
       } catch (e) { console.error('Neon getUserByPhone error:', e); }
     }
     return [...usersMap.values()].find(u => u.phone === phone) ?? null;
+  },
+
+  async getUserByReferralCode(referralCode: string): Promise<User | null> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`SELECT * FROM users WHERE referral_code = ${referralCode} LIMIT 1`;
+        return rows.length > 0 ? rowToUser(rows[0]) : null;
+      } catch (e) { console.error('Neon getUserByReferralCode error:', e); }
+    }
+    return [...usersMap.values()].find(u => u.referralCode === referralCode) ?? null;
   },
 
   async registerUser(params: {

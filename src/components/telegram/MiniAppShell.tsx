@@ -18,12 +18,12 @@ import { isAdminTelegramId } from '../../lib/authUtils';
 // Dynamic reliable display title formatter
 function getGameDisplayName(g: { entryPrice: number; gameType?: string; isWeekendSpecial?: boolean; name?: string; category?: string }, lang: string): string {
   if (g.category === 'HYPER_FETAN' || g.name?.includes('Fetan')) {
-    return lang === 'am' ? `⚡ ፈጣን ${g.entryPrice} ብር` : `⚡ Hyper Fetan ${g.entryPrice} ETB`;
+    return lang === 'am' ? `âš¡ áˆáŒ£áŠ• ${g.entryPrice} á‰¥áˆ­` : `âš¡ Hyper Fetan ${g.entryPrice} ETB`;
   }
   if (g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) {
-    return lang === 'am' ? `🌟 ሃይፐር ዊክኤንድ ${g.entryPrice} ብር` : `🌟 Hyper Weekend ${g.entryPrice} ETB`;
+    return lang === 'am' ? `ðŸŒŸ áˆƒá‹­ááˆ­ á‹ŠáŠ­áŠ¤áŠ•á‹µ ${g.entryPrice} á‰¥áˆ­` : `ðŸŒŸ Hyper Weekend ${g.entryPrice} ETB`;
   }
-  return lang === 'am' ? `🎲 ስፔሻል ${g.entryPrice} ብር` : `🎲 Hyper Special ${g.entryPrice} ETB`;
+  return lang === 'am' ? `ðŸŽ² áˆµá”áˆ»áˆ ${g.entryPrice} á‰¥áˆ­` : `ðŸŽ² Hyper Special ${g.entryPrice} ETB`;
 }
 
 export default function MiniAppShell({ 
@@ -139,7 +139,20 @@ export default function MiniAppShell({
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      const gParam = urlParams.get('game') || (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
+      const tgStart = (window as any).Telegram?.WebApp?.initDataUnsafe?.start_param;
+      const gameParam = urlParams.get('game');
+      const refParam = urlParams.get('ref') || urlParams.get('start') || (!gameParam && tgStart && !tgStart.startsWith('gm_') && tgStart !== 'play' ? tgStart : null);
+
+      if (refParam) {
+        try {
+          sessionStorage.setItem('hb_referral_code', refParam);
+        } catch {}
+        if (!user || user.id === 'usr_guest') {
+          openAuthModal('register');
+        }
+      }
+
+      const gParam = gameParam || (tgStart && tgStart.startsWith('gm_') ? tgStart : null);
       const catParam = urlParams.get('cat');
       if (gParam) {
         setActiveGameId(gParam);
@@ -153,7 +166,7 @@ export default function MiniAppShell({
         setActiveTab('lottery');
       }
     }
-  }, [setActiveGameId]);
+  }, [setActiveGameId, user, openAuthModal]);
 
   const isUserAdmin = Boolean(
     user && 
@@ -188,7 +201,7 @@ export default function MiniAppShell({
                 @{user.username}
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
               </h3>
-              <button onClick={() => window.location.reload()} className="text-[10px] text-slate-500 hover:text-slate-700 font-bold block truncate text-left cursor-pointer" title="Tap to refresh app">{t('telegramMiniApp')} v4.1 🔄</button>
+              <button onClick={() => window.location.reload()} className="text-[10px] text-slate-500 hover:text-slate-700 font-bold block truncate text-left cursor-pointer" title="Tap to refresh app">{t('telegramMiniApp')} v4.1 ðŸ”„</button>
             </div>
           </div>
         ) : (
@@ -197,7 +210,7 @@ export default function MiniAppShell({
             className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
           >
             <UserIcon className="w-3.5 h-3.5" />
-            <span>{language === 'am' ? 'አካውንት ክፈት' : 'Open Account'}</span>
+            <span>{language === 'am' ? 'áŠ áŠ«á‹áŠ•á‰µ áŠ­áˆá‰µ' : 'Open Account'}</span>
           </button>
         )}
 
@@ -222,10 +235,10 @@ export default function MiniAppShell({
           <button
             onClick={() => setLanguage(language === 'en' ? 'am' : 'en')}
             className="px-1.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] border border-slate-300 transition flex items-center gap-0.5 cursor-pointer"
-            title="Switch Language / ቋንቋ ይምረጡ"
+            title="Switch Language / á‰‹áŠ•á‰‹ á‹­áˆáˆ¨áŒ¡"
           >
             <Globe className="w-3 h-3 text-slate-600" />
-            {language === 'en' ? '🇪🇹 አማ' : '🇬🇧 EN'}
+            {language === 'en' ? 'ðŸ‡ªðŸ‡¹ áŠ áˆ›' : 'ðŸ‡¬ðŸ‡§ EN'}
           </button>
 
           {/* Daily Spin Button */}
@@ -233,10 +246,10 @@ export default function MiniAppShell({
             type="button"
             onClick={() => setShowLuckyWheel(true)}
             className="px-2 py-1 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-[10px] hover:brightness-105 active:scale-95 transition flex items-center gap-1 shadow-xs cursor-pointer border border-amber-300 ring-1 ring-amber-300/50 animate-pulse"
-            title={language === 'am' ? 'ዕለታዊ ነፃ እድል' : 'Daily Free Spin'}
+            title={language === 'am' ? 'á‹•áˆˆá‰³á‹Š áŠáƒ áŠ¥á‹µáˆ' : 'Daily Free Spin'}
           >
-            <span className="text-xs">🎁</span>
-            <span className="font-extrabold">{language === 'am' ? 'እድል' : 'Spin'}</span>
+            <span className="text-xs">ðŸŽ</span>
+            <span className="font-extrabold">{language === 'am' ? 'áŠ¥á‹µáˆ' : 'Spin'}</span>
           </button>
 
           {/* Wallet Balance Chip */}
@@ -267,27 +280,27 @@ export default function MiniAppShell({
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-950 text-amber-300 text-xs shadow-xs animate-bounce">
-              📢
+              ðŸ“¢
             </span>
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-[9px] uppercase tracking-wider font-black text-slate-900/80 flex items-center gap-1">
-                {language === 'am' ? 'የአስተዳዳሪ ማስታወቂያ' : 'Admin Announcement'}
+                {language === 'am' ? 'á‹¨áŠ áˆµá‰°á‹³á‹³áˆª áˆ›áˆµá‰³á‹ˆá‰‚á‹«' : 'Admin Announcement'}
                 {activeAnnouncement.mediaType === 'photo' && (
-                  <span className="text-[9px] bg-slate-950/20 px-1 py-0.2 rounded font-black text-slate-900">📸 Image</span>
+                  <span className="text-[9px] bg-slate-950/20 px-1 py-0.2 rounded font-black text-slate-900">ðŸ“¸ Image</span>
                 )}
                 {activeAnnouncement.mediaType === 'document' && (
-                  <span className="text-[9px] bg-slate-950/20 px-1 py-0.2 rounded font-black text-slate-900">📄 Doc</span>
+                  <span className="text-[9px] bg-slate-950/20 px-1 py-0.2 rounded font-black text-slate-900">ðŸ“„ Doc</span>
                 )}
                 <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping inline-block" />
               </span>
               <p className="text-xs font-bold truncate text-slate-950 leading-tight">
-                {(activeAnnouncement.text || (activeAnnouncement.mediaType === 'photo' ? '📸 New Photo Broadcast' : '📄 New Document Broadcast')).replace(/<[^>]*>?/gm, '')}
+                {(activeAnnouncement.text || (activeAnnouncement.mediaType === 'photo' ? 'ðŸ“¸ New Photo Broadcast' : 'ðŸ“„ New Document Broadcast')).replace(/<[^>]*>?/gm, '')}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="text-[10px] font-black bg-slate-950/20 text-slate-950 px-2 py-0.5 rounded-md hover:bg-slate-950/30">
-              {language === 'am' ? 'ሙሉውን ይመልከቱ' : 'View'}
+              {language === 'am' ? 'áˆ™áˆ‰á‹áŠ• á‹­áˆ˜áˆáŠ¨á‰±' : 'View'}
             </span>
             <button
               type="button"
@@ -324,9 +337,9 @@ export default function MiniAppShell({
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
               >
-                <span className="flex items-center gap-1 font-black">⚡ {language === 'am' ? 'ሃይፐር ፈጣን' : 'Hyper Fetan'}</span>
+                <span className="flex items-center gap-1 font-black">âš¡ {language === 'am' ? 'áˆƒá‹­ááˆ­ áˆáŒ£áŠ•' : 'Hyper Fetan'}</span>
                 <span className={`text-[9px] font-bold ${categoryTab === 'FETAN' ? 'text-amber-950' : 'text-slate-500'}`}>
-                  5-50 ETB · 500 {language === 'am' ? 'ካርድ' : 'Cards'}
+                  5-50 ETB Â· 500 {language === 'am' ? 'áŠ«áˆ­á‹µ' : 'Cards'}
                 </span>
               </button>
 
@@ -339,9 +352,9 @@ export default function MiniAppShell({
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
               >
-                <span className="flex items-center gap-1 font-black">🎲 {language === 'am' ? 'ሃይፐር ስፔሻል' : 'Hyper Special'}</span>
+                <span className="flex items-center gap-1 font-black">ðŸŽ² {language === 'am' ? 'áˆƒá‹­ááˆ­ áˆµá”áˆ»áˆ' : 'Hyper Special'}</span>
                 <span className={`text-[9px] font-bold ${categoryTab === 'SPECIAL' ? 'text-amber-950' : 'text-slate-500'}`}>
-                  10-30 ETB · {language === 'am' ? 'ቀጥታ ክፍል' : 'Live Room'}
+                  10-30 ETB Â· {language === 'am' ? 'á‰€áŒ¥á‰³ áŠ­ááˆ' : 'Live Room'}
                 </span>
               </button>
 
@@ -354,9 +367,9 @@ export default function MiniAppShell({
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
               >
-                <span className="flex items-center gap-1 font-black">🌟 {language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'Hyper Weekend'}</span>
+                <span className="flex items-center gap-1 font-black">ðŸŒŸ {language === 'am' ? 'áˆƒá‹­ááˆ­ á‹ŠáŠ­áŠ¤áŠ•á‹µ' : 'Hyper Weekend'}</span>
                 <span className={`text-[9px] font-bold ${categoryTab === 'WEEKEND' ? 'text-amber-950' : 'text-slate-500'}`}>
-                  30-100 ETB · 1500 {language === 'am' ? 'ካርድ' : 'Cards'}
+                  50 ETB Â· 2PM &amp; 6PM Â· 1500 {language === 'am' ? 'áŠ«áˆ­á‹µ' : 'Cards'}
                 </span>
               </button>
             </div>
@@ -389,8 +402,8 @@ export default function MiniAppShell({
                           : categoryTab === 'WEEKEND' ? 'bg-purple-100 text-purple-900 border border-purple-300'
                           : 'bg-indigo-100 text-indigo-900 border border-indigo-300'
                         }`}>
-                          {categoryTab === 'FETAN' ? (language === 'am' ? '1 መስመር/ማዕዘን' : '1 Line / Corners')
-                            : categoryTab === 'WEEKEND' ? (language === 'am' ? 'ሙሉ ቤት' : 'Full House Only')
+                          {categoryTab === 'FETAN' ? (language === 'am' ? '1 áˆ˜áˆµáˆ˜áˆ­/áˆ›á‹•á‹˜áŠ•' : '1 Line / Corners')
+                            : categoryTab === 'WEEKEND' ? (language === 'am' ? 'áˆ™áˆ‰ á‰¤á‰µ' : 'Full House Only')
                             : (() => {
                                 const rule = HYPER_SPECIAL_RULES[Math.abs(g.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
                                 return language === 'am' ? rule.nameAm : rule.nameEn;
@@ -404,29 +417,29 @@ export default function MiniAppShell({
                             : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                         }`}>
                           {(g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) && g.status !== 'RUNNING'
-                            ? (language === 'am' ? '📅 የተያዘለት (ክፍት)' : '📅 SCHEDULED')
-                            : g.status === 'RUNNING' ? '● LIVE' : g.status === 'STARTING' ? 'STARTING' : 'OPEN'}
+                            ? (language === 'am' ? 'ðŸ“… á‹¨á‰°á‹«á‹˜áˆˆá‰µ (áŠ­áá‰µ)' : 'ðŸ“… SCHEDULED')
+                            : g.status === 'RUNNING' ? 'â— LIVE' : g.status === 'STARTING' ? 'STARTING' : 'OPEN'}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                         <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
                         <span className="flex items-center gap-1 text-emerald-700 font-black">
                           <Users className="w-3 h-3" />
-                          {g.currentPlayers || 0} {language === 'am' ? 'ተጫዋቾች' : 'players'}
+                          {g.currentPlayers || 0} {language === 'am' ? 'á‰°áŒ«á‹‹á‰¾á‰½' : 'players'}
                         </span>
                         {categoryTab === 'FETAN' && (
                           <span className="text-amber-800 font-bold text-[10px]">
-                            ⚡ {language === 'am' ? '1 ደቂቃ ዙር' : '1 Min Round'}
+                            âš¡ {language === 'am' ? '1 á‹°á‰‚á‰ƒ á‹™áˆ­' : '1 Min Round'}
                           </span>
                         )}
                         {categoryTab === 'WEEKEND' && (
                           <span className="text-purple-800 font-bold text-[10px]">
-                            🏆 {language === 'am' ? '30k+ ብር ጃክፖት' : '30k+ ETB Jackpot'}
+                            ðŸ† {language === 'am' ? '30k+ á‰¥áˆ­ áŒƒáŠ­á–á‰µ' : '30k+ ETB Jackpot'}
                           </span>
                         )}
                         {g.blockedCards && g.blockedCards.length > 0 && (
                           <span className="text-rose-600 font-bold flex items-center gap-0.5 text-[10px]">
-                            🚫 {g.blockedCards.length} {language === 'am' ? 'የታገዱ' : 'Blocked'}
+                            ðŸš« {g.blockedCards.length} {language === 'am' ? 'á‹¨á‰³áŒˆá‹±' : 'Blocked'}
                           </span>
                         )}
                       </div>
@@ -440,10 +453,10 @@ export default function MiniAppShell({
                           setActiveTab('game');
                         }}
                         className="px-2.5 py-2 rounded-xl text-xs font-black bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1 cursor-pointer border border-slate-200"
-                        title={language === 'am' ? 'ጨዋታውን በቀጥታ ይመልከቱ' : 'Watch game live'}
+                        title={language === 'am' ? 'áŒ¨á‹‹á‰³á‹áŠ• á‰ á‰€áŒ¥á‰³ á‹­áˆ˜áˆáŠ¨á‰±' : 'Watch game live'}
                       >
                         <Eye className="w-3.5 h-3.5 text-blue-600" />
-                        <span className="hidden sm:inline">{language === 'am' ? 'እይ' : 'Watch'}</span>
+                        <span className="hidden sm:inline">{language === 'am' ? 'áŠ¥á‹­' : 'Watch'}</span>
                       </button>
 
                       {/* Main Play / Choose Cards Button */}
@@ -466,10 +479,10 @@ export default function MiniAppShell({
                       >
                         <span>
                           {categoryTab === 'SPECIAL'
-                            ? (language === 'am' ? 'ተጫወት' : 'PLAY')
+                            ? (language === 'am' ? 'á‰°áŒ«á‹ˆá‰µ' : 'PLAY')
                             : categoryTab === 'WEEKEND' 
-                            ? (language === 'am' ? 'ካርድ ግዛ' : 'Buy Card') 
-                            : (language === 'am' ? 'ካርድ ምረጥ' : 'Choose')}
+                            ? (language === 'am' ? 'áŠ«áˆ­á‹µ áŒá‹›' : 'Buy Card') 
+                            : (language === 'am' ? 'áŠ«áˆ­á‹µ áˆáˆ¨áŒ¥' : 'Choose')}
                         </span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
@@ -478,28 +491,28 @@ export default function MiniAppShell({
                 ))}
             </div>
 
-            {/* 🎁 Welcome Bonus Info Card - shown only for non-logged-in users */}
+            {/* ðŸŽ Welcome Bonus Info Card - shown only for non-logged-in users */}
             {!user && (
               <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 p-3 rounded-2xl">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0 text-white text-base">
-                    🎁
+                    ðŸŽ
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-xs font-black text-emerald-900">
-                      {language === 'am' ? '🎉 20 ብር የእንኳን ደህና መጡ ቦነስ!' : '🎉 20 ETB Welcome Bonus!'}
+                      {language === 'am' ? 'ðŸŽ‰ 20 á‰¥áˆ­ á‹¨áŠ¥áŠ•áŠ³áŠ• á‹°áˆ…áŠ“ áˆ˜áŒ¡ á‰¦áŠáˆµ!' : 'ðŸŽ‰ 20 ETB Welcome Bonus!'}
                     </h4>
                     <p className="text-[10px] text-emerald-700 mt-0.5 leading-snug">
                       {language === 'am'
-                        ? 'አካውንት ሲፈጥሩ 20 ብር ቦነስ ወዲያው ይጨምርልዎታል። ቦነስ ለጨዋታ ብቻ ያገለግላል — ማውጣት አይቻልም።'
-                        : 'Create an account and get 20 ETB bonus instantly. Bonus is for playing only — cannot be withdrawn.'}
+                        ? 'áŠ áŠ«á‹áŠ•á‰µ áˆ²áˆáŒ¥áˆ© 20 á‰¥áˆ­ á‰¦áŠáˆµ á‹ˆá‹²á‹«á‹ á‹­áŒ¨áˆáˆ­áˆá‹Žá‰³áˆá¢ á‰¦áŠáˆµ áˆˆáŒ¨á‹‹á‰³ á‰¥á‰» á‹«áŒˆáˆˆáŒáˆ‹áˆ â€” áˆ›á‹áŒ£á‰µ áŠ á‹­á‰»áˆáˆá¢'
+                        : 'Create an account and get 20 ETB bonus instantly. Bonus is for playing only â€” cannot be withdrawn.'}
                     </p>
                   </div>
                   <button
                     onClick={() => openAuthModal('register')}
                     className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-black text-[10px] transition cursor-pointer shrink-0 shadow-xs"
                   >
-                    {language === 'am' ? 'ክፈት' : 'Join'}
+                    {language === 'am' ? 'áŠ­áˆá‰µ' : 'Join'}
                   </button>
                 </div>
               </div>
@@ -509,11 +522,11 @@ export default function MiniAppShell({
             <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-3 text-white shadow-sm">
               <div className="flex items-start gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-amber-400 flex items-center justify-center shrink-0 text-slate-950 font-black text-base">
-                  📞
+                  ðŸ“ž
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-black uppercase tracking-wider text-amber-400 leading-none mb-0.5">
-                    Support / ድጋፍ
+                    Support / á‹µáŒ‹á
                   </p>
                   <a
                     href="tel:+251911234567"
@@ -532,8 +545,8 @@ export default function MiniAppShell({
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-[9px] text-slate-400 font-bold uppercase leading-none">Weekend Draw</p>
-                  <p className="text-[10px] text-amber-300 font-black whitespace-nowrap">Fri–Sun</p>
-                  <p className="text-[10px] text-white font-bold whitespace-nowrap">2:00, 5:00 & 7:00 PM</p>
+                  <p className="text-[10px] text-amber-300 font-black whitespace-nowrap">Friâ€“Sun</p>
+                  <p className="text-[10px] text-white font-bold whitespace-nowrap">2:00 PM & 6:00 PM</p>
                 </div>
               </div>
             </div>
@@ -610,11 +623,11 @@ export default function MiniAppShell({
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-base font-black text-slate-900">
-                    {language === 'am' ? 'የእንግዳ ተጠቃሚ' : 'Guest Player'}
+                    {language === 'am' ? 'á‹¨áŠ¥áŠ•áŒá‹³ á‰°áŒ á‰ƒáˆš' : 'Guest Player'}
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
                     {language === 'am'
-                      ? 'እውነተኛ ገንዘብ የሚያሸልሙ የቢንጎ ጨዋታዎችን ለመጫወት እና አሸናፊነትዎን በቴሌብር እና ሲቢኢ ለማውጣት አካውንት ይክፈቱ።'
+                      ? 'áŠ¥á‹áŠá‰°áŠ› áŒˆáŠ•á‹˜á‰¥ á‹¨áˆšá‹«áˆ¸áˆáˆ™ á‹¨á‰¢áŠ•áŒŽ áŒ¨á‹‹á‰³á‹Žá‰½áŠ• áˆˆáˆ˜áŒ«á‹ˆá‰µ áŠ¥áŠ“ áŠ áˆ¸áŠ“áŠáŠá‰µá‹ŽáŠ• á‰ á‰´áˆŒá‰¥áˆ­ áŠ¥áŠ“ áˆ²á‰¢áŠ¢ áˆˆáˆ›á‹áŒ£á‰µ áŠ áŠ«á‹áŠ•á‰µ á‹­áŠ­áˆá‰±á¢'
                       : 'Open an account with your Ethiopian phone number to play real-money games and withdraw winnings via Telebirr or CBE Birr.'}
                   </p>
                 </div>
@@ -624,16 +637,16 @@ export default function MiniAppShell({
                     className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Sparkles className="w-4 h-4" />
-                    <span>{language === 'am' ? 'አካውንት ክፈት (20 ብር ቦነስ)' : 'Open Account (20 ETB Bonus)'}</span>
+                    <span>{language === 'am' ? 'áŠ áŠ«á‹áŠ•á‰µ áŠ­áˆá‰µ (20 á‰¥áˆ­ á‰¦áŠáˆµ)' : 'Open Account (20 ETB Bonus)'}</span>
                   </button>
                   <button
                     onClick={() => openAuthModal('login')}
                     className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition border border-slate-300 cursor-pointer"
                   >
-                    {language === 'am' ? 'አካውንት አለኝ • ግባ' : 'Already have an account? Sign In'}
+                    {language === 'am' ? 'áŠ áŠ«á‹áŠ•á‰µ áŠ áˆˆáŠ â€¢ áŒá‰£' : 'Already have an account? Sign In'}
                   </button>
                   <div className="pt-2 text-center text-[11px] text-slate-500">
-                    <span>📞 {language === 'am' ? 'ጥያቄ ካለዎት:' : 'Need help?'} </span>
+                    <span>ðŸ“ž {language === 'am' ? 'áŒ¥á‹«á‰„ áŠ«áˆˆá‹Žá‰µ:' : 'Need help?'} </span>
                     <a href="tel:+251911234567" className="font-bold text-amber-600 hover:underline">+251 91 123 4567</a>
                   </div>
                 </div>
@@ -648,7 +661,7 @@ export default function MiniAppShell({
                       </div>
                       <div>
                         <h3 className="font-bold text-slate-900 text-base">{user.name}</h3>
-                        <p className="text-xs text-slate-500">@{user.username} • ID: {user.telegramId}</p>
+                        <p className="text-xs text-slate-500">@{user.username} â€¢ ID: {user.telegramId}</p>
                         <span className="inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 mt-1">
                           {t('verifiedUser')}
                         </span>
@@ -756,26 +769,26 @@ export default function MiniAppShell({
                 <div className="bg-slate-900 text-white p-3.5 rounded-2xl space-y-2 border border-slate-800 shadow-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <span>📞</span> {language === 'am' ? 'የደንበኞች አገልግሎት እና ድጋፍ' : 'Customer Support & Help'}
+                      <span>ðŸ“ž</span> {language === 'am' ? 'á‹¨á‹°áŠ•á‰ áŠžá‰½ áŠ áŒˆáˆáŒáˆŽá‰µ áŠ¥áŠ“ á‹µáŒ‹á' : 'Customer Support & Help'}
                     </span>
                     <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded-full font-bold">24/7 Live</span>
                   </div>
                   <div className="text-xs space-y-1.5">
                     <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
-                      <span className="text-slate-400 text-[11px] font-medium">ስልክ (Phone):</span>
+                      <span className="text-slate-400 text-[11px] font-medium">áˆµáˆáŠ­ (Phone):</span>
                       <a href="tel:+251911234567" className="font-bold text-amber-300 hover:underline">
                         +251 91 123 4567
                       </a>
                     </div>
                     <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
-                      <span className="text-slate-400 text-[11px] font-medium">ቴሌግራም (Telegram):</span>
+                      <span className="text-slate-400 text-[11px] font-medium">á‰´áˆŒáŒáˆ«áˆ (Telegram):</span>
                       <a href="https://t.me/HyperBingoSupport" target="_blank" rel="noopener noreferrer" className="font-bold text-amber-300 hover:underline">
                         @HyperBingoSupport
                       </a>
                     </div>
                     <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
-                      <span className="text-slate-400 text-[11px] font-medium">የዊክኤንድ ጨዋታ (Weekend Draw):</span>
-                      <span className="font-bold text-emerald-300 text-[11px]">Fri–Sun 2:00 PM, 5:00 PM & 7:00 PM</span>
+                      <span className="text-slate-400 text-[11px] font-medium">á‹¨á‹ŠáŠ­áŠ¤áŠ•á‹µ áŒ¨á‹‹á‰³ (Weekend Draw):</span>
+                      <span className="font-bold text-emerald-300 text-[11px]">Friâ€“Sun 2:00 PM, 5:00 PM & 7:00 PM</span>
                     </div>
                   </div>
                 </div>
@@ -787,7 +800,7 @@ export default function MiniAppShell({
                     className="w-full py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <LogOut className="w-4 h-4 text-rose-500" />
-                    <span>{language === 'am' ? 'ከአካውንት ውጣ / ቀይር' : 'Sign Out / Switch Account'}</span>
+                    <span>{language === 'am' ? 'áŠ¨áŠ áŠ«á‹áŠ•á‰µ á‹áŒ£ / á‰€á‹­áˆ­' : 'Sign Out / Switch Account'}</span>
                   </button>
                 </div>
               </div>
@@ -805,7 +818,7 @@ export default function MiniAppShell({
           }`}
         >
           <Gamepad2 className="w-5 h-5" />
-          <span>{language === 'am' ? 'ሎቢ' : 'Lobby'}</span>
+          <span>{language === 'am' ? 'áˆŽá‰¢' : 'Lobby'}</span>
         </button>
 
         <button
@@ -815,7 +828,7 @@ export default function MiniAppShell({
           }`}
         >
           <Zap className="w-5 h-5" />
-          <span>{language === 'am' ? 'አዲስ ክፍል' : 'Live'}</span>
+          <span>{language === 'am' ? 'áŠ á‹²áˆµ áŠ­ááˆ' : 'Live'}</span>
         </button>
 
         <button
@@ -828,7 +841,7 @@ export default function MiniAppShell({
           }`}
         >
           <Sparkles className="w-5 h-5" />
-          <span>{language === 'am' ? 'ካርዶች / ሎተሪ' : 'Cards / Lottery'}</span>
+          <span>{language === 'am' ? 'áŠ«áˆ­á‹¶á‰½ / áˆŽá‰°áˆª' : 'Cards / Lottery'}</span>
         </button>
 
         <button
@@ -838,7 +851,7 @@ export default function MiniAppShell({
           }`}
         >
           <Wallet className="w-5 h-5" />
-          <span>{language === 'am' ? 'ኪስ ቦርሳ' : 'Wallet'}</span>
+          <span>{language === 'am' ? 'áŠªáˆµ á‰¦áˆ­áˆ³' : 'Wallet'}</span>
         </button>
 
         <button
@@ -848,7 +861,7 @@ export default function MiniAppShell({
           }`}
         >
           <UserIcon className="w-5 h-5" />
-          <span>{language === 'am' ? 'መገለጫ' : 'Profile'}</span>
+          <span>{language === 'am' ? 'áˆ˜áŒˆáˆˆáŒ«' : 'Profile'}</span>
         </button>
 
         {isUserAdmin && (
@@ -859,7 +872,7 @@ export default function MiniAppShell({
             }`}
           >
             <Shield className="w-5 h-5" />
-            <span>{language === 'am' ? 'አስተዳዳሪ' : 'Admin'}</span>
+            <span>{language === 'am' ? 'áŠ áˆµá‰°á‹³á‹³áˆª' : 'Admin'}</span>
           </button>
         )}
       </div>
@@ -881,7 +894,7 @@ export default function MiniAppShell({
                 </div>
                 <div>
                   <h3 className="font-black text-sm text-amber-400 uppercase tracking-wide">
-                    {language === 'am' ? 'የአስተዳዳሪ ማስታወቂያ' : 'Official Announcement'}
+                    {language === 'am' ? 'á‹¨áŠ áˆµá‰°á‹³á‹³áˆª áˆ›áˆµá‰³á‹ˆá‰‚á‹«' : 'Official Announcement'}
                   </h3>
                   <span className="text-[10px] text-slate-400">
                     {new Date(activeAnnouncement.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -925,7 +938,7 @@ export default function MiniAppShell({
                 className="flex items-center justify-between p-3.5 rounded-2xl bg-indigo-950/60 border border-indigo-500/50 hover:bg-indigo-900/60 transition text-indigo-200 shadow-md cursor-pointer"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-3xl shrink-0">📄</span>
+                  <span className="text-3xl shrink-0">ðŸ“„</span>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-black text-white truncate">{activeAnnouncement.fileName || 'Attached Document'}</p>
                     <span className="text-[10px] text-indigo-300 font-bold">Tap to view / download document</span>
@@ -938,7 +951,7 @@ export default function MiniAppShell({
             )}
 
             <div className="max-h-64 overflow-y-auto pr-1 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800/80">
-              {(activeAnnouncement.text || (activeAnnouncement.mediaType === 'photo' ? '📸 Picture Announcement' : '📄 Document Announcement')).replace(/<[^>]*>?/gm, '')}
+              {(activeAnnouncement.text || (activeAnnouncement.mediaType === 'photo' ? 'ðŸ“¸ Picture Announcement' : 'ðŸ“„ Document Announcement')).replace(/<[^>]*>?/gm, '')}
             </div>
 
             <div className="flex items-center gap-2 pt-1">
@@ -950,7 +963,7 @@ export default function MiniAppShell({
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-xs hover:brightness-105 active:scale-98 transition shadow-md cursor-pointer text-center"
               >
-                {language === 'am' ? '🎮 አሁኑኑ ይጫወቱ' : '🎮 Play Hyper Bingo Now'}
+                {language === 'am' ? 'ðŸŽ® áŠ áˆáŠ‘áŠ‘ á‹­áŒ«á‹ˆá‰±' : 'ðŸŽ® Play Hyper Bingo Now'}
               </button>
               <button
                 type="button"
@@ -960,7 +973,7 @@ export default function MiniAppShell({
                 }}
                 className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
               >
-                {language === 'am' ? 'ዝጋ' : 'Close'}
+                {language === 'am' ? 'á‹áŒ‹' : 'Close'}
               </button>
             </div>
           </div>
@@ -1200,17 +1213,17 @@ function WeekendLotteryNumberPicker({
             )}
             <div>
               <h3 className="text-xs font-black text-slate-900 leading-tight flex items-center gap-1">
-                <span>{mode === 'FETAN' ? '⚡' : '🌟'}</span>
+                <span>{mode === 'FETAN' ? 'âš¡' : 'ðŸŒŸ'}</span>
                 <span>
                   {mode === 'FETAN' 
-                    ? (isAm ? 'ሃይፐር ፈጣን ካርዶች (1-500)' : 'Hyper Fetan Cards (1-500)')
-                    : (isAm ? 'ሃይፐር ዊክኤንድ ሎተሪ (1-1500)' : 'Hyper Weekend Lottery (1-1500)')}
+                    ? (isAm ? 'áˆƒá‹­ááˆ­ áˆáŒ£áŠ• áŠ«áˆ­á‹¶á‰½ (1-500)' : 'Hyper Fetan Cards (1-500)')
+                    : (isAm ? 'áˆƒá‹­ááˆ­ á‹ŠáŠ­áŠ¤áŠ•á‹µ áˆŽá‰°áˆª (1-1500)' : 'Hyper Weekend Lottery (1-1500)')}
                 </span>
               </h3>
               <span className="text-[10px] text-slate-500 font-bold">
                 {mode === 'FETAN' 
-                  ? (isAm ? '1 ደቂቃ ዙር · 30 ሰከንድ ካርድ መምረጫ · 500 ካርዶች' : '1 Min Round · 30s Card Pick · 500 Cards')
-                  : (isAm ? 'አርብ · ቅዳሜ · እሑድ 8:00፣ 11:00 እና 1:00 · 1500 ካርዶች' : 'Fri · Sat · Sun: 2 PM, 5 PM & 7 PM · 1500 Cards')}
+                  ? (isAm ? '1 á‹°á‰‚á‰ƒ á‹™áˆ­ Â· 30 áˆ°áŠ¨áŠ•á‹µ áŠ«áˆ­á‹µ áˆ˜áˆáˆ¨áŒ« Â· 500 áŠ«áˆ­á‹¶á‰½' : '1 Min Round Â· 30s Card Pick Â· 500 Cards')
+                  : (isAm ? 'áŠ áˆ­á‰¥ Â· á‰…á‹³áˆœ Â· áŠ¥áˆ‘á‹µ 8:00á£ 11:00 áŠ¥áŠ“ 1:00 Â· 1500 áŠ«áˆ­á‹¶á‰½' : 'Fri Â· Sat Â· Sun: 2 PM, 5 PM & 7 PM Â· 1500 Cards')}
               </span>
             </div>
           </div>
@@ -1220,10 +1233,10 @@ function WeekendLotteryNumberPicker({
               type="button"
               onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_30', [])}
               className="px-2 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer"
-              title={isAm ? 'ጨዋታውን በቀጥታ ይመልከቱ' : 'Watch live game'}
+              title={isAm ? 'áŒ¨á‹‹á‰³á‹áŠ• á‰ á‰€áŒ¥á‰³ á‹­áˆ˜áˆáŠ¨á‰±' : 'Watch live game'}
             >
               <Eye className="w-3 h-3" />
-              <span>{isAm ? 'እይ' : 'Watch'}</span>
+              <span>{isAm ? 'áŠ¥á‹­' : 'Watch'}</span>
             </button>
             <div className="px-2 py-1 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 font-mono font-black text-[10px] flex items-center gap-1 shadow-2xs">
               <Wallet className="w-3 h-3 text-emerald-600 shrink-0" />
@@ -1233,31 +1246,31 @@ function WeekendLotteryNumberPicker({
         </div>
       )}
 
-      {/* 🎯 ONE-LINE COMPACT WINNING RULE & HIT BANNER */}
+      {/* ðŸŽ¯ ONE-LINE COMPACT WINNING RULE & HIT BANNER */}
       <div className="mx-2 mt-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-400 text-slate-950 flex items-center justify-between gap-2 shadow-2xs text-[11px]">
         <div className="flex items-center gap-1.5 min-w-0 truncate">
-          <span className="shrink-0">{mode === 'FETAN' ? '⚡' : mode === 'SPECIAL' ? '🎲' : '🌟'}</span>
+          <span className="shrink-0">{mode === 'FETAN' ? 'âš¡' : mode === 'SPECIAL' ? 'ðŸŽ²' : 'ðŸŒŸ'}</span>
           <span className="font-black text-amber-950 shrink-0">
-            {isAm ? 'ሕግ:' : 'Rule:'}
+            {isAm ? 'áˆ•áŒ:' : 'Rule:'}
           </span>
           <span className="font-bold text-slate-800 truncate">
             {mode === 'FETAN'
-              ? (isAm ? '1 አግድም፣ 1 ቀጥታ፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
+              ? (isAm ? '1 áŠ áŒá‹µáˆá£ 1 á‰€áŒ¥á‰³á£ 1 á‹²á‹«áŒŽáŠ“áˆ á‹ˆá‹­áˆ 4 áˆ›á‹•á‹˜áŠ“á‰µ' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
               : mode === 'SPECIAL'
               ? (() => {
                   const rule = HYPER_SPECIAL_RULES[Math.abs(selectedGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
-                  return isAm ? `የዙሩ ሕግ: ${rule.nameAm}` : `Round Law: ${rule.nameEn}`;
+                  return isAm ? `á‹¨á‹™áˆ© áˆ•áŒ: ${rule.nameAm}` : `Round Law: ${rule.nameEn}`;
                 })()
-              : (isAm ? 'ሙሉ ቤት ብቻ 24/24 (ሜጋ ጃክፖት)' : 'Full House Only (All 24 Numbers)')
+              : (isAm ? 'áˆ™áˆ‰ á‰¤á‰µ á‰¥á‰» 24/24 (áˆœáŒ‹ áŒƒáŠ­á–á‰µ)' : 'Full House Only (All 24 Numbers)')
             }
           </span>
         </div>
         <span className="shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-slate-950">
-          {mode === 'FETAN' ? '⚡ 5 SLOTS' : mode === 'SPECIAL' ? '🎲 SPECIAL' : '🌟 FULL HOUSE'}
+          {mode === 'FETAN' ? 'âš¡ 5 SLOTS' : mode === 'SPECIAL' ? 'ðŸŽ² SPECIAL' : 'ðŸŒŸ FULL HOUSE'}
         </span>
       </div>
 
-      {/* ⏳ TIMING CLOCK BANNER */}
+      {/* â³ TIMING CLOCK BANNER */}
       {mode === 'FETAN' ? (
         <div className={`mx-2 mt-2 p-2.5 rounded-2xl border text-white shadow-md flex items-center justify-between gap-2 ${
           fetanIsIntermission 
@@ -1268,21 +1281,21 @@ function WeekendLotteryNumberPicker({
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 animate-pulse ${
               fetanIsIntermission ? 'bg-emerald-400/20 text-emerald-400' : 'bg-amber-400/20 text-amber-400'
             }`}>
-              {fetanIsIntermission ? '🎟️' : '⚡'}
+              {fetanIsIntermission ? 'ðŸŽŸï¸' : 'âš¡'}
             </div>
             <div className="min-w-0">
               <span className={`text-[9px] uppercase tracking-widest font-black block leading-none ${
                 fetanIsIntermission ? 'text-emerald-300' : 'text-amber-300'
               }`}>
                 {fetanIsIntermission 
-                  ? (isAm ? 'የካርድ መምረጫ ጊዜ (30 ሰከንድ):' : 'PICK YOUR CARDS (30s INTERMISSION):')
-                  : (isAm ? 'ፈጣን ዙር በመካሄድ ላይ (1 ደቂቃ):' : 'FAST ROUND IN PROGRESS (1 MIN):')
+                  ? (isAm ? 'á‹¨áŠ«áˆ­á‹µ áˆ˜áˆáˆ¨áŒ« áŒŠá‹œ (30 áˆ°áŠ¨áŠ•á‹µ):' : 'PICK YOUR CARDS (30s INTERMISSION):')
+                  : (isAm ? 'áˆáŒ£áŠ• á‹™áˆ­ á‰ áˆ˜áŠ«áˆ„á‹µ áˆ‹á‹­ (1 á‹°á‰‚á‰ƒ):' : 'FAST ROUND IN PROGRESS (1 MIN):')
                 }
               </span>
               <span className="text-[10px] text-slate-300 font-bold truncate block mt-0.5">
                 {fetanIsIntermission 
-                  ? (isAm ? 'ካርዶችን ይምረጡ · ቀጣዩ ዙር በቅርቡ ይጀምራል' : 'Select your cards now · Next round starting!')
-                  : (isAm ? `ዙሩ በ ${fetanSeconds} ሰከንድ ውስጥ ይጠናቀቃል · 30 ሰከንድ ምርጫ ይቀጥላል` : `Round ends in ${fetanSeconds}s · 30s card pick follows`)
+                  ? (isAm ? 'áŠ«áˆ­á‹¶á‰½áŠ• á‹­áˆáˆ¨áŒ¡ Â· á‰€áŒ£á‹© á‹™áˆ­ á‰ á‰…áˆ­á‰¡ á‹­áŒ€áˆáˆ«áˆ' : 'Select your cards now Â· Next round starting!')
+                  : (isAm ? `á‹™áˆ© á‰  ${fetanSeconds} áˆ°áŠ¨áŠ•á‹µ á‹áˆµáŒ¥ á‹­áŒ áŠ“á‰€á‰ƒáˆ Â· 30 áˆ°áŠ¨áŠ•á‹µ áˆáˆ­áŒ« á‹­á‰€áŒ¥áˆ‹áˆ` : `Round ends in ${fetanSeconds}s Â· 30s card pick follows`)
                 }
               </span>
             </div>
@@ -1299,33 +1312,33 @@ function WeekendLotteryNumberPicker({
         <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-indigo-400/40 text-white shadow-md flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-base shrink-0 animate-pulse">
-              🎲
+              ðŸŽ²
             </div>
             <div className="min-w-0">
               <span className="text-[9px] uppercase tracking-widest text-indigo-300 font-black block leading-none">
-                {isAm ? 'የስፔሻል ክፍል ካርድ መምረጫ:' : 'SPECIAL CARD SELECTION:'}
+                {isAm ? 'á‹¨áˆµá”áˆ»áˆ áŠ­ááˆ áŠ«áˆ­á‹µ áˆ˜áˆáˆ¨áŒ«:' : 'SPECIAL CARD SELECTION:'}
               </span>
               <span className="text-[10px] text-slate-300 font-bold truncate block mt-0.5">
-                {selectedGame?.name || 'Hyper Special'} · {isAm ? 'እስከ 5 ካርዶች ይምረጡ' : 'Select up to 5 cards (S1..S5)'}
+                {selectedGame?.name || 'Hyper Special'} Â· {isAm ? 'áŠ¥áˆµáŠ¨ 5 áŠ«áˆ­á‹¶á‰½ á‹­áˆáˆ¨áŒ¡' : 'Select up to 5 cards (S1..S5)'}
               </span>
             </div>
           </div>
           <div className="px-3 py-1 rounded-xl bg-indigo-400/10 border border-indigo-400/40 text-indigo-300 font-mono font-black text-xs tracking-wider shrink-0">
-            {selectedGame?.status === 'RUNNING' ? '● LIVE' : 'STARTING'}
+            {selectedGame?.status === 'RUNNING' ? 'â— LIVE' : 'STARTING'}
           </div>
         </div>
       ) : (
         <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-amber-400/40 text-white shadow-md flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-400 flex items-center justify-center text-base shrink-0 animate-pulse">
-              ⏳
+              â³
             </div>
             <div className="min-w-0">
               <span className="text-[9px] uppercase tracking-widest text-amber-300 font-black block leading-none">
-                {isAm ? 'ቀጣዩ ሜጋ ድራው በ:' : 'Next Mega Draw In:'}
+                {isAm ? 'á‰€áŒ£á‹© áˆœáŒ‹ á‹µáˆ«á‹ á‰ :' : 'Next Mega Draw In:'}
               </span>
               <span className="text-[10px] text-slate-300 font-bold truncate block mt-0.5">
-                {selectedGame?.name || 'Weekend Draw'} · {selectedGame?.startTime || '2:00 PM (Fri–Sun)'}
+                {selectedGame?.name || 'Weekend Draw'} Â· {selectedGame?.startTime || '2:00 PM (Friâ€“Sun)'}
               </span>
             </div>
           </div>
@@ -1335,20 +1348,20 @@ function WeekendLotteryNumberPicker({
         </div>
       )}
 
-      {/* ── Stake Tier Selector ── */}
+      {/* â”€â”€ Stake Tier Selector â”€â”€ */}
       <div className="mx-2 mt-2 p-2 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-1.5 shrink-0">
         <div className="flex items-center justify-between px-1">
           <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-amber-600" />
             {mode === 'FETAN' 
-              ? (isAm ? 'የፈጣን ውርርድ ደረጃ (5, 10, 30, 50 ብር)' : 'Hyper Fetan Stakes (5, 10, 30, 50 ETB)')
+              ? (isAm ? 'á‹¨áˆáŒ£áŠ• á‹áˆ­áˆ­á‹µ á‹°áˆ¨áŒƒ (5, 10, 30, 50 á‰¥áˆ­)' : 'Hyper Fetan Stakes (5, 10, 30, 50 ETB)')
               : mode === 'SPECIAL'
-              ? (isAm ? 'የስፔሻል ውርርድ ደረጃ (10, 20, 30 ብር)' : 'Hyper Special Stakes (10, 20, 30 ETB)')
-              : (isAm ? 'የሃይፐር ዊክኤንድ ውርርድ (30, 50, 100 ብር)' : 'Hyper Weekend Stakes (30, 50, 100 ETB)')
+              ? (isAm ? 'á‹¨áˆµá”áˆ»áˆ á‹áˆ­áˆ­á‹µ á‹°áˆ¨áŒƒ (10, 20, 30 á‰¥áˆ­)' : 'Hyper Special Stakes (10, 20, 30 ETB)')
+              : (isAm ? 'á‹¨áˆƒá‹­ááˆ­ á‹ŠáŠ­áŠ¤áŠ•á‹µ á‹áˆ­áˆ­á‹µ (30, 50, 100 á‰¥áˆ­)' : 'Hyper Weekend Stakes (30, 50, 100 ETB)')
             }
           </span>
           <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
-            ⚡ {entryPrice} ETB {isAm ? 'ተመርጧል' : 'Selected'}
+            âš¡ {entryPrice} ETB {isAm ? 'á‰°áˆ˜áˆ­áŒ§áˆ' : 'Selected'}
           </span>
         </div>
         <div className={`grid gap-1.5 ${mode === 'FETAN' ? 'grid-cols-4' : mode === 'SPECIAL' ? 'grid-cols-3' : 'grid-cols-3'}`}>
@@ -1368,13 +1381,13 @@ function WeekendLotteryNumberPicker({
                     : 'bg-slate-50 hover:bg-amber-50/50 border-slate-200 hover:border-amber-300 text-slate-700 font-bold'
                 }`}
               >
-                <span className="text-xs font-black">⚡ {wg.entryPrice} ETB</span>
+                <span className="text-xs font-black">âš¡ {wg.entryPrice} ETB</span>
                 <span className={`text-[9px] ${isSelected ? 'text-amber-950 font-black' : 'text-slate-500'}`}>
-                  {wg.entryPrice === 5 ? (isAm ? 'ጀማሪ' : 'Starter')
-                    : wg.entryPrice === 10 ? (isAm ? 'ተመራጭ' : 'Popular')
-                    : wg.entryPrice === 20 ? (isAm ? 'መደበኛ' : 'Standard')
-                    : wg.entryPrice === 30 ? (isAm ? 'መካከለኛ' : 'Medium')
-                    : wg.entryPrice === 50 ? (isAm ? 'ከፍተኛ' : 'High')
+                  {wg.entryPrice === 5 ? (isAm ? 'áŒ€áˆ›áˆª' : 'Starter')
+                    : wg.entryPrice === 10 ? (isAm ? 'á‰°áˆ˜áˆ«áŒ­' : 'Popular')
+                    : wg.entryPrice === 20 ? (isAm ? 'áˆ˜á‹°á‰ áŠ›' : 'Standard')
+                    : wg.entryPrice === 30 ? (isAm ? 'áˆ˜áŠ«áŠ¨áˆˆáŠ›' : 'Medium')
+                    : wg.entryPrice === 50 ? (isAm ? 'áŠ¨áá‰°áŠ›' : 'High')
                     : 'VIP Mega'}
                 </span>
               </button>
@@ -1387,7 +1400,7 @@ function WeekendLotteryNumberPicker({
       <div className="mx-2 mt-2 flex items-stretch rounded-2xl overflow-hidden bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100 text-slate-900 shadow-xs border border-amber-200 shrink-0">
         <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-200">
           <span className="text-[9px] font-black uppercase tracking-widest text-rose-600 leading-none">
-            {isAm ? 'የተሸጠ' : 'Sold'}
+            {isAm ? 'á‹¨á‰°áˆ¸áŒ ' : 'Sold'}
           </span>
           <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-rose-700">
             {soldSet.size}
@@ -1395,7 +1408,7 @@ function WeekendLotteryNumberPicker({
         </div>
         <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-200">
           <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 leading-none">
-            {isAm ? 'ነፃ' : 'Available'}
+            {isAm ? 'áŠáƒ' : 'Available'}
           </span>
           <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-emerald-800">
             {TOTAL_NUMBERS - soldSet.size}
@@ -1403,7 +1416,7 @@ function WeekendLotteryNumberPicker({
         </div>
         <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-200">
           <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 leading-none">
-            {isAm ? 'ዋጋ' : 'Stake'}
+            {isAm ? 'á‹‹áŒ‹' : 'Stake'}
           </span>
           <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-slate-950">
             {entryPrice} ETB
@@ -1411,7 +1424,7 @@ function WeekendLotteryNumberPicker({
         </div>
         <div className="flex-1 flex flex-col items-center justify-center py-2 px-1">
           <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 leading-none">
-            {isAm ? 'ኮድ' : 'Reg Code'}
+            {isAm ? 'áŠ®á‹µ' : 'Reg Code'}
           </span>
           <span className="text-xs font-black leading-tight mt-0.5 font-mono text-slate-900">{regCode}</span>
         </div>
@@ -1422,7 +1435,7 @@ function WeekendLotteryNumberPicker({
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-            {isAm ? 'የተመረጡ ካርዶች' : 'Your Selected Slots'} ({slotCountFilled}/{NUM_SLOTS})
+            {isAm ? 'á‹¨á‰°áˆ˜áˆ¨áŒ¡ áŠ«áˆ­á‹¶á‰½' : 'Your Selected Slots'} ({slotCountFilled}/{NUM_SLOTS})
           </span>
           <span className="text-[11px] font-black text-amber-700 font-mono">
             {totalCost > 0 ? `${totalCost} ETB` : ''}
@@ -1476,30 +1489,30 @@ function WeekendLotteryNumberPicker({
       <div className="flex items-center justify-center gap-4 mx-2 mt-2 py-1.5 bg-white rounded-xl border border-slate-200 text-[11px] shadow-xs shrink-0">
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded border border-slate-300 bg-white" />
-          <span className="text-slate-800 font-bold">{isAm ? 'ነፃ' : 'Available'}</span>
+          <span className="text-slate-800 font-bold">{isAm ? 'áŠáƒ' : 'Available'}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded border border-amber-500 bg-amber-400" />
-          <span className="text-slate-800 font-bold">{isAm ? 'የተመረጠ' : 'Selected'}</span>
+          <span className="text-slate-800 font-bold">{isAm ? 'á‹¨á‰°áˆ˜áˆ¨áŒ ' : 'Selected'}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded border border-slate-300 bg-slate-200" />
-          <span className="text-slate-600 font-bold">{isAm ? 'የተሸጠ (ግራጫ)' : 'Sold (Gray)'}</span>
+          <span className="text-slate-600 font-bold">{isAm ? 'á‹¨á‰°áˆ¸áŒ  (áŒáˆ«áŒ«)' : 'Sold (Gray)'}</span>
         </div>
       </div>
 
-      {/* Master Lottery Numbers Table — Clean White Background, Bold Black Numbers */}
+      {/* Master Lottery Numbers Table â€” Clean White Background, Bold Black Numbers */}
       <div className="mx-2 mt-2 bg-white rounded-2xl border border-slate-200 p-2 shadow-xs">
         <div className="flex items-center justify-between mb-1.5 px-1">
           <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider">
-            {isAm ? `የቁጥሮች ሰንጠረዥ (1-${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`}
+            {isAm ? `á‹¨á‰áŒ¥áˆ®á‰½ áˆ°áŠ•áŒ áˆ¨á‹¥ (1-${TOTAL_NUMBERS})` : `Master Lottery Board (1â€“${TOTAL_NUMBERS})`}
           </span>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-emerald-700 font-black bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-              ✓ {TOTAL_NUMBERS - soldSet.size} {isAm ? 'ነፃዎች' : 'Available'}
+              âœ“ {TOTAL_NUMBERS - soldSet.size} {isAm ? 'áŠáƒá‹Žá‰½' : 'Available'}
             </span>
             <span className="text-[10px] text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-              ✗ {soldSet.size} {isAm ? 'የተሸጡ' : 'Sold'}
+              âœ— {soldSet.size} {isAm ? 'á‹¨á‰°áˆ¸áŒ¡' : 'Sold'}
             </span>
           </div>
         </div>
@@ -1551,13 +1564,13 @@ function WeekendLotteryNumberPicker({
           }`}
         >
           {!user ? (
-            isAm ? 'መመዝገብ →' : 'Register to Play →'
+            isAm ? 'áˆ˜áˆ˜á‹áŒˆá‰¥ â†’' : 'Register to Play â†’'
           ) : slotCountFilled === 0 ? (
-            isAm ? '👉 ከሰንጠረዡ ካርድ ቁጥር ይምረጡ' : '👉 Tap Numbers Above to Pick'
+            isAm ? 'ðŸ‘‰ áŠ¨áˆ°áŠ•áŒ áˆ¨á‹¡ áŠ«áˆ­á‹µ á‰áŒ¥áˆ­ á‹­áˆáˆ¨áŒ¡' : 'ðŸ‘‰ Tap Numbers Above to Pick'
           ) : !canAfford ? (
-            isAm ? `ተጨማሪ ${Math.max(0, totalCost - playableBalance)} ETB ያስፈልጋል (Bonus+Balance: ${Math.floor(playableBalance)} ETB)` : `Need ${Math.max(0, totalCost - playableBalance)} ETB more (Have ${Math.floor(playableBalance)} ETB)`
+            isAm ? `á‰°áŒ¨áˆ›áˆª ${Math.max(0, totalCost - playableBalance)} ETB á‹«áˆµáˆáˆáŒ‹áˆ (Bonus+Balance: ${Math.floor(playableBalance)} ETB)` : `Need ${Math.max(0, totalCost - playableBalance)} ETB more (Have ${Math.floor(playableBalance)} ETB)`
           ) : (
-            `🏆 ${isAm ? 'ይግዙ' : 'BUY'} · ${slotCountFilled}×${entryPrice} = ${totalCost} ETB`
+            `ðŸ† ${isAm ? 'á‹­áŒá‹™' : 'BUY'} Â· ${slotCountFilled}Ã—${entryPrice} = ${totalCost} ETB`
           )}
         </button>
 
@@ -1568,9 +1581,11 @@ function WeekendLotteryNumberPicker({
           className="w-full py-2.5 rounded-xl font-bold text-xs bg-slate-200/80 hover:bg-slate-300 text-slate-800 transition flex items-center justify-center gap-1.5 cursor-pointer border border-slate-300/80"
         >
           <Eye className="w-3.5 h-3.5 text-blue-600" />
-          <span>{isAm ? '👀 ያለ ካርድ ጨዋታውን በቀጥታ ይመልከቱ (Watch Live Game)' : '👀 Watch Live Game as Spectator'}</span>
+          <span>{isAm ? 'ðŸ‘€ á‹«áˆˆ áŠ«áˆ­á‹µ áŒ¨á‹‹á‰³á‹áŠ• á‰ á‰€áŒ¥á‰³ á‹­áˆ˜áˆáŠ¨á‰± (Watch Live Game)' : 'ðŸ‘€ Watch Live Game as Spectator'}</span>
         </button>
       </div>
     </div>
   );
 }
+
+

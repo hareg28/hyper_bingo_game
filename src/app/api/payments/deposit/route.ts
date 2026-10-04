@@ -54,9 +54,13 @@ export async function POST(req: NextRequest) {
       createdTx = await db.creditDeposit(userId, amount, txRef, provider || 'Telebirr');
     } catch (dbErr) {
       console.error('[Deposit API] creditDeposit error:', dbErr);
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Failed to credit deposit. Please try again or contact support.',
+      }, { status: 500 });
     }
 
-    // NOTIFY OWNER / ADMINISTRATORS VIA TELEGRAM FOR RECORD-KEEPING
+    // NON-BLOCKING TELEGRAM NOTIFICATION (fire-and-forget so 1000+ users never hang)
     const adminWhitelist = getAdminWhitelist();
     const targetAdmins = adminWhitelist.length > 0 ? adminWhitelist : ['570615212', '7829104'];
 
@@ -77,10 +81,10 @@ export async function POST(req: NextRequest) {
       `⏰ <b>Date & Time:</b> ${new Date().toLocaleString()}\n\n` +
       `✅ <i>Player balance credited immediately with instant auto-verification. Zero admin wait time!</i>`;
 
-    // Dispatch audit notification to admin chat IDs asynchronously
-    for (const adminId of targetAdmins) {
-      try {
-        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    // Fire and forget telegram alerts without blocking HTTP response
+    Promise.allSettled(
+      targetAdmins.map((adminId) =>
+        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -88,11 +92,11 @@ export async function POST(req: NextRequest) {
             text: notificationMessage,
             parse_mode: 'HTML',
           }),
-        });
-      } catch (tgErr) {
-        console.error(`[Deposit API] Failed to send Telegram alert to admin ${adminId}:`, tgErr);
-      }
-    }
+        })
+      )
+    ).catch((tgErr) => {
+      console.error('[Deposit API] Async Telegram alert error:', tgErr);
+    });
 
     return NextResponse.json<ApiResponse>({
       success: true,

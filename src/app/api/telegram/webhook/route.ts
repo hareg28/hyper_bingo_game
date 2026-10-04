@@ -52,9 +52,9 @@ export async function POST(req: NextRequest) {
       `   └ 10, 20, 30 ETB · ቀጥታ ክፍል\n` +
       `   └ ልዩ ሕግ ዙር በዙር ይለዋወጣል\n\n` +
       `🌟 <b>Hyper Weekend</b> (ሃይፐር ዊክኤንድ)\n` +
-      `   └ 30, 50, 100 ETB · 30,000–100,000 ETB ጃክፖት\n` +
+      `   └ 50 ETB · 50,000 ETB ጃክፖት\n` +
       `   └ አሸናፊ ሕግ: ሙሉ ቤት (Full House) ብቻ\n` +
-      `   └ ዕለቶች: አርብ · ቅዳሜ · እሑድ 2:00, 5:00 & 7:00 PM\n` +
+      `   └ ዕለቶች: አርብ · ቅዳሜ · እሑድ 2:00 PM & 6:00 PM\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n` +
       `🎁 <i>አካውንት ሲፈጥሩ 20 ETB ቦነስ ወዲያው ይጨምርልዎታል! (ለጨዋታ ብቻ)</i>`;
 
@@ -422,7 +422,31 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // ── /start, /help — OR any first message ─────────────────────────────────
+      // ── /start [referral_code], /help — OR any first message ─────────────────────────────────
+      // Handle referral links: /start ABC123 or start_param from Telegram deep link
+      const startPayload = text?.startsWith('/start ') ? text.replace('/start ', '').trim() : null;
+      const isReferralStart = startPayload && !startPayload.startsWith('gm_') && startPayload !== 'play';
+
+      if (isReferralStart && startPayload && userId) {
+        // Send the welcome message AND open the mini app with the referral code pre-filled
+        const refAppUrl = `${appUrl}?ref=${encodeURIComponent(startPayload)}`;
+        await sendMessage({
+          chat_id: chatId,
+          parse_mode: 'HTML',
+          text:
+            `${announcementHeader}🎉 <b>Welcome to Hyper Bingo!</b>\n\n` +
+            `🔗 You were invited by a friend! Create your account and get <b>20 ETB Welcome Bonus</b>!\n\n` +
+            `Your referral code: <code>${startPayload}</code>\n\n` +
+            `<b>👇 Tap below to register and start playing!</b>`,
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '🎮 Register & Play Now', web_app: { url: refAppUrl } },
+            ]],
+          },
+        });
+        return NextResponse.json({ ok: true });
+      }
+
       const welcomeText =
         `${announcementHeader}🎮 <b>Hyper Bingo Ethiopia</b>\n` +
         `#1 Live 75-Ball Bingo · Telebirr &amp; CBE Birr\n` +

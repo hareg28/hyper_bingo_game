@@ -35,9 +35,14 @@ export async function initDatabaseSchema() {
         role VARCHAR(32) DEFAULT 'user',
         status VARCHAR(32) DEFAULT 'active',
         referral_code VARCHAR(64) UNIQUE,
+        referred_by VARCHAR(64),
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `;
+    // 1b. Safe migration: add referred_by to existing users table
+    try {
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by VARCHAR(64)`;
+    } catch {}
 
     // 2. Wallets Table
     await sql`
@@ -147,7 +152,7 @@ export async function initDatabaseSchema() {
 
     return {
       connected: true,
-      message: 'Neon PostgreSQL tables initialized successfully (users, wallets, transactions, withdrawals, linked_accounts, games, announcements).',
+      message: 'Neon PostgreSQL tables initialized successfully (users, wallets, transactions, withdrawals, linked_accounts, games, announcements). referred_by column ensured.',
     };
   } catch (error: any) {
     console.error('Neon schema initialization error:', error);
