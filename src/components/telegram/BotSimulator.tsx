@@ -246,7 +246,6 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
         { label: '⚡ Hyper Fetan 50 (50 ETB)', action: () => onOpenMiniApp('game') },
         { label: '🎲 Hyper Special 20 (20 ETB)', action: () => onOpenMiniApp('game') },
         { label: '🌟 Hyper Weekend 50 (50k Pool)', action: () => onOpenMiniApp('lottery'), isPrimary: true },
-        { label: '👑 Hyper Weekend 100 (100k Mega)', action: () => onOpenMiniApp('lottery') },
         { label: isAm ? '🎮 ሁሉንም ጨዋታዎች እይ (Lobby)' : '🎮 View All Rooms (Lobby)', action: () => onOpenMiniApp('lobby') },
         { label: isAm ? '💰 ኪስ ቦርሳ (Wallet)' : '💰 Wallet & Deposit', action: () => onOpenMiniApp('wallet') },
         ...(isUserAdmin

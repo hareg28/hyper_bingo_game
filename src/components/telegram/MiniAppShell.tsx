@@ -384,7 +384,7 @@ export default function MiniAppShell({
               >
                 <span className="flex items-center gap-1 font-black">🌟 {language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'Hyper Weekend'}</span>
                 <span className={`text-[9px] font-bold ${categoryTab === 'WEEKEND' ? 'text-amber-950' : 'text-slate-500'}`}>
-                  30-100 ETB · 1500 {language === 'am' ? 'ካርድ' : 'Cards'}
+                  50 ETB · 1500 {language === 'am' ? 'ካርድ' : 'Cards'}
                 </span>
               </button>
             </div>
@@ -1246,7 +1246,7 @@ function WeekendLotteryNumberPicker({
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_30', [])}
+              onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_50_2pm', [])}
               className="px-2 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer"
               title={isAm ? 'ጨዋታውን በቀጥታ ይመልከቱ' : 'Watch live game'}
             >
@@ -1372,14 +1372,14 @@ function WeekendLotteryNumberPicker({
               ? (isAm ? 'የፈጣን ውርርድ ደረጃ (5, 10, 30, 50 ብር)' : 'Hyper Fetan Stakes (5, 10, 30, 50 ETB)')
               : mode === 'SPECIAL'
               ? (isAm ? 'የስፔሻል ውርርድ ደረጃ (10, 20, 30 ብር)' : 'Hyper Special Stakes (10, 20, 30 ETB)')
-              : (isAm ? 'የሃይፐር ዊክኤንድ ውርርድ (30, 50, 100 ብር)' : 'Hyper Weekend Stakes (30, 50, 100 ETB)')
+              : (isAm ? 'የሃይፐር ዊክኤንድ ውርርድ (50 ብር)' : 'Hyper Weekend Stakes (50 ETB)')
             }
           </span>
           <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
             ⚡ {entryPrice} ETB {isAm ? 'ተመርጧል' : 'Selected'}
           </span>
         </div>
-        <div className={`grid gap-1.5 ${mode === 'FETAN' ? 'grid-cols-4' : mode === 'SPECIAL' ? 'grid-cols-3' : 'grid-cols-3'}`}>
+        <div className={`grid gap-1.5 ${mode === 'FETAN' ? 'grid-cols-4' : mode === 'SPECIAL' ? 'grid-cols-3' : targetGames.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
           {targetGames.map((wg, idx) => {
             const isSelected = selectedGameIdx === idx;
             return (
@@ -1592,7 +1592,7 @@ function WeekendLotteryNumberPicker({
         {/* Spectator Button: Watch live game without buying cards */}
         <button
           type="button"
-          onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_30', [])}
+          onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_50_2pm', [])}
           className="w-full py-2.5 rounded-xl font-bold text-xs bg-slate-200/80 hover:bg-slate-300 text-slate-800 transition flex items-center justify-center gap-1.5 cursor-pointer border border-slate-300/80"
         >
           <Eye className="w-3.5 h-3.5 text-blue-600" />
