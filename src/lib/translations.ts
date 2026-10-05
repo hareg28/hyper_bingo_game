@@ -155,10 +155,10 @@ export const translations = {
     linkAccountBtn: 'LINK ACCOUNT',
     noAccountsLinked: 'No payment accounts linked yet.',
     noTransactionsYet: 'No transactions found.',
-    telecomDesc: 'Ethio Telecom',
+    telecomDesc: 'Ethio Telecom (09...)',
     cbeDesc: 'Commercial Bank of Ethiopia',
-    chapaDesc: 'Cards & More',
-    bankDesc: 'Direct Bank',
+    mpesaDesc: 'Safaricom Ethiopia (07...)',
+    bankDesc: 'Direct Bank Transfer',
 
     // Profile & Referrals
     userProfile: 'User Profile',
@@ -381,9 +381,9 @@ export const translations = {
     linkAccountBtn: 'መለያውን አገናኝ',
     noAccountsLinked: 'እስካሁን የተገናኘ የክፍያ መለያ የለም።',
     noTransactionsYet: 'ምንም የክፍያ ታሪክ አልተገኘም።',
-    telecomDesc: 'ኢትዮ ቴሌኮም',
+    telecomDesc: 'ኢትዮ ቴሌኮም (09...)',
     cbeDesc: 'የኢትዮጵያ ንግድ ባንክ',
-    chapaDesc: 'ካርዶች እና ሌሎች',
+    mpesaDesc: 'ሳፋሪኮም ኢትዮጵያ (07...)',
     bankDesc: 'ቀጥታ የባንክ ሂሳብ',
 
     // Profile & Referrals

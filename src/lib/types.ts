@@ -89,7 +89,7 @@ export type TransactionType =
   | 'PROMOTION_BONUS';
 
 export type TransactionStatus = 'PENDING' | 'APPROVED' | 'COMPLETED' | 'REJECTED' | 'FAILED';
-export type PaymentProvider = 'Telebirr' | 'CBE Birr' | 'Chapa' | 'Bank Transfer';
+export type PaymentProvider = 'Telebirr' | 'CBE Birr' | 'M-Pesa' | 'Bank Transfer';
 
 export interface Transaction {
   id: string;

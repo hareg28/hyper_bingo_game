@@ -6,7 +6,7 @@ import { PaymentProvider, LinkedPaymentAccount, LinkedAccountType } from '../../
 import { formatETB } from '../../lib/bingoUtils';
 import {
   Wallet, ArrowDownRight, ArrowUpRight, ShieldCheck,
-  Smartphone, Landmark, CreditCard, History, Plus, Trash2,
+  Smartphone, Landmark, History, Plus, Trash2,
   CheckCircle, Clock, XCircle, Star, ChevronRight, ExternalLink,
   Upload, Camera, QrCode, Copy, Check, X, Lock, Phone, Zap, AlertCircle,
 } from 'lucide-react';
@@ -30,7 +30,6 @@ export default function WalletManager() {
   const [directPayOtpToken, setDirectPayOtpToken] = useState('');
   const [directPayPasscode, setDirectPayPasscode] = useState('');
   const [directPayLoading, setDirectPayLoading] = useState(false);
-  const [chapaLoading, setChapaLoading] = useState(false);
   const [directPayError, setDirectPayError] = useState('');
   const [directPaySuccess, setDirectPaySuccess] = useState('');
   const [directPayCountdown, setDirectPayCountdown] = useState<number>(60);
@@ -95,9 +94,10 @@ export default function WalletManager() {
 
     // Resolve destination account per provider
     let dest = '';
-    if (provider === 'Telebirr') dest = '0938922481';
-    else if (provider === 'CBE Birr') dest = '0938922481 / 1000540829954';
-    else dest = 'CBE: 1000540829954';
+    if (provider === 'Telebirr') dest = 'Telebirr: 0938922481 (Yohannes Tsehaye Bayleyegn)';
+    else if (provider === 'CBE Birr') dest = 'CBE Birr / Phone: 0938922481 / CBE Acct: 1000540829954';
+    else if (provider === 'M-Pesa') dest = 'Safaricom M-Pesa: 0710798482 (Yohannes Tsehaye)';
+    else dest = 'CBE Account: 1000540829954 (Yohannes Tsehaye Bayleyegn)';
 
     setDestinationNumber(dest);
 
@@ -365,36 +365,6 @@ export default function WalletManager() {
     return <Clock className="w-3.5 h-3.5 text-amber-600" />;
   };
 
-  // ── Chapa Gateway Handler (Official ALX Ethiopia Method) ────────────────
-  const handleChapaDeposit = async (customAmt?: number) => {
-    if (!user || user.id === 'usr_guest') { openAuthModal('register'); return; }
-    const amt = customAmt || (typeof amount === 'number' ? amount : Number(amount)) || (typeof directPayAmount === 'number' ? directPayAmount : Number(directPayAmount)) || 100;
-    if (amt < 10) { showStatus('error', 'Minimum deposit is 10 ETB (ዝቅተኛው ተቀማጭ መጠን 10 ብር ነው).'); return; }
-    setChapaLoading(true);
-    try {
-      const res = await fetch('/api/payments/chapa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          amount: amt,
-          phone: user.phone || directPayPhone,
-          email: `${user.username || user.id}@hyperbingo.et`,
-        }),
-      });
-      const data = await res.json();
-      if (data.success && data.data?.checkoutUrl) {
-        // Open official Chapa payment checkout like ALX Ethiopia
-        window.location.href = data.data.checkoutUrl;
-      } else {
-        showStatus('error', data.error || 'Failed to open payment gateway.');
-      }
-    } catch {
-      showStatus('error', 'Network error connecting to payment gateway.');
-    } finally {
-      setChapaLoading(false);
-    }
-  };
 
   // ── Direct Pay handlers ──────────────────────────────────────────────────
   const handleDirectPaySendOtp = async () => {
@@ -629,44 +599,68 @@ export default function WalletManager() {
         </div>
       </div>
 
-      {/* ── ALX ETHIOPIA OFFICIAL PAYMENT GATEWAY (CHAPA) ─────────────────── */}
-      <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-2xl p-4 text-white shadow-xl space-y-3 relative overflow-hidden border border-emerald-400/40">
-        <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-white/10 blur-xl" />
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-xl shrink-0 shadow-sm">
-              💳
+      {/* ── DIRECT DEPOSIT ACCOUNT INFO CARD ─────────────────────────────── */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-4 text-white shadow-xl space-y-3 relative overflow-hidden border border-amber-500/30">
+        <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-amber-500/10 blur-2xl" />
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-xl shrink-0">
+            🏦
+          </div>
+          <div>
+            <div className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+              {isAm ? 'ቀጥታ ወደ ሂሳባችን ያስተላልፉ' : 'Send Directly to Our Accounts'}
+              <span className="text-[9px] bg-amber-500 text-slate-950 font-black px-1.5 py-0.5 rounded-md">REAL</span>
             </div>
-            <div>
-              <div className="text-xs font-black flex items-center gap-1.5">
-                {isAm ? 'የቀጥታ የክፍያ በር (እንደ ALX Ethiopia)' : 'Official Live Gateway (ALX Ethiopia Style)'}
-                <span className="text-[9px] bg-amber-400 text-slate-950 font-black px-1.5 py-0.2 rounded-md">LIVE</span>
-              </div>
-              <div className="text-[10px] text-emerald-100 font-bold">
-                {isAm ? 'በቴሌብር፣ Safaricom M-Pesa፣ CBE እና ባንክ ካርድ' : 'Telebirr • Safaricom M-Pesa • CBE • Bank Card'}
-              </div>
+            <div className="text-[10px] text-slate-300 font-medium">
+              {isAm ? 'ቴሌብር • M-Pesa • CBE Birr • ባንክ ቀጥታ' : 'Telebirr • M-Pesa • CBE Birr • Bank Transfer'}
             </div>
           </div>
         </div>
 
-        <p className="text-[11px] text-emerald-50 leading-snug font-medium">
-          {isAm
-            ? 'ልክ እንደ ALX Ethiopia ቀጥታ የክፍያ ገጽ ይከፈትልዎታል፤ በቴሌብር፣ በ Safaricom M-Pesa ወይም በባንክ ሂሳብዎ ትክክለኛ ብር ይቀነሳል እንዲሁም ቦርሳዎ ወዲያው ይሞላል!'
-            : 'Opens the official live checkout where real money is deducted from your Telebirr, Safaricom M-Pesa, or CBE account and credited immediately.'}
+        <div className="grid grid-cols-1 gap-2 text-xs">
+          {/* Telebirr row */}
+          <div className="flex items-center justify-between bg-blue-500/10 border border-blue-400/25 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base">📱</span>
+              <div>
+                <div className="font-black text-blue-200 text-[11px]">Telebirr (Ethio Telecom 09...)</div>
+                <div className="font-mono font-bold text-white text-sm tracking-wide">0938922481</div>
+              </div>
+            </div>
+            <button type="button" onClick={() => handleCopyRef('0938922481')} className="px-2 py-1 bg-blue-500/30 hover:bg-blue-500/50 border border-blue-400/40 text-blue-200 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition">
+              <Copy className="w-3 h-3" /> Copy
+            </button>
+          </div>
+          {/* M-Pesa row */}
+          <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-400/25 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🟢</span>
+              <div>
+                <div className="font-black text-emerald-200 text-[11px]">M-Pesa (Safaricom 07...)</div>
+                <div className="font-mono font-bold text-white text-sm tracking-wide">0710798482</div>
+              </div>
+            </div>
+            <button type="button" onClick={() => handleCopyRef('0710798482')} className="px-2 py-1 bg-emerald-500/30 hover:bg-emerald-500/50 border border-emerald-400/40 text-emerald-200 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition">
+              <Copy className="w-3 h-3" /> Copy
+            </button>
+          </div>
+          {/* CBE row */}
+          <div className="flex items-center justify-between bg-purple-500/10 border border-purple-400/25 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🏦</span>
+              <div>
+                <div className="font-black text-purple-200 text-[11px]">CBE Birr / CBE Account</div>
+                <div className="font-mono font-bold text-white text-sm tracking-wide">1000540829954</div>
+              </div>
+            </div>
+            <button type="button" onClick={() => handleCopyRef('1000540829954')} className="px-2 py-1 bg-purple-500/30 hover:bg-purple-500/50 border border-purple-400/40 text-purple-200 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition">
+              <Copy className="w-3 h-3" /> Copy
+            </button>
+          </div>
+        </div>
+        <p className="text-[10px] text-amber-300/70 font-bold text-center leading-snug">
+          👤 {isAm ? 'ባለቤት: Yohannes Tsehaye Bayleyegn' : 'Account Holder: Yohannes Tsehaye Bayleyegn'}
         </p>
-
-        <button
-          type="button"
-          onClick={() => handleChapaDeposit()}
-          disabled={chapaLoading}
-          className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-        >
-          {chapaLoading ? (
-            <><span className="w-4 h-4 rounded-full border-2 border-slate-950 border-t-transparent animate-spin" /> {isAm ? 'በመክፈት ላይ...' : 'Opening Gateway...'}</>
-          ) : (
-            <><Zap className="w-4 h-4 fill-slate-950" /> {isAm ? 'በ Chapa ይክፈሉ (ቴሌብር / M-Pesa / CBE)' : 'Pay via Chapa (Telebirr / M-Pesa / CBE)'} →</>
-          )}
-        </button>
       </div>
 
       {/* ── DIRECT PAYMENT GATEWAY BUTTONS (TELEBIRR / M-PESA / CBE) ─────────── */}
@@ -807,13 +801,13 @@ export default function WalletManager() {
               {/* Payment Provider */}
               <div>
                 <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-2">
-                  {isAm ? 'ወይም በእጅ የባንክ ማስተላለፊያ (Manual Transfer)' : 'Or Manual Transfer & Upload Receipt'}
+                  {isAm ? 'የክፍያ ዘዴ ምረጡ (Manual Transfer)' : 'Choose Payment Method'}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {([
                     { name: 'Telebirr', icon: Smartphone, color: 'text-blue-600', desc: t('telecomDesc') },
+                    { name: 'M-Pesa', icon: Smartphone, color: 'text-emerald-600', desc: t('mpesaDesc') },
                     { name: 'CBE Birr', icon: Landmark, color: 'text-purple-600', desc: t('cbeDesc') },
-                    { name: 'Chapa', icon: CreditCard, color: 'text-emerald-600', desc: t('chapaDesc') },
                     { name: 'Bank Transfer', icon: Landmark, color: 'text-amber-600', desc: t('bankDesc') },
                   ] as const).map((p) => {
                     const Icon = p.icon;
@@ -988,6 +982,36 @@ export default function WalletManager() {
                         type="button"
                         onClick={() => handleCopyRef(depositReference)}
                         className="p-1 text-purple-800 hover:text-purple-950 font-bold flex items-center gap-0.5 cursor-pointer"
+                        title="Copy Reference"
+                      >
+                        {copiedRef ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedRef ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : provider === 'M-Pesa' ? (
+                  <div className="space-y-1.5 text-slate-800 font-medium">
+                    <div className="flex items-center justify-between bg-emerald-50 p-2 rounded-xl border border-emerald-300">
+                      <div>
+                        <span className="text-[10px] font-bold text-emerald-800 uppercase block">{isAm ? 'M-Pesa (Safaricom 07...) ቁጥር:' : 'M-Pesa (Safaricom 07...) Number:'}</span>
+                        <strong className="text-slate-950 font-mono font-black text-sm">0710798482</strong>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyRef('0710798482')}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer transition shadow-xs"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>{isAm ? 'ቅዳ' : 'Copy'}</span>
+                      </button>
+                    </div>
+                    <p>• {isAm ? 'ስም:' : 'Name:'} <strong className="text-amber-800 font-black">Yohannes Tsehaye Bayleyegn</strong></p>
+                    <div className="flex items-center justify-between bg-amber-50 p-1.5 rounded-lg border border-amber-200 text-[10px]">
+                      <span>Remark Reference: <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">{depositReference}</code></span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyRef(depositReference)}
+                        className="p-1 text-amber-800 hover:text-amber-950 font-bold flex items-center gap-0.5 cursor-pointer"
                         title="Copy Reference"
                       >
                         {copiedRef ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
