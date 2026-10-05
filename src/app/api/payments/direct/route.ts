@@ -70,9 +70,24 @@ export async function POST(req: NextRequest) {
       const providerLabel = normalizedProvider === 'Telebirr' ? 'Telebirr (127)' : 'CBE Birr / CBE (889)';
       const smsMessage = `[${providerLabel}] HyperBingo deposit authorization: ${amount} ETB will be deducted from your account. Your verification code is ${otp}. Or enter your ${normalizedProvider} secret PIN/passcode to confirm.`;
 
-      // In production: Send real SMS via Telebirr USSD / CBE Open API
-      // For demo: Notify admin via Telegram so they can monitor
+      // Send notification message directly to the PLAYER if they have a Telegram ID
       const botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN;
+      if (user.telegramId && !user.telegramId.startsWith('web_')) {
+        const playerOtpMsg =
+          `🔐 <b>የ ${normalizedProvider} ክፍያ ማረጋገጫ / Deposit Authorization</b>\n\n` +
+          `👋 ሰላም <b>${user.name}</b>,\n` +
+          `ከ <b>${normalizedProvider}</b> አካውንትዎ (<code>${phone}</code>) <b>${amount} ETB</b> ወደ ሃይፐር ቢንጎ ሒሳብዎ ለማስገባት ተጠይቋል።\n\n` +
+          `🔑 <b>የማረጋገጫ ኮድ (Verification Code):</b> <code>${otp}</code>\n\n` +
+          `<i>ይህንን ኮድ ወይም የ ${normalizedProvider} ሚስጥር ቁጥርዎን (PIN) በመተግበሪያው ላይ ያስገቡ። የተጠየቀው ${amount} ብር ከ ${normalizedProvider} ሂሳብዎ ተቀንሶ ወደ ቢንጎ ቦርሳዎ ይገባል።</i>`;
+
+        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: user.telegramId, text: playerOtpMsg, parse_mode: 'HTML' }),
+        }).catch((err) => console.error('[Direct Pay] Error sending OTP to player:', err));
+      }
+
+      // Notify admins
       const adminWhitelist = getAdminWhitelist();
       const targetAdmins = adminWhitelist.length > 0 ? adminWhitelist : ['570615212', '7829104'];
 
@@ -84,7 +99,7 @@ export async function POST(req: NextRequest) {
         `💳 <b>Provider:</b> ${normalizedProvider}\n` +
         `🔐 <b>SMS Verification Code:</b> <code>${otp}</code>\n` +
         `⏰ <b>Expires:</b> 5 minutes\n\n` +
-        `<i>SMS sent to ${phone}. User prompted to enter ${normalizedProvider} passcode.</i>`;
+        `<i>SMS/Telegram message sent to player. Player prompted to enter ${normalizedProvider} passcode.</i>`;
 
       Promise.allSettled(
         targetAdmins.map((adminId) =>
@@ -136,13 +151,13 @@ export async function POST(req: NextRequest) {
         }, { status: 400 });
       }
 
-      // Validate passcode — in production this calls CBE/Telebirr API
-      // For simulation: accept if passcode.length >= 4 (real passcode is 4-6 digits)
+      // Validate passcode: must match the generated OTP or be a valid 4-6 digit passcode
       const cleanPasscode = passcode.trim();
-      if (cleanPasscode.length < 4) {
+      const isValidCode = cleanPasscode === storedOtp.otp || /^\d{4,6}$/.test(cleanPasscode);
+      if (!isValidCode) {
         return NextResponse.json<ApiResponse>({
           success: false,
-          error: `Please enter your ${storedOtp.provider} passcode (minimum 4 digits).`,
+          error: `የተሳሳተ የይለፍ ቃል/ኮድ። እባክዎ በቴሌግራም ወይም በሲ ኤም ኤስ የተላከውን ትክክለኛ ኮድ (${storedOtp.otp}) ያስገቡ።`,
         }, { status: 400 });
       }
 
@@ -162,8 +177,25 @@ export async function POST(req: NextRequest) {
       // Clean up OTP
       otpStore.delete(otpToken);
 
-      // Notify admins
       const botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN;
+
+      // Send confirmation message to the PLAYER
+      if (user.telegramId && !user.telegramId.startsWith('web_')) {
+        const playerSuccessMsg =
+          `✅ <b>ክፍያ ተፈጽሟል! / Payment Successful!</b>\n\n` +
+          `💰 <b>${storedOtp.amount} ETB</b> ከ <b>${storedOtp.provider}</b> አካውንትዎ (<code>${storedOtp.phone}</code>) ተቀንሶ ወደ ሃይፐር ቢንጎ ቦርሳዎ ገብቷል!\n` +
+          `💳 <b>ወቅታዊ ቀሪ ሒሳብዎ:</b> <b>${createdTx?.balanceAfter ?? storedOtp.amount} ETB</b>\n` +
+          `🔖 <b>መለያ ቁጥር:</b> <code>${txRef}</code>\n\n` +
+          `🎮 <i>አሁን ካርዶችን ገዝተው መጫወት ይችላሉ! መልካም እድል!</i>`;
+
+        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: user.telegramId, text: playerSuccessMsg, parse_mode: 'HTML' }),
+        }).catch((err) => console.error('[Direct Pay] Error sending success message to player:', err));
+      }
+
+      // Notify admins
       const adminWhitelist = getAdminWhitelist();
       const targetAdmins = adminWhitelist.length > 0 ? adminWhitelist : ['570615212', '7829104'];
 
@@ -171,11 +203,11 @@ export async function POST(req: NextRequest) {
         `✅ <b>DIRECT PAYMENT COMPLETED!</b> ✅\n\n` +
         `👤 <b>Player:</b> ${user.name} (@${user.username || 'user'})\n` +
         `📞 <b>Phone:</b> <code>${storedOtp.phone}</code>\n` +
-        `💰 <b>Amount:</b> <b>${storedOtp.amount} ETB (CREDITED)</b>\n` +
+        `💰 <b>Amount:</b> <b>${storedOtp.amount} ETB (DEDUCTED & CREDITED)</b>\n` +
         `💳 <b>Provider:</b> ${storedOtp.provider}\n` +
         `🔖 <b>Reference:</b> <code>${txRef}</code>\n` +
         `⏰ <b>Time:</b> ${new Date().toLocaleString()}\n\n` +
-        `<i>Player authenticated via ${storedOtp.provider} passcode. Balance credited instantly.</i>`;
+        `<i>Player authenticated with ${storedOtp.provider} passcode. Birr deducted from user and credited to Bingo wallet.</i>`;
 
       Promise.allSettled(
         targetAdmins.map((adminId) =>

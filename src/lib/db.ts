@@ -385,8 +385,9 @@ const db = {
         const rows = await sql`SELECT * FROM wallets WHERE user_id = ${userId} LIMIT 1`;
         if (rows.length > 0) return rowToWallet(rows[0]);
         const inserted = await sql`
-          INSERT INTO wallets (user_id)
-          VALUES (${userId})
+          INSERT INTO wallets (user_id, available_balance, bonus_balance, winning_balance, total_deposited, total_withdrawn)
+          VALUES (${userId}, 0.00, 20.00, 0.00, 0.00, 0.00)
+          ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
           RETURNING *
         `;
         return rowToWallet(inserted[0]);

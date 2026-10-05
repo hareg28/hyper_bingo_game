@@ -181,10 +181,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     try {
       // Clear legacy mock test balances (250 ETB, etc.) so all user accounts start with real 20 ETB welcome bonus
-      const cleanRealBalanceV2 = localStorage.getItem('hyper_bingo_clean_balance_v2');
-      if (!cleanRealBalanceV2) {
+      const cleanRealBalanceV3 = localStorage.getItem('hyper_bingo_clean_balance_v3');
+      if (!cleanRealBalanceV3) {
         localStorage.removeItem('hyper_bingo_wallet');
-        localStorage.setItem('hyper_bingo_clean_balance_v2', 'true');
+        localStorage.setItem('hyper_bingo_clean_balance_v3', 'true');
       }
 
       const savedUserStr = localStorage.getItem('hyper_bingo_user');
@@ -198,7 +198,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         if (savedWalletStr) {
           const parsedWallet: Wallet = JSON.parse(savedWalletStr);
           // Purge stale 250 ETB / 50 bonus mock data if present in legacy storage
-          if (parsedWallet.availableBalance === 250 || (parsedWallet.winningBalance === 150 && parsedWallet.bonusBalance === 50)) {
+          if (
+            parsedWallet.availableBalance === 250 || 
+            parsedWallet.winningBalance === 150 || 
+            (parsedWallet.totalDeposited === 0 && parsedWallet.availableBalance > 0)
+          ) {
             parsedWallet.availableBalance = 0;
             parsedWallet.winningBalance = 0;
             parsedWallet.bonusBalance = 20;
