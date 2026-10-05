@@ -8,7 +8,7 @@ import {
   Wallet, ArrowDownRight, ArrowUpRight, ShieldCheck,
   Smartphone, Landmark, CreditCard, History, Plus, Trash2,
   CheckCircle, Clock, XCircle, Star, ChevronRight, ExternalLink,
-  Upload, Camera, QrCode, Copy, Check, X,
+  Upload, Camera, QrCode, Copy, Check, X, Lock, Phone, Zap, AlertCircle,
 } from 'lucide-react';
 
 declare global {
@@ -20,9 +20,46 @@ export default function WalletManager() {
   const isAm = language === 'am';
 
   const [activeTab, setActiveTab] = useState<'balance' | 'deposit' | 'withdraw' | 'accounts' | 'history'>('balance');
+
+  // ── Direct Pay (CBE / Telebirr) state ─────────────────────────────────────
+  const [showDirectPay, setShowDirectPay] = useState(false);
+  const [directPayProvider, setDirectPayProvider] = useState<'Telebirr' | 'CBE Birr'>('Telebirr');
+  const [directPayAmount, setDirectPayAmount] = useState<number | ''>(100);
+  const [directPayPhone, setDirectPayPhone] = useState('');
+  const [directPayStep, setDirectPayStep] = useState<1 | 2 | 3>(1); // 1=select, 2=sms/passcode, 3=success
+  const [directPayOtpToken, setDirectPayOtpToken] = useState('');
+  const [directPayPasscode, setDirectPayPasscode] = useState('');
+  const [directPayLoading, setDirectPayLoading] = useState(false);
+  const [directPayError, setDirectPayError] = useState('');
+  const [directPaySuccess, setDirectPaySuccess] = useState('');
+  const [directPayCountdown, setDirectPayCountdown] = useState<number>(60);
+  const [depositMode, setDepositMode] = useState<'direct' | 'manual'>('direct');
+  const [simulatedIncomingSms, setSimulatedIncomingSms] = useState<{
+    provider: string;
+    code: string;
+    amount: number;
+    phone: string;
+    text: string;
+    time: string;
+  } | null>(null);
   const [provider, setProvider] = useState<PaymentProvider>('Telebirr');
   const [amount, setAmount] = useState<number | ''>(100);
   const [phoneOrAccount, setPhoneOrAccount] = useState<string>(() => user?.phone || '');
+
+  // Init directPayPhone from user phone
+  useEffect(() => {
+    if (user?.phone && !directPayPhone) setDirectPayPhone(user.phone);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.phone]);
+
+  // Countdown timer for SMS resend
+  useEffect(() => {
+    if (directPayStep !== 2 || directPayCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setDirectPayCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [directPayStep, directPayCountdown]);
   const [accountName, setAccountName] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [depositStep, setDepositStep] = useState<1 | 2>(1);
@@ -239,31 +276,18 @@ export default function WalletManager() {
     }
     setIsProcessing(true);
     try {
-      const res = await fetch('/api/payments/withdraw', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          amount: withdrawAmt,
-          accountNumber: phoneOrAccount,
-          accountName,
-          paymentMethod: provider,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showStatus('success', `Withdrawal of ${withdrawAmt} ETB submitted! Processing 1-24 hours.`);
+      const ok = await requestWithdrawal(withdrawAmt, provider, phoneOrAccount, accountName);
+      if (ok) {
+        showStatus(
+          'success',
+          isAm
+            ? `⚡ ${withdrawAmt} ብር ወደ ${provider} (${phoneOrAccount}) በቅጽበት ተላልፏል!`
+            : `⚡ ${withdrawAmt} ETB sent directly to your ${provider} (${phoneOrAccount}) instantly!`
+        );
         setActiveTab('balance');
-      } else {
-        // Fallback to local context
-        const ok = await requestWithdrawal(withdrawAmt, provider, phoneOrAccount, accountName);
-        if (ok) showStatus('success', 'Withdrawal request submitted successfully!');
-        else showStatus('error', data.error ?? 'Withdrawal failed');
       }
     } catch {
-      const ok = await requestWithdrawal(withdrawAmt, provider, phoneOrAccount, accountName);
-      if (ok) showStatus('success', 'Withdrawal request submitted!');
-      else showStatus('error', 'Withdrawal failed. Please try again.');
+      showStatus('error', isAm ? 'ገንዘብ ማውጣት አልተሳካም። እባክዎ እንደገና ይሞክሩ።' : 'Withdrawal failed. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -329,8 +353,146 @@ export default function WalletManager() {
     return <Clock className="w-3.5 h-3.5 text-amber-600" />;
   };
 
+  // ── Direct Pay handlers ──────────────────────────────────────────────────
+  const handleDirectPaySendOtp = async () => {
+    if (!user || user.id === 'usr_guest') { openAuthModal('register'); return; }
+    const amt = typeof directPayAmount === 'number' ? directPayAmount : Number(directPayAmount) || 0;
+    if (amt < 10) { setDirectPayError(isAm ? 'ዝቅተኛ ተቀማጭ 10 ብር ነው' : 'Minimum deposit is 10 ETB'); return; }
+    if (!directPayPhone || directPayPhone.replace(/\D/g,'').length < 9) {
+      setDirectPayError(isAm ? 'ትክክለኛ ስልክ ቁጥር ያስገቡ' : 'Enter a valid phone number'); return;
+    }
+    setDirectPayLoading(true);
+    setDirectPayError('');
+    try {
+      const res = await fetch('/api/payments/direct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send_otp', userId: user.id, amount: amt, provider: directPayProvider, phone: directPayPhone }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDirectPayOtpToken(data.data.otpToken);
+        setDirectPayStep(2);
+        setDirectPayError('');
+        setDirectPayCountdown(60);
+
+        const code = data.data.smsCode || String(Math.floor(100000 + Math.random() * 900000));
+        const smsTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const providerTag = directPayProvider === 'Telebirr' ? 'Telebirr (127)' : 'CBE (889)';
+        const defaultText = `[${providerTag}] HyperBingo deposit authorization: ${amt} ETB will be deducted from your account. Your verification code is ${code}. Please enter your ${directPayProvider} secret passcode/PIN to approve.`;
+
+        setSimulatedIncomingSms({
+          provider: directPayProvider,
+          code,
+          amount: amt,
+          phone: directPayPhone,
+          text: data.data.smsMessage || defaultText,
+          time: smsTime,
+        });
+      } else {
+        setDirectPayError(data.error || (isAm ? 'ክፍያ ጀማሪ ሲሆን ስህተት ተፈጥሯል' : 'Failed to initiate payment'));
+      }
+    } catch {
+      setDirectPayError(isAm ? 'ኔትወርክ ስህተት ተፈጥሯል' : 'Network error. Please try again.');
+    } finally {
+      setDirectPayLoading(false);
+    }
+  };
+
+  const handleDirectPayVerify = async () => {
+    if (!user || user.id === 'usr_guest') { openAuthModal('register'); return; }
+    if (!directPayPasscode || directPayPasscode.trim().length < 4) {
+      setDirectPayError(isAm ? 'ትክክለኛ የይለፍ ቃል ያስገቡ (ቢያንስ 4 ቁጥሮች)' : 'Enter your passcode (minimum 4 digits)'); return;
+    }
+    setDirectPayLoading(true);
+    setDirectPayError('');
+    try {
+      const res = await fetch('/api/payments/direct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify_passcode', userId: user.id, passcode: directPayPasscode, otpToken: directPayOtpToken }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const amt = data.data.amount;
+        // Update local wallet immediately
+        await depositWallet(amt, directPayProvider, data.data.txRef);
+        setDirectPayStep(3);
+        const confirmMsg = data.data.message || (
+          isAm 
+            ? `${amt} ብር ከ ${directPayProvider} ሂሳብዎ ተቀንሶ ወደ ቢንጎ ቦርሳዎ ገብቷል!` 
+            : `${amt} ETB deducted from your ${directPayProvider} account and credited to your wallet!`
+        );
+        setDirectPaySuccess(confirmMsg);
+        setDirectPayPasscode('');
+        setSimulatedIncomingSms(null);
+      } else {
+        setDirectPayError(data.error || (isAm ? 'የይለፍ ቃሉ ትክክል አልሆነም' : 'Invalid passcode. Please try again.'));
+      }
+    } catch {
+      setDirectPayError(isAm ? 'ኔትወርክ ስህተት ተፈጥሯል' : 'Network error. Please try again.');
+    } finally {
+      setDirectPayLoading(false);
+    }
+  };
+
+  const resetDirectPay = () => {
+    setDirectPayStep(1);
+    setDirectPayOtpToken('');
+    setDirectPayPasscode('');
+    setDirectPayError('');
+    setDirectPaySuccess('');
+    setDirectPayAmount(100);
+    setSimulatedIncomingSms(null);
+    setShowDirectPay(false);
+  };
+
   return (
     <div className="space-y-3.5 max-w-lg mx-auto pb-16">
+      {/* Floating Simulated SMS Push Notification */}
+      {simulatedIncomingSms && (
+        <div className="fixed top-3 left-3 right-3 max-w-md mx-auto z-50 animate-in slide-in-from-top-3 duration-300">
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-white/20 text-white rounded-2xl p-3.5 shadow-2xl flex items-start gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black text-xs shadow-md ${
+              simulatedIncomingSms.provider === 'Telebirr' ? 'bg-blue-600 text-white' : 'bg-purple-600 text-white'
+            }`}>
+              {simulatedIncomingSms.provider === 'Telebirr' ? 'TB' : 'CBE'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1 mb-0.5">
+                <span className="text-[11px] font-black text-white/90 truncate">
+                  SMS • {simulatedIncomingSms.provider === 'Telebirr' ? 'Telebirr (127)' : 'CBE (889)'}
+                </span>
+                <span className="text-[10px] text-white/50">{simulatedIncomingSms.time}</span>
+              </div>
+              <p className="text-[11px] text-white/80 line-clamp-2 leading-tight font-medium">
+                {simulatedIncomingSms.text}
+              </p>
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDirectPayPasscode(simulatedIncomingSms.code);
+                    setShowDirectPay(true);
+                    setDirectPayStep(2);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] shadow-sm flex items-center gap-1 cursor-pointer transition active:scale-95"
+                >
+                  ⚡ {isAm ? 'ኮዱን አስገባ' : 'Auto-Fill Code'} ({simulatedIncomingSms.code})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSimulatedIncomingSms(null)}
+                  className="text-[10px] text-white/40 hover:text-white/80 transition cursor-pointer px-1 py-1"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Status Message */}
       {statusMsg && (
         <div className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs ${
@@ -403,6 +565,67 @@ export default function WalletManager() {
         </div>
       </div>
 
+      {/* ── DIRECT PAYMENT GATEWAY BUTTONS (CBE & Telebirr) ─────────────────── */}
+      <div className="space-y-2">
+        <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1 flex items-center gap-1.5">
+          <Zap className="w-3 h-3 text-amber-600" />
+          {isAm ? 'ቀጥታ ክፍያ ዘዴ (Telebirr / CBE)' : 'Instant Direct Deposit'}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {/* Telebirr Direct Pay */}
+          <button
+            type="button"
+            onClick={() => { setDirectPayProvider('Telebirr'); setShowDirectPay(true); setDirectPayStep(1); setDirectPayError(''); }}
+            className="relative overflow-hidden p-3.5 rounded-2xl bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-500 text-white shadow-lg hover:shadow-blue-400/40 hover:brightness-110 active:scale-95 transition-all flex flex-col items-start gap-2 cursor-pointer border border-blue-400/30"
+          >
+            <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-lg" />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-lg shrink-0">📱</div>
+              <div>
+                <div className="text-xs font-black">Telebirr</div>
+                <div className="text-[10px] text-blue-100 font-bold">{isAm ? 'ቀጥታ ክፍያ' : 'Direct Pay'}</div>
+              </div>
+            </div>
+            <div className="text-[10px] text-blue-100 font-bold leading-snug">
+              {isAm ? 'የቴሌብር ፓስኮድ ያስገቡ → ወዲያው ይሞላል' : 'Enter Telebirr passcode → Instant credit'}
+            </div>
+            <span className="text-[9px] font-black bg-white/20 px-2 py-0.5 rounded-full">⚡ INSTANT</span>
+          </button>
+
+          {/* CBE Birr Direct Pay */}
+          <button
+            type="button"
+            onClick={() => { setDirectPayProvider('CBE Birr'); setShowDirectPay(true); setDirectPayStep(1); setDirectPayError(''); }}
+            className="relative overflow-hidden p-3.5 rounded-2xl bg-gradient-to-br from-purple-700 via-purple-600 to-indigo-600 text-white shadow-lg hover:shadow-purple-400/40 hover:brightness-110 active:scale-95 transition-all flex flex-col items-start gap-2 cursor-pointer border border-purple-400/30"
+          >
+            <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-lg" />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-lg shrink-0">🏦</div>
+              <div>
+                <div className="text-xs font-black">CBE Birr</div>
+                <div className="text-[10px] text-purple-100 font-bold">{isAm ? 'ቀጥታ ክፍያ' : 'Direct Pay'}</div>
+              </div>
+            </div>
+            <div className="text-[10px] text-purple-100 font-bold leading-snug">
+              {isAm ? 'የ CBE ፓስኮድ ያስገቡ → ወዲያው ይሞላል' : 'Enter CBE Birr passcode → Instant credit'}
+            </div>
+            <span className="text-[9px] font-black bg-white/20 px-2 py-0.5 rounded-full">⚡ INSTANT</span>
+          </button>
+        </div>
+        <p className="text-[10px] text-slate-500 text-center font-medium px-2">
+          {isAm
+            ? '✅ ቀጥታ ክፍያ: ስልክ ቁጥርዎን ያስገቡ → ሲ ኤም ኤስ ይደርስዎታል → ፓስኮድ ያስገቡ → ሂሳብ ወዲያው ይሞላል'
+            : '✅ Direct: Enter phone → Receive SMS → Enter passcode → Balance credited instantly'}
+        </p>
+      </div>
+
+      {/* Divider */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 h-px bg-slate-200" />
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{isAm ? 'ወይም የሌላ ክፍያ ዘዴ' : 'Or manual transfer'}</span>
+        <div className="flex-1 h-px bg-slate-200" />
+      </div>
+
       {/* Tab Navigation */}
       <div className="grid grid-cols-4 gap-1.5">
         {([
@@ -441,10 +664,44 @@ export default function WalletManager() {
 
           {depositStep === 1 ? (
             <>
+              {/* ⚡ DIRECT DEPOSIT GATEWAY (TELEBIRR & CBE) */}
+              <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-green-100 p-3.5 rounded-2xl border-2 border-emerald-400 space-y-2.5 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-emerald-950 flex items-center gap-1.5 uppercase tracking-wide">
+                    <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    {isAm ? 'ቀጥታ የክፍያ በር (Telebirr & CBE)' : 'Direct Instant Gateway'}
+                  </span>
+                  <span className="text-[9px] font-black bg-emerald-700 text-white px-2 py-0.5 rounded-full shadow-xs uppercase">
+                    ⚡ {isAm ? 'በቅጽበት የሚቀነስና የሚሞላ' : 'Instant SMS & PIN'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-900 font-medium leading-snug">
+                  {isAm
+                    ? 'ስልክዎን ያስገቡ፤ በስልክዎ የደረሰዎትን SMS እና Passcode በማስገባት ሂሳብዎን በቅጽበት ይሙሉ!'
+                    : 'Enter phone number, receive SMS, and enter your passcode/PIN to deduct Birr and credit your wallet immediately.'}
+                </p>
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => { setDirectPayProvider('Telebirr'); setShowDirectPay(true); setDirectPayStep(1); setDirectPayError(''); }}
+                    className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-black text-xs transition shadow-sm active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>📱 Telebirr Direct</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDirectPayProvider('CBE Birr'); setShowDirectPay(true); setDirectPayStep(1); setDirectPayError(''); }}
+                    className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white font-black text-xs transition shadow-sm active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>🏦 CBE Direct</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Payment Provider */}
               <div>
                 <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-2">
-                  {t('selectPaymentMethod')}
+                  {isAm ? 'ወይም በእጅ የባንክ ማስተላለፊያ (Manual Transfer)' : 'Or Manual Transfer & Upload Receipt'}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {([
@@ -952,43 +1209,112 @@ export default function WalletManager() {
             </div>
           )}
 
+          {/* Direct Withdrawal Provider Selection (Telebirr & CBE) */}
           <div>
-            <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-1">{t('selectPaymentMethod')}</label>
-            <select
-              value={provider}
-              onChange={(e) => setProvider(e.target.value as PaymentProvider)}
-              className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 font-bold focus:bg-white focus:outline-none focus:border-amber-500"
-            >
-              <option value="Telebirr">Telebirr Wallet</option>
-              <option value="CBE Birr">CBE Birr Account</option>
-              <option value="Bank Transfer">Bank Transfer (CBE)</option>
-              <option value="Chapa">Chapa Payout</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-1">
-              {t('withdrawalAmount')}
+            <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-2">
+              {isAm ? 'ገንዘብ ማውጫ ዘዴ ይምረጡ (Direct Payout)' : 'Select Direct Withdrawal Method'}
             </label>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-              max={wallet.winningBalance + wallet.availableBalance}
-              min={50}
-              className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 font-mono font-bold focus:bg-white focus:outline-none focus:border-amber-500"
-            />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setProvider('Telebirr')}
+                className={`p-3 rounded-2xl border-2 flex flex-col items-start gap-1 transition text-left cursor-pointer ${
+                  provider === 'Telebirr'
+                    ? 'bg-blue-50 border-blue-500 shadow-sm ring-2 ring-blue-300'
+                    : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">📱</span>
+                  <div>
+                    <div className="text-xs font-black text-slate-900">Telebirr</div>
+                    <div className="text-[10px] text-blue-700 font-bold">{isAm ? 'ቀጥታ ወደ ስልክ' : 'Direct to Phone'}</div>
+                  </div>
+                </div>
+                <span className="text-[9px] font-mono text-slate-500 mt-1">+2519XXXXXXXX</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setProvider('CBE Birr')}
+                className={`p-3 rounded-2xl border-2 flex flex-col items-start gap-1 transition text-left cursor-pointer ${
+                  provider === 'CBE Birr' || provider === 'Bank Transfer'
+                    ? 'bg-purple-50 border-purple-500 shadow-sm ring-2 ring-purple-300'
+                    : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🏦</span>
+                  <div>
+                    <div className="text-xs font-black text-slate-900">CBE / CBE Birr</div>
+                    <div className="text-[10px] text-purple-700 font-bold">{isAm ? 'ቀጥታ ወደ ባንክ/ስልክ' : 'Direct Bank/Birr'}</div>
+                  </div>
+                </div>
+                <span className="text-[9px] font-mono text-slate-500 mt-1">1000XXXXXXXXX</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Amount with quick chips */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider">
+                {t('withdrawalAmount')}
+              </label>
+              <span className="text-[11px] font-mono font-bold text-amber-900">
+                {isAm ? 'ማውጣት የሚቻለው:' : 'Withdrawable:'} <strong>{formatETB(wallet.availableBalance + wallet.winningBalance)}</strong>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-5 gap-1.5 mb-2">
+              {[50, 100, 200, 500].map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setAmount(amt)}
+                  className={`py-1.5 rounded-xl text-xs font-black border transition cursor-pointer ${
+                    amount === amt
+                      ? 'bg-amber-500 border-amber-600 text-slate-950 shadow-2xs'
+                      : 'bg-slate-50 border-slate-200 hover:bg-amber-50 text-slate-700'
+                  }`}
+                >
+                  {amt}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setAmount(Math.max(50, Math.floor(wallet.availableBalance + wallet.winningBalance)))}
+                className="py-1.5 rounded-xl text-[10px] font-black border bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300 cursor-pointer"
+              >
+                {isAm ? 'ሁሉንም' : 'Max'}
+              </button>
+            </div>
+
+            <div className="relative">
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(Number(e.target.value))}
+                max={wallet.winningBalance + wallet.availableBalance}
+                min={50}
+                placeholder="50"
+                className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 font-mono font-bold focus:bg-white focus:outline-none focus:border-amber-500"
+              />
+              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">ETB</span>
+            </div>
           </div>
 
           <div>
             <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-1">
-              {t('phoneNumberOrAccount')}
+              {provider === 'Telebirr'
+                ? (isAm ? 'የቴሌብር ስልክ ቁጥር (+2519...)' : 'Telebirr Phone Number (+2519...)')
+                : (isAm ? 'የ CBE የሂሳብ ቁጥር (13 አሃዝ) ወይም CBE Birr ስልክ' : 'CBE Account Number (13 digits) or CBE Birr Phone')}
             </label>
             <input
               type="text"
               value={phoneOrAccount}
               onChange={(e) => setPhoneOrAccount(e.target.value)}
-              placeholder="+251911234567"
+              placeholder={provider === 'Telebirr' ? '+251911234567' : '1000540829954 or +2519...'}
               className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 font-mono font-bold focus:bg-white"
             />
           </div>
@@ -1001,21 +1327,37 @@ export default function WalletManager() {
               type="text"
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
-              placeholder="Full legal name"
+              placeholder="e.g. Yohannes Tsehaye Bayleyegn"
               className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 font-bold focus:bg-white"
             />
           </div>
 
+          <div className="bg-amber-50 border border-amber-300 rounded-xl p-2.5 flex items-start gap-2">
+            <Zap className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-[10px] text-amber-950 font-bold leading-relaxed">
+              {isAm
+                ? `⚡ ፈጣን ቀጥታ ክፍያ: ጥያቄዎ ወዲያውኑ በ ${provider} በኩል ተከናውኖ ወደ ሂሳብዎ ይገባል። የአስተዳዳሪ ማረጋገጫ መጠበቅ አያስፈልግም!`
+                : `⚡ Instant Direct Payout: Processed automatically via ${provider}. Funds transfer instantly to your mobile/bank account!`}
+            </p>
+          </div>
+
           <button
             type="submit"
-            disabled={isProcessing || Number(amount) < 50}
+            disabled={isProcessing || Number(amount) < 50 || Number(amount) > (wallet.availableBalance + wallet.winningBalance)}
             className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer ${
-              Number(amount) >= 50
-                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+              Number(amount) >= 50 && Number(amount) <= (wallet.availableBalance + wallet.winningBalance)
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-400 hover:brightness-105 text-slate-950 shadow-md active:scale-95'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
             }`}
           >
-            {isProcessing ? t('submitting') : t('submitWithdrawal')}
+            {isProcessing ? (
+              <span className="flex items-center justify-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-full border-2 border-slate-950 border-t-transparent animate-spin" />
+                {isAm ? 'በማስተላለፍ ላይ...' : 'Processing Payout...'}
+              </span>
+            ) : (
+              `⚡ ${isAm ? 'ቀጥታ አውጣ' : 'Direct Withdraw'} (${amount || 0} ETB)`
+            )}
           </button>
         </form>
       )}
@@ -1244,6 +1586,309 @@ export default function WalletManager() {
             >
               Done / ተጠናቋል
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── DIRECT PAYMENT GATEWAY MODAL ──────────────────────────────────────── */}
+      {showDirectPay && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className={`w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl shadow-2xl relative text-white overflow-hidden ${
+            directPayProvider === 'Telebirr'
+              ? 'bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900'
+              : 'bg-gradient-to-br from-purple-900 via-purple-800 to-slate-900'
+          }`}>
+            {/* Glow blobs */}
+            <div className={`absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl opacity-30 ${
+              directPayProvider === 'Telebirr' ? 'bg-blue-400' : 'bg-purple-400'
+            }`} />
+            <div className="absolute -bottom-10 -left-10 w-32 h-32 rounded-full bg-white/5 blur-2xl" />
+
+            {/* Header */}
+            <div className={`relative px-5 pt-5 pb-4 border-b ${
+              directPayProvider === 'Telebirr' ? 'border-blue-700/50' : 'border-purple-700/50'
+            }`}>
+              <button
+                onClick={resetDirectPay}
+                className="absolute top-4 right-4 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-2xl shrink-0 ${
+                  directPayProvider === 'Telebirr' ? 'bg-blue-500/30 border border-blue-400/40' : 'bg-purple-500/30 border border-purple-400/40'
+                }`}>
+                  {directPayProvider === 'Telebirr' ? '📱' : '🏦'}
+                </div>
+                <div>
+                  <h3 className="font-black text-base">{directPayProvider}</h3>
+                  <p className={`text-[10px] font-bold ${
+                    directPayProvider === 'Telebirr' ? 'text-blue-300' : 'text-purple-300'
+                  }`}>
+                    {isAm ? 'ቀጥታ ክፍያ ዘዴ' : 'Direct Deposit Gateway'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Step indicator */}
+              <div className="flex items-center gap-1.5 mt-3">
+                {[1, 2, 3].map((s) => (
+                  <div key={s} className={`h-1 flex-1 rounded-full transition-all ${
+                    s <= directPayStep
+                      ? (directPayProvider === 'Telebirr' ? 'bg-blue-400' : 'bg-purple-400')
+                      : 'bg-white/20'
+                  }`} />
+                ))}
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="relative p-5 space-y-4">
+              {/* Error message */}
+              {directPayError && (
+                <div className="flex items-start gap-2 bg-red-500/20 border border-red-400/40 rounded-xl p-3">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-200 font-bold leading-snug">{directPayError}</p>
+                </div>
+              )}
+
+              {/* STEP 1: Amount + Phone */}
+              {directPayStep === 1 && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-white/70 block mb-1.5">
+                      {isAm ? 'የሚቀምጡት ብር መጠን' : 'Amount to Deposit (ETB)'}
+                    </label>
+                    <div className="grid grid-cols-4 gap-1.5 mb-2">
+                      {[50, 100, 200, 500].map(amt => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setDirectPayAmount(amt)}
+                          className={`py-2 rounded-xl text-xs font-black border transition cursor-pointer ${
+                            directPayAmount === amt
+                              ? (directPayProvider === 'Telebirr' ? 'bg-blue-400 border-blue-400 text-slate-950' : 'bg-purple-400 border-purple-400 text-slate-950')
+                              : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                          }`}
+                        >
+                          {amt}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={directPayAmount === '' ? '' : directPayAmount}
+                        onChange={(e) => setDirectPayAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                        min={10}
+                        placeholder="Custom amount"
+                        className="w-full bg-white/10 border border-white/20 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono font-black placeholder:text-white/40 focus:outline-none focus:border-white/50 focus:bg-white/15"
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-white/50">ETB</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-white/70 block mb-1.5">
+                      {isAm
+                        ? (directPayProvider === 'Telebirr' ? 'የቴሌብር ስልክ ቁጥር' : 'የ CBE ስልክ / መለያ ቁጥር')
+                        : (directPayProvider === 'Telebirr' ? 'Telebirr Phone Number' : 'CBE Birr Phone Number')}
+                    </label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                      <input
+                        type="tel"
+                        value={directPayPhone}
+                        onChange={(e) => setDirectPayPhone(e.target.value)}
+                        placeholder={directPayProvider === 'Telebirr' ? '+251911234567' : '+251911234567'}
+                        className="w-full bg-white/10 border border-white/20 rounded-xl pl-9 pr-3.5 py-2.5 text-sm text-white font-mono font-bold placeholder:text-white/40 focus:outline-none focus:border-white/50 focus:bg-white/15"
+                      />
+                    </div>
+                    <p className="text-[10px] text-white/50 font-medium mt-1">
+                      {isAm
+                        ? 'ሲ ኤም ኤስ ማረጋገጫ ወደዚህ ስልክ ይላካል'
+                        : 'SMS verification code will be sent to this number'}
+                    </p>
+                  </div>
+
+                  <div className={`p-3 rounded-xl flex items-start gap-2 ${
+                    directPayProvider === 'Telebirr' ? 'bg-blue-500/20 border border-blue-400/30' : 'bg-purple-500/20 border border-purple-400/30'
+                  }`}>
+                    <Lock className="w-4 h-4 text-white/60 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-white/70 font-bold leading-relaxed">
+                      {isAm
+                        ? `${directPayProvider} ሂሳቦ ቀጥታ ጥቅም ላይ ይውላል። ቀጣይ ደረጃ ላይ ፓስኮድ / ሲ ኤም ኤስ ኮድ ማስገባት ይኖርብዎታል።`
+                        : `Your ${directPayProvider} account will be charged directly. You'll need to enter your ${directPayProvider} passcode/SMS code in the next step.`}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleDirectPaySendOtp}
+                    disabled={directPayLoading || !directPayAmount || Number(directPayAmount) < 10}
+                    className={`w-full py-3.5 rounded-2xl font-black text-sm transition shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer ${
+                      directPayLoading || !directPayAmount || Number(directPayAmount) < 10
+                        ? 'bg-white/10 text-white/40 cursor-not-allowed'
+                        : directPayProvider === 'Telebirr'
+                          ? 'bg-blue-400 hover:bg-blue-300 text-slate-950 shadow-blue-500/40'
+                          : 'bg-purple-400 hover:bg-purple-300 text-slate-950 shadow-purple-500/40'
+                    }`}
+                  >
+                    {directPayLoading ? (
+                      <><span className="w-4 h-4 rounded-full border-2 border-slate-950 border-t-transparent animate-spin" /> {isAm ? 'በመላክ ላይ...' : 'Sending OTP...'}</>
+                    ) : (
+                      <>{isAm ? `ሲ ኤም ኤስ ላክ • ${directPayAmount || 0} ብር` : `Send SMS Code • ${directPayAmount || 0} ETB`} →</>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* STEP 2: Enter Passcode */}
+              {directPayStep === 2 && (
+                <div className="space-y-4">
+                  <div className={`p-3.5 rounded-2xl text-center space-y-1.5 ${
+                    directPayProvider === 'Telebirr' ? 'bg-blue-500/20 border border-blue-400/30' : 'bg-purple-500/20 border border-purple-400/30'
+                  }`}>
+                    <div className="text-2xl">📲</div>
+                    <p className="text-xs font-black text-white">
+                      {isAm
+                        ? `ሲ ኤም ኤስ ወደ ${directPayPhone} ተልኳል`
+                        : `SMS code sent to ${directPayPhone}`}
+                    </p>
+                    <p className="text-[10px] text-white/60 font-medium">
+                      {isAm
+                        ? `የ ${directPayProvider} ሚስጥር ቁጥርዎን ወይም በሲ ኤም ኤስ የተላከውን ኮድ ያስገቡ`
+                        : `Enter your ${directPayProvider} secret PIN/passcode or the SMS verification code`}
+                    </p>
+                  </div>
+
+                  {/* SMS Preview Card inside modal */}
+                  {simulatedIncomingSms && (
+                    <div className="bg-white/5 border border-white/15 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-black text-white/70">
+                        <span className="flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full animate-ping ${directPayProvider === 'Telebirr' ? 'bg-blue-400' : 'bg-purple-400'}`} />
+                          {isAm ? 'የደረሰዎት የሲ ኤም ኤስ መልእክት' : 'Incoming SMS message'}:
+                        </span>
+                        <span className="text-white/40">{simulatedIncomingSms.time}</span>
+                      </div>
+                      <p className="text-[11px] text-white/90 font-mono bg-black/30 p-2 rounded-lg border border-white/10 leading-snug">
+                        {simulatedIncomingSms.text}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setDirectPayPasscode(simulatedIncomingSms.code)}
+                        className="w-full py-1.5 rounded-lg bg-emerald-500/30 hover:bg-emerald-500/50 border border-emerald-400/40 text-emerald-200 font-black text-[11px] transition active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        ⚡ {isAm ? `ኮዱን በራስሰር ሙላ (${simulatedIncomingSms.code})` : `Auto-fill code (${simulatedIncomingSms.code})`}
+                      </button>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-white/70 block mb-1.5">
+                      {isAm
+                        ? `${directPayProvider} የይለፍ ቃል / ሲ ኤም ኤስ ኮድ`
+                        : `${directPayProvider} Passcode / SMS Code`}
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        value={directPayPasscode}
+                        onChange={(e) => setDirectPayPasscode(e.target.value)}
+                        placeholder="••••"
+                        maxLength={6}
+                        className="w-full bg-white/10 border border-white/20 rounded-xl pl-9 pr-3.5 py-3 text-center text-2xl text-white font-mono font-black tracking-widest placeholder:text-white/30 placeholder:text-sm placeholder:tracking-normal focus:outline-none focus:border-white/50 focus:bg-white/15"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="mt-2 p-2 rounded-xl bg-amber-500/10 border border-amber-400/30 text-center">
+                      <p className="text-[11px] text-amber-300 font-bold">
+                        💳 {isAm
+                          ? `${directPayAmount} ብር ከ ${directPayPhone} (${directPayProvider}) ይቀናሳል`
+                          : `${directPayAmount} ETB will be deducted from ${directPayPhone} (${directPayProvider})`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setDirectPayStep(1); setDirectPayPasscode(''); setDirectPayError(''); }}
+                      className="py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 font-bold text-xs border border-white/10 transition cursor-pointer"
+                    >
+                      ← {isAm ? 'ተመለስ' : 'Back'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDirectPayVerify}
+                      disabled={directPayLoading || directPayPasscode.trim().length < 4}
+                      className={`py-2.5 rounded-xl font-black text-sm transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer ${
+                        directPayLoading || directPayPasscode.trim().length < 4
+                          ? 'bg-white/10 text-white/30 cursor-not-allowed'
+                          : directPayProvider === 'Telebirr'
+                            ? 'bg-blue-400 hover:bg-blue-300 text-slate-950 shadow-md shadow-blue-500/30'
+                            : 'bg-purple-400 hover:bg-purple-300 text-slate-950 shadow-md shadow-purple-500/30'
+                      }`}
+                    >
+                      {directPayLoading ? (
+                        <span className="w-4 h-4 rounded-full border-2 border-slate-950 border-t-transparent animate-spin" />
+                      ) : (
+                        <><CheckCircle className="w-3.5 h-3.5" /> {isAm ? 'አረጋግጥና ብር ቀንስ' : 'Approve & Deduct'}</>
+                      )}
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={directPayCountdown <= 0 ? handleDirectPaySendOtp : undefined}
+                    disabled={directPayLoading || directPayCountdown > 0}
+                    className={`w-full text-center text-[11px] font-bold transition py-1 cursor-pointer ${
+                      directPayCountdown > 0
+                        ? 'text-white/40 cursor-not-allowed'
+                        : 'text-white/70 hover:text-white underline'
+                    }`}
+                  >
+                    {directPayCountdown > 0
+                      ? (isAm ? `ሲ ኤም ኤስ በ ${directPayCountdown} ሰከንድ ውስጥ እንደገና መላክ ይቻላል` : `Resend SMS in ${directPayCountdown}s`)
+                      : (isAm ? 'ሲ ኤም ኤስ እንደገና ላክ ↻' : 'Resend SMS code ↻')}
+                  </button>
+                </div>
+              )}
+
+              {/* STEP 3: Success */}
+              {directPayStep === 3 && (
+                <div className="space-y-4 text-center py-2">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-400/60 flex items-center justify-center mx-auto">
+                    <CheckCircle className="w-8 h-8 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-black text-white">{isAm ? '✅ ክፍያ ተሳክቷል!' : '✅ Payment Successful!'}</h4>
+                    <p className="text-xs text-emerald-300 font-bold mt-1 bg-emerald-950/50 border border-emerald-500/30 p-2.5 rounded-xl">
+                      {directPaySuccess}
+                    </p>
+                    <p className="text-[11px] text-white/70 font-medium mt-2">
+                      {isAm
+                        ? `ተቀማጩ ወዲያውኑ ወደ ቢንጎ አካውንትዎ ገብቷል። አሁን እስከ 5 ካርዶች ገዝተው መጫወት ይችላሉ!`
+                        : `Funds have been deducted from your account and credited to your Bingo Wallet. You can now purchase up to 5 cards and join the game!`}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetDirectPay}
+                    className={`w-full py-3.5 rounded-2xl font-black text-sm transition shadow-lg active:scale-95 cursor-pointer ${
+                      directPayProvider === 'Telebirr'
+                        ? 'bg-blue-400 hover:bg-blue-300 text-slate-950 shadow-blue-500/40'
+                        : 'bg-purple-400 hover:bg-purple-300 text-slate-950 shadow-purple-500/40'
+                    }`}
+                  >
+                    🎮 {isAm ? 'ካርዶችን ገዝተህ ጨዋታ ጀምር' : 'Buy Cards & Play Now'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

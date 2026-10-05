@@ -1848,6 +1848,35 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       <div className="p-2 pb-4 bg-slate-100 flex flex-col gap-3">
         {activeGameCards.length > 0 ? (
           <>
+            {/* 1-Game Card Rule: Show notification when round concludes */}
+            {hasGameWinner && (
+              <div className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 border-2 border-amber-600 rounded-2xl p-3 shadow-md text-slate-950 flex flex-col sm:flex-row items-center justify-between gap-2.5 animate-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-2xl shrink-0">🏁</span>
+                  <div className="min-w-0">
+                    <div className="text-xs font-black uppercase tracking-wider truncate">
+                      {language === 'am' ? 'ዙሩ ተጠናቋል! ካርዶችዎ አገልግለዋል' : 'Round Finished! Your Cards Were Used'}
+                    </div>
+                    <p className="text-[11px] font-medium leading-tight text-slate-900 mt-0.5">
+                      {language === 'am'
+                        ? 'እያንዳንዱ ካርድ ለአንድ ዙር ብቻ ያገለግላል። ቀጣዩን ዙር ለመጫወት አዲስ ካርድ መግዛት አለብዎት።'
+                        : 'Cards are valid for 1 game only. To play again, please purchase new cards for the next round.'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetGameRound(currentGame.id);
+                    setIsSelectorOpen(true);
+                  }}
+                  className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-900 text-amber-300 font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <span>🎮 {language === 'am' ? 'አዲስ ካርድ ይግዙና ይጫወቱ' : 'Purchase Cards to Play Again'}</span>
+                </button>
+              </div>
+            )}
+
             {/* ── Render EACH card as its own independent table ── */}
             {activeGameCards.map((card, cardIdx) => {
               const cardIsWin = Boolean(getBestWinningRule(card.marked, currentGame.winningRule, currentGame.activeSpecialRuleIndex));
@@ -2037,16 +2066,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               {!isWeekendGame && (
                 <button
                   onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
-                  disabled={activeGameCards.length >= 3}
+                  disabled={activeGameCards.length >= 5}
                   className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition cursor-pointer ${
-                    activeGameCards.length >= 3
+                    activeGameCards.length >= 5
                       ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                       : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-sm'
                   }`}
                 >
                   <Plus className="w-3.5 h-3.5" />
                   {language === 'am' ? 'ካርድ ጨምር' : 'Add Card'}
-                  {activeGameCards.length >= 3 && <span className="text-[10px]">(Max 3)</span>}
+                  {activeGameCards.length >= 5 && <span className="text-[10px]">(Max 5)</span>}
                 </button>
               )}
             </div>
@@ -2544,26 +2573,45 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   </span>
                 )}
               </div>
+              {/* Single-Game Card Rule Notice */}
+              <div className="bg-amber-400/20 border border-amber-400/40 rounded-xl p-2 text-center text-[10px] text-amber-200 font-bold leading-tight">
+                ⚡ {language === 'am'
+                  ? 'ካርዶችዎ ለዚህ ጨዋታ ብቻ አገልግለዋል። ድጋሚ ለመጫወት አዲስ ካርድ መግዛት አለብዎት።'
+                  : 'Cards used in this game have concluded. To play again, please purchase fresh cards for the new round.'}
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 pt-1">
-              {onBack && (
-                <button
-                  type="button"
-                  onClick={() => { setShowWinnerModal(false); onBack(); }}
-                  className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition cursor-pointer border border-slate-700 flex items-center justify-center gap-1.5"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  <span>{language === 'am' ? 'ወደ ሎቢ ተመለስ' : 'Back to Lobby'}</span>
-                </button>
-              )}
+            <div className="flex flex-col gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => setShowWinnerModal(false)}
-                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:brightness-105 text-slate-950 font-black text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                onClick={() => {
+                  resetGameRound(currentGame.id);
+                  setShowWinnerModal(false);
+                  setIsSelectorOpen(true);
+                }}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:brightness-105 text-slate-950 font-black text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-1.5"
               >
-                <span>{language === 'am' ? 'ቀጥል (Continue)' : 'Awesome! Continue'}</span>
+                <span>🎮 {language === 'am' ? 'ቀጣይ ዙር ይጫወቱ (አዲስ ካርድ ይግዙ)' : 'Play Next Round (Purchase New Cards)'}</span>
               </button>
+              <div className="flex items-center gap-2">
+                {onBack && (
+                  <button
+                    type="button"
+                    onClick={() => { setShowWinnerModal(false); onBack(); }}
+                    className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition cursor-pointer border border-slate-700 flex items-center justify-center gap-1.5"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>{language === 'am' ? 'ወደ ሎቢ' : 'Back to Lobby'}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowWinnerModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition cursor-pointer border border-white/20"
+                >
+                  <span>{language === 'am' ? 'ይዝጉ' : 'Close'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

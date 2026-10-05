@@ -114,6 +114,24 @@ export default function CardNumberSelector({
     setSelectedNumbers((prev) => [...prev, rand]);
   };
 
+  const handleFillMaxCards = () => {
+    setErrorMsg('');
+    const newNums = [...selectedNumbers];
+    while (newNums.length < MAX_CARDS) {
+      let rand = generateRandomCardNumber();
+      while (newNums.includes(rand)) {
+        rand = generateRandomCardNumber();
+      }
+      newNums.push(rand);
+    }
+    setSelectedNumbers(newNums);
+  };
+
+  const handleClearAll = () => {
+    setSelectedNumbers([]);
+    setErrorMsg('');
+  };
+
   const handleRemoveNumber = (num: string) => {
     setErrorMsg('');
     setSelectedNumbers((prev) => prev.filter((n) => n !== num));
@@ -123,8 +141,8 @@ export default function CardNumberSelector({
     if (selectedNumbers.length < MIN_CARDS) {
       setErrorMsg(
         language === 'am'
-          ? `እባክዎን ቢያንስ ${MIN_CARDS} ካርድ ይምረጡ (ከ1-3 ካርዶች)።`
-          : `Please select at least ${MIN_CARDS} card (1-3 cards allowed).`
+          ? `እባክዎን ቢያንስ ${MIN_CARDS} ካርድ ይምረጡ (ከ1-${MAX_CARDS} ካርዶች)።`
+          : `Please select at least ${MIN_CARDS} card (1-${MAX_CARDS} cards allowed).`
       );
       return;
     }
@@ -140,11 +158,11 @@ export default function CardNumberSelector({
     onClose();
   };
 
-  const displayedPresets = showMorePresets ? ALL_PRESETS : ALL_PRESETS.slice(0, 6);
+  const displayedPresets = showMorePresets ? ALL_PRESETS : ALL_PRESETS.slice(0, 8);
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white border-2 border-slate-200 rounded-3xl p-5 max-w-md w-full space-y-4 shadow-2xl relative overflow-hidden text-slate-900 animate-in fade-in duration-200">
+      <div className="bg-white border-2 border-slate-200 rounded-3xl p-5 max-w-md w-full space-y-3.5 shadow-2xl relative overflow-hidden text-slate-900 animate-in fade-in duration-200">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2">
@@ -153,10 +171,10 @@ export default function CardNumberSelector({
             </div>
             <div>
               <h3 className="font-black text-slate-950 text-sm">
-                {language === 'am' ? 'የቢንጎ ካርዶችን ይምረጡ' : 'Choose Bingo Cards'}
+                {language === 'am' ? 'የቢንጎ ካርዶችን ይግዙ (1-5 ካርዶች)' : 'Purchase Bingo Cards (1–5 Slots)'}
               </h3>
-              <p className="text-[11px] text-amber-700 font-bold">
-                {language === 'am' ? '⭐ ከፍተኛው 3 ካርዶች (1-3 ካርዶች ይፈቀዳሉ)' : '⭐ Max 3 Slots / Cards (1-3 Allowed)'}
+              <p className="text-[11px] text-emerald-700 font-bold">
+                {language === 'am' ? `⭐ ከፍተኛው ${MAX_CARDS} ካርዶች · ለአንድ ዙር ብቻ` : `⭐ Max ${MAX_CARDS} Slots · 1 Game Only`}
               </p>
             </div>
           </div>
@@ -166,39 +184,92 @@ export default function CardNumberSelector({
           </button>
         </div>
 
+        {/* 1-Game Card Rule Banner */}
+        <div className="bg-amber-50 border border-amber-300 rounded-xl px-3 py-2 text-[11px] text-amber-950 flex items-start gap-2 shadow-2xs">
+          <span className="text-base shrink-0 mt-0.5">⚡</span>
+          <div>
+            <span className="font-black uppercase tracking-wider block">
+              {language === 'am' ? 'የአንድ ዙር ሕግ (Single-Game Rule)' : '1-Game Rule (Single-Use)'}
+            </span>
+            <span className="font-medium text-[10px] text-amber-900 leading-snug">
+              {language === 'am'
+                ? 'የሚገዙት ካርዶች ለዚህ አንድ ጨዋታ ብቻ የሚያገለግሉ ናቸው። ጨዋታው ሲጠናቀቅ እንደገና ለመጫወት አዲስ ካርድ መግዛት አለብዎት።'
+                : 'Purchased cards are valid for this single game only. Once the game ends, you must purchase fresh cards to play again.'}
+            </span>
+          </div>
+        </div>
+
         {/* Selected Card Badges Preview */}
         <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-800 font-bold flex items-center gap-1.5">
               <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">✓</span>
-              {t('selectedCards')} ({selectedNumbers.length}/3)
+              {t('selectedCards')} ({selectedNumbers.length}/{MAX_CARDS})
             </span>
-            <span className="text-amber-800 font-mono font-black text-xs">
-              {t('totalCost')}: {selectedNumbers.length * entryPrice} ETB
+            <span className="text-emerald-800 font-mono font-black text-xs bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
+              {selectedNumbers.length} × {entryPrice} = {selectedNumbers.length * entryPrice} ETB
             </span>
           </div>
 
-          <div className="flex flex-wrap gap-2 min-h-[44px] items-center p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
+          <div className="flex flex-wrap gap-1.5 min-h-[44px] items-center p-2 rounded-xl bg-white border border-slate-200 shadow-2xs">
             {selectedNumbers.length > 0 ? (
               selectedNumbers.map((num) => (
                 <div
                   key={num}
-                  className="px-3 py-1 rounded-lg bg-emerald-600 text-white font-mono font-black text-xs flex items-center gap-1.5 shadow-xs group hover:bg-emerald-700 transition"
+                  className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-mono font-black text-xs flex items-center gap-1.5 shadow-xs group hover:bg-emerald-700 transition"
                 >
                   <span>#{num}</span>
                   <button
                     onClick={() => handleRemoveNumber(num)}
-                    className="text-emerald-100 hover:text-white transition cursor-pointer"
-                    title="Remove card"
+                    className="hover:text-rose-200 transition text-emerald-200 cursor-pointer text-xs"
+                    title="Remove"
                   >
-                    <X className="w-3 h-3" />
+                    ×
                   </button>
                 </div>
               ))
             ) : (
-              <span className="text-slate-500 text-xs italic px-2">
-                {language === 'am' ? 'እስካሁን ምንም ካርድ አልተመረጠም (ከታች ምረጥ)' : 'No cards selected yet (pick below)'}
+              <span className="text-xs text-slate-400 italic px-2">
+                {language === 'am' ? 'እስከ 5 ካርዶችን ከታች ይምረጡ ወይም "5 ካርዶች ሙላ" ይጫኑ' : 'Select up to 5 cards below or click "Fill 5 Cards"'}
               </span>
+            )}
+          </div>
+
+          {/* Quick Select Buttons */}
+          <div className="flex items-center gap-1.5 pt-1">
+            <button
+              type="button"
+              onClick={handleFillMaxCards}
+              disabled={selectedNumbers.length >= MAX_CARDS}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-black transition flex items-center justify-center gap-1 cursor-pointer border ${
+                selectedNumbers.length >= MAX_CARDS
+                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 shadow-2xs'
+              }`}
+            >
+              <span>⚡ {language === 'am' ? '5 ካርዶች ሙላ' : 'Fill 5 Cards (Max)'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleAddRandomCard}
+              disabled={selectedNumbers.length >= MAX_CARDS}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-black transition flex items-center justify-center gap-1 cursor-pointer border ${
+                selectedNumbers.length >= MAX_CARDS
+                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                  : 'bg-purple-50 hover:bg-purple-100 text-purple-800 border-purple-300 shadow-2xs'
+              }`}
+            >
+              <Sparkles className="w-3 h-3 text-purple-600" />
+              <span>{language === 'am' ? '+ 1 የነሲብ ካርድ' : '+ 1 Random Card'}</span>
+            </button>
+            {selectedNumbers.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="py-1.5 px-2 rounded-lg text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
+              >
+                {language === 'am' ? 'አጽዳ' : 'Clear'}
+              </button>
             )}
           </div>
         </div>

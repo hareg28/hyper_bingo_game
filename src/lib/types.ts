@@ -75,6 +75,8 @@ export interface BingoCard {
   hasWonLine?: boolean;
   hasWonTwoLines?: boolean;
   hasWonFullHouse?: boolean;
+  isUsed?: boolean;          // Single-game rule: card is marked used once the game finishes
+  roundCompleted?: boolean;  // True when the game round finishes
 }
 
 export type TransactionType = 

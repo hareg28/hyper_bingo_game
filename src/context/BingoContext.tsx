@@ -78,6 +78,7 @@ interface BingoContextType {
   claimBingo: (cardId: string) => { success: boolean; message: string; prize?: number };
   blockCard: (gameId: string, cardNumber: string) => void;
   resetGameRound: (gameId: string) => void;
+  clearConsumedCards: (gameId: string) => void;
   drawNextBall: (gameId: string) => number | null;
   dismissNotification: (id: string) => void;
   addNotification: (title: string, body: string, type?: 'success' | 'info' | 'warning' | 'win') => void;
@@ -1107,6 +1108,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     setUserCards((prev) => prev.filter((card) => card.gameId !== gameId));
   };
 
+  // Explicitly clear consumed cards from a finished game
+  const clearConsumedCards = (gameId: string) => {
+    setUserCards((prev) => prev.filter((card) => card.gameId !== gameId));
+  };
+
   // 9. CLAIM BINGO
   const claimBingo = (cardId: string): { success: boolean; message: string; prize?: number } => {
     if (!user) {
@@ -1197,6 +1203,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             }
           : g
       )
+    );
+
+    // 1-Game Card Rule: All cards played in this game are now marked used for this round
+    setUserCards((prev) =>
+      prev.map((c) => (c.gameId === game.id ? { ...c, isUsed: true, roundCompleted: true } : c))
     );
 
     // Update user wallet & transaction record
@@ -1487,6 +1498,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         claimBingo,
         blockCard,
         resetGameRound,
+        clearConsumedCards,
         drawNextBall,
         dismissNotification,
         addNotification,

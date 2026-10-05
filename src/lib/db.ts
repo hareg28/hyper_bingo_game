@@ -644,23 +644,39 @@ const db = {
 
     if (sql) {
       try {
-        // Check balance
+        // Check balance (winning_balance + available_balance; bonus is excluded)
         const walletRows = await sql`SELECT * FROM wallets WHERE user_id = ${params.userId} LIMIT 1`;
         if (walletRows.length === 0) throw new Error('Wallet not found');
-        const currentWinning = parseFloat(walletRows[0].winning_balance);
-        if (currentWinning < params.amount) throw new Error('Insufficient winning balance');
+        const currentWinning = parseFloat(walletRows[0].winning_balance) || 0;
+        const currentAvailable = parseFloat(walletRows[0].available_balance) || 0;
+        const totalWithdrawable = currentWinning + currentAvailable;
+        if (totalWithdrawable < params.amount) throw new Error('Insufficient withdrawable balance');
+
+        // Deduct from winning first, then available
+        let rem = params.amount;
+        let newWinning = currentWinning;
+        let newAvailable = currentAvailable;
+        if (newWinning >= rem) {
+          newWinning -= rem;
+          rem = 0;
+        } else {
+          rem -= newWinning;
+          newWinning = 0;
+          newAvailable = Math.max(0, newAvailable - rem);
+        }
 
         // Deduct from wallet
         const updatedWallet = await sql`
           UPDATE wallets
           SET
-            winning_balance = winning_balance - ${params.amount},
+            winning_balance = ${newWinning},
+            available_balance = ${newAvailable},
             total_withdrawn = total_withdrawn + ${params.amount},
             updated_at = NOW()
           WHERE user_id = ${params.userId}
           RETURNING *
         `;
-        const newBalance = parseFloat(updatedWallet[0].winning_balance);
+        const newBalance = parseFloat(updatedWallet[0].available_balance) + parseFloat(updatedWallet[0].winning_balance);
 
         // Insert transaction — COMPLETED immediately (system auto-processes withdrawals)
         const txId = generateId('tx');
@@ -686,15 +702,24 @@ const db = {
         const withdrawal = rowToWithdrawal(wdrRows[0]);
         return { withdrawal, transaction: tx };
       } catch (e: any) {
-        if (e.message === 'Insufficient winning balance') throw e;
+        if (e.message === 'Insufficient withdrawable balance') throw e;
         console.error('Neon createWithdrawal error:', e);
       }
     }
 
     // In-memory fallback
     const wallet = await this.getOrCreateWallet(params.userId);
-    if (wallet.winningBalance < params.amount) throw new Error('Insufficient winning balance');
-    wallet.winningBalance -= params.amount;
+    const totalWithdrawable = (wallet.winningBalance || 0) + (wallet.availableBalance || 0);
+    if (totalWithdrawable < params.amount) throw new Error('Insufficient withdrawable balance');
+
+    let rem = params.amount;
+    if (wallet.winningBalance >= rem) {
+      wallet.winningBalance -= rem;
+    } else {
+      rem -= wallet.winningBalance;
+      wallet.winningBalance = 0;
+      wallet.availableBalance = Math.max(0, wallet.availableBalance - rem);
+    }
     wallet.totalWithdrawn += params.amount;
     walletsMap.set(params.userId, wallet);
 
@@ -704,7 +729,7 @@ const db = {
       username,
       type: 'WITHDRAWAL',
       amount: -params.amount,
-      balanceAfter: wallet.winningBalance,
+      balanceAfter: wallet.availableBalance + wallet.winningBalance,
       reference: generateId('WDR'),
       paymentProvider: params.paymentMethod,
       status: 'COMPLETED',  // Auto-processed — no admin approval needed
