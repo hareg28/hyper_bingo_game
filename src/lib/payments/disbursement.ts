@@ -1,30 +1,25 @@
 /**
- * Disbursement Service — ArifPay
+ * Disbursement Service — Chapa
  *
- * Routes withdrawal payouts to ArifPay.
+ * Routes withdrawal payouts to Chapa (Ethiopian payment gateway).
+ * Required env: CHAPA_SECRET_KEY
  *
- * Usage (from admin withdrawal-approval handler):
+ * Usage (from /api/admin/withdrawals on APPROVE action):
  *   const result = await disburse({ ... });
  *   if (result.success) { mark withdrawal COMPLETED }
  *   else                { mark withdrawal FAILED, refund balance }
- *
- * Required env: ARIFPAY_API_KEY
  */
 
-import { arifPayDisburse } from './arifpay';
+import { chapaSendTransfer } from './chapa';
 import { PaymentProvider } from '@/lib/types';
 
 export interface DisburseParams {
-  /** Withdrawal record ID — used as the unique payout nonce */
+  /** Withdrawal record ID — used as payout reference */
   withdrawalId: string;
-  /** Player's full legal name */
   accountName: string;
-  /** Telebirr phone (+2519…) or bank account number */
   accountNumber: string;
-  /** ETB */
   amount: number;
   paymentMethod: PaymentProvider;
-  /** Bank code — required for Bank Transfer payouts */
   bankCode?: string;
 }
 
@@ -36,55 +31,42 @@ export interface DisburseResult {
 }
 
 /**
- * Map a PaymentProvider to an ArifPay disbursement channel string.
- */
-function toArifPayChannel(method: PaymentProvider): string {
-  switch (method) {
-    case 'Telebirr':      return 'TELEBIRR';
-    case 'CBE Birr':      return 'CBE';
-    case 'M-Pesa':        return 'MPESA';
-    case 'Bank Transfer': return 'BANK';
-    default:              return 'TELEBIRR';
-  }
-}
-
-/**
- * Disburse an approved withdrawal via ArifPay.
+ * Disburse an approved withdrawal via Chapa.
  */
 export async function disburse(params: DisburseParams): Promise<DisburseResult> {
-  const nonce = `WDR_${params.withdrawalId}_${Date.now()}`;
+  const reference = `WDR_${params.withdrawalId}_${Date.now()}`;
 
   try {
-    const res = await arifPayDisburse({
-      nonce,
-      receiverName:  params.accountName,
-      accountNumber: params.accountNumber,
-      amount:        params.amount,
-      channel:       toArifPayChannel(params.paymentMethod),
-      bankCode:      params.bankCode,
-      description:   `Hyper Bingo withdrawal #${params.withdrawalId}`,
+    const res = await chapaSendTransfer({
+      account_name:    params.accountName,
+      account_number:  params.accountNumber,
+      amount:          params.amount,
+      currency:        'ETB',
+      beneficiary_name: params.accountName,
+      reference,
+      ...(params.bankCode ? { bank_code: params.bankCode } : {}),
     });
 
-    if (res.success) {
+    if (res.status === 'success') {
       return {
-        success:      true,
-        gatewayUsed:  'ArifPay',
-        gatewayTxId:  res.transactionId,
+        success:     true,
+        gatewayUsed: 'Chapa',
+        gatewayTxId: reference,
       };
     }
 
-    console.error('[Disburse] ArifPay failed:', res.message);
+    console.error('[Disburse] Chapa transfer failed:', res.message);
     return {
       success:     false,
-      gatewayUsed: 'ArifPay',
-      message:     res.message ?? 'ArifPay disbursement failed. Check account balance and API credentials.',
+      gatewayUsed: 'Chapa',
+      message:     res.message ?? 'Chapa disbursement failed. Check API credentials and account balance.',
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error('[Disburse] ArifPay exception:', msg);
+    console.error('[Disburse] Chapa exception:', msg);
     return {
       success:     false,
-      gatewayUsed: 'ArifPay',
+      gatewayUsed: 'Chapa',
       message:     msg,
     };
   }

@@ -427,6 +427,14 @@ const db = {
 
     if (sql) {
       try {
+        // Check if already processed to prevent double crediting
+        const existingTx = await sql`
+          SELECT * FROM transactions WHERE reference = ${txRef} LIMIT 1
+        `;
+        if (existingTx.length > 0 && existingTx[0].status === 'COMPLETED') {
+          return rowToTransaction(existingTx[0]);
+        }
+
         // Update wallet
         const walletRows = await sql`
           UPDATE wallets
@@ -438,6 +446,16 @@ const db = {
           RETURNING *
         `;
         const newBalance = walletRows.length > 0 ? parseFloat(walletRows[0].available_balance) : 0;
+
+        if (existingTx.length > 0) {
+          const updatedTxRows = await sql`
+            UPDATE transactions
+            SET status = 'COMPLETED', balance_after = ${newBalance}, provider = ${provider}
+            WHERE id = ${existingTx[0].id}
+            RETURNING *
+          `;
+          return rowToTransaction(updatedTxRows[0]);
+        }
 
         // Insert transaction
         const txId = generateId('tx');
@@ -454,10 +472,24 @@ const db = {
     }
 
     // In-memory fallback
+    const existing = [...transactionsMap.values()].find(t => t.reference === txRef);
+    if (existing && existing.status === 'COMPLETED') {
+      return existing;
+    }
+
     const wallet = await this.getOrCreateWallet(userId);
     wallet.availableBalance += amount;
     wallet.totalDeposited += amount;
     walletsMap.set(userId, wallet);
+
+    if (existing) {
+      existing.status = 'COMPLETED';
+      existing.balanceAfter = wallet.availableBalance;
+      existing.paymentProvider = provider;
+      transactionsMap.set(existing.id, existing);
+      return existing;
+    }
+
     const tx: Transaction = {
       id: generateId('tx'),
       userId,
@@ -582,14 +614,14 @@ const db = {
   /**
    * Admin rejects a pending deposit.
    */
-  async rejectPendingDeposit(transactionId: string): Promise<Transaction | null> {
+  async rejectPendingDeposit(transactionIdOrRef: string): Promise<Transaction | null> {
     const sql = getNeonSql();
     if (sql) {
       try {
         const updatedTxRows = await sql`
           UPDATE transactions
           SET status = 'FAILED'
-          WHERE id = ${transactionId}
+          WHERE id = ${transactionIdOrRef} OR reference = ${transactionIdOrRef}
           RETURNING *
         `;
         if (updatedTxRows.length > 0) return rowToTransaction(updatedTxRows[0]);
@@ -598,10 +630,11 @@ const db = {
       }
     }
 
-    const tx = transactionsMap.get(transactionId);
+    const tx = transactionsMap.get(transactionIdOrRef) ||
+      [...transactionsMap.values()].find(t => t.reference === transactionIdOrRef);
     if (tx) {
       tx.status = 'FAILED';
-      transactionsMap.set(transactionId, tx);
+      transactionsMap.set(tx.id, tx);
       return tx;
     }
     return null;

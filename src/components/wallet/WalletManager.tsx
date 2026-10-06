@@ -188,7 +188,7 @@ export default function WalletManager() {
     setTimeout(() => setStatusMsg(null), 4000);
   };
 
-  // ── Deposit ──────────────────────────────────────────────────────────────
+  // ── Deposit (manual: screenshot/code — goes to admin review) ───────────────
   const handleDepositSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || user.id === 'usr_guest') {
@@ -207,7 +207,7 @@ export default function WalletManager() {
       return;
     }
 
-    // Validation: User must provide EITHER Transaction Code/SMS OR a Screenshot
+    // Validation: must provide EITHER Transaction Code/SMS OR a Screenshot
     const code = transactionCode.trim();
     if (!code && !screenshotBase64) {
       setScreenshotError(
@@ -226,45 +226,75 @@ export default function WalletManager() {
 
     setIsProcessing(true);
     try {
-      // Send deposit with verification code & screenshot to API
       const res = await fetch('/api/payments/deposit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user?.id,
-          amount: depositAmt,
+          userId:          user?.id,
+          amount:          depositAmt,
+          mode:            'manual',
           provider,
           depositReference,
           transactionCode: code,
-          screenshot: screenshotBase64,
-          senderPhone: user.phone || phoneOrAccount,
+          screenshot:      screenshotBase64,
+          senderPhone:     user.phone || phoneOrAccount,
         }),
       });
       const data = await res.json();
 
       if (data.success) {
-        await depositWallet(depositAmt, provider, code || depositReference);
+        // Do NOT credit wallet locally — admin must verify first
         showStatus(
           'success',
           isAm
-            ? `🎉 ክፍያዎ በራስ-ሰር ወዲያውኑ ተረጋግጧል! ${depositAmt} ብር ወደ ሂሳብዎ ገብቷል! አሁኑኑ መጫወት ይችላሉ።`
-            : `🎉 Instant Verification Successful! ${depositAmt} ETB credited immediately to your balance. Ready to play!`
+            ? `✅ ክፍያዎ ለአስተዳዳሪ ተልኳል! ${depositAmt} ብር ከተረጋገጠ በኋላ ወደ ሂሳብዎ ይገባል።`
+            : `✅ Deposit of ${depositAmt} ETB submitted for review! Your balance will be credited once an admin verifies your payment.`
         );
         setActiveTab('balance');
         setDepositStep(1);
         setTransactionCode('');
         handleRemoveScreenshot();
       } else {
-        // API call returned error — show proper error message instead of silently crediting
-        showStatus('error', data.error ?? (isAm ? 'ክፍያ ሂደት አልተሳካም። ደጋፊ ቡድን ያሳዩ።' : 'Deposit processing failed. Please contact support with your receipt.'));
+        showStatus('error', data.error ?? (isAm ? 'ክፍያ ሂደት አልተሳካም። ደጋፊ ቡድን ያሳዩ።' : 'Deposit failed. Please contact support with your receipt.'));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
       console.error('[Deposit UI Error]:', err);
-      showStatus('error', err?.message || (isAm ? 'የኔትወርክ ችግር አጋጥሟል። እባክዎ እንደገና ይሞክሩ።' : 'Network error during deposit. Please try again.'));
+      showStatus('error', msg || (isAm ? 'የኔትወርክ ችግር አጋጥሟል። እባክዎ እንደገና ይሞክሩ።' : 'Network error. Please try again.'));
     } finally {
       setIsProcessing(false);
     }
   };
+
+  // ── Chapa Hosted Checkout (automatic, real payment) ───────────────────────
+  const handleChapaCheckout = async () => {
+    if (!user || user.id === 'usr_guest') { openAuthModal('register'); return; }
+    const depositAmt = typeof amount === 'number' ? amount : Number(amount) || 0;
+    if (depositAmt < 10) {
+      showStatus('error', 'Minimum deposit is 10 ETB.');
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const res = await fetch('/api/payments/deposit', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ userId: user.id, amount: depositAmt, mode: 'chapa' }),
+      });
+      const data = await res.json();
+      if (data.success && data.data?.checkoutUrl) {
+        // Redirect player to Chapa hosted payment page
+        window.location.href = data.data.checkoutUrl;
+      } else {
+        showStatus('error', data.error ?? 'Failed to start Chapa checkout. Please use manual deposit.');
+      }
+    } catch {
+      showStatus('error', 'Network error. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
 
   // ── Withdrawal ───────────────────────────────────────────────────────────
   const handleWithdrawSubmit = async (e: React.FormEvent) => {
@@ -293,8 +323,8 @@ export default function WalletManager() {
         showStatus(
           'success',
           isAm
-            ? `⚡ ${withdrawAmt} ብር ወደ ${provider} (${phoneOrAccount}) በቅጽበት ተላልፏል!`
-            : `⚡ ${withdrawAmt} ETB sent directly to your ${provider} (${phoneOrAccount}) instantly!`
+            ? `✅ ${withdrawAmt} ብር የማውጣት ጥያቄ ተልኳል! ከተረጋገጠ በኋላ ወደ ${provider} (${phoneOrAccount}) ይላካል።`
+            : `✅ Withdrawal of ${withdrawAmt} ETB submitted! Funds will be sent to ${provider} (${phoneOrAccount}) after admin review — usually within a few hours.`
         );
         setActiveTab('balance');
       }
@@ -885,9 +915,54 @@ export default function WalletManager() {
                 </p>
               </div>
 
+              {/* ── Chapa Hosted Checkout (recommended) ──────────────────── */}
+              <div className="rounded-2xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50 p-3.5 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">⚡</span>
+                  <div>
+                    <div className="text-xs font-black text-amber-900 uppercase tracking-wide">
+                      {isAm ? 'ቻፓ ቀጥታ ክፍያ (ምርጥ አማራጭ)' : 'Pay with Chapa — Recommended'}
+                    </div>
+                    <div className="text-[10px] text-amber-800 font-medium">
+                      {isAm
+                        ? 'ቴሌብር • CBE • M-Pesa — ገንዘብ ወዲያውኑ ወደ ሂሳብዎ ይገባል'
+                        : 'Telebirr • CBE • M-Pesa — wallet credited automatically after payment'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleChapaCheckout}
+                  disabled={isProcessing || !amount || Number(amount) < 10}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-sm uppercase tracking-wider transition shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {isProcessing ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      {isAm ? 'በሂደት ላይ...' : 'Processing...'}
+                    </span>
+                  ) : (
+                    <>
+                      <span>🔒</span>
+                      {isAm ? `${amount || 0} ብር — በቻፓ ክፈሉ` : `Pay ${amount || 0} ETB via Chapa`}
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* ── Or use manual transfer ───────────────────────────────── */}
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {isAm ? 'ወይም በእጅ ያስተላልፉ' : 'or transfer manually'}
+                </span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+
               <button type="submit" className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer">
                 {t('proceedToCheckout')} ({provider.toUpperCase()}) →
               </button>
+
             </>
           ) : (
             <div className="space-y-3">
