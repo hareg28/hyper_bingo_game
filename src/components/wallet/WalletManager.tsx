@@ -289,8 +289,8 @@ export default function WalletManager() {
         showStatus(
           'success',
           isAm
-            ? `የ ${depositAmt} ብር ክፍያ ተፈጥሯል (PENDING)። ወደ አሪፍፔይ በማዘዋወር ላይ...`
-            : `Pending transaction created! Redirecting to ArifPay for ${depositAmt} ETB...`
+            ? `የ ${depositAmt} ብር ክፍያ ተፈጥሯል (PENDING)። ወደ ክፍያ ገጽ በማዘዋወር ላይ...`
+            : `Pending transaction created! Redirecting to secure payment for ${depositAmt} ETB...`
         );
         const url = data.data.checkoutUrl;
         const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
@@ -300,7 +300,7 @@ export default function WalletManager() {
           window.location.href = url;
         }
       } else {
-        const err = data.error ?? (isAm ? 'የአሪፍፔይ ክፍያ መጀመር አልተቻለም' : 'Failed to start ArifPay checkout. Please use manual deposit.');
+        const err = data.error ?? (isAm ? 'የክፍያ ሂደቱን መጀመር አልተቻለም። እባክዎ በድጋሚ ይሞክሩ።' : 'Failed to start payment. Please try again or use manual deposit.');
         setDirectPayError(err);
         showStatus('error', err);
       }
@@ -712,11 +712,11 @@ export default function WalletManager() {
         </p>
       </div>
 
-      {/* ── ARIFPAY PAYMENT GATEWAY BUTTONS (TELEBIRR / M-PESA / CBE) ─────────── */}
+      {/* ── INSTANT PAYMENT GATEWAY BUTTONS (TELEBIRR / M-PESA / CBE) ─────────── */}
       <div className="space-y-2">
         <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1 flex items-center gap-1.5">
           <Zap className="w-3 h-3 text-emerald-600" />
-          {isAm ? 'አሪፍፔይ ፈጣን ክፍያ (Telebirr • CBE • M-Pesa)' : 'ArifPay Instant Gateway (Telebirr • CBE • M-Pesa)'}
+          {isAm ? 'ቀጥታ ፈጣን ክፍያ (Telebirr • CBE Birr • M-Pesa)' : 'Instant Mobile & Bank Pay (Telebirr • CBE • M-Pesa)'}
         </div>
         <div className="grid grid-cols-3 gap-2">
           {/* Telebirr (09...) */}
@@ -729,8 +729,8 @@ export default function WalletManager() {
               <span className="text-base">📱</span>
               <span className="text-xs font-black">Telebirr</span>
             </div>
-            <span className="text-[9px] text-blue-100 font-bold">via ArifPay</span>
-            <span className="text-[8px] font-black bg-white/20 px-1.5 py-0.5 rounded-full mt-1">⚡ OFFICIAL</span>
+            <span className="text-[9px] text-blue-100 font-bold">Ethio (09...)</span>
+            <span className="text-[8px] font-black bg-white/20 px-1.5 py-0.5 rounded-full mt-1">⚡ INSTANT</span>
           </button>
 
           {/* Safaricom M-Pesa (07...) */}
@@ -743,8 +743,8 @@ export default function WalletManager() {
               <span className="text-base">🟢</span>
               <span className="text-xs font-black">M-Pesa</span>
             </div>
-            <span className="text-[9px] text-emerald-100 font-bold">via ArifPay</span>
-            <span className="text-[8px] font-black bg-white/20 px-1.5 py-0.5 rounded-full mt-1">⚡ OFFICIAL</span>
+            <span className="text-[9px] text-emerald-100 font-bold">Safari (07...)</span>
+            <span className="text-[8px] font-black bg-white/20 px-1.5 py-0.5 rounded-full mt-1">⚡ INSTANT</span>
           </button>
 
           {/* CBE Birr */}
@@ -757,14 +757,14 @@ export default function WalletManager() {
               <span className="text-base">🏦</span>
               <span className="text-xs font-black">CBE Birr</span>
             </div>
-            <span className="text-[9px] text-purple-100 font-bold">via ArifPay</span>
-            <span className="text-[8px] font-black bg-white/20 px-1.5 py-0.5 rounded-full mt-1">⚡ OFFICIAL</span>
+            <span className="text-[9px] text-purple-100 font-bold">CBE Direct</span>
+            <span className="text-[8px] font-black bg-white/20 px-1.5 py-0.5 rounded-full mt-1">⚡ INSTANT</span>
           </button>
         </div>
         <p className="text-[10px] text-slate-500 text-center font-medium px-2">
           {isAm
-            ? '💡 በአሪፍፔይ በኩል በቴሌብር፣ CBE Birr ወይም ባንክ በቀጥታ ይክፈሉ'
-            : '💡 Pay directly via Telebirr, CBE Birr or Bank through ArifPay Gateway'}
+            ? '💡 በቴሌብር፣ በ CBE Birr፣ በ M-Pesa ወይም በባንክ በቀጥታ ይክፈሉ'
+            : '💡 Pay directly with Telebirr, CBE Birr, M-Pesa or Bank Transfer'}
         </p>
       </div>
 
@@ -934,18 +934,18 @@ export default function WalletManager() {
                 </p>
               </div>
 
-              {/* ── ArifPay Hosted Checkout (recommended) ────────────────── */}
+              {/* ── Instant Online Checkout (recommended) ────────────────── */}
               <div className="rounded-2xl border-2 border-emerald-400 bg-gradient-to-br from-emerald-50 to-teal-50 p-3.5 space-y-2.5">
                 <div className="flex items-center gap-2">
                   <span className="text-xl">⚡</span>
                   <div>
                     <div className="text-xs font-black text-emerald-900 uppercase tracking-wide">
-                      {isAm ? 'አሪፍፔይ ቀጥታ ክፍያ (ምርጥ አማራጭ)' : 'Pay with ArifPay — Recommended'}
+                      {isAm ? 'ቀጥታ የሞባይልና ባንክ ክፍያ (ምርጥ አማራጭ)' : 'Instant Mobile & Bank Pay — Recommended'}
                     </div>
                     <div className="text-[10px] text-emerald-800 font-medium">
                       {isAm
-                        ? 'ቴሌብር • CBE Birr • ባንክ — ገንዘብ ወዲያውኑ ወደ ሂሳብዎ ይገባል'
-                        : 'Telebirr • CBE Birr • Bank — wallet credited automatically after payment'}
+                        ? 'ቴሌብር • CBE Birr • M-Pesa • ባንክ — ገንዘብ ወዲያውኑ ወደ ሂሳብዎ ይገባል'
+                        : 'Telebirr • CBE Birr • M-Pesa • Bank — wallet credited automatically after payment'}
                     </div>
                   </div>
                 </div>
@@ -963,7 +963,7 @@ export default function WalletManager() {
                   ) : (
                     <>
                       <span>🔒</span>
-                      {isAm ? `${amount || 0} ብር — በአሪፍፔይ ክፈሉ` : `Pay ${amount || 0} ETB via ArifPay`}
+                      {isAm ? `${amount || 0} ብር — በቴሌብር/ባንክ ክፈሉ` : `Pay ${amount || 0} ETB (Telebirr / CBE / Bank)`}
                     </>
                   )}
                 </button>
@@ -1834,9 +1834,9 @@ export default function WalletManager() {
                   ⚡
                 </div>
                 <div>
-                  <h3 className="font-black text-base">{isAm ? 'አሪፍፔይ ደህንነቱ የተጠበቀ ክፍያ' : 'ArifPay Secure Checkout'}</h3>
+                  <h3 className="font-black text-base">{isAm ? 'ደህንነቱ የተጠበቀ ቀጥታ ክፍያ' : 'Secure Online Payment'}</h3>
                   <p className="text-[10px] font-bold text-emerald-300">
-                    Telebirr • CBE Birr • Awash • Bank
+                    Telebirr • CBE Birr • M-Pesa • Bank
                   </p>
                 </div>
               </div>
@@ -1902,7 +1902,7 @@ export default function WalletManager() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-4 h-4 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center font-bold text-[9px]">2</span>
-                    <span>{isAm ? 'በአሪፍፔይ ገጽ (Telebirr/CBE) ክፍያ ይፈጽማሉ' : 'Customer pays on ArifPay (Telebirr/CBE)'}</span>
+                    <span>{isAm ? 'በቴሌብር ወይም በባንክ (Telebirr/CBE) ክፍያ ይፈጽማሉ' : 'Customer pays via Telebirr / CBE / Bank'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-4 h-4 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center font-bold text-[9px]">3</span>
@@ -1922,14 +1922,14 @@ export default function WalletManager() {
                   {directPayLoading ? (
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-slate-950/40 border-t-slate-950 rounded-full animate-spin" />
-                      {isAm ? 'በሂደት ላይ...' : 'Connecting to ArifPay...'}
+                      {isAm ? 'በሂደት ላይ...' : 'Connecting to payment gateway...'}
                     </span>
                   ) : (
                     <>
                       <span>🔒</span>
                       {isAm
-                        ? `${directPayAmount || 100} ብር — በአሪፍፔይ ክፈሉ`
-                        : `Pay ${directPayAmount || 100} ETB via ArifPay`}
+                        ? `${directPayAmount || 100} ብር — በቴሌብር/ባንክ ክፈሉ`
+                        : `Pay ${directPayAmount || 100} ETB (Telebirr / CBE / Bank)`}
                       <span>→</span>
                     </>
                   )}

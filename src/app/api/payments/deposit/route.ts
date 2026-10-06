@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       if (!process.env.ARIFPAY_API_KEY) {
         return NextResponse.json<ApiResponse>({
           success: false,
-          error: 'ArifPay online gateway is not configured. Please set ARIFPAY_API_KEY or use manual deposit.',
+          error: 'Online payment is temporarily unavailable. Please use manual bank transfer deposit.',
         }, { status: 503 });
       }
 
@@ -76,9 +76,9 @@ export async function POST(req: NextRequest) {
       await db.createPendingDeposit({
         userId,
         amount,
-        provider: 'ArifPay',
+        provider: 'Telebirr',
         reference: txRef,
-        description: 'Deposit via ArifPay — awaiting payment confirmation',
+        description: 'Online deposit — awaiting payment confirmation',
       });
 
       const playerEmail = `${user.username ?? userId}@hyperbingo.et`;
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
         console.error('[Deposit/ArifPay] Checkout init failed:', checkout.message);
         return NextResponse.json<ApiResponse>({
           success: false,
-          error: checkout.message ?? 'Failed to initialize ArifPay checkout. Please try manual deposit.',
+          error: checkout.message ?? 'Failed to initialize payment session. Please try manual deposit.',
         }, { status: 503 });
       }
 
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
           amount,
           currency: 'ETB',
         },
-        message: `Redirecting to ArifPay — please complete your ${amount} ETB payment.`,
+        message: `Redirecting to secure payment checkout — please complete your ${amount} ETB payment.`,
       });
     }
 
