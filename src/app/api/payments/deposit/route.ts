@@ -3,23 +3,23 @@
  *
  * Unified Deposit Route — two modes:
  *
- * MODE A — Chapa Hosted Checkout (recommended, automatic):
- *   Body: { userId, amount, mode: 'chapa' }
- *   → Creates PENDING tx → Returns Chapa checkout URL
- *   → Wallet credited ONLY after Chapa confirms via webhook at /api/payments/webhook/chapa
+ * MODE A — ArifPay Hosted Checkout (recommended, automatic):
+ *   Body: { userId, amount, mode: 'arifpay' }
+ *   → Creates PENDING tx → Returns ArifPay checkout URL
+ *   → Wallet credited ONLY after ArifPay confirms via webhook at /api/payments/webhook/arifpay
  *
  * MODE B — Manual / Screenshot deposit (admin-reviewed):
  *   Body: { userId, amount, provider, transactionCode?, screenshot?, senderPhone? }
  *   → Creates PENDING tx → Admin approves/rejects in admin panel
  *   → Wallet credited ONLY after admin approves
  *
- * Required env (Mode A): CHAPA_SECRET_KEY, CHAPA_WEBHOOK_SECRET, NEXT_PUBLIC_APP_URL
+ * Required env (Mode A): ARIFPAY_API_KEY, ARIFPAY_WEBHOOK_SECRET, NEXT_PUBLIC_APP_URL
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ApiResponse, DepositInitResponse, PaymentProvider } from '@/lib/types';
-import { chapaInitializeDeposit } from '@/lib/payments/chapa';
+import { arifPayInitCheckout } from '@/lib/payments/arifpay';
 import { getAdminWhitelist } from '@/lib/authUtils';
 
 const DEFAULT_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
@@ -30,8 +30,8 @@ export async function POST(req: NextRequest) {
     const { userId, amount, mode, provider, transactionCode, screenshot, senderPhone } = body as {
       userId: string;
       amount: number;
-      /** 'chapa' for hosted checkout | 'manual' (or absent) for screenshot/code deposit */
-      mode?: 'chapa' | 'manual';
+      /** 'arifpay' | 'online' for hosted checkout | 'manual' (or absent) for screenshot/code deposit */
+      mode?: 'arifpay' | 'online' | 'manual';
       provider?: PaymentProvider;
       transactionCode?: string;
       screenshot?: string;
@@ -60,12 +60,12 @@ export async function POST(req: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://localhost:3000';
 
-    // ── MODE A: Chapa Hosted Checkout ────────────────────────────────────────
-    if (mode === 'chapa') {
-      if (!process.env.CHAPA_SECRET_KEY) {
+    // ── MODE A: ArifPay Hosted Checkout ──────────────────────────────────────
+    if (mode === 'arifpay' || mode === 'online') {
+      if (!process.env.ARIFPAY_API_KEY) {
         return NextResponse.json<ApiResponse>({
           success: false,
-          error: 'Online payment gateway is not configured. Please use manual deposit.',
+          error: 'ArifPay online gateway is not configured. Please set ARIFPAY_API_KEY or use manual deposit.',
         }, { status: 503 });
       }
 
@@ -76,53 +76,45 @@ export async function POST(req: NextRequest) {
       await db.createPendingDeposit({
         userId,
         amount,
-        provider: 'Chapa',
+        provider: 'ArifPay',
         reference: txRef,
-        description: 'Deposit via Chapa — awaiting payment confirmation',
+        description: 'Deposit via ArifPay — awaiting payment confirmation',
       });
 
-      const nameParts  = (user.name ?? 'Hyper Bingo Player').split(' ');
-      const firstName  = nameParts[0] ?? 'Player';
-      const lastName   = nameParts.slice(1).join(' ') || 'User';
-      const email      = `${user.username ?? userId}@hyperbingo.et`;
-      const phone      = user.phone ?? senderPhone ?? '';
+      const playerEmail = `${user.username ?? userId}@hyperbingo.et`;
+      const playerPhone = user.phone ?? senderPhone ?? '0900000000';
 
-      const checkout = await chapaInitializeDeposit({
+      const checkout = await arifPayInitCheckout({
+        nonce:      txRef,
+        email:      playerEmail,
+        phone:      playerPhone,
         amount,
-        currency:     'ETB',
-        email,
-        first_name:   firstName,
-        last_name:    lastName,
-        phone_number: phone,
-        tx_ref:       txRef,
-        return_url:   `${appUrl}/app?deposit=success&txRef=${txRef}`,
-        callback_url: `${appUrl}/api/payments/webhook/chapa`,
-        customization: {
-          title:       'Hyper Bingo Deposit',
-          description: `Deposit ${amount} ETB to Hyper Bingo wallet`,
-        },
+        items:      [{ name: 'Hyper Bingo Deposit', quantity: 1, price: amount }],
+        successUrl: `${appUrl}/app?deposit=success&txRef=${txRef}`,
+        cancelUrl:  `${appUrl}/app?deposit=cancelled&txRef=${txRef}`,
+        notifyUrl:  `${appUrl}/api/payments/webhook/arifpay`,
       });
 
-      if (checkout.status !== 'success' || !checkout.data?.checkout_url) {
+      if (!checkout.success || !checkout.paymentUrl) {
         // Roll back the pending tx
         await db.rejectPendingDeposit(txRef).catch(() => {});
-        console.error('[Deposit/Chapa] Checkout init failed:', checkout.message);
+        console.error('[Deposit/ArifPay] Checkout init failed:', checkout.message);
         return NextResponse.json<ApiResponse>({
           success: false,
-          error: checkout.message ?? 'Failed to initialize Chapa checkout. Please try manual deposit.',
+          error: checkout.message ?? 'Failed to initialize ArifPay checkout. Please try manual deposit.',
         }, { status: 503 });
       }
 
-      console.log(`[Deposit/Chapa] Checkout created — txRef: ${txRef}`);
+      console.log(`[Deposit/ArifPay] Checkout created — txRef: ${txRef}, sessionId: ${checkout.sessionId}`);
       return NextResponse.json<ApiResponse<DepositInitResponse>>({
         success: true,
         data: {
-          checkoutUrl: checkout.data.checkout_url,
+          checkoutUrl: checkout.paymentUrl,
           txRef,
           amount,
           currency: 'ETB',
         },
-        message: `Redirecting to Chapa — please complete your ${amount} ETB payment.`,
+        message: `Redirecting to ArifPay — please complete your ${amount} ETB payment.`,
       });
     }
 

@@ -266,8 +266,8 @@ export default function WalletManager() {
     }
   };
 
-  // ── Chapa Hosted Checkout (automatic, real payment) ───────────────────────
-  const handleChapaCheckout = async () => {
+  // ── ArifPay Hosted Checkout (automatic, real payment) ──────────────────────
+  const handleArifPayCheckout = async () => {
     if (!user || user.id === 'usr_guest') { openAuthModal('register'); return; }
     const depositAmt = typeof amount === 'number' ? amount : Number(amount) || 0;
     if (depositAmt < 10) {
@@ -279,14 +279,14 @@ export default function WalletManager() {
       const res = await fetch('/api/payments/deposit', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ userId: user.id, amount: depositAmt, mode: 'chapa' }),
+        body:    JSON.stringify({ userId: user.id, amount: depositAmt, mode: 'arifpay' }),
       });
       const data = await res.json();
       if (data.success && data.data?.checkoutUrl) {
-        // Redirect player to Chapa hosted payment page
+        // Redirect player to ArifPay hosted payment page
         window.location.href = data.data.checkoutUrl;
       } else {
-        showStatus('error', data.error ?? 'Failed to start Chapa checkout. Please use manual deposit.');
+        showStatus('error', data.error ?? 'Failed to start ArifPay checkout. Please use manual deposit.');
       }
     } catch {
       showStatus('error', 'Network error. Please try again.');
@@ -915,26 +915,26 @@ export default function WalletManager() {
                 </p>
               </div>
 
-              {/* ── Chapa Hosted Checkout (recommended) ──────────────────── */}
-              <div className="rounded-2xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50 p-3.5 space-y-2.5">
+              {/* ── ArifPay Hosted Checkout (recommended) ────────────────── */}
+              <div className="rounded-2xl border-2 border-emerald-400 bg-gradient-to-br from-emerald-50 to-teal-50 p-3.5 space-y-2.5">
                 <div className="flex items-center gap-2">
                   <span className="text-xl">⚡</span>
                   <div>
-                    <div className="text-xs font-black text-amber-900 uppercase tracking-wide">
-                      {isAm ? 'ቻፓ ቀጥታ ክፍያ (ምርጥ አማራጭ)' : 'Pay with Chapa — Recommended'}
+                    <div className="text-xs font-black text-emerald-900 uppercase tracking-wide">
+                      {isAm ? 'አሪፍፔይ ቀጥታ ክፍያ (ምርጥ አማራጭ)' : 'Pay with ArifPay — Recommended'}
                     </div>
-                    <div className="text-[10px] text-amber-800 font-medium">
+                    <div className="text-[10px] text-emerald-800 font-medium">
                       {isAm
-                        ? 'ቴሌብር • CBE • M-Pesa — ገንዘብ ወዲያውኑ ወደ ሂሳብዎ ይገባል'
-                        : 'Telebirr • CBE • M-Pesa — wallet credited automatically after payment'}
+                        ? 'ቴሌብር • CBE Birr • ባንክ — ገንዘብ ወዲያውኑ ወደ ሂሳብዎ ይገባል'
+                        : 'Telebirr • CBE Birr • Bank — wallet credited automatically after payment'}
                     </div>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={handleChapaCheckout}
+                  onClick={handleArifPayCheckout}
                   disabled={isProcessing || !amount || Number(amount) < 10}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-sm uppercase tracking-wider transition shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-sm uppercase tracking-wider transition shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2"
                 >
                   {isProcessing ? (
                     <span className="flex items-center gap-2">
@@ -944,7 +944,7 @@ export default function WalletManager() {
                   ) : (
                     <>
                       <span>🔒</span>
-                      {isAm ? `${amount || 0} ብር — በቻፓ ክፈሉ` : `Pay ${amount || 0} ETB via Chapa`}
+                      {isAm ? `${amount || 0} ብር — በአሪፍፔይ ክፈሉ` : `Pay ${amount || 0} ETB via ArifPay`}
                     </>
                   )}
                 </button>
