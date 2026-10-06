@@ -1,23 +1,35 @@
+/**
+ * POST /api/payments/deposit
+ *
+ * Deposit Flow:
+ *   1. Validate request
+ *   2. Create a PENDING transaction in the DB
+ *   3. Initialize ArifPay hosted checkout session
+ *   4. Return the checkoutUrl — player is redirected there to pay
+ *   5. Wallet is credited ONLY after ArifPay confirms via webhook
+ *      → /api/payments/webhook/arifpay
+ *
+ * Required env: ARIFPAY_API_KEY, ARIFPAY_WEBHOOK_SECRET, NEXT_PUBLIC_APP_URL
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { ApiResponse } from '@/lib/types';
-import { getAdminWhitelist } from '@/lib/authUtils';
-
-const DEFAULT_BOT_TOKEN = '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
+import { ApiResponse, DepositInitResponse } from '@/lib/types';
+import { arifPayInitCheckout } from '@/lib/payments/arifpay';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, amount, provider, depositReference, transactionCode, screenshot, senderPhone } = body as {
+    const { userId, amount, email, phone, firstName, lastName } = body as {
       userId: string;
       amount: number;
-      provider: 'Telebirr' | 'CBE Birr' | 'Chapa' | 'Bank Transfer';
-      depositReference?: string;
-      transactionCode?: string;
-      screenshot?: string;
-      senderPhone?: string;
+      email?: string;
+      phone?: string;
+      firstName?: string;
+      lastName?: string;
     };
 
+    // ── Validation ──────────────────────────────────────────────────────────
     if (!userId || !amount || amount < 10) {
       return NextResponse.json<ApiResponse>({
         success: false,
@@ -25,95 +37,84 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Require EITHER transaction code OR screenshot
-    const code = (transactionCode || '').trim();
-    const hasCode = code.length >= 3;
-    const hasScreenshot = Boolean(screenshot && screenshot.trim().length > 0);
-
-    if (!hasCode && !hasScreenshot) {
-      return NextResponse.json<ApiResponse>({
-        success: false,
-        error: 'Please enter your Transaction Reference Code / SMS ID (e.g. FT number for CBE) or attach a payment receipt.',
-      }, { status: 400 });
-    }
-
     const user = await db.getUserById(userId);
     if (!user) {
-      return NextResponse.json<ApiResponse>({
-        success: false,
-        error: 'User not found',
-      }, { status: 404 });
+      return NextResponse.json<ApiResponse>({ success: false, error: 'User not found' }, { status: 404 });
     }
 
-    const txRef = code || depositReference || `HBINGO_${userId}_${Date.now()}`;
-    const botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN;
-
-    // INSTANT AUTOMATIC VERIFICATION & DIRECT BALANCE CREDIT
-    let createdTx;
-    try {
-      createdTx = await db.creditDeposit(userId, amount, txRef, provider || 'Telebirr');
-    } catch (dbErr) {
-      console.error('[Deposit API] creditDeposit error:', dbErr);
+    if (user.status === 'suspended') {
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'Failed to credit deposit. Please try again or contact support.',
-      }, { status: 500 });
+        error: 'Your account is suspended. Please contact support.',
+      }, { status: 403 });
     }
 
-    // NON-BLOCKING TELEGRAM NOTIFICATION (fire-and-forget so 1000+ users never hang)
-    const adminWhitelist = getAdminWhitelist();
-    const targetAdmins = adminWhitelist.length > 0 ? adminWhitelist : ['570615212', '7829104'];
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://localhost:3000';
+    // txRef format: HBINGO_{userId}_{timestamp}
+    // The webhook parser splits on '_' and slices [1..-1] to recover userId
+    const txRef = `HBINGO_${userId}_${Date.now()}`;
 
-    const proofDescription = [
-      hasCode ? `🔖 <b>Merchant Trans ID / Code:</b> <code>${code}</code>` : '',
-      hasScreenshot ? `📸 <b>Receipt/Screenshot:</b> Attached` : '',
-    ].filter(Boolean).join('\n');
-
-    const notificationMessage = 
-      `⚡ <b>INSTANT DEPOSIT AUTO-VERIFIED & CREDITED!</b> ⚡\n\n` +
-      `👤 <b>Player:</b> ${user.name} (@${user.username || 'user'})\n` +
-      `🆔 <b>User ID:</b> <code>${userId}</code>\n` +
-      `📞 <b>Phone:</b> <code>${user.phone || senderPhone || 'N/A'}</code>\n` +
-      `💰 <b>Amount:</b> <b>${amount} ETB (CREDITED INSTANTLY)</b>\n` +
-      `💳 <b>Payment Provider:</b> <b>${provider}</b>\n` +
-      `${proofDescription}\n` +
-      `🔖 <b>Reference ID:</b> <code>${txRef}</code>\n` +
-      `⏰ <b>Date & Time:</b> ${new Date().toLocaleString()}\n\n` +
-      `✅ <i>Player balance credited immediately with instant auto-verification. Zero admin wait time!</i>`;
-
-    // Fire and forget telegram alerts without blocking HTTP response
-    Promise.allSettled(
-      targetAdmins.map((adminId) =>
-        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: adminId,
-            text: notificationMessage,
-            parse_mode: 'HTML',
-          }),
-        })
-      )
-    ).catch((tgErr) => {
-      console.error('[Deposit API] Async Telegram alert error:', tgErr);
+    // ── Create PENDING transaction (wallet NOT credited yet) ────────────────
+    await db.createPendingDeposit({
+      userId,
+      amount,
+      provider: 'ArifPay',
+      reference: txRef,
+      description: `Deposit via ArifPay — awaiting payment confirmation`,
     });
 
-    return NextResponse.json<ApiResponse>({
+    // ── Initialize ArifPay checkout ─────────────────────────────────────────
+    const playerEmail = email     ?? `${user.username ?? userId}@hyperbingo.et`;
+    const playerPhone = phone     ?? user.phone ?? '';
+    const first       = firstName ?? (user.name?.split(' ')[0]            ?? 'Player');
+    const last        = lastName  ?? (user.name?.split(' ').slice(1).join(' ') ?? '');
+
+    const successUrl = `${appUrl}/app?deposit=success&txRef=${txRef}`;
+    const cancelUrl  = `${appUrl}/app?deposit=cancelled&txRef=${txRef}`;
+    const notifyUrl  = `${appUrl}/api/payments/webhook/arifpay`;
+
+    const checkout = await arifPayInitCheckout({
+      nonce:      txRef,
+      email:      playerEmail,
+      phone:      playerPhone,
+      amount,
+      items:      [{ name: 'Hyper Bingo Deposit', quantity: 1, price: amount }],
+      successUrl,
+      cancelUrl,
+      notifyUrl,
+    });
+
+    if (!checkout.success || !checkout.paymentUrl) {
+      // Mark pending tx as failed so it doesn't linger
+      await db.rejectPendingDeposit(
+        (await db.createPendingDeposit({ userId, amount, provider: 'ArifPay', reference: txRef + '_err', description: '' })).id
+      ).catch(() => {});
+
+      console.error('[Deposit] ArifPay checkout init failed:', checkout.message);
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: checkout.message ?? 'Payment gateway is unavailable. Please try again later.',
+      }, { status: 503 });
+    }
+
+    console.log(`[Deposit] ArifPay session created — txRef: ${txRef}, sessionId: ${checkout.sessionId}`);
+
+    return NextResponse.json<ApiResponse<DepositInitResponse>>({
       success: true,
       data: {
-        txId: createdTx?.id || `tx_${Date.now()}`,
+        checkoutUrl: checkout.paymentUrl,
         txRef,
         amount,
-        provider,
-        status: 'COMPLETED',
-        message: `Instant verification successful! ${amount} ETB credited immediately to your balance.`,
+        currency: 'ETB',
       },
+      message: `Redirecting to ArifPay — please complete your ${amount} ETB payment.`,
     });
+
   } catch (err) {
     console.error('[Deposit API] Error:', err);
     return NextResponse.json<ApiResponse>({
       success: false,
-      error: 'Failed to process deposit. Please try again.',
+      error: 'Failed to initialize deposit. Please try again.',
     }, { status: 500 });
   }
 }

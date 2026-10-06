@@ -11,7 +11,7 @@
 import {
   User, Wallet, Transaction, WithdrawalRequest,
   LinkedPaymentAccount, LinkedAccountType, LinkedAccountStatus,
-  TransactionType, TransactionStatus, PaymentProvider,
+  TransactionType, TransactionStatus, PaymentProvider, UserRole,
   SystemAnnouncement,
 } from './types';
 import { TelegramUser } from './types';
@@ -630,9 +630,14 @@ const db = {
   },
 
   /**
-   * Create a withdrawal request and deduct from winningBalance.
+   * STEP 1 — Reserve the withdrawal amount (balance deducted immediately) and
+   * create a PENDING withdrawal request that awaits admin / risk approval.
+   *
+   * Balance is debited NOW so the player cannot double-spend while the request
+   * sits in the admin queue.  If the admin rejects it, `rejectWithdrawal`
+   * refunds the amount back to the wallet.
    */
-  async createWithdrawal(params: {
+  async createPendingWithdrawal(params: {
     userId: string;
     amount: number;
     paymentMethod: PaymentProvider;
@@ -645,70 +650,76 @@ const db = {
 
     if (sql) {
       try {
-        // Check balance (winning_balance + available_balance; bonus is excluded)
+        // ── Balance check ──────────────────────────────────────────────────
         const walletRows = await sql`SELECT * FROM wallets WHERE user_id = ${params.userId} LIMIT 1`;
         if (walletRows.length === 0) throw new Error('Wallet not found');
-        const currentWinning = parseFloat(walletRows[0].winning_balance) || 0;
+        const currentWinning  = parseFloat(walletRows[0].winning_balance)  || 0;
         const currentAvailable = parseFloat(walletRows[0].available_balance) || 0;
         const totalWithdrawable = currentWinning + currentAvailable;
         if (totalWithdrawable < params.amount) throw new Error('Insufficient withdrawable balance');
 
-        // Deduct from winning first, then available
+        // ── Reserve (deduct) balance — winning first, then available ───────
         let rem = params.amount;
-        let newWinning = currentWinning;
+        let newWinning  = currentWinning;
         let newAvailable = currentAvailable;
         if (newWinning >= rem) {
-          newWinning -= rem;
-          rem = 0;
+          newWinning -= rem; rem = 0;
         } else {
-          rem -= newWinning;
-          newWinning = 0;
+          rem -= newWinning; newWinning = 0;
           newAvailable = Math.max(0, newAvailable - rem);
         }
 
-        // Deduct from wallet
         const updatedWallet = await sql`
           UPDATE wallets
           SET
-            winning_balance = ${newWinning},
+            winning_balance   = ${newWinning},
             available_balance = ${newAvailable},
-            total_withdrawn = total_withdrawn + ${params.amount},
-            updated_at = NOW()
+            total_withdrawn   = total_withdrawn + ${params.amount},
+            updated_at        = NOW()
           WHERE user_id = ${params.userId}
           RETURNING *
         `;
-        const newBalance = parseFloat(updatedWallet[0].available_balance) + parseFloat(updatedWallet[0].winning_balance);
+        const newBalance = parseFloat(updatedWallet[0].available_balance)
+                         + parseFloat(updatedWallet[0].winning_balance);
 
-        // Insert transaction — COMPLETED immediately (system auto-processes withdrawals)
-        const txId = generateId('tx');
+        // ── Insert PENDING transaction ─────────────────────────────────────
+        const txId  = generateId('tx');
         const wdrRef = generateId('WDR');
         const txRows = await sql`
-          INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
+          INSERT INTO transactions
+            (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
           VALUES (
-            ${txId}, ${params.userId}, ${username}, 'WITHDRAWAL', ${-params.amount}, ${newBalance},
-            ${params.paymentMethod}, 'COMPLETED', ${wdrRef},
-            ${'Withdrawal to ' + params.paymentMethod + ' ' + params.accountNumber}
+            ${txId}, ${params.userId}, ${username},
+            'WITHDRAWAL', ${-params.amount}, ${newBalance},
+            ${params.paymentMethod}, 'PENDING', ${wdrRef},
+            ${'Pending withdrawal to ' + params.paymentMethod + ' ' + params.accountNumber}
           )
           RETURNING *
         `;
         const tx = rowToTransaction(txRows[0]);
 
-        // Insert withdrawal request — COMPLETED immediately (no admin review)
+        // ── Insert PENDING withdrawal request ──────────────────────────────
         const wdrId = generateId('wdr');
         const wdrRows = await sql`
-          INSERT INTO withdrawal_requests (id, user_id, username, amount, provider, account_number, account_holder, transaction_id, status)
-          VALUES (${wdrId}, ${params.userId}, ${username}, ${params.amount}, ${params.paymentMethod}, ${params.accountNumber}, ${params.accountName}, ${txId}, 'COMPLETED')
+          INSERT INTO withdrawal_requests
+            (id, user_id, username, amount, provider, account_number, account_holder, transaction_id, status)
+          VALUES (
+            ${wdrId}, ${params.userId}, ${username}, ${params.amount},
+            ${params.paymentMethod}, ${params.accountNumber}, ${params.accountName},
+            ${txId}, 'PENDING'
+          )
           RETURNING *
         `;
         const withdrawal = rowToWithdrawal(wdrRows[0]);
         return { withdrawal, transaction: tx };
       } catch (e: any) {
         if (e.message === 'Insufficient withdrawable balance') throw e;
-        console.error('Neon createWithdrawal error:', e);
+        console.error('Neon createPendingWithdrawal error:', e);
+        throw e;
       }
     }
 
-    // In-memory fallback
+    // ── In-memory fallback ─────────────────────────────────────────────────
     const wallet = await this.getOrCreateWallet(params.userId);
     const totalWithdrawable = (wallet.winningBalance || 0) + (wallet.availableBalance || 0);
     if (totalWithdrawable < params.amount) throw new Error('Insufficient withdrawable balance');
@@ -733,8 +744,8 @@ const db = {
       balanceAfter: wallet.availableBalance + wallet.winningBalance,
       reference: generateId('WDR'),
       paymentProvider: params.paymentMethod,
-      status: 'COMPLETED',  // Auto-processed — no admin approval needed
-      description: `Withdrawal to ${params.paymentMethod} ${params.accountNumber}`,
+      status: 'PENDING',
+      description: `Pending withdrawal to ${params.paymentMethod} ${params.accountNumber}`,
       createdAt: new Date().toISOString(),
     };
     transactionsMap.set(tx.id, tx);
@@ -748,11 +759,133 @@ const db = {
       paymentMethod: params.paymentMethod,
       accountNumber: params.accountNumber,
       accountName: params.accountName,
-      status: 'COMPLETED',  // Auto-processed — no admin approval needed
+      status: 'PENDING',
       createdAt: new Date().toISOString(),
     };
     withdrawalsMap.set(withdrawal.id, withdrawal);
     return { withdrawal, transaction: tx };
+  },
+
+  /**
+   * @deprecated Use createPendingWithdrawal — this alias kept for backwards-compatibility.
+   */
+  async createWithdrawal(params: {
+    userId: string;
+    amount: number;
+    paymentMethod: PaymentProvider;
+    accountNumber: string;
+    accountName: string;
+  }) {
+    return this.createPendingWithdrawal(params);
+  },
+
+  /**
+   * STEP 2A — Admin APPROVES a pending withdrawal.
+   * Marks both the withdrawal_request and its linked transaction as COMPLETED.
+   * The caller (admin route) is responsible for triggering the disbursement.
+   */
+  async approveWithdrawal(withdrawalId: string): Promise<WithdrawalRequest | null> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          UPDATE withdrawal_requests
+          SET status = 'COMPLETED'
+          WHERE id = ${withdrawalId} AND status = 'PENDING'
+          RETURNING *
+        `;
+        if (rows.length === 0) return null;
+        const wr = rowToWithdrawal(rows[0]);
+        // Mark linked transaction COMPLETED
+        await sql`
+          UPDATE transactions
+          SET status = 'COMPLETED'
+          WHERE id = ${wr.transactionId}
+        `;
+        return wr;
+      } catch (e) { console.error('Neon approveWithdrawal error:', e); }
+    }
+    const wr = withdrawalsMap.get(withdrawalId);
+    if (!wr || wr.status !== 'PENDING') return null;
+    wr.status = 'COMPLETED';
+    withdrawalsMap.set(withdrawalId, wr);
+    const tx = transactionsMap.get(wr.transactionId);
+    if (tx) { tx.status = 'COMPLETED'; transactionsMap.set(tx.id, tx); }
+    return wr;
+  },
+
+  /**
+   * STEP 2B — Admin REJECTS a pending withdrawal.
+   * Refunds the reserved amount back to the player's wallet and marks
+   * both the withdrawal_request and transaction as FAILED.
+   */
+  async rejectWithdrawal(withdrawalId: string): Promise<WithdrawalRequest | null> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          UPDATE withdrawal_requests
+          SET status = 'FAILED'
+          WHERE id = ${withdrawalId} AND status = 'PENDING'
+          RETURNING *
+        `;
+        if (rows.length === 0) return null;
+        const wr = rowToWithdrawal(rows[0]);
+
+        // Refund the reserved balance back
+        await sql`
+          UPDATE wallets
+          SET
+            available_balance = available_balance + ${wr.amount},
+            total_withdrawn   = GREATEST(0, total_withdrawn - ${wr.amount}),
+            updated_at        = NOW()
+          WHERE user_id = ${wr.userId}
+        `;
+
+        // Mark linked transaction FAILED
+        await sql`
+          UPDATE transactions
+          SET status = 'FAILED'
+          WHERE id = ${wr.transactionId}
+        `;
+        return wr;
+      } catch (e) { console.error('Neon rejectWithdrawal error:', e); }
+    }
+
+    const wr = withdrawalsMap.get(withdrawalId);
+    if (!wr || wr.status !== 'PENDING') return null;
+    wr.status = 'FAILED';
+    withdrawalsMap.set(withdrawalId, wr);
+    // Refund in-memory wallet
+    const wallet = walletsMap.get(wr.userId);
+    if (wallet) {
+      wallet.availableBalance += wr.amount;
+      wallet.totalWithdrawn   = Math.max(0, wallet.totalWithdrawn - wr.amount);
+      walletsMap.set(wr.userId, wallet);
+    }
+    const tx = transactionsMap.get(wr.transactionId);
+    if (tx) { tx.status = 'FAILED'; transactionsMap.set(tx.id, tx); }
+    return wr;
+  },
+
+  /**
+   * Admin: fetch all withdrawal requests with PENDING status.
+   */
+  async getPendingWithdrawals(): Promise<WithdrawalRequest[]> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          SELECT * FROM withdrawal_requests
+          WHERE status = 'PENDING'
+          ORDER BY created_at ASC
+        `;
+        return rows.map(rowToWithdrawal);
+      } catch (e) { console.error('Neon getPendingWithdrawals error:', e); }
+    }
+    return [...withdrawalsMap.values()]
+      .filter((w) => w.status === 'PENDING')
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   },
 
   async getTransactions(userId: string): Promise<Transaction[]> {

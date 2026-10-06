@@ -89,7 +89,21 @@ export type TransactionType =
   | 'PROMOTION_BONUS';
 
 export type TransactionStatus = 'PENDING' | 'APPROVED' | 'COMPLETED' | 'REJECTED' | 'FAILED';
-export type PaymentProvider = 'Telebirr' | 'CBE Birr' | 'M-Pesa' | 'Bank Transfer';
+
+/**
+ * All supported ETB payment providers.
+ * ArifPay and AddisPay are the primary gateways (checkout + disbursement).
+ * Chapa is the tertiary fallback.  Telebirr / CBE Birr / Bank Transfer are
+ * used as the player-facing "destination method" for withdrawals.
+ */
+export type PaymentProvider =
+  | 'Telebirr'
+  | 'CBE Birr'
+  | 'M-Pesa'
+  | 'Bank Transfer'
+  | 'ArifPay'
+  | 'AddisPay'
+  | 'Chapa';
 
 export interface Transaction {
   id: string;
@@ -103,6 +117,10 @@ export interface Transaction {
   status: TransactionStatus;
   description: string;
   createdAt: string;
+  /** ArifPay sessionId / AddisPay paymentRef – stored for webhook matching */
+  gatewaySessionId?: string;
+  /** URL returned by the gateway – player must visit this to complete payment */
+  checkoutUrl?: string;
 }
 
 export interface WithdrawalRequest {
