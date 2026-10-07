@@ -121,6 +121,8 @@ export interface Transaction {
   gatewaySessionId?: string;
   /** URL returned by the gateway – player must visit this to complete payment */
   checkoutUrl?: string;
+  /** Admin who verified a manual deposit */
+  verifiedBy?: string;
 }
 
 export interface WithdrawalRequest {
@@ -134,6 +136,9 @@ export interface WithdrawalRequest {
   accountName: string;
   status: TransactionStatus;
   createdAt: string;
+  /** Outgoing Telebirr/CBE reference after admin sends payout */
+  payoutReference?: string;
+  processedBy?: string;
 }
 
 export interface Promotion {

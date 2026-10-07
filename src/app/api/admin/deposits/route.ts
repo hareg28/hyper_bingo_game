@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'APPROVE') {
-      const tx = await db.approvePendingDeposit(transactionId);
+      const tx = await db.approvePendingDeposit(transactionId, body.adminName);
       if (!tx) {
         return NextResponse.json<ApiResponse>({
           success: false,

@@ -23,6 +23,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     rejectWithdrawal, 
     approveDeposit,
     rejectDeposit,
+    refreshFinanceQueue,
     createGame, 
     updateGameStatus,
     drawNextBall,
@@ -45,6 +46,12 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
   // Live ticking countdown for game minutes remaining
   const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (activeTab === 'finance') {
+      refreshFinanceQueue();
+    }
+  }, [activeTab, refreshFinanceQueue]);
+
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
@@ -1324,11 +1331,11 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               </div>
             </div>
 
-            {/* Recent Auto-Processed Withdrawals */}
+            {/* Recent Withdrawals */}
             <div className="p-4 sm:p-5 rounded-2xl border border-emerald-200 bg-emerald-50 shadow-xs space-y-3">
               <h3 className="text-sm font-black text-emerald-900 flex items-center gap-2">
                 <span>⚡</span>
-                {language === 'am' ? 'የቅርብ ጊዜ ወጪዎች (ራስ-ሰር ተሰርቷል)' : 'Recent Withdrawals (Auto-Processed)'}
+                {language === 'am' ? 'የቅርብ ጊዜ ወጪዎች' : 'Recent Withdrawals'}
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-200 text-emerald-900 border border-emerald-400">
                   {withdrawals.length} Total
                 </span>
@@ -1349,7 +1356,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                         </div>
                       </div>
                       <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-black">
-                        ✅ AUTO-PAID
+                        {wd.status}
                       </span>
                     </div>
                   ))}
@@ -1542,16 +1549,21 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               </div>
             </div>
 
-            {/* WITHDRAWALS LOG — Auto-Processed, Read-Only */}
+            {/* PENDING WITHDRAWALS — admin sends Telebirr/CBE then verifies */}
             <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="text-sm font-black text-slate-900">
-                  {language === 'am' ? 'የወጪ ምዝገባ (ራስ-ሰር ተሰርቷል)' : 'Withdrawal Log (Auto-Processed)'}
+                  {language === 'am' ? 'የማውጣት ጥያቄዎች (Pending Withdrawals)' : 'Pending Withdrawals'}
                 </h3>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  ⚡ {language === 'am' ? 'ምንም አዲሚን ማፅደቂያ አያስፈልግም' : 'No admin approval needed'}
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                  {pendingWithdrawals.length} {language === 'am' ? 'በመጠባበቅ' : 'Pending'}
                 </span>
               </div>
+              <p className="text-xs text-slate-500 font-medium">
+                {language === 'am'
+                  ? 'በ Telebirr/CBE ገንዘብ ይላኩ፣ የክፍያ መለያ (reference) ያስገቡና Verify ይጫኑ።'
+                  : 'Send ETB from your Telebirr/CBE account, enter the payout transaction reference, then Verify.'}
+              </p>
               <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
@@ -1562,12 +1574,13 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                       <th className="p-2.5">{t('accountNumber')}</th>
                       <th className="p-2.5">{t('amountETB')}</th>
                       <th className="p-2.5">{t('status')}</th>
+                      <th className="p-2.5">{t('actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {withdrawals.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-4 text-center text-slate-500 italic">
+                        <td colSpan={7} className="p-4 text-center text-slate-500 italic">
                           {language === 'am' ? 'ምንም የማውጣት ምዝገባ የለም' : 'No withdrawal records yet'}
                         </td>
                       </tr>
@@ -1580,9 +1593,47 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                           <td className="p-2.5 font-mono text-xs text-amber-800 font-bold">{w.accountNumber}</td>
                           <td className="p-2.5 font-black text-amber-700 font-mono text-xs">{formatETB(w.amount)}</td>
                           <td className="p-2.5">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                              ✅ AUTO-PAID
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                                w.status === 'PENDING'
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
+                                  : w.status === 'COMPLETED'
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                  : 'bg-rose-100 text-rose-800 border border-rose-300'
+                              }`}
+                            >
+                              {w.status}
                             </span>
+                          </td>
+                          <td className="p-2.5">
+                            {w.status === 'PENDING' ? (
+                              <div className="flex gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const ref = window.prompt(
+                                      language === 'am'
+                                        ? 'የ Telebirr/CBE የላኩት መለያ (Transaction ID):'
+                                        : 'Payout transaction reference (after you sent the money):'
+                                    );
+                                    if (ref === null) return;
+                                    approveWithdrawal(w.id, user?.username || 'admin', ref.trim() || undefined);
+                                  }}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-black cursor-pointer"
+                                >
+                                  ✓ {language === 'am' ? 'Verify' : 'Verify'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => rejectWithdrawal(w.id, user?.username || 'admin')}
+                                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[10px] font-bold cursor-pointer"
+                                >
+                                  ✕ {t('reject')}
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 font-mono">{w.payoutReference || '—'}</span>
+                            )}
                           </td>
                         </tr>
                       ))

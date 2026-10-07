@@ -77,6 +77,7 @@ function rowToTransaction(row: any): Transaction {
     status: (row.status || 'COMPLETED') as TransactionStatus,
     description: row.description || '',
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+    verifiedBy: row.verified_by || undefined,
   };
 }
 
@@ -92,6 +93,8 @@ function rowToWithdrawal(row: any): WithdrawalRequest {
     accountName: row.account_holder || '',
     status: (row.status || 'PENDING') as TransactionStatus,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+    payoutReference: row.payout_reference || undefined,
+    processedBy: row.processed_by || undefined,
   };
 }
 
@@ -560,9 +563,48 @@ const db = {
   },
 
   /**
+   * Reject duplicate player-supplied bank/Telebirr reference (already credited).
+   */
+  async isDepositReferenceAlreadyUsed(reference: string, excludeTxId?: string): Promise<boolean> {
+    const ref = reference.trim();
+    if (ref.length < 3) return false;
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = excludeTxId
+          ? await sql`
+              SELECT id FROM transactions
+              WHERE type = 'DEPOSIT'
+                AND reference = ${ref}
+                AND status IN ('COMPLETED', 'PENDING')
+                AND id <> ${excludeTxId}
+              LIMIT 1
+            `
+          : await sql`
+              SELECT id FROM transactions
+              WHERE type = 'DEPOSIT'
+                AND reference = ${ref}
+                AND status IN ('COMPLETED', 'PENDING')
+              LIMIT 1
+            `;
+        return rows.length > 0;
+      } catch (e) {
+        console.error('Neon isDepositReferenceAlreadyUsed error:', e);
+      }
+    }
+    return [...transactionsMap.values()].some(
+      (t) =>
+        t.type === 'DEPOSIT' &&
+        t.reference === ref &&
+        (t.status === 'COMPLETED' || t.status === 'PENDING') &&
+        t.id !== excludeTxId
+    );
+  },
+
+  /**
    * Admin approves a pending deposit -> credits user's wallet.
    */
-  async approvePendingDeposit(transactionId: string): Promise<Transaction | null> {
+  async approvePendingDeposit(transactionId: string, verifiedBy?: string): Promise<Transaction | null> {
     const sql = getNeonSql();
     if (sql) {
       try {
@@ -586,7 +628,7 @@ const db = {
         // Update tx
         const updatedTxRows = await sql`
           UPDATE transactions
-          SET status = 'COMPLETED', balance_after = ${newBal}
+          SET status = 'COMPLETED', balance_after = ${newBal}, verified_by = ${verifiedBy ?? null}
           WHERE id = ${transactionId}
           RETURNING *
         `;
@@ -607,6 +649,7 @@ const db = {
 
     tx.status = 'COMPLETED';
     tx.balanceAfter = wallet.availableBalance;
+    if (verifiedBy) tx.verifiedBy = verifiedBy;
     transactionsMap.set(transactionId, tx);
     return tx;
   },
@@ -817,13 +860,19 @@ const db = {
    * Marks both the withdrawal_request and its linked transaction as COMPLETED.
    * The caller (admin route) is responsible for triggering the disbursement.
    */
-  async approveWithdrawal(withdrawalId: string): Promise<WithdrawalRequest | null> {
+  async approveWithdrawal(
+    withdrawalId: string,
+    options?: { processedBy?: string; payoutReference?: string }
+  ): Promise<WithdrawalRequest | null> {
     const sql = getNeonSql();
     if (sql) {
       try {
         const rows = await sql`
           UPDATE withdrawal_requests
-          SET status = 'COMPLETED'
+          SET
+            status = 'COMPLETED',
+            processed_by = ${options?.processedBy ?? null},
+            payout_reference = ${options?.payoutReference ?? null}
           WHERE id = ${withdrawalId} AND status = 'PENDING'
           RETURNING *
         `;
@@ -841,6 +890,8 @@ const db = {
     const wr = withdrawalsMap.get(withdrawalId);
     if (!wr || wr.status !== 'PENDING') return null;
     wr.status = 'COMPLETED';
+    if (options?.processedBy) wr.processedBy = options.processedBy;
+    if (options?.payoutReference) wr.payoutReference = options.payoutReference;
     withdrawalsMap.set(withdrawalId, wr);
     const tx = transactionsMap.get(wr.transactionId);
     if (tx) { tx.status = 'COMPLETED'; transactionsMap.set(tx.id, tx); }

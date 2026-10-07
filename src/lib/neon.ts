@@ -77,6 +77,7 @@ export async function initDatabaseSchema() {
     try {
       await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS balance_after NUMERIC(12, 2) DEFAULT 0.00`;
       await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS description TEXT`;
+      await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS verified_by VARCHAR(255)`;
     } catch {}
 
     // 4. Withdrawal Requests Table
@@ -97,6 +98,8 @@ export async function initDatabaseSchema() {
     // 4b. Add missing transaction_id column to existing table (safe ALTER IF NOT EXISTS)
     try {
       await sql`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(64)`;
+      await sql`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS payout_reference VARCHAR(255)`;
+      await sql`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS processed_by VARCHAR(255)`;
     } catch {}
 
     // 5. Linked Payment Accounts Table

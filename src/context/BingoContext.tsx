@@ -67,8 +67,9 @@ interface BingoContextType {
   approveDeposit: (transactionId: string, adminName: string) => Promise<void>;
   rejectDeposit: (transactionId: string, adminName: string) => Promise<void>;
   requestWithdrawal: (amount: number, provider: PaymentProvider, accountNumber: string, accountName: string) => Promise<boolean>;
-  approveWithdrawal: (withdrawalId: string, adminName: string) => void;
-  rejectWithdrawal: (withdrawalId: string, adminName: string) => void;
+  approveWithdrawal: (withdrawalId: string, adminName: string, payoutReference?: string) => Promise<void>;
+  rejectWithdrawal: (withdrawalId: string, adminName: string) => Promise<void>;
+  refreshFinanceQueue: () => Promise<void>;
   joinGame: (gameId: string, chosenCardNumbers?: string[]) => boolean;
   addCardToGame: (gameId: string, cardNumber: string) => boolean;
   removeCard: (cardId: string) => void;
@@ -627,7 +628,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
-  // 2. WITHDRAWAL REQUEST FLOW — fully automated, no admin approval needed
+  // 2. WITHDRAWAL — reserve balance, PENDING until admin sends payout (or gateway if enabled)
   const requestWithdrawal = async (
     amount: number,
     provider: PaymentProvider,
@@ -640,17 +641,21 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    if (wallet.availableBalance < amount) {
-      // Check if they only have bonus balance to give a helpful message
+    const withdrawable = wallet.availableBalance + wallet.winningBalance;
+    if (withdrawable < amount) {
       const totalBalance = wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance;
       if (totalBalance >= amount && wallet.bonusBalance > 0) {
         addNotification(
           '⚠️ Cannot Withdraw Bonus',
-          `Your 20 ETB welcome bonus is play-only and cannot be withdrawn. Please deposit real ETB to withdraw.`,
+          `Your welcome bonus is play-only and cannot be withdrawn. Deposit real ETB to withdraw winnings.`,
           'warning'
         );
       } else {
-        addNotification('⚠️ Insufficient Balance', `You need at least ${amount} ETB available to withdraw. Current available: ${wallet.availableBalance.toFixed(0)} ETB.`, 'warning');
+        addNotification(
+          '⚠️ Insufficient Balance',
+          `You need at least ${amount} ETB withdrawable (available + winnings). Current: ${withdrawable.toFixed(0)} ETB.`,
+          'warning'
+        );
       }
       return false;
     }
@@ -668,48 +673,34 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      // Reflect deduction locally — COMPLETED immediately
-      const txId = data.data?.withdrawalId || `WD_${Date.now().toString().slice(-6)}`;
-      const newBalance = wallet.availableBalance - amount;
-
-      const newTx: Transaction = {
-        id: txId,
-        userId: user.id,
-        username: user.username,
-        type: 'WITHDRAWAL',
-        amount: -amount,
-        balanceAfter: newBalance,
-        reference: `WD-${provider.substring(0, 3)}-${accountNumber.slice(-4)}`,
-        paymentProvider: provider,
-        status: 'COMPLETED',   // System auto-processes — no admin wait
-        description: `Withdrawal to ${provider} (${accountNumber})`,
-        createdAt: new Date().toISOString(),
-      };
+      const withdrawalId = data.data?.withdrawalId as string | undefined;
+      const query = user.id ? `userId=${encodeURIComponent(user.id)}` : '';
+      if (query) {
+        const walletRes = await fetch(`/api/wallet?${query}`).then((r) => r.json()).catch(() => null);
+        if (walletRes?.success && walletRes.data?.wallet) {
+          setWallet(walletRes.data.wallet);
+          localStorage.setItem('hyper_bingo_wallet', JSON.stringify(walletRes.data.wallet));
+        }
+      }
 
       const newWdRequest: WithdrawalRequest = {
-        id: `req_${Date.now().toString().slice(-6)}`,
-        transactionId: txId,
+        id: withdrawalId ?? `req_${Date.now().toString().slice(-6)}`,
+        transactionId: withdrawalId ?? `tx_${Date.now()}`,
         userId: user.id,
         username: user.username,
         amount,
         paymentMethod: provider,
         accountNumber,
         accountName,
-        status: 'COMPLETED',   // System auto-processes — no admin wait
+        status: 'PENDING',
         createdAt: new Date().toISOString(),
       };
 
-      setWallet((prev) => ({
-        ...prev,
-        availableBalance: prev.availableBalance - amount,
-      }));
-
-      setTransactions((prev) => [newTx, ...prev]);
       setWithdrawals((prev) => [newWdRequest, ...prev]);
 
       addNotification(
-        '✅ Withdrawal Processed!',
-        `⚡ ${amount} ETB sent to ${accountNumber} (${provider}) instantly. Funds will arrive shortly!`,
+        '✅ Withdrawal submitted',
+        `${amount} ETB reserved pending admin payout to ${provider} (${accountNumber}).`,
         'success'
       );
 
@@ -721,21 +712,43 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // 3. ADMIN APPROVE WITHDRAWAL
-  const approveWithdrawal = (withdrawalId: string, adminName: string) => {
+  // 3. ADMIN APPROVE WITHDRAWAL (manual Telebirr/CBE payout or optional gateway)
+  const approveWithdrawal = async (withdrawalId: string, adminName: string, payoutReference?: string) => {
     const wd = withdrawals.find((w) => w.id === withdrawalId);
-    if (!wd) return;
+    if (!wd || wd.status !== 'PENDING') return;
+
+    try {
+      const res = await fetch('/api/admin/withdrawals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          withdrawalId,
+          action: 'APPROVE',
+          mode: 'manual',
+          adminName,
+          payoutReference,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        addNotification('❌ Withdrawal', data.error ?? 'Could not complete withdrawal.', 'error');
+        return;
+      }
+    } catch {
+      addNotification('❌ Withdrawal', 'Network error approving withdrawal.', 'error');
+      return;
+    }
 
     setWithdrawals((prev) =>
-      prev.map((w) => (w.id === withdrawalId ? { ...w, status: 'COMPLETED' } : w))
+      prev.map((w) =>
+        w.id === withdrawalId
+          ? { ...w, status: 'COMPLETED', payoutReference, processedBy: adminName }
+          : w
+      )
     );
     setTransactions((prev) =>
       prev.map((t) => (t.id === wd.transactionId ? { ...t, status: 'COMPLETED' } : t))
     );
-    setWallet((prev) => ({
-      ...prev,
-      totalWithdrawn: prev.totalWithdrawn + wd.amount,
-    }));
 
     const audit: AuditLog = {
       id: `aud_${Date.now()}`,
@@ -750,28 +763,30 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     addNotification(
       '✅ Withdrawal Approved!',
-      `Admin approved your withdrawal of ${wd.amount} ETB to ${wd.paymentMethod}.`,
+      `Withdrawal of ${wd.amount} ETB marked complete${payoutReference ? ` (ref: ${payoutReference})` : ''}.`,
       'success'
     );
   };
 
-  // 4. ADMIN REJECT WITHDRAWAL
-  const rejectWithdrawal = (withdrawalId: string, adminName: string) => {
+  // 4. ADMIN REJECT WITHDRAWAL — refunds reserved balance on server
+  const rejectWithdrawal = async (withdrawalId: string, adminName: string) => {
     const wd = withdrawals.find((w) => w.id === withdrawalId);
-    if (!wd) return;
+    if (!wd || wd.status !== 'PENDING') return;
+
+    try {
+      await fetch('/api/admin/withdrawals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ withdrawalId, action: 'REJECT', adminName }),
+      });
+    } catch {}
 
     setWithdrawals((prev) =>
-      prev.map((w) => (w.id === withdrawalId ? { ...w, status: 'REJECTED' } : w))
+      prev.map((w) => (w.id === withdrawalId ? { ...w, status: 'FAILED' } : w))
     );
     setTransactions((prev) =>
-      prev.map((t) => (t.id === wd.transactionId ? { ...t, status: 'REJECTED' } : t))
+      prev.map((t) => (t.id === wd.transactionId ? { ...t, status: 'FAILED' } : t))
     );
-
-    // Refund wallet
-    setWallet((prev) => ({
-      ...prev,
-      availableBalance: prev.availableBalance + wd.amount,
-    }));
 
     const audit: AuditLog = {
       id: `aud_${Date.now()}`,
@@ -786,9 +801,44 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     addNotification(
       '❌ Withdrawal Rejected',
-      `Your withdrawal request of ${wd.amount} ETB was rejected. Funds refunded to wallet.`,
+      `Withdrawal of ${wd.amount} ETB rejected. Reserved funds returned to wallet.`,
       'warning'
     );
+  };
+
+  const refreshFinanceQueue = async () => {
+    try {
+      const [depRes, wdrRes] = await Promise.all([
+        fetch('/api/admin/deposits'),
+        fetch('/api/admin/withdrawals'),
+      ]);
+      const depJson = await depRes.json();
+      const wdrJson = await wdrRes.json();
+      if (depJson.success && Array.isArray(depJson.data)) {
+        setTransactions((prev) => {
+          const map = new Map(prev.map((t) => [t.id, t]));
+          for (const tx of depJson.data as Transaction[]) {
+            map.set(tx.id, { ...map.get(tx.id), ...tx });
+          }
+          return [...map.values()].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        });
+      }
+      if (wdrJson.success && Array.isArray(wdrJson.data)) {
+        setWithdrawals((prev) => {
+          const map = new Map(prev.map((w) => [w.id, w]));
+          for (const w of wdrJson.data as WithdrawalRequest[]) {
+            map.set(w.id, { ...map.get(w.id), ...w });
+          }
+          return [...map.values()].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        });
+      }
+    } catch {
+      /* ignore */
+    }
   };
 
   // 4b. ADMIN APPROVE DEPOSIT
@@ -1493,6 +1543,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         requestWithdrawal,
         approveWithdrawal,
         rejectWithdrawal,
+        refreshFinanceQueue,
         joinGame,
         addCardToGame,
         removeCard,

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
 import { PaymentProvider, LinkedPaymentAccount, LinkedAccountType } from '../../lib/types';
 import { formatETB } from '../../lib/bingoUtils';
+import { getOwnerDestinationForProvider, type OwnerPaymentAccount } from '../../lib/ownerPaymentAccounts';
 import {
   Wallet, ArrowDownRight, ArrowUpRight, ShieldCheck,
   Smartphone, Landmark, History, Plus, Trash2,
@@ -85,6 +86,14 @@ export default function WalletManager() {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [fullPaymentText, setFullPaymentText] = useState<string>('');
   const [destinationNumber, setDestinationNumber] = useState<string>('');
+  const [ownerAccounts, setOwnerAccounts] = useState<OwnerPaymentAccount[]>([]);
+
+  useEffect(() => {
+    fetch('/api/payments/owner-accounts')
+      .then((r) => r.json())
+      .then((res) => { if (res.success && Array.isArray(res.data)) setOwnerAccounts(res.data); })
+      .catch(() => {});
+  }, []);
 
   // Auto-generate QR code + payment text the moment user enters step 2 with amount + reference set
   useEffect(() => {
@@ -92,12 +101,14 @@ export default function WalletManager() {
     if (!depositReference) return;
     if (!amount || (typeof amount === 'number' && amount <= 0)) return;
 
-    // Resolve destination account per provider
-    let dest = '';
-    if (provider === 'Telebirr') dest = 'Telebirr: 0938922481 (Yohannes Tsehaye Bayleyegn)';
-    else if (provider === 'CBE Birr') dest = 'CBE Birr / Phone: 0938922481 / CBE Acct: 1000540829954';
-    else if (provider === 'M-Pesa') dest = 'Safaricom M-Pesa: 0710798482 (Yohannes Tsehaye)';
-    else dest = 'CBE Account: 1000540829954 (Yohannes Tsehaye Bayleyegn)';
+    const tele = ownerAccounts.find((a) => a.method === 'TELEBIRR');
+    const cbe = ownerAccounts.find((a) => a.method === 'CBE');
+    let dest = getOwnerDestinationForProvider(provider);
+    if (provider === 'Telebirr' && tele) {
+      dest = `Telebirr: ${tele.accountNumber} (${tele.accountName})`;
+    } else if ((provider === 'CBE Birr' || provider === 'Bank Transfer') && cbe) {
+      dest = `CBE: ${cbe.accountNumber} (${cbe.accountName})`;
+    }
 
     setDestinationNumber(dest);
 
@@ -109,7 +120,7 @@ export default function WalletManager() {
     const qrPayload = `HYPERBINGO_DEPOSIT\nProvider: ${provider}\nAmount: ${amount} ETB\nReference: ${depositReference}\nDestination: ${dest}\nPlayer: ${user?.username || user?.id || user?.name || 'guest'}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=6&data=${encodeURIComponent(qrPayload)}`;
     setQrDataUrl(qrUrl);
-  }, [depositStep, depositReference, amount, provider, user?.id, user?.username, user?.name]);
+  }, [depositStep, depositReference, amount, provider, user?.id, user?.username, user?.name, ownerAccounts]);
 
   const handleCopyRef = (textToCopy: string) => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -265,55 +276,6 @@ export default function WalletManager() {
       setIsProcessing(false);
     }
   };
-
-  // ── ArifPay Hosted Checkout (automatic, real payment) ──────────────────────
-  const handleArifPayCheckout = async (customAmt?: number) => {
-    if (!user || user.id === 'usr_guest') { openAuthModal('register'); return; }
-    const depositAmt = customAmt ?? (typeof amount === 'number' ? amount : Number(amount) || 0);
-    if (depositAmt < 10) {
-      showStatus('error', isAm ? 'ዝቅተኛው ተቀማጭ መጠን 10 ብር ነው' : 'Minimum deposit is 10 ETB.');
-      return;
-    }
-    setIsProcessing(true);
-    setDirectPayLoading(true);
-    setDirectPayError('');
-    try {
-      const res = await fetch('/api/payments/deposit', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ userId: user.id, amount: depositAmt, mode: 'arifpay' }),
-      });
-      const data = await res.json();
-      if (data.success && data.data?.checkoutUrl) {
-        setShowDirectPay(false);
-        showStatus(
-          'success',
-          isAm
-            ? `የ ${depositAmt} ብር ክፍያ ተፈጥሯል (PENDING)። ወደ ክፍያ ገጽ በማዘዋወር ላይ...`
-            : `Pending transaction created! Redirecting to secure payment for ${depositAmt} ETB...`
-        );
-        const url = data.data.checkoutUrl;
-        const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
-        if (tg && typeof tg.openLink === 'function') {
-          tg.openLink(url);
-        } else {
-          window.location.href = url;
-        }
-      } else {
-        const err = data.error ?? (isAm ? 'የክፍያ ሂደቱን መጀመር አልተቻለም። እባክዎ በድጋሚ ይሞክሩ።' : 'Failed to start payment. Please try again or use manual deposit.');
-        setDirectPayError(err);
-        showStatus('error', err);
-      }
-    } catch {
-      const err = isAm ? 'የኔትወርክ ስህተት ተፈጥሯል' : 'Network error. Please try again.';
-      setDirectPayError(err);
-      showStatus('error', err);
-    } finally {
-      setIsProcessing(false);
-      setDirectPayLoading(false);
-    }
-  };
-
 
   // ── Withdrawal ───────────────────────────────────────────────────────────
   const handleWithdrawSubmit = async (e: React.FormEvent) => {
@@ -712,69 +674,6 @@ export default function WalletManager() {
         </p>
       </div>
 
-      {/* ── INSTANT PAYMENT GATEWAY BUTTONS (TELEBIRR / M-PESA / CBE) ─────────── */}
-      <div className="space-y-2">
-        <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-1 flex items-center gap-1.5">
-          <Zap className="w-3 h-3 text-emerald-600" />
-          {isAm ? 'ቀጥታ ፈጣን ክፍያ (Telebirr • CBE Birr • M-Pesa)' : 'Instant Mobile & Bank Pay (Telebirr • CBE • M-Pesa)'}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {/* Telebirr (09...) */}
-          <button
-            type="button"
-            onClick={() => { setDirectPayProvider('Telebirr'); setDirectPayAmount(100); setShowDirectPay(true); setDirectPayError(''); }}
-            className="relative overflow-hidden p-3 rounded-2xl bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-500 text-white shadow-md hover:brightness-110 active:scale-95 transition-all flex flex-col items-start gap-1 cursor-pointer border border-blue-400/30"
-          >
-            <div className="flex items-center gap-1.5">
-              <span className="text-base">📱</span>
-              <span className="text-xs font-black">Telebirr</span>
-            </div>
-            <span className="text-[9px] text-blue-100 font-bold">Ethio (09...)</span>
-            <span className="text-[8px] font-black bg-white/20 px-1.5 py-0.5 rounded-full mt-1">⚡ INSTANT</span>
-          </button>
-
-          {/* Safaricom M-Pesa (07...) */}
-          <button
-            type="button"
-            onClick={() => { setDirectPayProvider('M-Pesa'); setDirectPayAmount(100); setShowDirectPay(true); setDirectPayError(''); }}
-            className="relative overflow-hidden p-3 rounded-2xl bg-gradient-to-br from-emerald-600 via-green-600 to-teal-600 text-white shadow-md hover:brightness-110 active:scale-95 transition-all flex flex-col items-start gap-1 cursor-pointer border border-emerald-400/30"
-          >
-            <div className="flex items-center gap-1.5">
-              <span className="text-base">🟢</span>
-              <span className="text-xs font-black">M-Pesa</span>
-            </div>
-            <span className="text-[9px] text-emerald-100 font-bold">Safari (07...)</span>
-            <span className="text-[8px] font-black bg-white/20 px-1.5 py-0.5 rounded-full mt-1">⚡ INSTANT</span>
-          </button>
-
-          {/* CBE Birr */}
-          <button
-            type="button"
-            onClick={() => { setDirectPayProvider('CBE Birr'); setDirectPayAmount(100); setShowDirectPay(true); setDirectPayError(''); }}
-            className="relative overflow-hidden p-3 rounded-2xl bg-gradient-to-br from-purple-700 via-purple-600 to-indigo-600 text-white shadow-md hover:brightness-110 active:scale-95 transition-all flex flex-col items-start gap-1 cursor-pointer border border-purple-400/30"
-          >
-            <div className="flex items-center gap-1.5">
-              <span className="text-base">🏦</span>
-              <span className="text-xs font-black">CBE Birr</span>
-            </div>
-            <span className="text-[9px] text-purple-100 font-bold">CBE Direct</span>
-            <span className="text-[8px] font-black bg-white/20 px-1.5 py-0.5 rounded-full mt-1">⚡ INSTANT</span>
-          </button>
-        </div>
-        <p className="text-[10px] text-slate-500 text-center font-medium px-2">
-          {isAm
-            ? '💡 በቴሌብር፣ በ CBE Birr፣ በ M-Pesa ወይም በባንክ በቀጥታ ይክፈሉ'
-            : '💡 Pay directly with Telebirr, CBE Birr, M-Pesa or Bank Transfer'}
-        </p>
-      </div>
-
-      {/* Divider */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1 h-px bg-slate-200" />
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{isAm ? 'ወይም በእጅ የባንክ ማስተላለፊያ' : 'Or manual bank transfer'}</span>
-        <div className="flex-1 h-px bg-slate-200" />
-      </div>
-
       {/* Tab Navigation */}
       <div className="grid grid-cols-4 gap-1.5">
         {([
@@ -813,40 +712,6 @@ export default function WalletManager() {
 
           {depositStep === 1 ? (
             <>
-              {/* ⚡ DIRECT DEPOSIT GATEWAY (TELEBIRR & CBE) */}
-              <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-green-100 p-3.5 rounded-2xl border-2 border-emerald-400 space-y-2.5 shadow-2xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-emerald-950 flex items-center gap-1.5 uppercase tracking-wide">
-                    <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
-                    {isAm ? 'ቀጥታ የክፍያ በር (Telebirr & CBE)' : 'Direct Instant Gateway'}
-                  </span>
-                  <span className="text-[9px] font-black bg-emerald-700 text-white px-2 py-0.5 rounded-full shadow-xs uppercase">
-                    ⚡ {isAm ? 'በቅጽበት የሚቀነስና የሚሞላ' : 'Instant SMS & PIN'}
-                  </span>
-                </div>
-                <p className="text-[11px] text-emerald-900 font-medium leading-snug">
-                  {isAm
-                    ? 'ስልክዎን ያስገቡ፤ በስልክዎ የደረሰዎትን SMS እና Passcode በማስገባት ሂሳብዎን በቅጽበት ይሙሉ!'
-                    : 'Enter phone number, receive SMS, and enter your passcode/PIN to deduct Birr and credit your wallet immediately.'}
-                </p>
-                <div className="grid grid-cols-2 gap-2 pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => { setDirectPayProvider('Telebirr'); setShowDirectPay(true); setDirectPayStep(1); setDirectPayError(''); }}
-                    className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-black text-xs transition shadow-sm active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <span>📱 Telebirr Direct</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setDirectPayProvider('CBE Birr'); setShowDirectPay(true); setDirectPayStep(1); setDirectPayError(''); }}
-                    className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white font-black text-xs transition shadow-sm active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <span>🏦 CBE Direct</span>
-                  </button>
-                </div>
-              </div>
-
               {/* Payment Provider */}
               <div>
                 <label className="text-[11px] font-black text-slate-800 uppercase tracking-wider block mb-2">
@@ -934,49 +799,11 @@ export default function WalletManager() {
                 </p>
               </div>
 
-              {/* ── Instant Online Checkout (recommended) ────────────────── */}
-              <div className="rounded-2xl border-2 border-emerald-400 bg-gradient-to-br from-emerald-50 to-teal-50 p-3.5 space-y-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">⚡</span>
-                  <div>
-                    <div className="text-xs font-black text-emerald-900 uppercase tracking-wide">
-                      {isAm ? 'ቀጥታ የሞባይልና ባንክ ክፍያ (ምርጥ አማራጭ)' : 'Instant Mobile & Bank Pay — Recommended'}
-                    </div>
-                    <div className="text-[10px] text-emerald-800 font-medium">
-                      {isAm
-                        ? 'ቴሌብር • CBE Birr • M-Pesa • ባንክ — ገንዘብ ወዲያውኑ ወደ ሂሳብዎ ይገባል'
-                        : 'Telebirr • CBE Birr • M-Pesa • Bank — wallet credited automatically after payment'}
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleArifPayCheckout}
-                  disabled={isProcessing || !amount || Number(amount) < 10}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-sm uppercase tracking-wider transition shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2"
-                >
-                  {isProcessing ? (
-                    <span className="flex items-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                      {isAm ? 'በሂደት ላይ...' : 'Processing...'}
-                    </span>
-                  ) : (
-                    <>
-                      <span>🔒</span>
-                      {isAm ? `${amount || 0} ብር — በቴሌብር/ባንክ ክፈሉ` : `Pay ${amount || 0} ETB (Telebirr / CBE / Bank)`}
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* ── Or use manual transfer ───────────────────────────────── */}
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-px bg-slate-200" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {isAm ? 'ወይም በእጅ ያስተላልፉ' : 'or transfer manually'}
-                </span>
-                <div className="flex-1 h-px bg-slate-200" />
-              </div>
+              <p className="text-[11px] text-slate-600 font-medium bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                {isAm
+                  ? 'በ Telebirr ወይም CBE ገንዘብ ይላኩ፣ የክፍያ መለያ ቁጥር ያስገቡ። ሂሳብዎ ከአስተዳዳሪ ማረጋገጫ በኋላ ይሞላል።'
+                  : 'Send money in Telebirr or CBE, then enter the transaction ID. Your wallet is credited only after admin verification.'}
+              </p>
 
               <button type="submit" className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer">
                 {t('proceedToCheckout')} ({provider.toUpperCase()}) →
@@ -1817,136 +1644,6 @@ export default function WalletManager() {
         </div>
       )}
 
-      {/* ── ARIFPAY PAYMENT GATEWAY MODAL ────────────────────────────────────── */}
-      {showDirectPay && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl shadow-2xl relative text-white overflow-hidden bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 border border-emerald-500/40">
-            {/* Header */}
-            <div className="relative px-5 pt-5 pb-4 border-b border-emerald-700/40">
-              <button
-                onClick={() => setShowDirectPay(false)}
-                className="absolute top-4 right-4 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-2xl shrink-0">
-                  ⚡
-                </div>
-                <div>
-                  <h3 className="font-black text-base">{isAm ? 'ደህንነቱ የተጠበቀ ቀጥታ ክፍያ' : 'Secure Online Payment'}</h3>
-                  <p className="text-[10px] font-bold text-emerald-300">
-                    Telebirr • CBE Birr • M-Pesa • Bank
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Body */}
-            <div className="relative p-5 space-y-4">
-              {/* Error message */}
-              {directPayError && (
-                <div className="flex items-start gap-2 bg-red-500/20 border border-red-400/40 rounded-xl p-3">
-                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                  <p className="text-xs text-red-200 font-bold leading-snug">{directPayError}</p>
-                </div>
-              )}
-
-              {/* Amount Selection */}
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-wider text-white/70 block mb-1.5">
-                  {isAm ? 'የሚቀምጡት ብር መጠን ይምረጡ' : 'Select Deposit Amount (ETB)'}
-                </label>
-                <div className="grid grid-cols-4 gap-1.5 mb-2">
-                  {[50, 100, 200, 500].map(amt => (
-                    <button
-                      key={amt}
-                      type="button"
-                      onClick={() => setDirectPayAmount(amt)}
-                      className={`py-2 rounded-xl text-xs font-black border transition cursor-pointer ${
-                        Number(directPayAmount) === amt
-                          ? 'bg-emerald-400 border-emerald-400 text-slate-950 font-black shadow-md'
-                          : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                      }`}
-                    >
-                      {amt}
-                    </button>
-                  ))}
-                </div>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={directPayAmount === '' ? '' : directPayAmount}
-                    onChange={(e) => setDirectPayAmount(e.target.value === '' ? '' : Number(e.target.value))}
-                    min={10}
-                    placeholder="Custom amount"
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono font-black placeholder:text-white/40 focus:outline-none focus:border-emerald-400 focus:bg-white/15"
-                  />
-                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-emerald-300">ETB</span>
-                </div>
-                <p className="text-[10px] text-white/50 font-medium mt-1">
-                  {isAm ? 'ዝቅተኛው ተቀማጭ መጠን 10 ብር ነው' : 'Minimum deposit: 10 ETB'}
-                </p>
-              </div>
-
-              {/* Verified Architecture Flow */}
-              <div className="bg-emerald-500/10 border border-emerald-400/30 rounded-2xl p-3 space-y-2">
-                <div className="text-[11px] font-black text-emerald-300 flex items-center gap-1.5">
-                  <span>🔒</span>
-                  <span>{isAm ? 'የክፍያ ሂደት ቅደም ተከተል' : 'Verified Deposit Flow'}</span>
-                </div>
-                <div className="space-y-1.5 text-[10px] text-white/80 font-medium">
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center font-bold text-[9px]">1</span>
-                    <span>{isAm ? 'የ PENDING ጥያቄ በሲስተም ይፈጠራል' : 'Creates PENDING transaction'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center font-bold text-[9px]">2</span>
-                    <span>{isAm ? 'በቴሌብር ወይም በባንክ (Telebirr/CBE) ክፍያ ይፈጽማሉ' : 'Customer pays via Telebirr / CBE / Bank'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center font-bold text-[9px]">3</span>
-                    <span>{isAm ? 'ከተረጋገጠ በኋላ ወዲያውኑ ቦርሳዎ ላይ ገቢ ይሆናል (+ETB)' : 'Wallet credited ONLY after verified success'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => handleArifPayCheckout(Number(directPayAmount) || 100)}
-                  disabled={directPayLoading || !directPayAmount || Number(directPayAmount) < 10}
-                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-black text-sm uppercase tracking-wider transition shadow-lg shadow-emerald-900/50 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
-                >
-                  {directPayLoading ? (
-                    <span className="flex items-center gap-2">
-                      <span className="w-4 h-4 border-2 border-slate-950/40 border-t-slate-950 rounded-full animate-spin" />
-                      {isAm ? 'በሂደት ላይ...' : 'Connecting to payment gateway...'}
-                    </span>
-                  ) : (
-                    <>
-                      <span>🔒</span>
-                      {isAm
-                        ? `${directPayAmount || 100} ብር — በቴሌብር/ባንክ ክፈሉ`
-                        : `Pay ${directPayAmount || 100} ETB (Telebirr / CBE / Bank)`}
-                      <span>→</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowDirectPay(false)}
-                  className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white/70 font-bold text-xs transition cursor-pointer"
-                >
-                  {isAm ? 'ይቅር / ተመለስ' : 'Cancel'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

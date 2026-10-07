@@ -1,25 +1,13 @@
 /**
  * POST /api/payments/deposit
  *
- * Unified Deposit Route — two modes:
- *
- * MODE A — ArifPay Hosted Checkout (recommended, automatic):
- *   Body: { userId, amount, mode: 'arifpay' }
- *   → Creates PENDING tx → Returns ArifPay checkout URL
- *   → Wallet credited ONLY after ArifPay confirms via webhook at /api/payments/webhook/arifpay
- *
- * MODE B — Manual / Screenshot deposit (admin-reviewed):
- *   Body: { userId, amount, provider, transactionCode?, screenshot?, senderPhone? }
- *   → Creates PENDING tx → Admin approves/rejects in admin panel
- *   → Wallet credited ONLY after admin approves
- *
- * Required env (Mode A): ARIFPAY_API_KEY, ARIFPAY_WEBHOOK_SECRET, NEXT_PUBLIC_APP_URL
+ * Manual Telebirr / CBE deposit only (no payment gateway).
+ * Wallet is credited ONLY after an admin verifies the transfer in the admin panel.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { ApiResponse, DepositInitResponse, PaymentProvider } from '@/lib/types';
-import { arifPayInitCheckout } from '@/lib/payments/arifpay';
+import { ApiResponse, PaymentProvider } from '@/lib/types';
 import { getAdminWhitelist } from '@/lib/authUtils';
 
 const DEFAULT_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
@@ -60,65 +48,14 @@ export async function POST(req: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://localhost:3000';
 
-    // ── MODE A: ArifPay Hosted Checkout ──────────────────────────────────────
     if (mode === 'arifpay' || mode === 'online') {
-      if (!process.env.ARIFPAY_API_KEY) {
-        return NextResponse.json<ApiResponse>({
-          success: false,
-          error: 'Online payment is temporarily unavailable. Please use manual bank transfer deposit.',
-        }, { status: 503 });
-      }
-
-      // txRef format: HBINGO_{userId}_{timestamp}  — webhook parser extracts userId
-      const txRef = `HBINGO_${userId}_${Date.now()}`;
-
-      // Create PENDING transaction — wallet NOT credited yet
-      await db.createPendingDeposit({
-        userId,
-        amount,
-        provider: 'Telebirr',
-        reference: txRef,
-        description: 'Online deposit — awaiting payment confirmation',
-      });
-
-      const playerEmail = `${user.username ?? userId}@hyperbingo.et`;
-      const playerPhone = user.phone ?? senderPhone ?? '0900000000';
-
-      const checkout = await arifPayInitCheckout({
-        nonce:      txRef,
-        email:      playerEmail,
-        phone:      playerPhone,
-        amount,
-        items:      [{ name: 'Hyper Bingo Deposit', quantity: 1, price: amount }],
-        successUrl: `${appUrl}/app?deposit=success&txRef=${txRef}`,
-        cancelUrl:  `${appUrl}/app?deposit=cancelled&txRef=${txRef}`,
-        notifyUrl:  `${appUrl}/api/payments/webhook/arifpay`,
-      });
-
-      if (!checkout.success || !checkout.paymentUrl) {
-        // Roll back the pending tx
-        await db.rejectPendingDeposit(txRef).catch(() => {});
-        console.error('[Deposit/ArifPay] Checkout init failed:', checkout.message);
-        return NextResponse.json<ApiResponse>({
-          success: false,
-          error: checkout.message ?? 'Failed to initialize payment session. Please try manual deposit.',
-        }, { status: 503 });
-      }
-
-      console.log(`[Deposit/ArifPay] Checkout created — txRef: ${txRef}, sessionId: ${checkout.sessionId}`);
-      return NextResponse.json<ApiResponse<DepositInitResponse>>({
-        success: true,
-        data: {
-          checkoutUrl: checkout.paymentUrl,
-          txRef,
-          amount,
-          currency: 'ETB',
-        },
-        message: `Redirecting to secure payment checkout — please complete your ${amount} ETB payment.`,
-      });
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Payment gateway is disabled. Transfer via Telebirr or CBE, then submit your transaction ID for admin verification.',
+      }, { status: 503 });
     }
 
-    // ── MODE B: Manual / Screenshot Deposit (admin-reviewed) ─────────────────
+    // ── Manual Telebirr / CBE deposit (admin-reviewed) ───────────────────────
     const code        = (transactionCode ?? '').trim();
     const hasCode      = code.length >= 3;
     const hasScreenshot = Boolean(screenshot && screenshot.trim().length > 0);
@@ -131,6 +68,14 @@ export async function POST(req: NextRequest) {
     }
 
     const txRef = code || `HBINGO_${userId}_${Date.now()}`;
+
+    if (hasCode && (await db.isDepositReferenceAlreadyUsed(code))) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error:
+          'This transaction reference was already submitted or approved. If you believe this is an error, contact support.',
+      }, { status: 409 });
+    }
 
     // Create PENDING transaction — admin must approve before wallet is credited
     const pendingTx = await db.createPendingDeposit({

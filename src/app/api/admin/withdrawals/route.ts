@@ -2,14 +2,12 @@
  * Admin Withdrawal Management API
  *
  * GET  /api/admin/withdrawals         — list all PENDING withdrawal requests
- * POST /api/admin/withdrawals         — approve (→ disburse) or reject (→ refund)
+ * POST /api/admin/withdrawals         — approve (manual payout) or reject (refund)
  *
  * Approval flow:
- *   1. Admin calls POST { withdrawalId, action: 'APPROVE' }
- *   2. Backend calls db.approveWithdrawal() → marks COMPLETED in DB
- *   3. Backend calls disburse() → gateway sends money to player's account
- *   4. If disbursement fails, withdrawal is rolled back to FAILED and balance refunded
- *   5. Admin + player notified via Telegram
+ *   1. Admin sends ETB via Telebirr/CBE, then POST { withdrawalId, action: 'APPROVE', payoutReference? }
+ *   2. Backend marks withdrawal COMPLETED (balance already reserved)
+ *   3. Admin + player notified via Telegram
  *
  * Rejection flow:
  *   1. Admin calls POST { withdrawalId, action: 'REJECT', reason? }
@@ -21,7 +19,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { getAdminWhitelist } from '@/lib/authUtils';
-import { disburse } from '@/lib/payments/disbursement';
 
 const DEFAULT_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
 
@@ -48,13 +45,12 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { withdrawalId, action, reason, bankCode } = body as {
+    const { withdrawalId, action, reason, payoutReference, adminName } = body as {
       withdrawalId: string;
       action: 'APPROVE' | 'REJECT';
-      /** Optional rejection reason shown to the player */
       reason?: string;
-      /** Bank code required for bank-transfer disbursements */
-      bankCode?: string;
+      payoutReference?: string;
+      adminName?: string;
     };
 
     if (!withdrawalId || !action) {
@@ -70,8 +66,10 @@ export async function POST(req: NextRequest) {
 
     // ── APPROVE ─────────────────────────────────────────────────────────────
     if (action === 'APPROVE') {
-      // Mark the withdrawal as approved in DB first
-      const wr = await db.approveWithdrawal(withdrawalId);
+      const wr = await db.approveWithdrawal(withdrawalId, {
+        processedBy: adminName ?? 'admin',
+        payoutReference: payoutReference?.trim() || undefined,
+      });
       if (!wr) {
         return NextResponse.json<ApiResponse>({
           success: false,
@@ -79,38 +77,16 @@ export async function POST(req: NextRequest) {
         }, { status: 404 });
       }
 
-      // Disburse via payment gateway
-      const disbursement = await disburse({
-        withdrawalId: wr.id,
-        accountName:  wr.accountName,
-        accountNumber: wr.accountNumber,
-        amount:       wr.amount,
-        paymentMethod: wr.paymentMethod,
-        bankCode,
-      });
-
-      if (!disbursement.success) {
-        // Disbursement failed — roll back: refund balance and mark FAILED
-        await db.rejectWithdrawal(withdrawalId).catch(() => {});
-        console.error('[Admin/Withdrawals] Disbursement failed after approval — rolled back:', disbursement.message);
-
-        return NextResponse.json<ApiResponse>({
-          success: false,
-          error: `Withdrawal approved but disbursement failed: ${disbursement.message}. Balance has been refunded to the player. Please retry or process manually.`,
-        }, { status: 502 });
-      }
-
-      // Notify admins + player
       const successMsg =
-        `✅ <b>WITHDRAWAL DISBURSED!</b>\n\n` +
+        `✅ <b>WITHDRAWAL COMPLETED (MANUAL)</b>\n\n` +
         `🔖 <b>Withdrawal ID:</b> <code>${wr.id}</code>\n` +
         `👤 <b>Player:</b> ${wr.username}\n` +
         `💰 <b>Amount:</b> ${wr.amount} ETB\n` +
         `💳 <b>Method:</b> ${wr.paymentMethod}\n` +
         `📞 <b>Account:</b> <code>${wr.accountNumber}</code>\n` +
-        `🏦 <b>Gateway:</b> ${disbursement.gatewayUsed}\n` +
-        `🔑 <b>Gateway TxID:</b> <code>${disbursement.gatewayTxId ?? 'N/A'}</code>\n` +
-        `⏰ <b>Processed At:</b> ${new Date().toLocaleString()}`;
+        `🔑 <b>Payout reference:</b> <code>${wr.payoutReference ?? 'N/A'}</code>\n` +
+        `👮 <b>Processed by:</b> ${wr.processedBy ?? adminName ?? 'admin'}\n` +
+        `⏰ <b>At:</b> ${new Date().toLocaleString()}`;
 
       Promise.allSettled(
         targetAdmins.map((id) =>
@@ -126,10 +102,10 @@ export async function POST(req: NextRequest) {
       const user = await db.getUserById(wr.userId).catch(() => null);
       if (user?.telegramId && !user.telegramId.startsWith('web_')) {
         const playerMsg =
-          `✅ <b>Withdrawal Approved!</b>\n\n` +
-          `💸 <b>${wr.amount} ETB</b> has been sent to your <b>${wr.paymentMethod}</b> account (<code>${wr.accountNumber}</code>).\n` +
-          `🔖 Reference: <code>${wr.id}</code>\n\n` +
-          `Funds should arrive within minutes. Thank you for playing Hyper Bingo! 🎉`;
+          `✅ <b>Withdrawal completed!</b>\n\n` +
+          `💸 <b>${wr.amount} ETB</b> was sent to your <b>${wr.paymentMethod}</b> account (<code>${wr.accountNumber}</code>).\n` +
+          (wr.payoutReference ? `🔖 Reference: <code>${wr.payoutReference}</code>\n\n` : '\n') +
+          `Thank you for playing Hyper Bingo! 🎉`;
         fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -139,8 +115,8 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json<ApiResponse>({
         success: true,
-        data: { withdrawal: wr, disbursement },
-        message: `Withdrawal of ${wr.amount} ETB approved and disbursed via ${disbursement.gatewayUsed}.`,
+        data: { withdrawal: wr, mode: 'manual' },
+        message: `Withdrawal of ${wr.amount} ETB marked complete after manual payout.`,
       });
     }
 
