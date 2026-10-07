@@ -706,6 +706,29 @@ const db = {
   },
 
   /**
+   * Get all deposits (any status) from the last 7 days for the admin panel.
+   */
+  async getRecentDeposits(): Promise<Transaction[]> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          SELECT * FROM transactions
+          WHERE type = 'DEPOSIT'
+            AND created_at >= NOW() - INTERVAL '7 days'
+          ORDER BY created_at DESC
+        `;
+        return rows.map(rowToTransaction);
+      } catch (e) {
+        console.error('Neon getRecentDeposits error:', e);
+      }
+    }
+    return Array.from(transactionsMap.values())
+      .filter((t) => t.type === 'DEPOSIT')
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  },
+
+  /**
    * STEP 1 — Reserve the withdrawal amount (balance deducted immediately) and
    * create a PENDING withdrawal request that awaits admin / risk approval.
    *

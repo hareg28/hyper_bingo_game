@@ -3,6 +3,7 @@
  *
  * Manual Telebirr / CBE deposit only (no payment gateway).
  * Wallet is credited ONLY after an admin verifies the transfer in the admin panel.
+ * If the player attaches a screenshot, it is forwarded to all admin Telegram chats as a photo.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -11,6 +12,55 @@ import { ApiResponse, PaymentProvider } from '@/lib/types';
 import { getAdminWhitelist } from '@/lib/authUtils';
 
 const DEFAULT_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
+
+/** Format a date in Ethiopian local time (UTC+3) */
+function formatEthTime(date: Date): string {
+  return date.toLocaleString('en-ET', {
+    timeZone: 'Africa/Addis_Ababa',
+    dateStyle: 'short',
+    timeStyle: 'medium',
+  });
+}
+
+/**
+ * Send the screenshot to a Telegram chat.
+ * The screenshot can be a base64 data-URI (data:image/...;base64,...) or a raw base64 string.
+ * We use sendPhoto with multipart/form-data so the image appears inline (not as a file link).
+ */
+async function sendScreenshotToTelegram(
+  botToken: string,
+  chatId: string,
+  screenshotBase64: string,
+  caption: string,
+): Promise<void> {
+  try {
+    // Strip the data-URI prefix if present
+    const base64Data = screenshotBase64.includes(',')
+      ? screenshotBase64.split(',')[1]
+      : screenshotBase64;
+
+    // Detect mime type from header (default to jpeg)
+    const mimeMatch = screenshotBase64.match(/^data:(image\/[a-z+]+);base64,/);
+    const mimeType  = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const ext       = mimeType.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
+
+    const binaryData = Buffer.from(base64Data, 'base64');
+    const blob       = new Blob([binaryData], { type: mimeType });
+
+    const form = new FormData();
+    form.append('chat_id',    chatId);
+    form.append('caption',    caption);
+    form.append('parse_mode', 'HTML');
+    form.append('photo',      blob, `receipt.${ext}`);
+
+    await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+      method: 'POST',
+      body:   form,
+    });
+  } catch {
+    // Non-critical — ignore failures
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -56,8 +106,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Manual Telebirr / CBE deposit (admin-reviewed) ───────────────────────
-    const code        = (transactionCode ?? '').trim();
-    const hasCode      = code.length >= 3;
+    const code          = (transactionCode ?? '').trim();
+    const hasCode       = code.length >= 3;
     const hasScreenshot = Boolean(screenshot && screenshot.trim().length > 0);
 
     if (!hasCode && !hasScreenshot) {
@@ -86,15 +136,10 @@ export async function POST(req: NextRequest) {
       description: `Manual deposit via ${provider ?? 'Telebirr'} — pending admin review`,
     });
 
-    // Notify admins via Telegram (non-blocking)
+    // ── Notify admins via Telegram (non-blocking) ────────────────────────────
     const botToken     = DEFAULT_BOT_TOKEN;
     const adminIds     = getAdminWhitelist();
     const targetAdmins = adminIds.length > 0 ? adminIds : ['570615212', '7829104'];
-
-    const proofDescription = [
-      hasCode       ? `🔖 <b>Transaction Code / FT:</b> <code>${code}</code>` : '',
-      hasScreenshot ? `📸 <b>Receipt/Screenshot:</b> Attached` : '',
-    ].filter(Boolean).join('\n');
 
     const adminMsg =
       `💰 <b>DEPOSIT REQUEST — ADMIN REVIEW REQUIRED</b>\n\n` +
@@ -103,22 +148,33 @@ export async function POST(req: NextRequest) {
       `📞 <b>Phone:</b> <code>${user.phone ?? senderPhone ?? 'N/A'}</code>\n` +
       `💰 <b>Amount:</b> <b>${amount} ETB</b>\n` +
       `💳 <b>Provider:</b> ${provider ?? 'Telebirr'}\n` +
-      `${proofDescription}\n` +
+      (hasCode       ? `🔖 <b>Transaction Code / FT:</b> <code>${code}</code>\n` : '') +
+      (hasScreenshot ? `📸 <b>Receipt/Screenshot:</b> See photo below\n`         : '') +
       `🔖 <b>Reference:</b> <code>${txRef}</code>\n` +
       `📋 <b>Tx ID:</b> <code>${pendingTx.id}</code>\n` +
-      `⏰ <b>Time:</b> ${new Date().toLocaleString()}\n\n` +
+      `⏰ <b>Time:</b> ${formatEthTime(new Date())}\n\n` +
       `⚠️ <i>Wallet NOT credited yet. Please verify payment and approve in the admin panel.</i>\n` +
       `🔗 <a href="${appUrl}/admin">Open Admin Panel</a>`;
 
-    Promise.allSettled(
-      targetAdmins.map((id) =>
-        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: id, text: adminMsg, parse_mode: 'HTML', disable_web_page_preview: true }),
-        })
-      )
-    ).catch(() => {});
+    if (hasScreenshot) {
+      // Send the screenshot as a photo with the full caption for each admin
+      Promise.allSettled(
+        targetAdmins.map((id) =>
+          sendScreenshotToTelegram(botToken, id, screenshot!, adminMsg)
+        )
+      ).catch(() => {});
+    } else {
+      // No screenshot — send text message only
+      Promise.allSettled(
+        targetAdmins.map((id) =>
+          fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: id, text: adminMsg, parse_mode: 'HTML', disable_web_page_preview: true }),
+          })
+        )
+      ).catch(() => {});
+    }
 
     return NextResponse.json<ApiResponse>({
       success: true,

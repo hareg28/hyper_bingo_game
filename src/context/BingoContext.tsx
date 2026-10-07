@@ -846,17 +846,40 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const tx = transactions.find((t) => t.id === transactionId);
     if (!tx || tx.status !== 'PENDING') return;
 
+    // Optimistically mark as COMPLETED immediately so the button disappears
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === transactionId ? { ...t, status: 'COMPLETED' } : t))
+    );
+
     try {
-      await fetch('/api/admin/deposits', {
+      const res = await fetch('/api/admin/deposits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transactionId, action: 'APPROVE', adminName }),
       });
-    } catch {}
+      const json = await res.json();
+      if (json.success && json.data) {
+        // Sync with exact server state
+        setTransactions((prev) =>
+          prev.map((t) => (t.id === transactionId ? { ...t, ...json.data, status: 'COMPLETED' } : t))
+        );
+      } else if (!json.success) {
+        // Revert on failure
+        setTransactions((prev) =>
+          prev.map((t) => (t.id === transactionId ? { ...t, status: 'PENDING' } : t))
+        );
+        addNotification('❌ Approval Failed', json.error ?? 'Could not approve deposit.', 'error');
+        return;
+      }
+    } catch {
+      // Revert on network error
+      setTransactions((prev) =>
+        prev.map((t) => (t.id === transactionId ? { ...t, status: 'PENDING' } : t))
+      );
+      addNotification('❌ Approval Failed', 'Network error. Please try again.', 'error');
+      return;
+    }
 
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === transactionId ? { ...t, status: 'COMPLETED' } : t))
-    );
     setWallet((prev) => ({
       ...prev,
       availableBalance: prev.availableBalance + tx.amount,
@@ -879,6 +902,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       `Deposit of ${tx.amount} ETB via ${tx.paymentProvider} approved. Balance credited!`,
       'success'
     );
+
+    // Refresh the full queue so the table is in sync with DB
+    refreshFinanceQueue();
   };
 
   // 4c. ADMIN REJECT DEPOSIT
@@ -886,17 +912,34 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const tx = transactions.find((t) => t.id === transactionId);
     if (!tx) return;
 
+    // Optimistically mark as FAILED so the button disappears
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === transactionId ? { ...t, status: 'FAILED' } : t))
+    );
+
     try {
-      await fetch('/api/admin/deposits', {
+      const res = await fetch('/api/admin/deposits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transactionId, action: 'REJECT', adminName }),
       });
-    } catch {}
-
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === transactionId ? { ...t, status: 'FAILED' } : t))
-    );
+      const json = await res.json();
+      if (!json.success) {
+        // Revert on failure
+        setTransactions((prev) =>
+          prev.map((t) => (t.id === transactionId ? { ...t, status: 'PENDING' } : t))
+        );
+        addNotification('❌ Rejection Failed', json.error ?? 'Could not reject deposit.', 'error');
+        return;
+      }
+    } catch {
+      // Revert on network error
+      setTransactions((prev) =>
+        prev.map((t) => (t.id === transactionId ? { ...t, status: 'PENDING' } : t))
+      );
+      addNotification('❌ Rejection Failed', 'Network error. Please try again.', 'error');
+      return;
+    }
 
     const audit: AuditLog = {
       id: `aud_${Date.now()}`,
@@ -914,6 +957,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       `Deposit of ${tx.amount} ETB was rejected.`,
       'warning'
     );
+
+    // Refresh the full queue so the table is in sync with DB
+    refreshFinanceQueue();
   };
 
   // 5. JOIN GAME (supports chosen 5-digit card numbers like '12608', '11302')

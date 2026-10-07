@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
         `📞 <b>Account:</b> <code>${wr.accountNumber}</code>\n` +
         `🔑 <b>Payout reference:</b> <code>${wr.payoutReference ?? 'N/A'}</code>\n` +
         `👮 <b>Processed by:</b> ${wr.processedBy ?? adminName ?? 'admin'}\n` +
-        `⏰ <b>At:</b> ${new Date().toLocaleString()}`;
+        `⏰ <b>At:</b> ${new Date().toLocaleString('en-ET', { timeZone: 'Africa/Addis_Ababa', dateStyle: 'short', timeStyle: 'medium' })}`;
 
       Promise.allSettled(
         targetAdmins.map((id) =>
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
         `👤 <b>Player:</b> ${wr.username}\n` +
         `💰 <b>Amount:</b> ${wr.amount} ETB (refunded to wallet)\n` +
         `📝 <b>Reason:</b> ${rejectionReason}\n` +
-        `⏰ <b>At:</b> ${new Date().toLocaleString()}`;
+        `⏰ <b>At:</b> ${new Date().toLocaleString('en-ET', { timeZone: 'Africa/Addis_Ababa', dateStyle: 'short', timeStyle: 'medium' })}`;
 
       Promise.allSettled(
         targetAdmins.map((id) =>
