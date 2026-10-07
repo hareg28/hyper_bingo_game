@@ -105,9 +105,19 @@ export async function POST(req: NextRequest) {
       }, { status: 503 });
     }
 
+    // ── Anti-Spam: Limit maximum pending deposits per user ──────────────────
+    const pendingCount = await db.getPendingDepositsCountForUser(userId);
+    if (pendingCount >= 2) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'You already have pending deposit requests under admin review. Please wait for them to be verified before submitting another.',
+      }, { status: 429 });
+    }
+
     // ── Manual Telebirr / CBE deposit (admin-reviewed) ───────────────────────
-    const code          = (transactionCode ?? '').trim();
-    const hasCode       = code.length >= 3;
+    const rawCode       = (transactionCode ?? '').trim();
+    const cleanCode     = rawCode.toUpperCase().replace(/[\s-_]/g, '');
+    const hasCode       = cleanCode.length >= 3;
     const hasScreenshot = Boolean(screenshot && screenshot.trim().length > 0);
 
     if (!hasCode && !hasScreenshot) {
@@ -117,13 +127,45 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const txRef = code || `HBINGO_${userId}_${Date.now()}`;
+    // ── Strict format validation to prevent fake/random codes ────────────────
+    const provStr = (provider ?? 'Telebirr').toString().toLowerCase();
+    if (hasCode) {
+      // Reject repetitive or sequential junk
+      if (/^(.)\1+$/.test(cleanCode) || cleanCode === '1234567890' || cleanCode === '0123456789') {
+        return NextResponse.json<ApiResponse>({
+          success: false,
+          error: 'Invalid transaction code format. Repeated or sequential numbers are not accepted.',
+        }, { status: 400 });
+      }
 
-    if (hasCode && (await db.isDepositReferenceAlreadyUsed(code))) {
+      if (provStr.includes('telebirr')) {
+        // Telebirr transaction codes are 10 alphanumeric characters (e.g. DJ74JCZJNJ)
+        const telebirrPattern = /^[A-Z0-9]{10}$/;
+        if (!telebirrPattern.test(cleanCode)) {
+          return NextResponse.json<ApiResponse>({
+            success: false,
+            error: 'Invalid Telebirr transaction code. Telebirr codes are exactly 10 alphanumeric characters (e.g. DJ74JCZJNJ).',
+          }, { status: 400 });
+        }
+      } else if (provStr.includes('cbe')) {
+        // CBE transfer references start with FT followed by 8-14 alphanumeric chars
+        const cbePattern = /^FT[0-9A-Z]{8,14}$/;
+        if (!cbePattern.test(cleanCode)) {
+          return NextResponse.json<ApiResponse>({
+            success: false,
+            error: 'Invalid CBE transaction reference. CBE transfer codes start with FT (e.g. FT24281XXXXX).',
+          }, { status: 400 });
+        }
+      }
+    }
+
+    const txRef = cleanCode || `HBINGO_${userId}_${Date.now()}`;
+
+    if (hasCode && (await db.isDepositReferenceAlreadyUsed(cleanCode))) {
       return NextResponse.json<ApiResponse>({
         success: false,
         error:
-          'This transaction reference was already submitted or approved. If you believe this is an error, contact support.',
+          'This transaction reference was already submitted or approved. Each transfer code can only be used once.',
       }, { status: 409 });
     }
 

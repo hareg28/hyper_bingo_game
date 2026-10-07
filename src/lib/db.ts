@@ -588,9 +588,13 @@ const db = {
   /**
    * Reject duplicate player-supplied bank/Telebirr reference (already credited).
    */
+  /**
+   * Reject duplicate player-supplied bank/Telebirr reference (already credited or pending).
+   * Normalizes code (uppercase, trimmed, spaces and dashes removed).
+   */
   async isDepositReferenceAlreadyUsed(reference: string, excludeTxId?: string): Promise<boolean> {
-    const ref = reference.trim();
-    if (ref.length < 3) return false;
+    const cleanRef = reference.trim().toUpperCase().replace(/[\s-_]/g, '');
+    if (cleanRef.length < 3) return false;
     const sql = getNeonSql();
     if (sql) {
       try {
@@ -598,7 +602,7 @@ const db = {
           ? await sql`
               SELECT id FROM transactions
               WHERE type = 'DEPOSIT'
-                AND reference = ${ref}
+                AND UPPER(REPLACE(REPLACE(reference, ' ', ''), '-', '')) = ${cleanRef}
                 AND status IN ('COMPLETED', 'PENDING')
                 AND id <> ${excludeTxId}
               LIMIT 1
@@ -606,7 +610,7 @@ const db = {
           : await sql`
               SELECT id FROM transactions
               WHERE type = 'DEPOSIT'
-                AND reference = ${ref}
+                AND UPPER(REPLACE(REPLACE(reference, ' ', ''), '-', '')) = ${cleanRef}
                 AND status IN ('COMPLETED', 'PENDING')
               LIMIT 1
             `;
@@ -618,10 +622,34 @@ const db = {
     return [...transactionsMap.values()].some(
       (t) =>
         t.type === 'DEPOSIT' &&
-        t.reference === ref &&
+        t.reference &&
+        t.reference.trim().toUpperCase().replace(/[\s-_]/g, '') === cleanRef &&
         (t.status === 'COMPLETED' || t.status === 'PENDING') &&
         t.id !== excludeTxId
     );
+  },
+
+  /**
+   * Get count of pending deposits for a user (used to stop spamming multiple fake requests).
+   */
+  async getPendingDepositsCountForUser(userId: string): Promise<number> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          SELECT COUNT(*)::int as count FROM transactions
+          WHERE user_id = ${userId}
+            AND type = 'DEPOSIT'
+            AND status = 'PENDING'
+        `;
+        return rows[0]?.count ?? 0;
+      } catch (e) {
+        console.error('Neon getPendingDepositsCountForUser error:', e);
+      }
+    }
+    return [...transactionsMap.values()].filter(
+      (t) => t.userId === userId && t.type === 'DEPOSIT' && t.status === 'PENDING'
+    ).length;
   },
 
   /**

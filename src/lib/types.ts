@@ -57,6 +57,8 @@ export interface Game {
   winners: WinnerRecord[];
   blockedCards?: string[];  // Array of blocked card numbers e.g. ['200']
   isWeekendSpecial?: boolean;
+  weekendDay?: 'FRI' | 'SAT' | 'SUN';
+  weekendSlot?: '2PM' | '6PM';
   roundDuration?: number;   // In seconds, e.g. 60 for Hyper Fetan
   pickDuration?: number;    // In seconds, e.g. 30 for Hyper Fetan intermission
   activeSpecialRuleIndex?: number; // 0..14 index for Hyper Special rotating rule

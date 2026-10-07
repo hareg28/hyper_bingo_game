@@ -41,10 +41,10 @@ export async function POST(req: NextRequest) {
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `🇪🇹 <b>የሳምንቱ መጨረሻ ታላቅ የቢንጎ እና የሎተሪ ፌስቲቫል!</b>\n` +
         `💰 <b>የጃክፖት ፈንድ / Total Prize Pool: 100,000+ ETB!</b>\n\n` +
+        `📅 <b>ዕለታት (Draw Days):</b> ዓርብ (Fri) · ቅዳሜ (Sat) · እሑድ (Sun)\n` +
         `⏰ <b>የቀጥታ ዕጣ ማውጣት ሰዓቶች (Official Draw Times):</b>\n` +
-        `   🏆 <b>2:00 PM (ከሰዓት 8:00)</b> — ⚡ Mega Kickoff Draw\n` +
-        `   🏆 <b>5:00 PM (ከቀኑ 11:00)</b> — 🎲 Golden Rush Mega Draw\n` +
-        `   🏆 <b>7:00 PM (ምሽት 1:00)</b> — 👑 Super Jackpot Finale\n\n` +
+        `   🏆 <b>2:00 PM (ከሰዓት 8:00 ሰዓት)</b> — ⚡ Mega Afternoon Draw\n` +
+        `   🏆 <b>6:00 PM (ምሽት 12:00 ሰዓት)</b> — 👑 Mega Evening Jackpot\n\n` +
         `💎 <b>ልዩ ጥቅሞች (Why Play Now):</b>\n` +
         `   ✅ <b>80% የተጣራ ክፍያ ለአሸናፊዎች</b> (80% Return to Players)\n` +
         `   ✅ <b>ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር</b> (Instant Cashout)\n` +

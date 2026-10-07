@@ -219,8 +219,8 @@ export default function WalletManager() {
     }
 
     // Validation: must provide EITHER Transaction Code/SMS OR a Screenshot
-    const code = transactionCode.trim();
-    if (!code && !screenshotBase64) {
+    const cleanCode = transactionCode.toUpperCase().trim().replace(/[\s-_]/g, '');
+    if (!cleanCode && !screenshotBase64) {
       setScreenshotError(
         isAm
           ? 'እባክዎ የባንክ/ቴሌብር የክፍያ መለያ ቁጥር (Transaction ID / FT) ያስገቡ ወይም ደረሰኝ ያያይዙ።'
@@ -233,6 +233,33 @@ export default function WalletManager() {
           : 'Please enter your Transaction ID or attach a payment receipt.'
       );
       return;
+    }
+
+    if (cleanCode) {
+      if (/^(.)\1+$/.test(cleanCode) || cleanCode === '1234567890' || cleanCode === '0123456789') {
+        const err = isAm
+          ? 'ትክክለኛ ያልሆነ የመለያ ቁጥር። እባክዎ ከባንኩ ወይም ቴሌብር የተላከውን ትክክለኛ ቁጥር ያስገቡ።'
+          : 'Invalid transaction code. Please enter the real transaction code from Telebirr or CBE.';
+        setScreenshotError(err);
+        showStatus('error', err);
+        return;
+      }
+      if (provider === 'Telebirr' && cleanCode.length !== 10) {
+        const err = isAm
+          ? 'የቴሌብር መለያ ቁጥር 10 ፊደላት/ቁጥሮች መሆን አለበት (ለምሳሌ፡ DJ74JCZJNJ)።'
+          : 'Telebirr transaction codes must be 10 characters (e.g. DJ74JCZJNJ).';
+        setScreenshotError(err);
+        showStatus('error', err);
+        return;
+      }
+      if ((provider === 'CBE Birr' || provider === 'Bank Transfer') && !cleanCode.startsWith('FT')) {
+        const err = isAm
+          ? 'የCBE ማስተላለፊያ ቁጥር በ FT መጀመር አለበት (ለምሳሌ፡ FT24281XXXXX)።'
+          : 'CBE transfer references must start with FT (e.g. FT24281XXXXX).';
+        setScreenshotError(err);
+        showStatus('error', err);
+        return;
+      }
     }
 
     setIsProcessing(true);
@@ -1076,7 +1103,8 @@ export default function WalletManager() {
                     }
                     value={transactionCode}
                     onChange={(e) => {
-                      setTransactionCode(e.target.value);
+                      const val = e.target.value.toUpperCase().replace(/\s/g, '');
+                      setTransactionCode(val);
                       if (screenshotError) setScreenshotError(null);
                     }}
                     className="w-full bg-white border-2 border-emerald-300 focus:border-emerald-600 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none shadow-inner"
@@ -1091,6 +1119,13 @@ export default function WalletManager() {
                     </button>
                   )}
                 </div>
+
+                {/* Real-time format hint */}
+                <p className="text-[10px] text-slate-500 font-medium">
+                  {provider === 'Telebirr'
+                    ? (isAm ? '💡 የቴሌብር መለያ ቁጥር 10 ፊደላት/ቁጥሮች ነው (ምሳሌ: DJ74JCZJNJ)' : '💡 Telebirr code is 10 alphanumeric characters (e.g. DJ74JCZJNJ)')
+                    : (isAm ? '💡 የCBE ማስተላለፊያ ቁጥር በ FT ይጀምራል (ምሳሌ: FT24281XXXXX)' : '💡 CBE reference begins with FT (e.g. FT24281XXXXX)')}
+                </p>
 
                 {/* Admin review notice */}
                 <div className="bg-amber-50/80 rounded-xl p-2.5 border border-amber-300 flex items-start gap-2">
