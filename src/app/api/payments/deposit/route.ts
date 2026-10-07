@@ -32,6 +32,7 @@ async function sendScreenshotToTelegram(
   chatId: string,
   screenshotBase64: string,
   caption: string,
+  replyMarkup?: any,
 ): Promise<void> {
   try {
     // Strip the data-URI prefix if present
@@ -52,6 +53,9 @@ async function sendScreenshotToTelegram(
     form.append('caption',    caption);
     form.append('parse_mode', 'HTML');
     form.append('photo',      blob, `receipt.${ext}`);
+    if (replyMarkup) {
+      form.append('reply_markup', JSON.stringify(replyMarkup));
+    }
 
     await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
       method: 'POST',
@@ -198,21 +202,40 @@ export async function POST(req: NextRequest) {
       `⚠️ <i>Wallet NOT credited yet. Please verify payment and approve in the admin panel.</i>\n` +
       `🔗 <a href="${appUrl}/admin">Open Admin Panel</a>`;
 
+    const inlineApprovalKeyboard = {
+      inline_keyboard: [
+        [
+          { text: `✅ Approve ${amount} ETB`, callback_data: `appr_dep:${pendingTx.id}` },
+          { text: `❌ Reject`, callback_data: `rejc_dep:${pendingTx.id}` },
+        ],
+        [
+          { text: `⚡ 1-Click Web Approve`, url: `${appUrl}/api/admin/quick-approve?action=approve&txId=${pendingTx.id}` },
+          { text: `🛡️ Admin Panel`, url: `${appUrl}?tab=admin` },
+        ],
+      ],
+    };
+
     if (hasScreenshot) {
-      // Send the screenshot as a photo with the full caption for each admin
+      // Send the screenshot as a photo with the full caption + 1-Click approval buttons
       Promise.allSettled(
         targetAdmins.map((id) =>
-          sendScreenshotToTelegram(botToken, id, screenshot!, adminMsg)
+          sendScreenshotToTelegram(botToken, id, screenshot!, adminMsg, inlineApprovalKeyboard)
         )
       ).catch(() => {});
     } else {
-      // No screenshot — send text message only
+      // No screenshot — send text message with 1-Click approval buttons
       Promise.allSettled(
         targetAdmins.map((id) =>
           fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: id, text: adminMsg, parse_mode: 'HTML', disable_web_page_preview: true }),
+            body: JSON.stringify({
+              chat_id: id,
+              text: adminMsg,
+              parse_mode: 'HTML',
+              disable_web_page_preview: true,
+              reply_markup: inlineApprovalKeyboard,
+            }),
           })
         )
       ).catch(() => {});

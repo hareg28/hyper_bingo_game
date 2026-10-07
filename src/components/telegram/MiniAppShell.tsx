@@ -1304,13 +1304,15 @@ function WeekendLotteryNumberPicker({
                 <span>
                   {mode === 'FETAN' 
                     ? (isAm ? 'ሃይፐር ፈጣን ካርዶች (1-500)' : 'Hyper Fetan Cards (1-500)')
-                    : (isAm ? 'ሃይፐር ዊክኤንድ ሎተሪ (1-1500)' : 'Hyper Weekend Lottery (1-1500)')}
+                    : (isAm 
+                        ? `${selectedGame?.weekendDay === 'FRI' ? 'የዓርብ' : selectedGame?.weekendDay === 'SAT' ? 'የቅዳሜ' : 'የእሑድ'} ሜጋ ሎተሪ (1-1500)`
+                        : `${selectedGame?.weekendDay === 'FRI' ? 'Friday' : selectedGame?.weekendDay === 'SAT' ? 'Saturday' : 'Sunday'} Mega Lottery (1-1500)`)}
                 </span>
               </h3>
               <span className="text-[10px] text-slate-500 font-bold">
                 {mode === 'FETAN' 
                   ? (isAm ? '1 ደቂቃ ዙር · 30 ሰከንድ ካርድ መምረጫ · 500 ካርዶች' : '1 Min Round · 30s Card Pick · 500 Cards')
-                  : (isAm ? 'ዓርብ · ቅዳሜ · እሑድ 2:00 እና 6:00 PM (8:00 እና 12:00 ሰዓት) · 1500 ካርዶች' : 'Fri · Sat · Sun: 2:00 PM & 6:00 PM (Ethio 8:00 & 12:00) · 1500 Cards')}
+                  : (isAm ? '50 ብር · 2:00 እና 6:00 PM · ሙሉ ቤት ብቻ (24/24)' : '50 ETB · 2:00 PM & 6:00 PM · Full House Only')}
               </span>
             </div>
           </div>
@@ -1414,124 +1416,64 @@ function WeekendLotteryNumberPicker({
             {selectedGame?.status === 'RUNNING' ? '● LIVE' : 'STARTING'}
           </div>
         </div>
-      ) : (
-        <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-amber-400/40 text-white shadow-md flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-400 flex items-center justify-center text-base shrink-0 animate-pulse">
-              ⏳
-            </div>
-            <div className="min-w-0">
-              <span className="text-[9px] uppercase tracking-widest text-amber-300 font-black block leading-none">
-                {isAm ? 'ቀጣዩ ሜጋ ድራው በ:' : 'Next Mega Draw In:'}
-              </span>
-              <span className="text-[10px] text-slate-300 font-bold truncate block mt-0.5">
-                {selectedGame?.name || 'Weekend Draw'} · {selectedGame?.startTime || '2:00 PM (Fri–Sun)'}
-              </span>
-            </div>
-          </div>
-          <div className="px-3 py-1 rounded-xl bg-amber-400/10 border border-amber-400/40 text-amber-300 font-mono font-black text-sm tracking-widest tabular-nums shadow-inner shrink-0">
-            {drawCountdown}
-          </div>
-        </div>
-      )}
+      ) : null}
 
       {/* ── Subgroup / Stake Tier Selector ── */}
-      <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-2 shrink-0">
-        {mode === 'WEEKEND' ? (
-          <>
-            {/* Day Subgroups */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1">
-                  <span>📅</span> {isAm ? 'የዕለት ንዑስ ክፍል (3 ቀናት):' : 'Weekend Day Subgroups:'}
-                </span>
-                <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
-                  {selectedGame?.weekendDay === 'FRI' ? (isAm ? 'ዓርብ' : 'Friday')
-                    : selectedGame?.weekendDay === 'SAT' ? (isAm ? 'ቅዳሜ' : 'Saturday')
-                    : (isAm ? 'እሑድ' : 'Sunday')}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {(['FRI', 'SAT', 'SUN'] as const).map((day) => {
-                  const currentDay = selectedGame?.weekendDay || 'FRI';
-                  const isDaySelected = currentDay === day;
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => {
-                        const currentSlot = selectedGame?.weekendSlot || '2PM';
-                        const match = targetGames.find(g => g.weekendDay === day && g.weekendSlot === currentSlot) ||
-                                      targetGames.find(g => g.weekendDay === day);
-                        if (match) {
-                          const idx = targetGames.findIndex(g => g.id === match.id);
-                          if (idx >= 0) setSelectedGameIdx(idx);
-                          if (onChangeGameId) onChangeGameId(match.id);
-                        }
-                      }}
-                      className={`py-1.5 px-1 rounded-xl text-xs font-black transition cursor-pointer border-2 text-center ${
-                        isDaySelected
-                          ? 'bg-amber-500 border-amber-600 text-slate-950 shadow-sm scale-[1.02]'
-                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-amber-300'
-                      }`}
-                    >
-                      {day === 'FRI' ? (isAm ? '📅 ዓርብ' : '📅 Friday')
-                        : day === 'SAT' ? (isAm ? '📅 ቅዳሜ' : '📅 Saturday')
-                        : (isAm ? '📅 እሑድ' : '📅 Sunday')}
-                    </button>
-                  );
-                })}
-              </div>
+      {mode === 'WEEKEND' ? (
+        <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 shadow-xs space-y-2 shrink-0">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[11px] font-black uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
+              <span>🌟</span>
+              <span>
+                {isAm
+                  ? `${selectedGame?.weekendDay === 'FRI' ? 'የዓርብ' : selectedGame?.weekendDay === 'SAT' ? 'የቅዳሜ' : 'የእሑድ'} ዕጣ (24/24 ሙሉ ቤት)`
+                  : `${selectedGame?.weekendDay === 'FRI' ? 'Friday' : selectedGame?.weekendDay === 'SAT' ? 'Saturday' : 'Sunday'} Draw (Full House)`}
+              </span>
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-black text-amber-950 bg-amber-200 px-2 py-0.5 rounded-full border border-amber-300">
+                50 ETB · 50k ETB
+              </span>
+              <span className="text-[10px] font-mono font-black text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 flex items-center gap-0.5">
+                ⏳ {drawCountdown}
+              </span>
             </div>
-
-            {/* Time Slot Subgroups */}
-            <div className="space-y-1 pt-1 border-t border-amber-100">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1">
-                  <span>⏰</span> {isAm ? 'የሰዓት ንዑስ ክፍል (2:00 እና 6:00 PM):' : 'Draw Time Subgroups:'}
-                </span>
-                <span className="text-[9px] font-black text-purple-900 bg-purple-100 px-2 py-0.5 rounded-full border border-purple-300">
-                  50 ETB · 50,000 ETB Pool
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {(['2PM', '6PM'] as const).map((slot) => {
-                  const currentSlot = selectedGame?.weekendSlot || '2PM';
-                  const isSlotSelected = currentSlot === slot;
-                  return (
-                    <button
-                      key={slot}
-                      type="button"
-                      onClick={() => {
-                        const currentDay = selectedGame?.weekendDay || 'FRI';
-                        const match = targetGames.find(g => g.weekendDay === currentDay && g.weekendSlot === slot) ||
-                                      targetGames.find(g => g.weekendSlot === slot);
-                        if (match) {
-                          const idx = targetGames.findIndex(g => g.id === match.id);
-                          if (idx >= 0) setSelectedGameIdx(idx);
-                          if (onChangeGameId) onChangeGameId(match.id);
-                        }
-                      }}
-                      className={`py-2 px-2 rounded-xl text-xs font-black transition cursor-pointer border-2 text-center flex flex-col items-center justify-center gap-0.5 ${
-                        isSlotSelected
-                          ? 'bg-amber-500 border-amber-600 text-slate-950 shadow-sm scale-[1.02]'
-                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-amber-300'
-                      }`}
-                    >
-                      <span className="text-xs font-black">
-                        {slot === '2PM' ? (isAm ? '⏰ 2:00 PM (ከሰዓት 8:00)' : '⏰ 2:00 PM (Ethio 8:00)')
-                          : (isAm ? '⏰ 6:00 PM (ምሽት 12:00)' : '⏰ 6:00 PM (Ethio 12:00)')}
-                      </span>
-                      <span className={`text-[9px] font-bold ${isSlotSelected ? 'text-amber-950' : 'text-emerald-700'}`}>
-                        🏆 50,000 ETB Jackpot
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-        ) : (
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {(['2PM', '6PM'] as const).map((slot) => {
+              const currentDay = selectedGame?.weekendDay || 'FRI';
+              const isSlotSelected = (selectedGame?.weekendSlot || '2PM') === slot;
+              const match = targetGames.find(g => (g.weekendDay || 'FRI') === currentDay && g.weekendSlot === slot) ||
+                            targetGames.find(g => g.weekendSlot === slot);
+              return (
+                <button
+                  key={slot}
+                  type="button"
+                  onClick={() => {
+                    if (match) {
+                      const idx = targetGames.findIndex(g => g.id === match.id);
+                      if (idx >= 0) setSelectedGameIdx(idx);
+                      if (onChangeGameId) onChangeGameId(match.id);
+                    }
+                  }}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-black transition cursor-pointer border-2 text-center flex items-center justify-center gap-1.5 ${
+                    isSlotSelected
+                      ? 'bg-amber-500 border-amber-600 text-slate-950 shadow-sm'
+                      : 'bg-white border-amber-200 text-slate-700 hover:border-amber-300 hover:bg-amber-50'
+                  }`}
+                >
+                  <span className="text-xs font-black">
+                    {slot === '2PM' ? (isAm ? '⏰ 2:00 PM (ከሰዓት 8:00)' : '⏰ 2:00 PM (Ethio 8:00)')
+                      : (isAm ? '⏰ 6:00 PM (ምሽት 12:00)' : '⏰ 6:00 PM (Ethio 12:00)')}
+                  </span>
+                  {isSlotSelected && <span className="text-[9px] bg-amber-950 text-amber-300 px-1 py-0.5 rounded font-black">ACTIVE</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-2 shrink-0">
           <>
             <div className="flex items-center justify-between px-1">
               <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1">

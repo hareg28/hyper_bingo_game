@@ -1359,75 +1359,27 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           )}
         </div>
 
-      {/* ── Weekend Stake Price Selector (ONLY for Weekend Games) ────── */}
-      {isWeekendGame && weekendGames.length > 1 && onChangeGameId && (
-        <div className="bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 border-b border-amber-200 px-3 py-2.5 space-y-1.5">
-          <div className="flex items-center justify-between px-0.5">
-            <h4 className="text-[11px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-700" />
-              {language === 'am' ? 'የሳምንት መጨረሻ የክፍያ ደረጃ (Stake)' : 'Weekend Stake Selector — Pick Your Tier'}
-            </h4>
-            {onOpenLotteryTab && (
-              <button
-                type="button"
-                onClick={onOpenLotteryTab}
-                className="text-[10px] font-black uppercase tracking-wider bg-amber-700 hover:bg-amber-800 text-white px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer shadow-xs"
-              >
-                🎟️ {language === 'am' ? 'ካርታ ይምረጡ (Lottery)' : 'Pick Lottery Cards'}
-              </button>
-            )}
+      {/* ── Clean & Simple Weekend Bar (No Crowding, Single Slim Row) ── */}
+      {isWeekendGame && (
+        <div className="mx-2 mt-1.5 px-3 py-1.5 bg-white rounded-xl border border-amber-300 shadow-2xs flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-xs shrink-0">🎟️</span>
+            <span className="text-[11px] font-black text-slate-900 truncate">
+              {currentGame.weekendDay === 'FRI' ? (language === 'am' ? 'ዓርብ' : 'Friday')
+                : currentGame.weekendDay === 'SAT' ? (language === 'am' ? 'ቅዳሜ' : 'Saturday')
+                : (language === 'am' ? 'እሑድ' : 'Sunday')} · {currentGame.weekendSlot === '2PM' ? '2:00 PM (8:00)' : '6:00 PM (12:00)'} · 50 ETB
+            </span>
           </div>
-          <div className={`grid ${weekendGames.length <= 3 ? `grid-cols-${weekendGames.length}` : 'grid-cols-3 sm:grid-cols-5'} gap-1.5`}>
-            {weekendGames.map((wg) => {
-              const isActive = wg.id === currentGame.id;
-              return (
-                <button
-                  key={wg.id}
-                  type="button"
-                  onClick={() => onChangeGameId(wg.id)}
-                  className={`py-2 rounded-xl font-black text-xs flex flex-col items-center justify-center gap-0.5 border-2 transition cursor-pointer shadow-2xs ${
-                    isActive
-                      ? 'bg-gradient-to-br from-amber-500 to-amber-600 text-white border-amber-700 shadow-sm scale-[1.02]'
-                      : 'bg-white text-slate-800 border-amber-300 hover:border-amber-500 hover:bg-amber-50'
-                  }`}
-                >
-                  <span className="text-sm font-black leading-tight">{wg.entryPrice}</span>
-                  <span className={`text-[9px] leading-tight ${isActive ? 'text-amber-100' : 'text-slate-500'}`}>ETB</span>
-                  {isActive && (
-                    <span className={`text-[9px] leading-none mt-0.5 font-black ${isActive ? 'text-amber-950 bg-amber-200 px-1.5 rounded' : ''}`}>
-                      {language === 'am' ? 'የምረጡት' : 'SELECTED'}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── Weekend Lottery Card Pick Notice ── */}
-      {isWeekendGame && onOpenLotteryTab && (
-        <div className="mx-2 mt-2 bg-white border border-amber-300 rounded-2xl p-3 shadow-xs flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md shadow-indigo-300/50 text-lg">
-            🎟️
-          </div>
-          <div className="flex-1 min-w-0 space-y-0.5">
-            <h4 className="text-xs font-black text-slate-900 leading-tight">
-              {language === 'am' ? '🌟 የሳምንት መጨረሻ ሎተሪ ካርታዎች' : '🌟 Lottery Ticket Numbers Picked Here'}
-            </h4>
-            <p className="text-[10px] text-slate-600 leading-snug">
-              {language === 'am'
-                ? 'ከዚህ በታች ቢንጎ ካርድ ካያዙ በፊት 🌟 ካርታዎችን ከሎተሪ ምርጫው መምረጥ አለብዎት 1-1500 ቁጥሮች'
-                : 'Pick your 1–1500 range lottery numbers FIRST from the 🌟 Lottery tab before joining — Bingo cards are reserved via lottery selection!'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onOpenLotteryTab}
-            className="shrink-0 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition cursor-pointer shadow-xs hover:from-purple-500 hover:to-indigo-500"
-          >
-            🎯 {language === 'am' ? 'ሎተሪ' : 'Lottery'}
-          </button>
+          {onOpenLotteryTab && (
+            <button
+              type="button"
+              onClick={onOpenLotteryTab}
+              className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wider flex items-center gap-1 transition shadow-2xs cursor-pointer"
+            >
+              <span>🎟️</span>
+              <span>{language === 'am' ? 'ካርድ ምረጥ' : 'Pick Cards'}</span>
+            </button>
+          )}
         </div>
       )}
 

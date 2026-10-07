@@ -93,6 +93,155 @@ export async function POST(req: NextRequest) {
       ],
     };
 
+    // ── Handle Inline Button Callbacks (1-Click Deposit Approval & Rejection) ───
+    if (update.callback_query) {
+      const { id: callbackQueryId, from, message, data } = update.callback_query;
+      const adminTelegramId = from?.id ? String(from.id) : '';
+      const adminUsername = from?.username ? `@${from.username}` : (from?.first_name || 'Admin');
+      const isAdmin = isAdminTelegramId(from?.id) || isAdminTelegramId(from?.username);
+
+      const answerCallback = async (text: string, showAlert = false) => {
+        try {
+          await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ callback_query_id: callbackQueryId, text, show_alert: showAlert }),
+          });
+        } catch (e) {
+          console.error('answerCallback error:', e);
+        }
+      };
+
+      if (!data) {
+        await answerCallback('Invalid action');
+        return NextResponse.json({ ok: true });
+      }
+
+      if (data.startsWith('appr_dep:') || data.startsWith('rejc_dep:')) {
+        if (!isAdmin) {
+          await answerCallback('⛔ Access Denied: You are not authorized to approve deposits.', true);
+          return NextResponse.json({ ok: true });
+        }
+
+        const isApprove = data.startsWith('appr_dep:');
+        const txId = data.replace(isApprove ? 'appr_dep:' : 'rejc_dep:', '').trim();
+
+        if (isApprove) {
+          const approvedTx = await db.approvePendingDeposit(txId, adminTelegramId);
+          if (!approvedTx) {
+            await answerCallback('⚠️ Transaction not found or already processed.', true);
+            return NextResponse.json({ ok: true });
+          }
+
+          await answerCallback(`✅ Deposit of ${approvedTx.amount} ETB Approved!`);
+
+          // Notify player on Telegram if available
+          try {
+            const player = await db.getUserById(approvedTx.userId);
+            if (player?.telegramId && !player.telegramId.startsWith('web_')) {
+              await sendMessage({
+                chat_id: player.telegramId,
+                parse_mode: 'HTML',
+                text:
+                  `🎉 <b>DEPOSIT CONFIRMED &amp; CREDITED!</b>\n\n` +
+                  `💰 Amount: <b>+${approvedTx.amount} ETB</b>\n` +
+                  `💳 Provider: <b>${approvedTx.provider || 'Telebirr'}</b>\n` +
+                  `🔖 Reference: <code>${approvedTx.reference}</code>\n\n` +
+                  `✨ Your wallet balance has been credited. Good luck playing Hyper Bingo!`,
+              });
+            }
+          } catch (playerNotifyErr) {
+            console.error('Failed to notify player:', playerNotifyErr);
+          }
+
+          // Edit admin message
+          try {
+            const ethTime = new Date().toLocaleTimeString('en-US', { timeZone: 'Africa/Addis_Ababa', hour: '2-digit', minute: '2-digit' });
+            const originalText = message?.text || message?.caption || '';
+            const updatedText =
+              `${originalText}\n\n` +
+              `━━━━━━━━━━━━━━━━━━━━━\n` +
+              `✅ <b>APPROVED &amp; CREDITED (+${approvedTx.amount} ETB)</b>\n` +
+              `👤 Approved By: ${adminUsername}\n` +
+              `⏰ Time: ${ethTime}`;
+
+            if (message?.text) {
+              await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: message.chat.id,
+                  message_id: message.message_id,
+                  text: updatedText,
+                  parse_mode: 'HTML',
+                  reply_markup: { inline_keyboard: [] },
+                }),
+              });
+            } else if (message?.caption) {
+              await fetch(`https://api.telegram.org/bot${botToken}/editMessageCaption`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: message.chat.id,
+                  message_id: message.message_id,
+                  caption: updatedText.slice(0, 1024),
+                  parse_mode: 'HTML',
+                  reply_markup: { inline_keyboard: [] },
+                }),
+              });
+            }
+          } catch (editErr) {
+            console.error('Failed to edit admin message:', editErr);
+          }
+        } else {
+          // Reject
+          await db.rejectPendingDeposit(txId);
+          await answerCallback('❌ Deposit Request Rejected.');
+
+          try {
+            const ethTime = new Date().toLocaleTimeString('en-US', { timeZone: 'Africa/Addis_Ababa', hour: '2-digit', minute: '2-digit' });
+            const originalText = message?.text || message?.caption || '';
+            const updatedText =
+              `${originalText}\n\n` +
+              `━━━━━━━━━━━━━━━━━━━━━\n` +
+              `❌ <b>REJECTED</b>\n` +
+              `👤 Rejected By: ${adminUsername}\n` +
+              `⏰ Time: ${ethTime}`;
+
+            if (message?.text) {
+              await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: message.chat.id,
+                  message_id: message.message_id,
+                  text: updatedText,
+                  parse_mode: 'HTML',
+                  reply_markup: { inline_keyboard: [] },
+                }),
+              });
+            } else if (message?.caption) {
+              await fetch(`https://api.telegram.org/bot${botToken}/editMessageCaption`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: message.chat.id,
+                  message_id: message.message_id,
+                  caption: updatedText.slice(0, 1024),
+                  parse_mode: 'HTML',
+                  reply_markup: { inline_keyboard: [] },
+                }),
+              });
+            }
+          } catch (editErr) {
+            console.error('Failed to edit admin message:', editErr);
+          }
+        }
+
+        return NextResponse.json({ ok: true });
+      }
+    }
+
     // ── my_chat_member — fires the INSTANT a user starts / unblocks the bot ───
     if (update.my_chat_member) {
       const member = update.my_chat_member;

