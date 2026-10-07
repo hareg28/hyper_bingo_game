@@ -207,6 +207,29 @@ const db = {
     return [...usersMap.values()].find(u => u.telegramId === telegramId) ?? null;
   },
 
+  /**
+   * Get all real Telegram user IDs (excluding web_ placeholder IDs) for broadcasting.
+   */
+  async getAllUserTelegramIds(): Promise<string[]> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          SELECT DISTINCT telegram_id FROM users
+          WHERE telegram_id IS NOT NULL
+            AND telegram_id NOT LIKE 'web_%'
+          ORDER BY telegram_id
+        `;
+        return (rows as { telegram_id: string }[]).map(r => r.telegram_id).filter(Boolean);
+      } catch (e) {
+        console.error('Neon getAllUserTelegramIds error:', e);
+      }
+    }
+    return [...usersMap.values()]
+      .map(u => u.telegramId)
+      .filter((id): id is string => Boolean(id) && !id.startsWith('web_'));
+  },
+
   async getUserByPhone(phone: string): Promise<User | null> {
     const sql = getNeonSql();
     if (sql) {

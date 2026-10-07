@@ -236,6 +236,8 @@ export default function WalletManager() {
     }
 
     setIsProcessing(true);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
     try {
       const res = await fetch('/api/payments/deposit', {
         method: 'POST',
@@ -250,7 +252,9 @@ export default function WalletManager() {
           screenshot:      screenshotBase64,
           senderPhone:     user.phone || phoneOrAccount,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       const data = await res.json();
 
       if (data.success) {
@@ -258,20 +262,24 @@ export default function WalletManager() {
         showStatus(
           'success',
           isAm
-            ? `✅ ክፍያዎ ለአስተዳዳሪ ተልኳል! ${depositAmt} ብር ከተረጋገጠ በኋላ ወደ ሂሳብዎ ይገባል።`
-            : `✅ Deposit of ${depositAmt} ETB submitted for review! Your balance will be credited once an admin verifies your payment.`
+            ? `Your deposit of ${depositAmt} ETB has been submitted for admin review. Your balance will be credited once verified.`
+            : `Deposit of ${depositAmt} ETB submitted for admin review! Your balance will be credited once an admin verifies your payment.`
         );
         setActiveTab('balance');
         setDepositStep(1);
         setTransactionCode('');
         handleRemoveScreenshot();
       } else {
-        showStatus('error', data.error ?? (isAm ? 'ክፍያ ሂደት አልተሳካም። ደጋፊ ቡድን ያሳዩ።' : 'Deposit failed. Please contact support with your receipt.'));
+        showStatus('error', data.error ?? (isAm ? 'Deposit failed. Contact support.' : 'Deposit failed. Please contact support with your receipt.'));
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '';
+      clearTimeout(timeout);
+      const isAbort = err instanceof Error && err.name === 'AbortError';
+      const msg = isAbort
+        ? 'Request timed out. Please try again or contact support at 0912738543.'
+        : (err instanceof Error ? err.message : '');
       console.error('[Deposit UI Error]:', err);
-      showStatus('error', msg || (isAm ? 'የኔትወርክ ችግር አጋጥሟል። እባክዎ እንደገና ይሞክሩ።' : 'Network error. Please try again.'));
+      showStatus('error', msg || 'Network error. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -1053,8 +1061,8 @@ export default function WalletManager() {
                     </span>
                     <span className="text-rose-600 font-black">*</span>
                   </label>
-                  <span className="text-[9px] font-black text-white bg-emerald-700 px-2 py-0.5 rounded-full shadow-xs uppercase flex items-center gap-1">
-                    ⚡ {isAm ? 'ፈጣን ራስ-ሰር ማረጋገጫ' : 'Instant Auto-Verify'}
+                  <span className="text-[9px] font-black text-white bg-amber-600 px-2 py-0.5 rounded-full shadow-xs uppercase flex items-center gap-1">
+                    📋 {isAm ? 'Admin Review' : 'Admin Review'}
                   </span>
                 </div>
 
@@ -1084,13 +1092,13 @@ export default function WalletManager() {
                   )}
                 </div>
 
-                {/* Instant verification assurance banner */}
-                <div className="bg-emerald-100/80 rounded-xl p-2.5 border border-emerald-300 flex items-start gap-2">
-                  <span className="text-base shrink-0 mt-0.5">⚡</span>
-                  <p className="text-[10px] text-emerald-950 font-bold leading-relaxed">
+                {/* Admin review notice */}
+                <div className="bg-amber-50/80 rounded-xl p-2.5 border border-amber-300 flex items-start gap-2">
+                  <span className="text-base shrink-0 mt-0.5">⏳</span>
+                  <p className="text-[10px] text-amber-900 font-bold leading-relaxed">
                     {isAm
-                      ? 'ፈጣን ራስ-ሰር ማረጋገጫ (Instant Auto-Verification): የመለያ ቁጥሩን (Transaction ID) እንዳስገቡ ሂሳብዎ ወዲያውኑ ይሞላል። 1,000 ተጫዋቾች በአንድ ጊዜ ቢከፍሉ እንኳን ምንም የአስተዳዳሪ ጥበቃ ሳያስፈልግ በቅጽበት ይረጋገጣል!'
-                      : 'Instant Auto-Verification: Enter your Transaction ID and your balance is credited immediately! Zero admin waiting time even if 1,000 players deposit at the exact same second.'}
+                      ? 'ክፍያዎ ለአስተዳዳሪ ይላካል። Transaction ID / FT ቁጥሩ ከተረጋገጠ በኋላ ሂሳብዎ ይሞላል — ብዙ ጊዜ ከጥቂት ሰዓታት ይበልጥ አይፈጅም።'
+                      : 'Your deposit goes to admin review. Once your Transaction ID / FT is verified, your balance will be credited — usually within a few hours.'}
                   </p>
                 </div>
               </div>
@@ -1181,9 +1189,9 @@ export default function WalletManager() {
                   }`}
                 >
                   {isProcessing ? (
-                    <><span className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin"></span> {isAm ? 'በማረጋገጥ ላይ...' : 'Verifying...'}</>
+                    <><span className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin"></span> {isAm ? 'በመላክ ላይ...' : 'Submitting...'}</>
                   ) : (
-                    <><CheckCircle className="w-3.5 h-3.5" /> ⚡ {isAm ? `ወዲያውኑ አረጋግጥና ሂሳብ ሙላ (${amount} ETB)` : `Instant Verify & Credit (${amount} ETB)`}</>
+                    <><CheckCircle className="w-3.5 h-3.5" /> {isAm ? `ለአስተዳዳሪ ላክ (${amount} ETB)` : `Submit for Admin Review (${amount} ETB)`}</>
                   )}
                 </button>
               </div>

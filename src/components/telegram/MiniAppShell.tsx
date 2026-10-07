@@ -16,8 +16,8 @@ import DailyLuckyWheelModal from '../rewards/DailyLuckyWheelModal';
 import { isAdminTelegramId } from '../../lib/authUtils';
 import { getGameLivePrizePool } from '../../lib/store';
 
-const SUPPORT_PHONE_1 = process.env.NEXT_PUBLIC_SUPPORT_PHONE_1 || '+251 91 123 4567';
-const SUPPORT_PHONE_2 = process.env.NEXT_PUBLIC_SUPPORT_PHONE_2 || '+251 92 234 5678';
+const SUPPORT_PHONE_1 = process.env.NEXT_PUBLIC_SUPPORT_PHONE_1 || '0912738543';
+const SUPPORT_PHONE_2 = process.env.NEXT_PUBLIC_SUPPORT_PHONE_2 || '0912738543';
 
 // Dynamic reliable display title formatter
 function getGameDisplayName(g: { entryPrice: number; gameType?: string; isWeekendSpecial?: boolean; name?: string; category?: string }, lang: string): string {

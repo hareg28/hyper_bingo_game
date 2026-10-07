@@ -206,9 +206,32 @@ export async function POST(req: NextRequest) {
     // Send the standalone announcement (NO redundant game list messages attached!)
     const result = await sendTelegramPayload(targetChatId);
 
-    // If sent to a channel, also deliver a preview copy to admin's private chat
+    // If sent to a channel/custom target, also deliver a preview copy to admin's private chat
     if (adminTelegramId && String(targetChatId) !== String(adminTelegramId)) {
       await sendTelegramPayload(adminTelegramId).catch(() => {});
+    }
+
+    // ── Broadcast to ALL registered Telegram users ─────────────────────────
+    // Fetch all user Telegram IDs from DB and send them the announcement
+    // (fire-and-forget, non-blocking, rate-limited to avoid Telegram 429s)
+    try {
+      const allTelegramIds = await db.getAllUserTelegramIds();
+      // Filter out already-notified IDs (admin + target)
+      const skipIds = new Set([String(adminTelegramId), String(targetChatId)]);
+      const toNotify = allTelegramIds.filter(id => !skipIds.has(id));
+
+      // Send in small batches with delay to respect Telegram's 30 msg/sec limit
+      const BATCH = 25;
+      const DELAY = 1100; // ~25 messages/second, well under the 30/sec limit
+      for (let i = 0; i < toNotify.length; i += BATCH) {
+        const batch = toNotify.slice(i, i + BATCH);
+        await Promise.allSettled(batch.map(id => sendTelegramPayload(id)));
+        if (i + BATCH < toNotify.length) {
+          await new Promise(r => setTimeout(r, DELAY));
+        }
+      }
+    } catch (broadcastErr) {
+      console.error('Broadcast to all users error:', broadcastErr);
     }
 
     if (!result || !result.ok) {
