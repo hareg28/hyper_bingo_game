@@ -22,6 +22,7 @@ import {
   calcLotteryTotalCost,
   formatLotteryCardNumber,
   LOTTERY_NUMBERS_TOTAL,
+  isWeekendSlotCurrentlyLive,
 } from '../lib/bingoUtils';
 import { isAdminTelegramId } from '../lib/authUtils';
 
@@ -1409,16 +1410,17 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const updatedDrawn = [...game.drawnNumbers, nextBall];
 
     setGames((prev) =>
-      prev.map((g) =>
-        g.id === gameId
-          ? {
-              ...g,
-              drawnNumbers: updatedDrawn,
-              currentBall: nextBall,
-              status: g.status === 'STARTING' || g.status === 'OPEN' ? 'RUNNING' : g.status,
-            }
-          : g
-      )
+      prev.map((g) => {
+        if (g.id !== gameId) return g;
+        const isWknd = g.gameType === 'WEEKEND_LOTTERY' || g.category === 'HYPER_WEEKEND' || g.isWeekendSpecial;
+        const shouldRun = isWknd ? isWeekendSlotCurrentlyLive(g) : (g.status === 'STARTING' || g.status === 'OPEN');
+        return {
+          ...g,
+          drawnNumbers: updatedDrawn,
+          currentBall: nextBall,
+          status: shouldRun ? 'RUNNING' : g.status,
+        };
+      })
     );
 
     // Auto Daub if enabled

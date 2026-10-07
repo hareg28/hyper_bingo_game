@@ -1140,6 +1140,60 @@ export function isWeekendLotteryDay(): boolean {
 }
 
 /**
+ * Checks if a specific weekend game slot is currently LIVE right now.
+ * A weekend game is LIVE ONLY during its specific scheduled day and hour:
+ * - Friday, Saturday, or Sunday
+ * - 2:00 PM (14:00 - 15:00) or 6:00 PM (18:00 - 19:00) East Africa Time (UTC+3)
+ * On all other days (Mon-Thu) and at all other hours, it is NOT live (strictly SCHEDULED).
+ */
+export function isWeekendSlotCurrentlyLive(game: {
+  gameType?: string;
+  category?: string;
+  isWeekendSpecial?: boolean;
+  weekendDay?: 'FRI' | 'SAT' | 'SUN' | string;
+  weekendSlot?: '2PM' | '6PM' | string;
+}): boolean {
+  const isWknd = game.gameType === 'WEEKEND_LOTTERY' || game.category === 'HYPER_WEEKEND' || game.isWeekendSpecial;
+  if (!isWknd) return false;
+
+  try {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Africa/Addis_Ababa',
+      weekday: 'short',
+      hour: 'numeric',
+      hourCycle: 'h23',
+    }).formatToParts(now);
+
+    const weekdayStr = parts.find(p => p.type === 'weekday')?.value?.toUpperCase() || '';
+    const hourVal = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+
+    const targetDay = game.weekendDay || 'FRI';
+    if (targetDay === 'FRI' && !weekdayStr.startsWith('FRI')) return false;
+    if (targetDay === 'SAT' && !weekdayStr.startsWith('SAT')) return false;
+    if (targetDay === 'SUN' && !weekdayStr.startsWith('SUN')) return false;
+
+    const targetSlot = game.weekendSlot || '2PM';
+    if (targetSlot === '2PM' && (hourVal < 14 || hourVal >= 15)) return false;
+    if (targetSlot === '6PM' && (hourVal < 18 || hourVal >= 19)) return false;
+
+    return true;
+  } catch {
+    const now = new Date();
+    const day = now.getDay();
+    const hour = now.getHours();
+    const targetDay = game.weekendDay || 'FRI';
+    if (targetDay === 'FRI' && day !== 5) return false;
+    if (targetDay === 'SAT' && day !== 6) return false;
+    if (targetDay === 'SUN' && day !== 0) return false;
+    const targetSlot = game.weekendSlot || '2PM';
+    if (targetSlot === '2PM' && (hour < 14 || hour >= 15)) return false;
+    if (targetSlot === '6PM' && (hour < 18 || hour >= 19)) return false;
+    return true;
+  }
+}
+
+/**
  * Synthesizes an energetic victory fanfare sound using Web Audio API when user calls BINGO!
  */
 export function playBingoVictoryFanfare(): void {
@@ -1274,8 +1328,8 @@ export function canAffordLottery(
 
 export function getLotteryWeekendDaysText(lang: 'en' | 'am' = 'en'): string {
   return lang === 'am'
-    ? 'የአርብ እሑድ · ቅዳሜ 10 ሰዓት'
-    : 'Fri · Sat · Sun 10 PM';
+    ? 'ዓርብ · ቅዳሜ · እሑድ (ከሰዓት 8:00 እና ምሽት 12:00 / 2:00 PM & 6:00 PM)'
+    : 'Fri · Sat · Sun (2:00 PM & 6:00 PM)';
 }
 
 export function getLotteryGameLabel(

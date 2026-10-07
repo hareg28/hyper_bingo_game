@@ -44,17 +44,17 @@ export default function BotSimulator({
       reaction: '❤️',
       text: `🎉 50 ሺ : በ 50 ብር 🎉
 
-🗓️ አርብ | ቅዳሜ | እሁድ
-🕒 10 ሰዓት
+🗓️ ዓርብ | ቅዳሜ | እሑድ
+🕒 ከሰዓት 8:00 እና ምሽት 12:00 (2:00 PM & 6:00 PM)
+🏆 የዕጣው ዓይነት: Full House Only (24/24 ቁጥሮች)
 🎫 ካርቴላ ሳያልቅ ⌛ ቀድመው ይያዙ 🏃
 
 ❓ ማንኛውም ጥያቄ ካለ
-📞 0900906969
-📞 0900483848
+📞 0912738543
 👉 @HyperBingoSupport`,
       buttons: [
         { 
-          label: 'አርብ 🕒 10 ሰዓት (ሎተሪ ካርድ ይግዙ)', 
+          label: '🌟 ዓርብ፣ ቅዳሜ፣ እሑድ ሎተሪ (ካርድ ይግዙ)', 
           action: () => onOpenMiniApp('lottery'), 
           isPrimary: true 
         },
@@ -292,17 +292,17 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
       reaction = '❤️';
       botResponseText = `🎉 50 ሺ : በ 50 ብር 🎉
 
-🗓️ አርብ | ቅዳሜ | እሁድ
-🕒 10 ሰዓት
+🗓️ ዓርብ | ቅዳሜ | እሑድ
+🕒 ከሰዓት 8:00 እና ምሽት 12:00 (2:00 PM & 6:00 PM)
+🏆 የዕጣው ዓይነት: Full House Only (24/24 ቁጥሮች)
 🎫 ካርቴላ ሳያልቅ ⌛ ቀድመው ይያዙ 🏃
 
 ❓ ማንኛውም ጥያቄ ካለ
-📞 0900906969
-📞 0900483848
+📞 0912738543
 👉 @HyperBingoSupport`;
       buttons = [
         { 
-          label: 'አርብ 🕒 10 ሰዓት (ሎተሪ ካርድ ይግዙ)', 
+          label: '🌟 ዓርብ፣ ቅዳሜ፣ እሑድ ሎተሪ (ካርድ ይግዙ)', 
           action: () => onOpenMiniApp('lottery'), 
           isPrimary: true 
         },

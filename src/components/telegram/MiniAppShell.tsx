@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
-import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS, HYPER_SPECIAL_RULES } from '../../lib/bingoUtils';
+import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS, HYPER_SPECIAL_RULES, isWeekendSlotCurrentlyLive } from '../../lib/bingoUtils';
 import { 
   Wallet, User as UserIcon, Shield, 
   Share2, Copy, Check, LogOut, Sparkles, 
@@ -483,14 +483,18 @@ export default function MiniAppShell({
                               })()}
                         </span>
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                          (g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) && g.status !== 'RUNNING'
-                            ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                          (g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial)
+                            ? (isWeekendSlotCurrentlyLive(g)
+                                ? 'bg-rose-100 text-rose-700 border border-rose-200 animate-pulse'
+                                : 'bg-purple-100 text-purple-900 border border-purple-300')
                             : g.status === 'RUNNING' ? 'bg-rose-100 text-rose-700 border border-rose-200'
                             : g.status === 'STARTING' ? 'bg-amber-100 text-amber-800 border border-amber-200'
                             : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                         }`}>
-                          {(g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) && g.status !== 'RUNNING'
-                            ? (language === 'am' ? '📅 የተያዘለት (ክፍት)' : '📅 SCHEDULED')
+                          {(g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial)
+                            ? (isWeekendSlotCurrentlyLive(g)
+                                ? '● LIVE'
+                                : (language === 'am' ? '📅 የተያዘለት (ክፍት)' : '📅 SCHEDULED'))
                             : g.status === 'RUNNING' ? '● LIVE' : g.status === 'STARTING' ? 'STARTING' : 'OPEN'}
                         </span>
                       </div>

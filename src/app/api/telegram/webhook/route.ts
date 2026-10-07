@@ -571,6 +571,30 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
+      // ── /weekend, /lottery — Weekend lottery schedule & rules ───────────────────
+      if (text && (text.startsWith('/weekend') || text.startsWith('/lottery'))) {
+        await sendMessage({
+          chat_id: chatId,
+          parse_mode: 'HTML',
+          text:
+            `🎉 <b>50 ሺ : በ 50 ብር — Hyper Weekend Lottery</b> 🎉\n\n` +
+            `🗓️ <b>ዕለቶች:</b> ዓርብ · ቅዳሜ · እሑድ (Fri, Sat, Sun)\n` +
+            `🕒 <b>የዕጣ ሰዓታት:</b> ከሰዓት 8:00 እና ምሽት 12:00 (2:00 PM &amp; 6:00 PM)\n` +
+            `🏆 <b>የአሸናፊነት ሕግ:</b> Full House Only (24/24 ቁጥሮች)\n` +
+            `💰 <b>የካርድ ዋጋ:</b> 50 ETB | <b>የጃክፖት ሽልማት:</b> 50,000 ETB\n` +
+            `🎫 <i>ካርቴላ ሳያልቅ ቀድመው ይያዙ!</i>\n\n` +
+            `❓ <b>ማንኛውም ጥያቄ ካለ:</b>\n` +
+            `📞 0912738543\n` +
+            `👉 @HyperBingoSupport`,
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '🌟 Open Weekend Lottery (ካርድ ይግዙ)', web_app: { url: `${appUrl}?tab=lottery` } },
+            ]],
+          },
+        });
+        return NextResponse.json({ ok: true });
+      }
+
       // ── /start [referral_code], /help — OR any first message ─────────────────────────────────
       // Handle referral links: /start ABC123 or start_param from Telegram deep link
       const startPayload = text?.startsWith('/start ') ? text.replace('/start ', '').trim() : null;
