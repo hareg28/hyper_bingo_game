@@ -1474,52 +1474,50 @@ function WeekendLotteryNumberPicker({
         </div>
       ) : (
         <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-2 shrink-0">
-          <>
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-600" />
-                {mode === 'FETAN' 
-                  ? (isAm ? 'የፈጣን ውርርድ ደረጃ (5, 10, 30, 50 ብር)' : 'Hyper Fetan Stakes (5, 10, 30, 50 ETB)')
-                  : (isAm ? 'የስፔሻል ውርርድ ደረጃ (10, 20, 30 ብር)' : 'Hyper Special Stakes (10, 20, 30 ETB)')
-                }
-              </span>
-              <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
-                ⚡ {entryPrice} ETB {isAm ? 'ተመርጧል' : 'Selected'}
-              </span>
-            </div>
-            <div className={`grid gap-1.5 ${mode === 'FETAN' ? 'grid-cols-4' : 'grid-cols-3'}`}>
-              {targetGames.map((wg, idx) => {
-                const isSelected = selectedGameIdx === idx;
-                return (
-                  <button
-                    key={wg.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedGameIdx(idx);
-                      if (onChangeGameId) onChangeGameId(wg.id);
-                    }}
-                    className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center transition cursor-pointer border-2 ${
-                      isSelected
-                        ? 'bg-amber-500 border-amber-600 text-slate-950 font-black shadow-sm scale-[1.02]'
-                        : 'bg-slate-50 hover:bg-amber-50/50 border-slate-200 hover:border-amber-300 text-slate-700 font-bold'
-                    }`}
-                  >
-                    <span className="text-xs font-black">⚡ {wg.entryPrice} ETB</span>
-                    <span className={`text-[9px] ${isSelected ? 'text-amber-950 font-black' : 'text-slate-500'}`}>
-                      {wg.entryPrice === 5 ? (isAm ? 'ጀማሪ' : 'Starter')
-                        : wg.entryPrice === 10 ? (isAm ? 'ተመራጭ' : 'Popular')
-                        : wg.entryPrice === 20 ? (isAm ? 'መደበኛ' : 'Standard')
-                        : wg.entryPrice === 30 ? (isAm ? 'መካከለኛ' : 'Medium')
-                        : wg.entryPrice === 50 ? (isAm ? 'ከፍተኛ' : 'High')
-                        : 'VIP Mega'}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </div>
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-600" />
+              {mode === 'FETAN' 
+                ? (isAm ? 'የፈጣን ውርርድ ደረጃ (5, 10, 30, 50 ብር)' : 'Hyper Fetan Stakes (5, 10, 30, 50 ETB)')
+                : (isAm ? 'የስፔሻል ውርርድ ደረጃ (10, 20, 30 ብር)' : 'Hyper Special Stakes (10, 20, 30 ETB)')
+              }
+            </span>
+            <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+              ⚡ {entryPrice} ETB {isAm ? 'ተመርጧል' : 'Selected'}
+            </span>
+          </div>
+          <div className={`grid gap-1.5 ${mode === 'FETAN' ? 'grid-cols-4' : 'grid-cols-3'}`}>
+            {targetGames.map((wg, idx) => {
+              const isSelected = selectedGameIdx === idx;
+              return (
+                <button
+                  key={wg.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedGameIdx(idx);
+                    if (onChangeGameId) onChangeGameId(wg.id);
+                  }}
+                  className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center transition cursor-pointer border-2 ${
+                    isSelected
+                      ? 'bg-amber-500 border-amber-600 text-slate-950 font-black shadow-sm scale-[1.02]'
+                      : 'bg-slate-50 hover:bg-amber-50/50 border-slate-200 hover:border-amber-300 text-slate-700 font-bold'
+                  }`}
+                >
+                  <span className="text-xs font-black">⚡ {wg.entryPrice} ETB</span>
+                  <span className={`text-[9px] ${isSelected ? 'text-amber-950 font-black' : 'text-slate-500'}`}>
+                    {wg.entryPrice === 5 ? (isAm ? 'ጀማሪ' : 'Starter')
+                      : wg.entryPrice === 10 ? (isAm ? 'ተመራጭ' : 'Popular')
+                      : wg.entryPrice === 20 ? (isAm ? 'መደበኛ' : 'Standard')
+                      : wg.entryPrice === 30 ? (isAm ? 'መካከለኛ' : 'Medium')
+                      : wg.entryPrice === 50 ? (isAm ? 'ከፍተኛ' : 'High')
+                      : 'VIP Mega'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Light top stats card: SOLD | AVAILABLE | STAKE | REG CODE */}
       <div className="mx-2 mt-2 flex items-stretch rounded-2xl overflow-hidden bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100 text-slate-900 shadow-xs border border-amber-200 shrink-0">

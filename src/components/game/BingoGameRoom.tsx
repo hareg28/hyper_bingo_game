@@ -1829,155 +1829,157 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
             )}
 
-            {/* ── Render EACH card as its own independent table ── */}
-            {activeGameCards.map((card, cardIdx) => {
-              const cardIsWin = Boolean(getBestWinningRule(card.marked, currentGame.winningRule, currentGame.activeSpecialRuleIndex));
-              const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
-              const cardDrawnSet = new Set(currentGame.drawnNumbers);
-              const cardIsHint = hintCardId === card.id;
-              const oneAway = checkOneAwayStatus(card.marked, card.numbers, currentGame.winningRule, currentGame.activeSpecialRuleIndex);
+            {/* ── Render 2 slots per page in compact 2-column grid ── */}
+            <div className={`grid gap-2 ${activeGameCards.length === 1 ? 'grid-cols-1 max-w-sm mx-auto w-full' : 'grid-cols-2'}`}>
+              {activeGameCards.map((card, cardIdx) => {
+                const cardIsWin = Boolean(getBestWinningRule(card.marked, currentGame.winningRule, currentGame.activeSpecialRuleIndex));
+                const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
+                const cardDrawnSet = new Set(currentGame.drawnNumbers);
+                const cardIsHint = hintCardId === card.id;
+                const oneAway = checkOneAwayStatus(card.marked, card.numbers, currentGame.winningRule, currentGame.activeSpecialRuleIndex);
 
-              return (
-                <div
-                  key={card.id}
-                  className={`bg-white rounded-2xl overflow-hidden shadow-md border-2 transition-all ${
-                    cardIsBlocked
-                      ? 'border-rose-400 ring-2 ring-rose-200'
-                      : cardIsWin
-                      ? 'border-amber-400 ring-4 ring-amber-300 shadow-xl shadow-amber-200 animate-pulse'
-                      : oneAway.isOneAway
-                      ? 'border-amber-400 ring-4 ring-amber-300 shadow-xl shadow-amber-200/50'
-                      : 'border-slate-200'
-                  }`}
-                >
-                  {/* Card header: number badge + card index + fullscreen + delete */}
-                  <div className={`${cardIsBlocked ? 'bg-rose-800 text-white' : oneAway.isOneAway && !cardIsWin ? 'bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 text-white' : 'bg-slate-900 text-white'} flex items-center justify-between px-3 py-1.5`}>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] opacity-80">📋</span>
-                      <span className="font-black font-mono text-base">#{card.cardNumber}</span>
-                      <span className="text-[10px] opacity-60 font-bold">
-                        ({cardIdx + 1}/{activeGameCards.length})
-                      </span>
-                      {cardIsBlocked ? (
-                        <span className="text-[9px] font-black bg-rose-600 text-white px-1.5 py-0.5 rounded uppercase">
-                          BLOCKED
+                return (
+                  <div
+                    key={card.id}
+                    className={`bg-white rounded-xl overflow-hidden shadow-xs border-2 transition-all flex flex-col justify-between ${
+                      cardIsBlocked
+                        ? 'border-rose-400 ring-1 ring-rose-200'
+                        : cardIsWin
+                        ? 'border-amber-400 ring-2 ring-amber-300 shadow-md shadow-amber-200 animate-pulse'
+                        : oneAway.isOneAway
+                        ? 'border-amber-400 ring-2 ring-amber-300 shadow-sm shadow-amber-200/50'
+                        : 'border-slate-200'
+                    }`}
+                  >
+                    {/* Card header: compact number badge + card index + fullscreen + delete */}
+                    <div className={`${cardIsBlocked ? 'bg-rose-800 text-white' : oneAway.isOneAway && !cardIsWin ? 'bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 text-white' : 'bg-slate-900 text-white'} flex items-center justify-between px-2 py-1`}>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-[10px] opacity-80 shrink-0">📋</span>
+                        <span className="font-black font-mono text-xs truncate">#{card.cardNumber}</span>
+                        <span className="text-[9px] opacity-60 font-bold shrink-0">
+                          ({cardIdx + 1}/{activeGameCards.length})
                         </span>
-                      ) : oneAway.isOneAway && !cardIsWin ? (
-                        <span className="text-[9px] font-black bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded uppercase shadow-xs animate-bounce">
-                          🔥 1-AWAY
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => {
-                          setSelectedCardId(card.id);
-                          setExpandCardModal(true);
-                        }}
-                        className="text-white hover:bg-white/20 transition cursor-pointer px-2 py-1 rounded-lg bg-white/10 text-xs font-bold flex items-center gap-1"
-                        title="View fullscreen"
-                      >
-                        <Maximize2 className="w-3.5 h-3.5" />
-                        <span className="text-[11px]">{language === 'am' ? 'ሙሉ' : 'Full'}</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setCardToDelete({ id: card.id, cardNumber: card.cardNumber });
-                        }}
-                        className="text-rose-300 hover:text-white hover:bg-rose-600 rounded-lg px-2 py-1 transition cursor-pointer text-xs font-bold flex items-center gap-1 bg-rose-500/20"
-                        title="Remove this card"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 1-AWAY SUSPENSE BANNER */}
-                  {oneAway.isOneAway && !cardIsWin && !cardIsBlocked && (
-                    <div className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 px-3 py-1 flex items-center justify-between text-slate-950 font-black text-xs shadow-xs animate-pulse">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <span className="text-sm">🔥</span>
-                        <span className="truncate uppercase tracking-wider text-[11px]">
-                          {language === 'am' ? `1 ቁጥር ቀርቷል! (${oneAway.ruleLabelAm})` : `1-AWAY TO BINGO! (${oneAway.ruleLabel})`}
-                        </span>
+                        {cardIsBlocked ? (
+                          <span className="text-[8px] font-black bg-rose-600 text-white px-1 py-0.2 rounded uppercase shrink-0">
+                            BLOCKED
+                          </span>
+                        ) : oneAway.isOneAway && !cardIsWin ? (
+                          <span className="text-[8px] font-black bg-amber-400 text-slate-950 px-1 py-0.2 rounded uppercase shadow-xs shrink-0 animate-bounce">
+                            🔥 1-AWAY
+                          </span>
+                        ) : null}
                       </div>
-                      <div className="flex items-center gap-1 bg-slate-950 text-amber-300 px-2 py-0.5 rounded-full text-[11px] font-mono shrink-0 shadow-2xs">
-                        <span>{language === 'am' ? 'የሚፈለግ:' : 'Needed:'}</span>
-                        <span className="text-white font-black text-xs">#{oneAway.neededNumber}</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => {
+                            setSelectedCardId(card.id);
+                            setExpandCardModal(true);
+                          }}
+                          className="text-white hover:bg-white/20 transition cursor-pointer p-1 rounded-md bg-white/10 text-[10px] font-bold flex items-center gap-0.5"
+                          title="View fullscreen"
+                        >
+                          <Maximize2 className="w-3 h-3" />
+                          <span className="hidden sm:inline text-[9px]">{language === 'am' ? 'ሙሉ' : 'Full'}</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCardToDelete({ id: card.id, cardNumber: card.cardNumber });
+                          }}
+                          className="text-rose-300 hover:text-white hover:bg-rose-600 rounded-md p-1 transition cursor-pointer text-[10px] font-bold flex items-center bg-rose-500/20"
+                          title="Remove this card"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                       </div>
                     </div>
-                  )}
 
-                  {/* 5x5 NUMBER GRID */}
-                  <div className="grid grid-cols-5 gap-0 bg-slate-50">
-                    {card.numbers.map((row, rIdx) =>
-                      row.map((val, cIdx) => {
-                        const isFree = rIdx === 2 && cIdx === 2;
-                        const isDrawn = !isFree && cardDrawnSet.has(val);
-                        const isMarked = card.marked[rIdx][cIdx];
-                        const isCurrent = currentGame.currentBall === val && !isFree;
-                        const isHintCell = cardIsHint && patternHint && patternHint[rIdx][cIdx] && !isMarked && !isFree;
-                        const isTargetNumber = oneAway.isOneAway && oneAway.neededNumber === val && !isMarked && !isFree;
-
-                        return (
-                          <button
-                            key={`${card.id}-${rIdx}-${cIdx}`}
-                            onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
-                            className={`h-14 sm:h-16 flex items-center justify-center font-bold border border-slate-100 transition-all relative cursor-pointer ${
-                              isFree
-                                ? 'bg-green-500'
-                                : isMarked || isDrawn
-                                ? 'bg-red-600 shadow-inner'
-                                : isTargetNumber
-                                ? 'bg-amber-100 ring-2 ring-amber-500 ring-offset-1 animate-pulse z-10'
-                                : isCurrent
-                                ? 'bg-amber-300 ring-1 ring-amber-500'
-                                : isHintCell
-                                ? 'bg-amber-100 ring-1 ring-amber-400 animate-pulse'
-                                : 'bg-white hover:bg-slate-100'
-                            }`}
-                          >
-                            {isFree ? (
-                              <span className="text-white font-black text-base italic">★</span>
-                            ) : (
-                              <span className={`font-black text-lg sm:text-xl ${
-                                isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950' : 'text-slate-800'
-                              }`}>
-                                {val}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })
+                    {/* Compact 1-AWAY SUSPENSE BANNER */}
+                    {oneAway.isOneAway && !cardIsWin && !cardIsBlocked && (
+                      <div className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 px-1.5 py-0.5 flex items-center justify-between text-slate-950 font-black text-[9px] shadow-xs animate-pulse">
+                        <div className="flex items-center gap-1 truncate">
+                          <span className="text-xs">🔥</span>
+                          <span className="truncate uppercase tracking-wider text-[9px]">
+                            {language === 'am' ? `1 ቀርቷል` : `1-AWAY`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-0.5 bg-slate-950 text-amber-300 px-1.5 py-0.2 rounded-full text-[9px] font-mono shrink-0 shadow-2xs">
+                          <span className="text-white font-black">#{oneAway.neededNumber}</span>
+                        </div>
+                      </div>
                     )}
-                  </div>
 
-                  {/* Per-card action row: Hint + BINGO */}
-                  <div className="flex items-stretch">
-                    <button
-                      onClick={() => handleLightGameHit(card)}
-                      className="px-3 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-black text-xs border-t border-r border-amber-200 flex items-center justify-center gap-1 cursor-pointer transition"
-                    >
-                      <Lightbulb className="w-3.5 h-3.5 fill-amber-500" />
-                      {language === 'am' ? 'ፍንጭ' : 'Hint'}
-                    </button>
-                    <button
-                      disabled={cardIsBlocked}
-                      onClick={() => !cardIsBlocked && handleClaimBingo(card.id)}
-                      className={`flex-1 py-2.5 font-black text-base tracking-widest italic transition cursor-pointer ${
-                        cardIsBlocked
-                          ? 'bg-rose-900 text-rose-300 cursor-not-allowed'
-                          : cardIsWin
-                          ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse border-t-2 border-amber-300'
-                          : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-400 hover:to-emerald-500 border-t-2 border-green-700/30'
-                      }`}
-                    >
-                      {cardIsBlocked ? '🚫 BLOCKED' : '🎯 BINGO!'}
-                    </button>
+                    {/* Compact 5x5 NUMBER GRID (Scaled to fit 2 per page) */}
+                    <div className="grid grid-cols-5 gap-0 bg-slate-50 flex-1">
+                      {card.numbers.map((row, rIdx) =>
+                        row.map((val, cIdx) => {
+                          const isFree = rIdx === 2 && cIdx === 2;
+                          const isDrawn = !isFree && cardDrawnSet.has(val);
+                          const isMarked = card.marked[rIdx][cIdx];
+                          const isCurrent = currentGame.currentBall === val && !isFree;
+                          const isHintCell = cardIsHint && patternHint && patternHint[rIdx][cIdx] && !isMarked && !isFree;
+                          const isTargetNumber = oneAway.isOneAway && oneAway.neededNumber === val && !isMarked && !isFree;
+
+                          return (
+                            <button
+                              key={`${card.id}-${rIdx}-${cIdx}`}
+                              onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
+                              className={`h-7 sm:h-9 aspect-square flex items-center justify-center font-bold border border-slate-200/60 transition-all relative cursor-pointer ${
+                                isFree
+                                  ? 'bg-green-500'
+                                  : isMarked || isDrawn
+                                  ? 'bg-red-600 shadow-inner'
+                                  : isTargetNumber
+                                  ? 'bg-amber-100 ring-1 ring-amber-500 animate-pulse z-10'
+                                  : isCurrent
+                                  ? 'bg-amber-300 ring-1 ring-amber-500'
+                                  : isHintCell
+                                  ? 'bg-amber-100 ring-1 ring-amber-400 animate-pulse'
+                                  : 'bg-white hover:bg-slate-100'
+                              }`}
+                            >
+                              {isFree ? (
+                                <span className="text-white font-black text-xs sm:text-sm italic">★</span>
+                              ) : (
+                                <span className={`font-black text-xs sm:text-sm ${
+                                  isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950' : 'text-slate-800'
+                                }`}>
+                                  {val}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Per-card compact action row: Hint + BINGO */}
+                    <div className="flex items-stretch shrink-0">
+                      <button
+                        onClick={() => handleLightGameHit(card)}
+                        className="px-2 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-black text-[10px] border-t border-r border-amber-200 flex items-center justify-center gap-0.5 cursor-pointer transition"
+                        title={language === 'am' ? 'ፍንጭ' : 'Hint'}
+                      >
+                        <Lightbulb className="w-3 h-3 fill-amber-500" />
+                        <span className="hidden sm:inline">{language === 'am' ? 'ፍንጭ' : 'Hint'}</span>
+                      </button>
+                      <button
+                        disabled={cardIsBlocked}
+                        onClick={() => !cardIsBlocked && handleClaimBingo(card.id)}
+                        className={`flex-1 py-1.5 font-black text-xs sm:text-sm tracking-wider italic transition cursor-pointer ${
+                          cardIsBlocked
+                            ? 'bg-rose-900 text-rose-300 cursor-not-allowed'
+                            : cardIsWin
+                            ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse border-t-2 border-amber-300'
+                            : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-400 hover:to-emerald-500 border-t-2 border-green-700/30'
+                        }`}
+                      >
+                        {cardIsBlocked ? '🚫 BLOCKED' : '🎯 BINGO!'}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
 
             {/* Quick Live Reactions Toolbar */}
             <div className="bg-white/95 backdrop-blur-xs border border-slate-200 rounded-2xl p-2 flex items-center justify-between gap-1 shadow-xs">
