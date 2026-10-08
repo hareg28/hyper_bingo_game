@@ -61,6 +61,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const [soundEnabled, setSoundEnabled] = useState(false);
   // Cached voices + robust preload via onvoiceschanged (fixes empty voice list on first speak)
   const [loadedVoices, setLoadedVoices] = useState<SpeechSynthesisVoice[]>([]);
+  // Cached picked voice so we don't re-scan getVoices() on every ball draw (major perf fix)
+  const pickedVoiceRef = React.useRef<{ voice: SpeechSynthesisVoice | null; isAmharic: boolean } | null>(null);
   // Runtime voice-quality signal
   const [voiceBanner, setVoiceBanner] = useState<
     null | { kind: 'warning'; titleEn: string; titleAm: string; bodyEn: string; bodyAm: string; }
@@ -236,9 +238,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     user && (user.role === 'admin' || isAdminTelegramId(user.telegramId) || isAdminTelegramId(user.username))
   );
 
-  // Live clock for header
+  // Live clock for header — skip update when page is hidden to save CPU
   useEffect(() => {
     const updateTime = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       const now = new Date();
       const h = now.getHours().toString().padStart(2, '0');
       const m = now.getMinutes().toString().padStart(2, '0');
@@ -268,6 +271,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   useEffect(() => {
     const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       setSecondsRemaining(prev => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(timer);
@@ -298,6 +302,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     if (!isFetanGame) return;
 
     const timer = setInterval(() => {
+      // Skip update when app is backgrounded (prevents stacking on mobile)
+      if (typeof document !== 'undefined' && document.hidden) return;
       if (fetanIsIntermission) {
         // Intermission countdown: card picking
         setFetanSecondsLeft((prev) => {
@@ -514,16 +520,18 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     const phLetter = letterPhoneticSpell[letter] || letter;
     const phWord = numberToPhonetic(num);
 
-    // Cancel any stale utterance — this clears a previous voice if it was e.g. the default male Amharic
+    // Cancel any stale utterance
     try { window.speechSynthesis.cancel(); } catch {}
 
-    // Refresh voices (browsers populate voices lazily on user gesture)
-    let voices: SpeechSynthesisVoice[] = [];
-    try {
-      const fresh = window.speechSynthesis.getVoices() || [];
-      voices = Array.isArray(fresh) ? fresh : [];
-      if (voices.length > 0) setLoadedVoices(voices);
-    } catch { voices = []; }
+    // Use cached voices (avoids expensive getVoices() on every ball draw = mobile perf fix)
+    let voices: SpeechSynthesisVoice[] = loadedVoices;
+    if (voices.length === 0) {
+      try {
+        const fresh = window.speechSynthesis.getVoices() || [];
+        voices = Array.isArray(fresh) ? fresh : [];
+        if (voices.length > 0) setLoadedVoices(voices);
+      } catch { voices = []; }
+    }
 
     const lower = (s: string) => String(s || '').toLowerCase();
 
@@ -762,6 +770,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   };
 
   // Auto Draw interval timer simulation — calls balls automatically without requiring player action
+  // Pauses when the page/app is hidden (backgrounded) to prevent phone freezing/stacking
   useEffect(() => {
     let interval: NodeJS.Timeout;
     const canAutoDraw = isAutoDrawing && 
@@ -773,6 +782,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
     if (canAutoDraw) {
       interval = setInterval(() => {
+        // Skip tick if app is backgrounded — prevents stacking/freezing on mobile
+        if (typeof document !== 'undefined' && document.hidden) return;
         const next = drawNextBall(currentGame.id);
         if (!next) {
           setIsAutoDrawing(false);

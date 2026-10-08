@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       `🎮 <b>Available Games / የተዘጋጁ ጨዋታዎች:</b>\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n` +
       `⚡ <b>Hyper Fetan</b> (ሃይፐር ፈጣን)\n` +
-      `   └ 5, 10, 30, 50 ETB · 1 ደቂቃ ዙር · 500 ካርዶች\n` +
+      `   └ 10 ETB · 1 ደቂቃ ዙር · 500 ካርዶች\n` +
       `   └ አሸናፊ ሕግ: 1 መስመር ወይም 4 ማዕዘናት\n\n` +
       `🎲 <b>Hyper Special</b> (ሃይፐር ስፔሻል)\n` +
       `   └ 10, 20, 30 ETB · ቀጥታ ክፍል\n` +
@@ -516,15 +516,47 @@ export async function POST(req: NextRequest) {
           console.error('Failed to save announcement:', e);
         }
 
+        // Confirm to admin first
         await sendMessage({
           chat_id: chatId,
           parse_mode: 'HTML',
           text:
             `✅ <b>Announcement Posted!</b>\n\n` +
             `📢 <b>Your message:</b>\n${postContent}\n\n` +
-            `<i>This announcement is now visible to all users who open the bot or mini app. Use /clear to remove it.</i>`,
+            `<i>Broadcasting to all registered users now...</i>`,
           reply_markup: buildPersistentKeyboard(true),
         });
+
+        // Broadcast to ALL registered Telegram users (fire-and-forget)
+        try {
+          const allTelegramIds = await db.getAllUserTelegramIds();
+          const skipIds = new Set([String(chatId)]);
+          const toNotify = allTelegramIds.filter(id => !skipIds.has(id));
+
+          const BATCH = 25;
+          const DELAY = 1100;
+          for (let i = 0; i < toNotify.length; i += BATCH) {
+            const batch = toNotify.slice(i, i + BATCH);
+            await Promise.allSettled(batch.map(uid =>
+              sendMessage({
+                chat_id: uid,
+                parse_mode: 'HTML',
+                text: `📢 <b>Hyper Bingo Announcement:</b>\n\n${postContent}`,
+                reply_markup: {
+                  inline_keyboard: [[
+                    { text: '🎮 Play Hyper Bingo', web_app: { url: appUrl } },
+                  ]],
+                },
+              })
+            ));
+            if (i + BATCH < toNotify.length) {
+              await new Promise(r => setTimeout(r, DELAY));
+            }
+          }
+        } catch (broadcastErr) {
+          console.error('/post broadcast error:', broadcastErr);
+        }
+
         return NextResponse.json({ ok: true });
       }
 

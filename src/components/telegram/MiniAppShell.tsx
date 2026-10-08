@@ -1190,6 +1190,7 @@ function WeekendLotteryNumberPicker({
   React.useEffect(() => {
     if (mode === 'FETAN') {
       const updateFetanClock = () => {
+        if (typeof document !== 'undefined' && document.hidden) return;
         const nowSec = Math.floor(Date.now() / 1000);
         const cycle = nowSec % 90; // 60s live + 30s card pick
         if (cycle < 60) {
@@ -1205,6 +1206,7 @@ function WeekendLotteryNumberPicker({
       return () => clearInterval(interval);
     } else {
       const updateCountdown = () => {
+        if (typeof document !== 'undefined' && document.hidden) return;
         const now = new Date();
         const currentHour = now.getHours();
         const currentMinute = now.getMinutes();

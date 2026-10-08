@@ -74,35 +74,15 @@ export const INITIAL_WALLET: Wallet = {
 
 export const INITIAL_GAMES: Game[] = [
   // ================================================================
-  // CATEGORY 1: HYPER FETAN (5, 10, 30, 50 Birr)
+  // CATEGORY 1: HYPER FETAN (10 Birr ONLY)
   // - 1-500 Master Card Picker
   // - 5 Slots (S1..S5)
   // - 1 min game round duration + 30 sec card pick intermission
   // - Win Rule: 1 Line OR 4 Corners
   // ================================================================
   {
-    id: 'gm_fetan_05',
-    name: '⚡ Hyper Fetan 5',
-    gameType: 'HYPER_FETAN',
-    category: 'HYPER_FETAN',
-    winningRule: 'ONE_LINE_OR_CORNERS',
-    entryPrice: 5,
-    maxPlayers: 500,
-    currentPlayers: 0,
-    startTime: 'Live Round',
-    drawInterval: 2,
-    roundDuration: 60,
-    pickDuration: 30,
-    prizePool: 0,
-    status: 'OPEN',
-    drawnNumbers: [],
-    winners: [],
-    blockedCards: [],
-    createdAt: '2026-09-15T20:00:00Z',
-  },
-  {
     id: 'gm_fetan_10',
-    name: '⚡ Hyper Fetan 10',
+    name: '⚡ Hyper Fetan',
     gameType: 'HYPER_FETAN',
     category: 'HYPER_FETAN',
     winningRule: 'ONE_LINE_OR_CORNERS',
@@ -120,49 +100,12 @@ export const INITIAL_GAMES: Game[] = [
     blockedCards: [],
     createdAt: '2026-09-15T20:10:00Z',
   },
-  {
-    id: 'gm_fetan_30',
-    name: '⚡ Hyper Fetan 30',
-    gameType: 'HYPER_FETAN',
-    category: 'HYPER_FETAN',
-    winningRule: 'ONE_LINE_OR_CORNERS',
-    entryPrice: 30,
-    maxPlayers: 500,
-    currentPlayers: 0,
-    startTime: 'Live Round',
-    drawInterval: 2,
-    roundDuration: 60,
-    pickDuration: 30,
-    prizePool: 0,
-    status: 'OPEN',
-    drawnNumbers: [],
-    winners: [],
-    blockedCards: [],
-    createdAt: '2026-09-15T20:20:00Z',
-  },
-  {
-    id: 'gm_fetan_50',
-    name: '⚡ Hyper Fetan 50',
-    gameType: 'HYPER_FETAN',
-    category: 'HYPER_FETAN',
-    winningRule: 'ONE_LINE_OR_CORNERS',
-    entryPrice: 50,
-    maxPlayers: 500,
-    currentPlayers: 0,
-    startTime: 'Live Round',
-    drawInterval: 2,
-    roundDuration: 60,
-    pickDuration: 30,
-    prizePool: 0,
-    status: 'OPEN',
-    drawnNumbers: [],
-    winners: [],
-    blockedCards: [],
-    createdAt: '2026-09-15T20:30:00Z',
-  },
 
   // ================================================================
-  // CATEGORY 2: HYPER SPECIAL (10, 20, 30 Birr)
+  // CATEGORY 2: HYPER SPECIAL — Player/System Recommended Pricing
+  // - Price is set by players when joining OR system recommends
+  //   based on current player count and prize pool target.
+  // - System recommends: 20 ETB (min 10, max 200)
   // - Rotating Special Game Law (1 rule active per game until finished)
   // ================================================================
   {
