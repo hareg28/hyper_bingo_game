@@ -58,6 +58,7 @@ export default function MiniAppShell({
     activeGameId, 
     setActiveGameId, 
     updateGameEntryPrice,
+    resetGameRound,
     promotions, 
     referrals, 
     logout, 
@@ -136,6 +137,10 @@ export default function MiniAppShell({
   };
 
   const handleSelectGameToPickCards = (gameId: string, cat: 'FETAN' | 'SPECIAL' | 'WEEKEND') => {
+    const targetGame = games.find((g) => g.id === gameId);
+    if (targetGame && targetGame.status === 'COMPLETED') {
+      resetGameRound(gameId);
+    }
     setActiveGameId(gameId);
     setLotteryMode(cat);
     setActiveTab('lottery');
@@ -619,6 +624,9 @@ export default function MiniAppShell({
                       <button
                         onClick={() => {
                           if (categoryTab === 'SPECIAL') {
+                            if (g.status === 'COMPLETED') {
+                              resetGameRound(g.id);
+                            }
                             setActiveGameId(g.id);
                             setActiveTab('game');
                           } else {

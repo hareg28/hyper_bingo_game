@@ -284,6 +284,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const [fetanOvertime, setFetanOvertime] = useState<boolean>(false);
 
   const isFetanGame = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.winningRule === 'ONE_LINE_OR_CORNERS';
+  const isSpecialGame = currentGame.category === 'HYPER_SPECIAL' || currentGame.gameType === 'HYPER_SPECIAL';
+  const [specialSecondsLeft, setSpecialSecondsLeft] = useState<number>(25);
+  const [specialIsIntermission, setSpecialIsIntermission] = useState<boolean>(false);
   const hasGameWinner = Boolean((currentGame.winners && currentGame.winners.length > 0) || currentGame.status === 'COMPLETED');
 
   // When a winner claims Bingo or game finishes in Fetan, transition to 30s intermission
@@ -296,6 +299,38 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       setIsAutoDrawing(false);
     }
   }, [hasGameWinner, isFetanGame, fetanIsIntermission]);
+
+  // Hyper Special intermission when round finishes:
+  // After a game concludes, triggers 25s intermission before advancing to next game with NEW LAW and NEW PRICE
+  useEffect(() => {
+    if (!isSpecialGame) return;
+    if (hasGameWinner && !specialIsIntermission) {
+      setSpecialIsIntermission(true);
+      setSpecialSecondsLeft(25);
+      setIsAutoDrawing(false);
+    }
+  }, [hasGameWinner, isSpecialGame, specialIsIntermission]);
+
+  useEffect(() => {
+    if (!isSpecialGame || !specialIsIntermission) return;
+
+    const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      setSpecialSecondsLeft((prev) => {
+        if (prev <= 1) {
+          // Intermission finished -> automatically start next round with NEW LAW & NEW PRICE!
+          resetGameRound(currentGame.id);
+          setSpecialIsIntermission(false);
+          setIsAutoDrawing(false);
+          setIsSelectorOpen(true);
+          return 25;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isSpecialGame, specialIsIntermission, currentGame.id, resetGameRound]);
 
   // Fetan 1-second countdown ticker
   useEffect(() => {
@@ -1801,19 +1836,34 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       <div className="p-2 pb-4 bg-slate-100 flex flex-col gap-3">
         {activeGameCards.length > 0 ? (
           <>
-            {/* 1-Game Card Rule: Show notification when round concludes */}
+            {/* 1-Game Card Rule & Special Next Game Rotation Banner */}
             {hasGameWinner && (
-              <div className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 border-2 border-amber-600 rounded-2xl p-3 shadow-md text-slate-950 flex flex-col sm:flex-row items-center justify-between gap-2.5 animate-in slide-in-from-top-2 duration-300">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-2xl shrink-0">🏁</span>
+              <div className={`border-2 rounded-2xl p-3 shadow-md flex flex-col sm:flex-row items-center justify-between gap-2.5 animate-in slide-in-from-top-2 duration-300 ${
+                isSpecialGame
+                  ? 'bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 border-indigo-400 text-white'
+                  : 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 border-amber-600 text-slate-950'
+              }`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-2xl shrink-0">{isSpecialGame ? '🎲' : '🏁'}</span>
                   <div className="min-w-0">
-                    <div className="text-xs font-black uppercase tracking-wider truncate">
-                      {language === 'am' ? 'ዙሩ ተጠናቋል! ካርዶችዎ አገልግለዋል' : 'Round Finished! Your Cards Were Used'}
+                    <div className="text-xs font-black uppercase tracking-wider flex items-center gap-2 flex-wrap">
+                      <span>{isSpecialGame
+                        ? (language === 'am' ? 'የስፔሻል ዙር ተጠናቋል!' : 'Hyper Special Round Finished!')
+                        : (language === 'am' ? 'ዙሩ ተጠናቋል! ካርዶችዎ አገልግለዋል' : 'Round Finished!')}</span>
+                      {isSpecialGame && specialIsIntermission && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-mono font-black animate-pulse">
+                          ⏳ {specialSecondsLeft}s
+                        </span>
+                      )}
                     </div>
-                    <p className="text-[11px] font-medium leading-tight text-slate-900 mt-0.5">
-                      {language === 'am'
-                        ? 'እያንዳንዱ ካርድ ለአንድ ዙር ብቻ ያገለግላል። ቀጣዩን ዙር ለመጫወት አዲስ ካርድ መግዛት አለብዎት።'
-                        : 'Cards are valid for 1 game only. To play again, please purchase new cards for the next round.'}
+                    <p className={`text-[11px] font-medium leading-tight mt-0.5 ${isSpecialGame ? 'text-indigo-200' : 'text-slate-900'}`}>
+                      {isSpecialGame
+                        ? (language === 'am'
+                            ? `ቀጣዩ ዙር በአዲስ ሕግ (ሕግ #${((currentGame.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length + 1}) እና አዲስ ዋጋ ይጀምራል።`
+                            : `Next game rotates to Law #${((currentGame.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length + 1} with a new price.`)
+                        : (language === 'am'
+                            ? 'እያንዳንዱ ካርድ ለአንድ ዙር ብቻ ያገለግላል። ቀጣዩን ዙር ለመጫወት አዲስ ካርድ መግዛት አለብዎት።'
+                            : 'Cards are valid for 1 game only. To play again, please purchase new cards for the next round.')}
                     </p>
                   </div>
                 </div>
@@ -1821,11 +1871,18 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   type="button"
                   onClick={() => {
                     resetGameRound(currentGame.id);
+                    setSpecialIsIntermission(false);
                     setIsSelectorOpen(true);
                   }}
-                  className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-900 text-amber-300 font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                  className={`w-full sm:w-auto px-3.5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0 ${
+                    isSpecialGame
+                      ? 'bg-amber-400 hover:bg-amber-300 text-slate-950'
+                      : 'bg-slate-950 hover:bg-slate-900 text-amber-300'
+                  }`}
                 >
-                  <span>🎮 {language === 'am' ? 'አዲስ ካርድ ይግዙና ይጫወቱ' : 'Purchase Cards to Play Again'}</span>
+                  <span>🎮 {isSpecialGame
+                    ? (language === 'am' ? 'ቀጣይ ዙር ጀምር (አዲስ ሕግና ዋጋ)' : 'Start Next Game (New Law & Price)')
+                    : (language === 'am' ? 'አዲስ ካርድ ይግዙና ይጫወቱ' : 'Purchase Cards to Play Again')}</span>
                 </button>
               </div>
             )}
@@ -2546,7 +2603,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 }}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:brightness-105 text-slate-950 font-black text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-1.5"
               >
-                <span>🎮 {language === 'am' ? 'ቀጣይ ዙር ይጫወቱ (አዲስ ካርድ ይግዙ)' : 'Play Next Round (Purchase New Cards)'}</span>
+                <span>🎮 {isSpecialGame ? (language === 'am' ? 'ቀጣይ ዙር (አዲስ ሕግና ዋጋ)' : 'Play Next Round (New Law & Price)') : (language === 'am' ? 'ቀጣይ ዙር ይጫወቱ (አዲስ ካርድ ይግዙ)' : 'Play Next Round (Purchase New Cards)')}</span>
               </button>
               <div className="flex items-center gap-2">
                 {onBack && (

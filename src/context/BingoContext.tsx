@@ -1193,17 +1193,27 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       prev.map((g) => {
         if (g.id !== gameId) return g;
         const isSpecial = g.category === 'HYPER_SPECIAL' || g.gameType === 'HYPER_SPECIAL';
+        
+        // ── In Hyper Special: Change the Law AND the Price on each new game! ──
         const nextSpecialIndex = isSpecial
           ? ((g.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length
           : g.activeSpecialRuleIndex;
+
+        // Rotating recommended price cycle for Hyper Special: [20, 30, 50, 10, 25, 100]
+        const SPECIAL_PRICE_CYCLE = [20, 30, 50, 10, 25, 100];
+        const nextPrice = isSpecial
+          ? SPECIAL_PRICE_CYCLE[nextSpecialIndex % SPECIAL_PRICE_CYCLE.length]
+          : g.entryPrice;
+
         return {
           ...g,
           drawnNumbers: [],
           currentBall: null,
           blockedCards: [],
           winners: [],
-          status: 'RUNNING',
+          status: 'OPEN',
           activeSpecialRuleIndex: nextSpecialIndex,
+          entryPrice: nextPrice,
         };
       })
     );
