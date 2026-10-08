@@ -143,21 +143,21 @@ export async function POST(req: NextRequest) {
       }
 
       if (provStr.includes('telebirr')) {
-        // Telebirr transaction codes are 10 alphanumeric characters (e.g. DJ74JCZJNJ)
-        const telebirrPattern = /^[A-Z0-9]{10}$/;
+        // Telebirr transaction codes are 8-16 alphanumeric characters (e.g. DJ74JCZJNJ)
+        const telebirrPattern = /^[A-Z0-9]{8,16}$/;
         if (!telebirrPattern.test(cleanCode)) {
           return NextResponse.json<ApiResponse>({
             success: false,
-            error: 'Invalid Telebirr transaction code. Telebirr codes are exactly 10 alphanumeric characters (e.g. DJ74JCZJNJ).',
+            error: 'Invalid Telebirr transaction code. Please enter the transaction code from Telebirr SMS (e.g. DJ74JCZJNJ).',
           }, { status: 400 });
         }
       } else if (provStr.includes('cbe')) {
-        // CBE transfer references start with FT followed by 8-14 alphanumeric chars
-        const cbePattern = /^FT[0-9A-Z]{8,14}$/;
+        // CBE transfer references start with FT or numeric CBE Birr transaction ID (6-20 chars)
+        const cbePattern = /^(FT[0-9A-Z]{6,16}|[0-9A-Z]{6,20})$/;
         if (!cbePattern.test(cleanCode)) {
           return NextResponse.json<ApiResponse>({
             success: false,
-            error: 'Invalid CBE transaction reference. CBE transfer codes start with FT (e.g. FT24281XXXXX).',
+            error: 'Invalid CBE transaction reference. Enter FT reference (e.g. FT24281XXXXX) or CBE Birr transaction ID.',
           }, { status: 400 });
         }
       }
@@ -165,22 +165,41 @@ export async function POST(req: NextRequest) {
 
     const txRef = cleanCode || `HBINGO_${userId}_${Date.now()}`;
 
-    if (hasCode && (await db.isDepositReferenceAlreadyUsed(cleanCode))) {
-      return NextResponse.json<ApiResponse>({
-        success: false,
-        error:
-          'This transaction reference was already submitted or approved. Each transfer code can only be used once.',
-      }, { status: 409 });
+    let pendingTx: any = null;
+    if (hasCode) {
+      const existing = await db.findDepositByReference(cleanCode);
+      if (existing) {
+        if (existing.status === 'COMPLETED') {
+          return NextResponse.json<ApiResponse>({
+            success: false,
+            error:
+              'This transaction reference was already verified and approved. Each transfer code can only be used once.',
+          }, { status: 409 });
+        }
+        if (existing.status === 'PENDING') {
+          if (existing.userId === userId) {
+            // Already pending for this user — reuse it so admin gets notified
+            pendingTx = existing;
+          } else {
+            return NextResponse.json<ApiResponse>({
+              success: false,
+              error: 'This transaction reference was already submitted by another user.',
+            }, { status: 409 });
+          }
+        }
+      }
     }
 
-    // Create PENDING transaction — admin must approve before wallet is credited
-    const pendingTx = await db.createPendingDeposit({
-      userId,
-      amount,
-      provider: (provider ?? 'Telebirr') as PaymentProvider,
-      reference: txRef,
-      description: `Manual deposit via ${provider ?? 'Telebirr'} — pending admin review`,
-    });
+    // Create PENDING transaction if not already existing
+    if (!pendingTx) {
+      pendingTx = await db.createPendingDeposit({
+        userId,
+        amount,
+        provider: (provider ?? 'Telebirr') as PaymentProvider,
+        reference: txRef,
+        description: `Manual deposit via ${provider ?? 'Telebirr'} — pending admin review`,
+      });
+    }
 
     // ── Notify admins via Telegram (non-blocking) ────────────────────────────
     const botToken     = DEFAULT_BOT_TOKEN;
@@ -194,7 +213,7 @@ export async function POST(req: NextRequest) {
       `📞 <b>Phone:</b> <code>${user.phone ?? senderPhone ?? 'N/A'}</code>\n` +
       `💰 <b>Amount:</b> <b>${amount} ETB</b>\n` +
       `💳 <b>Provider:</b> ${provider ?? 'Telebirr'}\n` +
-      (hasCode       ? `🔖 <b>Transaction Code / FT:</b> <code>${code}</code>\n` : '') +
+      (hasCode       ? `🔖 <b>Transaction Code / FT:</b> <code>${cleanCode}</code>\n` : '') +
       (hasScreenshot ? `📸 <b>Receipt/Screenshot:</b> See photo below\n`         : '') +
       `🔖 <b>Reference:</b> <code>${txRef}</code>\n` +
       `📋 <b>Tx ID:</b> <code>${pendingTx.id}</code>\n` +

@@ -630,6 +630,35 @@ const db = {
   },
 
   /**
+   * Find an existing deposit transaction by reference.
+   */
+  async findDepositByReference(reference: string): Promise<Transaction | null> {
+    const cleanRef = reference.trim().toUpperCase().replace(/[\s-_]/g, '');
+    if (cleanRef.length < 3) return null;
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          SELECT * FROM transactions
+          WHERE type = 'DEPOSIT'
+            AND UPPER(REPLACE(REPLACE(reference, ' ', ''), '-', '')) = ${cleanRef}
+          ORDER BY created_at DESC
+          LIMIT 1
+        `;
+        if (rows.length > 0) return rowToTransaction(rows[0]);
+      } catch (e) {
+        console.error('Neon findDepositByReference error:', e);
+      }
+    }
+    return [...transactionsMap.values()].find(
+      (t) =>
+        t.type === 'DEPOSIT' &&
+        t.reference &&
+        t.reference.trim().toUpperCase().replace(/[\s-_]/g, '') === cleanRef
+    ) || null;
+  },
+
+  /**
    * Get count of pending deposits for a user (used to stop spamming multiple fake requests).
    */
   async getPendingDepositsCountForUser(userId: string): Promise<number> {

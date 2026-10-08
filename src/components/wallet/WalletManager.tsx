@@ -78,6 +78,7 @@ export default function WalletManager() {
   const [depositReference, setDepositReference] = useState<string>('');
   const [transactionCode, setTransactionCode] = useState<string>('');
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [depositError, setDepositError] = useState<string | null>(null);
 
   // QR Code State — generated IMMEDIATELY when entering deposit step 2 (no manual click needed)
   const [showQrModal, setShowQrModal] = useState<boolean>(false);
@@ -200,15 +201,22 @@ export default function WalletManager() {
   };
 
   // ── Deposit (manual: screenshot/code — goes to admin review) ───────────────
-  const handleDepositSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleDepositSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e && 'preventDefault' in e) {
+      e.preventDefault();
+    }
+    setDepositError(null);
+    setScreenshotError(null);
+
     if (!user || user.id === 'usr_guest') {
       openAuthModal('register');
       return;
     }
     const depositAmt = typeof amount === 'number' ? amount : Number(amount) || 0;
     if (depositAmt < 10) {
-      showStatus('error', 'Minimum deposit is 10 ETB (ዝቅተኛው ተቀማጭ መጠን 10 ብር ነው).');
+      const err = isAm ? 'ዝቅተኛው ተቀማጭ መጠን 10 ብር ነው (Minimum deposit is 10 ETB)' : 'Minimum deposit is 10 ETB.';
+      setDepositError(err);
+      showStatus('error', err);
       return;
     }
 
@@ -218,20 +226,28 @@ export default function WalletManager() {
       return;
     }
 
-    // Validation: must provide EITHER Transaction Code/SMS OR a Screenshot
-    const cleanCode = transactionCode.toUpperCase().trim().replace(/[\s-_]/g, '');
+    // Helper: intelligently extract code if user pasted bank/Telebirr SMS
+    const extractCleanCode = (input: string): string => {
+      const trimmed = input.trim();
+      // Look for FT reference anywhere in the input
+      const ftMatch = trimmed.match(/FT[0-9A-Za-z]{6,16}/i);
+      if (ftMatch) return ftMatch[0].toUpperCase();
+      // Look for 10-char alphanumeric word (Telebirr style)
+      const tbMatch = trimmed.match(/\b([A-Za-z0-9]{8,14})\b/);
+      if (trimmed.includes(' ') || trimmed.includes('\n')) {
+        return tbMatch ? tbMatch[1].toUpperCase() : trimmed.toUpperCase().replace(/[\s-_]/g, '');
+      }
+      return trimmed.toUpperCase().replace(/[\s-_]/g, '');
+    };
+
+    const cleanCode = extractCleanCode(transactionCode);
     if (!cleanCode && !screenshotBase64) {
-      setScreenshotError(
-        isAm
-          ? 'እባክዎ የባንክ/ቴሌብር የክፍያ መለያ ቁጥር (Transaction ID / FT) ያስገቡ ወይም ደረሰኝ ያያይዙ።'
-          : 'Please enter your Transaction Reference Code / FT number or attach a payment receipt.'
-      );
-      showStatus(
-        'error',
-        isAm
-          ? 'የክፍያ መለያ ቁጥር (Transaction ID) ወይም ደረሰኝ ማስገባት ግዴታ ነው!'
-          : 'Please enter your Transaction ID or attach a payment receipt.'
-      );
+      const err = isAm
+        ? 'እባክዎ የባንክ/ቴሌብር የክፍያ መለያ ቁጥር (Transaction ID / FT) ያስገቡ ወይም ደረሰኝ ያያይዙ።'
+        : 'Please enter your Transaction Reference Code / FT number or attach a payment receipt.';
+      setDepositError(err);
+      setScreenshotError(err);
+      showStatus('error', err);
       return;
     }
 
@@ -240,22 +256,25 @@ export default function WalletManager() {
         const err = isAm
           ? 'ትክክለኛ ያልሆነ የመለያ ቁጥር። እባክዎ ከባንኩ ወይም ቴሌብር የተላከውን ትክክለኛ ቁጥር ያስገቡ።'
           : 'Invalid transaction code. Please enter the real transaction code from Telebirr or CBE.';
+        setDepositError(err);
         setScreenshotError(err);
         showStatus('error', err);
         return;
       }
-      if (provider === 'Telebirr' && cleanCode.length !== 10) {
+      if (provider === 'Telebirr' && cleanCode.length < 6) {
         const err = isAm
-          ? 'የቴሌብር መለያ ቁጥር 10 ፊደላት/ቁጥሮች መሆን አለበት (ለምሳሌ፡ DJ74JCZJNJ)።'
-          : 'Telebirr transaction codes must be 10 characters (e.g. DJ74JCZJNJ).';
+          ? 'የቴሌብር መለያ ቁጥር ቢያንስ 6 ፊደላት/ቁጥሮች መሆን አለበት (ለምሳሌ፡ DJ74JCZJNJ)።'
+          : 'Telebirr transaction codes must be at least 6 characters (e.g. DJ74JCZJNJ).';
+        setDepositError(err);
         setScreenshotError(err);
         showStatus('error', err);
         return;
       }
-      if ((provider === 'CBE Birr' || provider === 'Bank Transfer') && !cleanCode.startsWith('FT')) {
+      if ((provider === 'CBE Birr' || provider === 'Bank Transfer') && !cleanCode.startsWith('FT') && !/^\d{6,}$/.test(cleanCode)) {
         const err = isAm
-          ? 'የCBE ማስተላለፊያ ቁጥር በ FT መጀመር አለበት (ለምሳሌ፡ FT24281XXXXX)።'
-          : 'CBE transfer references must start with FT (e.g. FT24281XXXXX).';
+          ? 'የCBE ማስተላለፊያ ቁጥር በ FT መጀመር ወይም የCBE Birr ቁጥር መሆን አለበት (ለምሳሌ፡ FT24281XXXXX)።'
+          : 'CBE transfer reference must start with FT (e.g. FT24281XXXXX) or be a CBE Birr reference.';
+        setDepositError(err);
         setScreenshotError(err);
         showStatus('error', err);
         return;
@@ -289,24 +308,28 @@ export default function WalletManager() {
         showStatus(
           'success',
           isAm
-            ? `Your deposit of ${depositAmt} ETB has been submitted for admin review. Your balance will be credited once verified.`
-            : `Deposit of ${depositAmt} ETB submitted for admin review! Your balance will be credited once an admin verifies your payment.`
+            ? `የ ${depositAmt} ETB ተቀማጭ ጥያቄዎ ለአስተዳዳሪ ተልኳል! ክፍያው ሲረጋገጥ ሂሳብዎ ይሞላል።`
+            : `Deposit of ${depositAmt} ETB submitted for admin review! Your balance will be credited once verified.`
         );
-        setActiveTab('balance');
+        setActiveTab('history');
         setDepositStep(1);
         setTransactionCode('');
+        setDepositError(null);
         handleRemoveScreenshot();
       } else {
-        showStatus('error', data.error ?? (isAm ? 'Deposit failed. Contact support.' : 'Deposit failed. Please contact support with your receipt.'));
+        const errMsg = data.error ?? (isAm ? 'ተቀማጩ አልተሳካም። እባክዎ ደጋፊ ያነጋግሩ።' : 'Deposit failed. Please contact support with your receipt.');
+        setDepositError(errMsg);
+        showStatus('error', errMsg);
       }
     } catch (err: unknown) {
       clearTimeout(timeout);
       const isAbort = err instanceof Error && err.name === 'AbortError';
       const msg = isAbort
-        ? 'Request timed out. Please try again or contact support at 0912738543.'
-        : (err instanceof Error ? err.message : '');
+        ? (isAm ? 'ጥያቄው ጊዜ አልፏል። እባክዎ እንደገና ይሞክሩ።' : 'Request timed out. Please try again.')
+        : (err instanceof Error ? err.message : (isAm ? 'የኔትወርክ ስህተት። እባክዎ እንደገና ይሞክሩ።' : 'Network error. Please try again.'));
       console.error('[Deposit UI Error]:', err);
-      showStatus('error', msg || 'Network error. Please try again.');
+      setDepositError(msg);
+      showStatus('error', msg);
     } finally {
       setIsProcessing(false);
     }
@@ -1106,6 +1129,7 @@ export default function WalletManager() {
                       const val = e.target.value.toUpperCase().replace(/\s/g, '');
                       setTransactionCode(val);
                       if (screenshotError) setScreenshotError(null);
+                      if (depositError) setDepositError(null);
                     }}
                     className="w-full bg-white border-2 border-emerald-300 focus:border-emerald-600 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none shadow-inner"
                   />
@@ -1204,22 +1228,29 @@ export default function WalletManager() {
                     <XCircle className="w-3.5 h-3.5 shrink-0" /> {screenshotError}
                   </p>
                 )}
+                {depositError && (
+                  <div className="p-3 bg-rose-50 border-2 border-rose-300 rounded-xl flex items-center gap-2 text-rose-800 text-xs font-bold shadow-xs">
+                    <XCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                    <span>{depositError}</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setDepositStep(1)}
+                  onClick={() => { setDepositStep(1); setDepositError(null); }}
                   className="w-1/3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 cursor-pointer"
                 >
                   {t('back')}
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleDepositSubmit}
                   disabled={isProcessing || (!transactionCode.trim() && !screenshotBase64)}
-                  className={`w-2/3 py-2.5 rounded-xl font-black text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`w-2/3 py-2.5 rounded-xl font-black text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
                     (!transactionCode.trim() && !screenshotBase64)
-                      ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed'
+                      ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-60'
                       : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20'
                   }`}
                 >
