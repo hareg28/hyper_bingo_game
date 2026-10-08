@@ -275,7 +275,7 @@ export default function WalletManager() {
           mode:            'manual',
           provider,
           depositReference,
-          transactionCode: code,
+          transactionCode: cleanCode,
           screenshot:      screenshotBase64,
           senderPhone:     user.phone || phoneOrAccount,
         }),

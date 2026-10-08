@@ -1513,12 +1513,14 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                               {tx.status === 'PENDING' ? (
                                 <div className="flex gap-1.5">
                                   <button
+                                    type="button"
                                     onClick={() => approveDeposit(tx.id, user?.username || 'admin')}
                                     className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-black cursor-pointer shadow-xs transition"
                                   >
                                     ✓ {t('approve')}
                                   </button>
                                   <button
+                                    type="button"
                                     onClick={() => rejectDeposit(tx.id, user?.username || 'admin')}
                                     className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[10px] font-bold cursor-pointer transition"
                                   >
