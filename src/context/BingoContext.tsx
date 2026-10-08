@@ -71,7 +71,8 @@ interface BingoContextType {
   approveWithdrawal: (withdrawalId: string, adminName: string, payoutReference?: string) => Promise<void>;
   rejectWithdrawal: (withdrawalId: string, adminName: string) => Promise<void>;
   refreshFinanceQueue: () => Promise<void>;
-  joinGame: (gameId: string, chosenCardNumbers?: string[]) => boolean;
+  joinGame: (gameId: string, chosenCardNumbers?: string[], customStake?: number) => boolean;
+  updateGameEntryPrice: (gameId: string, newPrice: number) => void;
   addCardToGame: (gameId: string, cardNumber: string) => boolean;
   removeCard: (cardId: string) => void;
   createGame: (gameData: Omit<Game, 'id' | 'currentPlayers' | 'drawnNumbers' | 'winners' | 'createdAt'>) => void;
@@ -111,7 +112,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [wallet, setWallet] = useState<Wallet>(EMPTY_WALLET);
   const [games, setGames] = useState<Game[]>(INITIAL_GAMES);
-  const [activeGameId, setActiveGameId] = useState<string | null>('gm_fetan_05');
+  const [activeGameId, setActiveGameId] = useState<string | null>('gm_fetan_10');
   const [userCards, setUserCards] = useState<BingoCard[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>(INITIAL_WITHDRAWALS);
@@ -963,8 +964,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     refreshFinanceQueue();
   };
 
-  // 5. JOIN GAME (supports chosen 5-digit card numbers like '12608', '11302')
-  const joinGame = (gameId: string, chosenCardNumbers?: string[]): boolean => {
+  // 5. JOIN GAME (supports chosen 5-digit card numbers like '12608', '11302' and customStake)
+  const joinGame = (gameId: string, chosenCardNumbers?: string[], customStake?: number): boolean => {
     if (!user) {
       openAuthModal('register');
       addNotification('Account Required', 'You must open an account to purchase cards and play.', 'warning');
@@ -974,10 +975,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const targetGame = games.find((g) => g.id === gameId);
     if (!targetGame) return false;
 
+    const actualStake = (customStake && customStake >= 10) ? customStake : targetGame.entryPrice;
+
     // Slot max 5: cap cards to at most 5
     const rawCards = chosenCardNumbers && chosenCardNumbers.length > 0 ? chosenCardNumbers : [String(Math.floor(10000 + Math.random() * 90000))];
     const cardsToCreate = rawCards.slice(0, 5);
-    const totalCost = targetGame.entryPrice * cardsToCreate.length;
+    const totalCost = actualStake * cardsToCreate.length;
 
     // Bonus balance is playable (can play but cannot withdraw)
     const playableBalance = wallet.availableBalance + wallet.bonusBalance;
@@ -1025,9 +1028,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     };
     setTransactions((prev) => [tx, ...prev]);
 
-    // Update game player count
+    // Update game player count and entryPrice if customized
     setGames((prev) =>
-      prev.map((g) => (g.id === gameId ? { ...g, currentPlayers: g.currentPlayers + 1 } : g))
+      prev.map((g) => (g.id === gameId ? { ...g, entryPrice: actualStake, currentPlayers: g.currentPlayers + 1 } : g))
     );
 
     // Generate fresh cards for user
@@ -1565,6 +1568,13 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     };
   };
 
+  const updateGameEntryPrice = (gameId: string, newPrice: number) => {
+    if (newPrice < 10) return;
+    setGames((prev) =>
+      prev.map((g) => (g.id === gameId ? { ...g, entryPrice: newPrice } : g))
+    );
+  };
+
   return (
     <BingoContext.Provider
       value={{
@@ -1612,6 +1622,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         updateUserRoleInDb,
         addAdminByIdentifier,
         creditBonusBalance,
+        updateGameEntryPrice,
         getLotterySoldNumbers,
         purchaseLotteryNumbers,
         isAuthModalOpen,

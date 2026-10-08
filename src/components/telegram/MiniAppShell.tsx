@@ -57,6 +57,7 @@ export default function MiniAppShell({
     wallet, 
     activeGameId, 
     setActiveGameId, 
+    updateGameEntryPrice,
     promotions, 
     referrals, 
     logout, 
@@ -369,7 +370,7 @@ export default function MiniAppShell({
               >
                 <span className="flex items-center gap-1 font-black">⚡ {language === 'am' ? 'ሃይፐር ፈጣን' : 'Hyper Fetan'}</span>
                 <span className={`text-[9px] font-bold ${categoryTab === 'FETAN' ? 'text-amber-950' : 'text-slate-500'}`}>
-                  5-50 ETB · 500 {language === 'am' ? 'ካርድ' : 'Cards'}
+                  10 ETB {language === 'am' ? 'ብቻ' : 'ONLY'} · 500 {language === 'am' ? 'ካርድ' : 'Cards'}
                 </span>
               </button>
 
@@ -384,7 +385,7 @@ export default function MiniAppShell({
               >
                 <span className="flex items-center gap-1 font-black">🎲 {language === 'am' ? 'ሃይፐር ስፔሻል' : 'Hyper Special'}</span>
                 <span className={`text-[9px] font-bold ${categoryTab === 'SPECIAL' ? 'text-amber-950' : 'text-slate-500'}`}>
-                  10-30 ETB · {language === 'am' ? 'ቀጥታ ክፍል' : 'Live Room'}
+                  10-100+ ETB · {language === 'am' ? 'የተጫዋች/ምክር ዋጋ' : 'Player/Rec Stake'}
                 </span>
               </button>
 
@@ -448,10 +449,10 @@ export default function MiniAppShell({
               {games
                 .filter((g) => {
                   if (categoryTab === 'FETAN') {
-                    return g.category === 'HYPER_FETAN' || g.entryPrice === 5 || g.entryPrice === 10 || (g.name?.includes('Fetan') && g.entryPrice <= 50);
+                    return (g.category === 'HYPER_FETAN' || g.name?.includes('Fetan')) && g.category !== 'HYPER_SPECIAL' && !g.id.includes('special');
                   }
                   if (categoryTab === 'SPECIAL') {
-                    return g.category === 'HYPER_SPECIAL' || (!g.name?.includes('Fetan') && g.gameType !== 'WEEKEND_LOTTERY' && !g.isWeekendSpecial && g.entryPrice >= 10);
+                    return g.category === 'HYPER_SPECIAL' || g.id.includes('special');
                   }
                   // WEEKEND: filter by selected weekend day subgroup
                   const isWknd = g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial;
@@ -498,6 +499,69 @@ export default function MiniAppShell({
                             : g.status === 'RUNNING' ? '● LIVE' : g.status === 'STARTING' ? 'STARTING' : 'OPEN'}
                         </span>
                       </div>
+                      {categoryTab === 'SPECIAL' && (
+                        <div className="mt-2 p-2 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black text-amber-950 uppercase tracking-wider flex items-center gap-1">
+                              <span>⚡</span> {language === 'am' ? 'የውርርድ ዋጋ ይምረጡ (ምክር ወይም የራስዎ):' : 'Choose Stake (Recommended or Custom):'}
+                            </span>
+                            <span className="text-[10px] font-mono font-black text-amber-900 bg-amber-200 px-1.5 py-0.5 rounded">
+                              {g.entryPrice} ETB
+                            </span>
+                          </div>
+                          {/* Recommended chips */}
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {[10, 20, 50, 100].map((recVal) => {
+                              const isSel = g.entryPrice === recVal;
+                              return (
+                                <button
+                                  key={recVal}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (updateGameEntryPrice) updateGameEntryPrice(g.id, recVal);
+                                  }}
+                                  className={`px-2 py-1 rounded-lg text-[10px] font-black transition cursor-pointer border ${
+                                    isSel
+                                      ? 'bg-amber-500 border-amber-600 text-slate-950 shadow-2xs'
+                                      : 'bg-white border-amber-200 text-slate-700 hover:bg-amber-100'
+                                  }`}
+                                >
+                                  {recVal === 20 ? `⭐ 20 ETB (${language === 'am' ? 'ምክር' : 'Rec'})` : `${recVal} ETB`}
+                                </button>
+                              );
+                            })}
+                            {/* Custom Stake numeric input */}
+                            <div className="flex items-center gap-1 bg-white border border-amber-300 rounded-lg px-1.5 py-0.5">
+                              <span className="text-[9px] text-slate-500 font-bold">{language === 'am' ? 'ብጁ:' : 'Custom:'}</span>
+                              <input
+                                type="number"
+                                min="10"
+                                max="1000"
+                                step="5"
+                                defaultValue={g.entryPrice}
+                                onBlur={(e) => {
+                                  const val = Number(e.target.value);
+                                  if (val >= 10 && updateGameEntryPrice) {
+                                    updateGameEntryPrice(g.id, val);
+                                  }
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    const val = Number((e.target as HTMLInputElement).value);
+                                    if (val >= 10 && updateGameEntryPrice) {
+                                      updateGameEntryPrice(g.id, val);
+                                    }
+                                  }
+                                }}
+                                className="w-12 text-[10px] font-mono font-black text-slate-900 outline-none text-center"
+                              />
+                              <span className="text-[9px] text-slate-400 font-bold">ETB</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                         <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
                         <span className="flex items-center gap-1 text-amber-700 font-black">
@@ -539,7 +603,19 @@ export default function MiniAppShell({
                         <span className="hidden sm:inline">{language === 'am' ? 'እይ' : 'Watch'}</span>
                       </button>
 
-                      {/* Main Play / Choose Cards Button */}
+                      {/* For Special: Choose Cards Button */}
+                      {categoryTab === 'SPECIAL' && (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectGameToPickCards(g.id, 'SPECIAL')}
+                          className="px-2.5 py-2 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-400 text-slate-950 transition flex items-center gap-1 cursor-pointer shadow-xs border border-amber-600"
+                          title={language === 'am' ? 'ካርድ ምረጥ' : 'Pick Cards'}
+                        >
+                          <span>{language === 'am' ? 'ካርድ ምረጥ' : 'Cards'}</span>
+                        </button>
+                      )}
+
+                      {/* Main Play Button */}
                       <button
                         onClick={() => {
                           if (categoryTab === 'SPECIAL') {
@@ -1099,7 +1175,9 @@ function WeekendLotteryNumberPicker({
   onChangeGameId,
   mode = 'WEEKEND',
   hideBackBtn = false,
+  onUpdateGameEntryPrice,
 }: {
+  onUpdateGameEntryPrice?: (gameId: string, price: number) => void;
   games: ReturnType<typeof useBingo>['games'];
   user: ReturnType<typeof useBingo>['user'];
   wallet: ReturnType<typeof useBingo>['wallet'];
@@ -1119,27 +1197,15 @@ function WeekendLotteryNumberPicker({
   const targetGames = React.useMemo(() => {
     if (mode === 'FETAN') {
       const list = games.filter(
-        (g) => g.category === 'HYPER_FETAN' || g.entryPrice === 5 || g.entryPrice === 10 || (g.name?.includes('Fetan') && g.entryPrice <= 50)
+        (g) => (g.category === 'HYPER_FETAN' || g.name?.includes('Fetan')) && g.category !== 'HYPER_SPECIAL' && !g.id.includes('special')
       );
-      const seen = new Set<number>();
-      const deduped = list.filter((g) => {
-        if (seen.has(g.entryPrice)) return false;
-        seen.add(g.entryPrice);
-        return true;
-      });
-      return deduped.sort((a, b) => a.entryPrice - b.entryPrice);
+      return list.slice(0, 1);
     }
     if (mode === 'SPECIAL') {
       const list = games.filter(
-        (g) => g.category === 'HYPER_SPECIAL' || (!g.name?.includes('Fetan') && g.gameType !== 'WEEKEND_LOTTERY' && !g.isWeekendSpecial && g.entryPrice >= 10)
+        (g) => g.category === 'HYPER_SPECIAL' || g.id.includes('special')
       );
-      const seen = new Set<number>();
-      const deduped = list.filter((g) => {
-        if (seen.has(g.entryPrice)) return false;
-        seen.add(g.entryPrice);
-        return true;
-      });
-      return deduped.sort((a, b) => a.entryPrice - b.entryPrice);
+      return list.slice(0, 1);
     }
     if (mode === 'WEEKEND') {
       return games.filter(
@@ -1478,30 +1544,45 @@ function WeekendLotteryNumberPicker({
             })}
           </div>
         </div>
+      ) : mode === 'FETAN' ? (
+        <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 shadow-xs flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-base">⚡</span>
+            <div>
+              <span className="text-xs font-black text-slate-900 block leading-tight">
+                {isAm ? 'ሃይፐር ፈጣን የመግቢያ ዋጋ: 10 ብር ብቻ' : 'Hyper Fetan Fixed Entry: 10 ETB Only'}
+              </span>
+              <span className="text-[10px] text-amber-800 font-bold">
+                {isAm ? '1 መስመር ወይም 4 ማዕዘናት · 1 ደቂቃ ዙር · 500 ካርዶች' : '1 Line or 4 Corners · 1 Min Round · 500 Cards'}
+              </span>
+            </div>
+          </div>
+          <span className="px-3 py-1 rounded-xl bg-amber-500 text-slate-950 font-black text-xs shadow-2xs border border-amber-600">
+            10 ETB
+          </span>
+        </div>
       ) : (
         <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-2 shrink-0">
           <div className="flex items-center justify-between px-1">
             <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-amber-600" />
-              {mode === 'FETAN' 
-                ? (isAm ? 'የፈጣን ውርርድ ደረጃ (5, 10, 30, 50 ብር)' : 'Hyper Fetan Stakes (5, 10, 30, 50 ETB)')
-                : (isAm ? 'የስፔሻል ውርርድ ደረጃ (10, 20, 30 ብር)' : 'Hyper Special Stakes (10, 20, 30 ETB)')
-              }
+              {isAm ? 'የስፔሻል ውርርድ ይምረጡ (ምክር ወይም የራስዎ):' : 'Special Stake (Recommended or Custom):'}
             </span>
-            <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
-              ⚡ {entryPrice} ETB {isAm ? 'ተመርጧል' : 'Selected'}
+            <span className="text-[10px] font-black text-amber-950 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+              ⚡ {entryPrice} ETB {isAm ? 'ተመርጧል' : 'Active'}
             </span>
           </div>
-          <div className={`grid gap-1.5 ${mode === 'FETAN' ? 'grid-cols-4' : 'grid-cols-3'}`}>
-            {targetGames.map((wg, idx) => {
-              const isSelected = selectedGameIdx === idx;
+          <div className="grid grid-cols-4 gap-1.5">
+            {[10, 20, 50, 100].map((recStake) => {
+              const isSelected = entryPrice === recStake;
               return (
                 <button
-                  key={wg.id}
+                  key={recStake}
                   type="button"
                   onClick={() => {
-                    setSelectedGameIdx(idx);
-                    if (onChangeGameId) onChangeGameId(wg.id);
+                    if (selectedGame && onUpdateGameEntryPrice) {
+                      onUpdateGameEntryPrice(selectedGame.id, recStake);
+                    }
                   }}
                   className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center transition cursor-pointer border-2 ${
                     isSelected
@@ -1509,18 +1590,45 @@ function WeekendLotteryNumberPicker({
                       : 'bg-slate-50 hover:bg-amber-50/50 border-slate-200 hover:border-amber-300 text-slate-700 font-bold'
                   }`}
                 >
-                  <span className="text-xs font-black">⚡ {wg.entryPrice} ETB</span>
-                  <span className={`text-[9px] ${isSelected ? 'text-amber-950 font-black' : 'text-slate-500'}`}>
-                    {wg.entryPrice === 5 ? (isAm ? 'ጀማሪ' : 'Starter')
-                      : wg.entryPrice === 10 ? (isAm ? 'ተመራጭ' : 'Popular')
-                      : wg.entryPrice === 20 ? (isAm ? 'መደበኛ' : 'Standard')
-                      : wg.entryPrice === 30 ? (isAm ? 'መካከለኛ' : 'Medium')
-                      : wg.entryPrice === 50 ? (isAm ? 'ከፍተኛ' : 'High')
-                      : 'VIP Mega'}
+                  <span className="text-xs font-black">⚡ {recStake} ETB</span>
+                  <span className={`text-[8px] ${isSelected ? 'text-amber-950 font-black' : 'text-slate-500'}`}>
+                    {recStake === 10 ? (isAm ? 'ጀማሪ' : 'Starter')
+                      : recStake === 20 ? (isAm ? '⭐ ምክር' : '⭐ Rec')
+                      : recStake === 50 ? (isAm ? 'ተመራጭ' : 'Popular')
+                      : (isAm ? 'VIP' : 'VIP')}
                   </span>
                 </button>
               );
             })}
+          </div>
+          <div className="flex items-center gap-1.5 pt-1 border-t border-amber-100">
+            <span className="text-[10px] font-bold text-slate-600 shrink-0">
+              {isAm ? 'ወይም ብጁ ዋጋ:' : 'Or Custom Stake:'}
+            </span>
+            <input
+              type="number"
+              min="10"
+              max="1000"
+              step="5"
+              defaultValue={entryPrice}
+              onBlur={(e) => {
+                const val = Number(e.target.value);
+                if (val >= 10 && selectedGame && onUpdateGameEntryPrice) {
+                  onUpdateGameEntryPrice(selectedGame.id, val);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const val = Number((e.target as HTMLInputElement).value);
+                  if (val >= 10 && selectedGame && onUpdateGameEntryPrice) {
+                    onUpdateGameEntryPrice(selectedGame.id, val);
+                  }
+                }
+              }}
+              placeholder="e.g. 25, 40..."
+              className="flex-1 bg-slate-50 border border-slate-300 focus:border-amber-500 rounded-lg px-2 py-1 text-xs font-mono font-bold text-slate-900 outline-none"
+            />
+            <span className="text-[10px] font-bold text-slate-500">ETB</span>
           </div>
         </div>
       )}

@@ -102,23 +102,22 @@ export const INITIAL_GAMES: Game[] = [
   },
 
   // ================================================================
-  // CATEGORY 2: HYPER SPECIAL — Player/System Recommended Pricing
-  // - Price is set by players when joining OR system recommends
-  //   based on current player count and prize pool target.
-  // - System recommends: 20 ETB (min 10, max 200)
+  // CATEGORY 2: HYPER SPECIAL — Player-Selected / System-Recommended Pricing
+  // - System recommends: 20 ETB (with quick choices: 10, 20 ⭐, 50, 100 ETB)
+  // - Players can also choose custom stakes (min 10 ETB)
   // - Rotating Special Game Law (1 rule active per game until finished)
   // ================================================================
   {
-    id: 'gm_special_10',
-    name: '🎲 Hyper Special 10',
+    id: 'gm_special',
+    name: '🎲 Hyper Special',
     gameType: 'HYPER_SPECIAL',
     category: 'HYPER_SPECIAL',
     winningRule: 'STANDARD',
     activeSpecialRuleIndex: 0,
-    entryPrice: 10,
+    entryPrice: 20,
     maxPlayers: 200,
     currentPlayers: 0,
-    startTime: 'Starting soon',
+    startTime: 'Live Round',
     drawInterval: 3,
     prizePool: 0,
     status: 'OPEN',
@@ -126,42 +125,6 @@ export const INITIAL_GAMES: Game[] = [
     winners: [],
     blockedCards: [],
     createdAt: '2026-09-15T20:40:00Z',
-  },
-  {
-    id: 'gm_special_20',
-    name: '🎲 Hyper Special 20',
-    gameType: 'HYPER_SPECIAL',
-    category: 'HYPER_SPECIAL',
-    winningRule: 'STANDARD',
-    activeSpecialRuleIndex: 1,
-    entryPrice: 20,
-    maxPlayers: 150,
-    currentPlayers: 0,
-    startTime: 'Starting in 02:45',
-    drawInterval: 4,
-    prizePool: 0,
-    status: 'OPEN',
-    drawnNumbers: [],
-    winners: [],
-    createdAt: '2026-09-15T20:50:00Z',
-  },
-  {
-    id: 'gm_special_30',
-    name: '🎯 Hyper Special 30',
-    gameType: 'HYPER_SPECIAL',
-    category: 'HYPER_SPECIAL',
-    winningRule: 'STANDARD',
-    activeSpecialRuleIndex: 2,
-    entryPrice: 30,
-    maxPlayers: 120,
-    currentPlayers: 0,
-    startTime: 'Starting in 03:30',
-    drawInterval: 3,
-    prizePool: 0,
-    status: 'OPEN',
-    drawnNumbers: [],
-    winners: [],
-    createdAt: '2026-09-15T21:00:00Z',
   },
 
   // ================================================================
