@@ -173,6 +173,59 @@ class AudioManager {
       });
     } catch {}
   }
+
+  /**
+   * Friendly ascending arpeggio chime for approval-request events
+   * (pending deposit verification, pending withdrawal request)
+   */
+  playApprovalRequestChime(): void {
+    this.unlockAudio();
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
+
+    try {
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      const now = ctx.currentTime;
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.11);
+        gain.gain.setValueAtTime(0.2, now + idx * 0.11);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.11 + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.11);
+        osc.stop(now + idx * 0.11 + 0.3);
+      });
+    } catch {}
+  }
+
+  /**
+   * Crisp two-note ding-dong alert for when an admin opens the mini app
+   */
+  playAdminEnterAlert(): void {
+    this.unlockAudio();
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
+
+    try {
+      const notes = [880.0, 1174.66];
+      const now = ctx.currentTime;
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.18);
+        gain.gain.setValueAtTime(0.22, now + idx * 0.18);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.18 + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.18);
+        osc.stop(now + idx * 0.18 + 0.4);
+      });
+    } catch {}
+  }
 }
 
 export const audioManager = new AudioManager();

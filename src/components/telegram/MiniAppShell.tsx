@@ -7,7 +7,7 @@ import {
   Wallet, User as UserIcon, Shield, 
   Share2, Copy, Check, LogOut, Sparkles, 
   ChevronRight, ChevronLeft, Globe, X, Users,
-  Gamepad2, Zap, Eye, Megaphone, Menu
+  Gamepad2, Zap, Eye, Menu
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
 import WalletManager from '../wallet/WalletManager';
@@ -79,63 +79,6 @@ export default function MiniAppShell({
   const [lotteryMode, setLotteryMode] = useState<'FETAN' | 'SPECIAL' | 'WEEKEND'>('FETAN');
   const [showLuckyWheel, setShowLuckyWheel] = useState(false);
   const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
-
-  // Active Admin Announcement Banner & Modal State
-  const [activeAnnouncement, setActiveAnnouncement] = useState<{
-    id: string;
-    text: string;
-    title?: string;
-    type?: string;
-    mediaUrl?: string;
-    mediaType?: string;
-    fileName?: string;
-    createdAt: string;
-  } | null>(null);
-  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
-  const [announcementDismissed, setAnnouncementDismissed] = useState(false);
-
-  const fetchAnnouncement = async () => {
-    try {
-      const res = await fetch('/api/announcements');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.announcement && (data.announcement.text || data.announcement.mediaUrl)) {
-          setActiveAnnouncement(data.announcement);
-          const dismissedId = typeof window !== 'undefined' ? sessionStorage.getItem('dismissed_announcement_id') : null;
-          if (dismissedId === data.announcement.id) {
-            setAnnouncementDismissed(true);
-          } else {
-            setAnnouncementDismissed(false);
-          }
-        } else {
-          setActiveAnnouncement(null);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to fetch announcement:', e);
-    }
-  };
-
-  useEffect(() => {
-    fetchAnnouncement();
-    const interval = setInterval(fetchAnnouncement, 20000);
-    const onBroadcast = () => {
-      fetchAnnouncement();
-    };
-    window.addEventListener('hyperbingo:bot-broadcast', onBroadcast);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('hyperbingo:bot-broadcast', onBroadcast);
-    };
-  }, []);
-
-  const handleDismissAnnouncement = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (activeAnnouncement && typeof window !== 'undefined') {
-      sessionStorage.setItem('dismissed_announcement_id', activeAnnouncement.id);
-    }
-    setAnnouncementDismissed(true);
-  };
 
   const handleSelectGameToPickCards = (gameId: string, cat: 'FETAN' | 'SPECIAL' | 'WEEKEND') => {
     const targetGame = games.find((g) => g.id === gameId);
@@ -371,48 +314,6 @@ export default function MiniAppShell({
                 <X className="w-4 h-4" />
               </button>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Active Admin Announcement Banner (Visible to everyone who opens the bot) */}
-      {activeAnnouncement && !announcementDismissed && (
-        <div 
-          onClick={() => setShowAnnouncementModal(true)}
-          className="bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 px-3 py-2 flex items-center justify-between gap-2 shadow-xs cursor-pointer border-b border-amber-500 hover:brightness-105 transition"
-        >
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-950 text-amber-300 text-xs shadow-xs animate-bounce">
-              📢
-            </span>
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-[9px] uppercase tracking-wider font-black text-slate-900/80 flex items-center gap-1">
-                {language === 'am' ? 'የአስተዳዳሪ ማስታወቂያ' : 'Admin Announcement'}
-                {activeAnnouncement.mediaType === 'photo' && (
-                  <span className="text-[9px] bg-slate-950/20 px-1 py-0.2 rounded font-black text-slate-900">📸 Image</span>
-                )}
-                {activeAnnouncement.mediaType === 'document' && (
-                  <span className="text-[9px] bg-slate-950/20 px-1 py-0.2 rounded font-black text-slate-900">📄 Doc</span>
-                )}
-                <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping inline-block" />
-              </span>
-              <p className="text-xs font-bold truncate text-slate-950 leading-tight">
-                {(activeAnnouncement.text || (activeAnnouncement.mediaType === 'photo' ? '📸 New Photo Broadcast' : '📄 New Document Broadcast')).replace(/<[^>]*>?/gm, '')}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[10px] font-black bg-slate-950/20 text-slate-950 px-2 py-0.5 rounded-md hover:bg-slate-950/30">
-              {language === 'am' ? 'ሙሉውን ይመልከቱ' : 'View'}
-            </span>
-            <button
-              type="button"
-              onClick={handleDismissAnnouncement}
-              className="p-1 rounded-md hover:bg-slate-950/20 text-slate-950 transition cursor-pointer"
-              title="Close"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
           </div>
         </div>
       )}
@@ -1078,102 +979,7 @@ export default function MiniAppShell({
         onClose={() => setShowLuckyWheel(false)}
       />
 
-      {/* FULL ANNOUNCEMENT MODAL */}
-      {showAnnouncementModal && activeAnnouncement && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-amber-500/40 w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-4 relative text-white">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                  <Megaphone className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-black text-sm text-amber-400 uppercase tracking-wide">
-                    {language === 'am' ? 'የአስተዳዳሪ ማስታወቂያ' : 'Official Announcement'}
-                  </h3>
-                  <span className="text-[10px] text-slate-400">
-                    {new Date(activeAnnouncement.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAnnouncementModal(false)}
-                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            {/* Attached Photo Preview */}
-            {activeAnnouncement.mediaUrl && (activeAnnouncement.mediaType === 'photo' || !activeAnnouncement.mediaType) && (
-              <div className="relative w-full rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 flex items-center justify-center max-h-72 shadow-lg">
-                <img
-                  src={activeAnnouncement.mediaUrl}
-                  alt="Announcement Media"
-                  className="w-full max-h-72 object-contain rounded-xl"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    if (!target.src.includes('/api/telegram/media') && activeAnnouncement.mediaUrl?.includes('api.telegram.org')) {
-                      const match = activeAnnouncement.mediaUrl.match(/file_[^.]+/);
-                      if (match) target.src = `/api/telegram/media?file_id=${match[0]}`;
-                    }
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Attached Document Card */}
-            {activeAnnouncement.mediaUrl && activeAnnouncement.mediaType === 'document' && (
-              <a
-                href={activeAnnouncement.mediaUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                download={activeAnnouncement.fileName || 'document.pdf'}
-                className="flex items-center justify-between p-3.5 rounded-2xl bg-indigo-950/60 border border-indigo-500/50 hover:bg-indigo-900/60 transition text-indigo-200 shadow-md cursor-pointer"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-3xl shrink-0">📄</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black text-white truncate">{activeAnnouncement.fileName || 'Attached Document'}</p>
-                    <span className="text-[10px] text-indigo-300 font-bold">Tap to view / download document</span>
-                  </div>
-                </div>
-                <span className="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl shrink-0 shadow-xs">
-                  Download
-                </span>
-              </a>
-            )}
-
-            <div className="max-h-64 overflow-y-auto pr-1 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800/80">
-              {(activeAnnouncement.text || (activeAnnouncement.mediaType === 'photo' ? '📸 Picture Announcement' : '📄 Document Announcement')).replace(/<[^>]*>?/gm, '')}
-            </div>
-
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAnnouncementModal(false);
-                  setActiveTab('lobby');
-                }}
-                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-xs hover:brightness-105 active:scale-98 transition shadow-md cursor-pointer text-center"
-              >
-                {language === 'am' ? '🎮 አሁኑኑ ይጫወቱ' : '🎮 Play Hyper Bingo Now'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleDismissAnnouncement();
-                  setShowAnnouncementModal(false);
-                }}
-                className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
-              >
-                {language === 'am' ? 'ዝጋ' : 'Close'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

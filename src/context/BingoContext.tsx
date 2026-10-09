@@ -28,6 +28,7 @@ import { isAdminTelegramId } from '../lib/authUtils';
 
 import { Language, translations } from '../lib/translations';
 import { getInitialLotterySoldMap } from '../lib/store';
+import { audioManager } from '../lib/audioManager';
 
 interface NotificationMessage {
   id: string;
@@ -436,6 +437,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           return updated;
         });
         addNotification('🛡️ Admin Verified', 'Administrator access granted.', 'success');
+        audioManager.playAdminEnterAlert();
         return { success: true, isAdmin: true };
       } else {
         return {
@@ -626,6 +628,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       `Your deposit of ${amount} ETB via ${provider} (Code: ${code}) has been submitted. The owner has been notified to verify your transaction code and credit your balance shortly.`,
       'info'
     );
+    audioManager.playApprovalRequestChime();
 
     return true;
   };
@@ -705,6 +708,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         `${amount} ETB reserved pending admin payout to ${provider} (${accountNumber}).`,
         'success'
       );
+      audioManager.playApprovalRequestChime();
 
       return true;
     } catch (err) {

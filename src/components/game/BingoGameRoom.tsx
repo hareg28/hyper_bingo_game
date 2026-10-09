@@ -1416,94 +1416,214 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </div>
         </div>
       ) : (
-        /* ── Non-Fetan Plain Text Header (No Box, Plain Text) ── */
-        <div className="px-1 py-1 space-y-1">
-          {/* Top row stats: PRIZE POOL | BALLS | PLAYERS | Current Ball (Plain Text without Box) */}
-          <div className="flex items-center justify-between gap-1 sm:gap-2 px-1">
-            {/* Prize Pool */}
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+        /* ── Hyper Special & Weekend: Styled Gradient Header + Cards (Like First Screenshot) ── */
+        <div className="space-y-2.5">
+          {/* 1. GRADIENT HEADER BAR — Blue → Purple with Game Type + BINGO */}
+          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-2.5 sm:p-3 shadow-md flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="text-white font-black text-sm sm:text-base tracking-tight">
                 {isWeekendGame
-                  ? (language === 'am' ? 'ዊክኤንድ ሽልማት' : 'WEEKEND PRIZE')
-                  : isSpecialGame
-                  ? (language === 'am' ? 'ስፔሻል ሽልማት' : 'SPECIAL PRIZE')
-                  : (language === 'am' ? 'የሽልማት ገንዳ' : 'PRIZE POOL')}
-              </div>
-              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
-                {formatETB(gamePrizeDisplay)}
-              </div>
+                  ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'WEEKEND')
+                  : (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')}
+                {' '}
+                <span className="italic tracking-widest">BINGO</span>
+              </span>
             </div>
-
-            {/* BALLS */}
-            <div className="text-center">
-              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                {language === 'am' ? 'ኳሶች' : 'BALLS'}
-              </div>
-              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
-                {currentGame.drawnNumbers.length}<span className="text-sm text-slate-400">/75</span>
-              </div>
-            </div>
-
-            {/* PLAYERS */}
-            <div className="text-center">
-              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
-              </div>
-              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
-                {totalCardsSold}
-              </div>
-            </div>
-
-            {/* Current Ball */}
-            <div className="flex items-center justify-center shrink-0">
-              {currentGame.currentBall ? (
-                <div className={`w-12 h-12 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-sm flex flex-col items-center justify-center text-white`}>
-                  <span className="text-[8px] font-black uppercase leading-none opacity-90">{getBallLetter(currentGame.currentBall)}</span>
-                  <span className="text-base font-black font-mono leading-tight">{currentGame.currentBall}</span>
-                </div>
-              ) : (
-                <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white">
-                  <span className="text-[8px] font-black text-slate-400 text-center leading-tight">GET<br/>READY</span>
-                </div>
-              )}
+            <div className="flex items-center gap-0.5 sm:gap-1">
+              <button type="button" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer" title={language === 'am' ? 'ተመለስ' : 'Undo'}>
+                <Undo2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+              <button type="button" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer" title={language === 'am' ? 'እንደገና' : 'Redo'}>
+                <Redo2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+              <button type="button" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer" title={language === 'am' ? 'ማሰናከሻ' : 'Settings'}>
+                <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+              <button type="button" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer" title={language === 'am' ? 'ሰንጠረዥ' : 'Grid'}>
+                <Grid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+              <button type="button" onClick={onBack} className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer" title={language === 'am' ? 'ሌሎች ጨዋታዎች' : 'Menu / Lobby'}>
+                <Menu className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
             </div>
           </div>
 
-          {/* Controls: Game Hit, Sound, Auto, Timer */}
-          <div className="flex items-center gap-1.5 px-1 pt-0.5">
+          {/* Show Less / Show More toggle below header */}
+          {!showMoreNumbers ? (
             <button
               type="button"
-              onClick={() => setShowPatternHintModal(true)}
-              className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
+              onClick={() => setShowMoreNumbers(true)}
+              className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600"
             >
-              <span>💡</span><span>Game Hit</span>
+              <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
+              <span>{language === 'am' ? 'ከሌላ በኩል አሳይ' : 'Show Less'}</span>
             </button>
+          ) : (
             <button
               type="button"
-              onClick={() => { setSoundEnabled((prev) => { const next = !prev; if (next) audioManager.unlockAudio(); return next; }); }}
-              className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center ${
-                soundEnabled ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600'
-              }`}
+              onClick={() => setShowMoreNumbers(false)}
+              className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600"
             >
-              {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-sky-600" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
+              <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
+              <span>{language === 'am' ? 'በጣም አሳይ' : 'Show More'}</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setIsAutoDrawing((prev) => !prev)}
-              className={`px-2.5 py-1 rounded-lg border text-[10px] font-black transition cursor-pointer flex items-center gap-1 shadow-2xs ${
-                isAutoDrawing ? 'bg-purple-100 border-purple-300 text-purple-900 ring-1 ring-purple-300' : 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700'
-              }`}
-            >
-              <span className="text-xs">🪄</span>
-              <span>{isAutoDrawing ? (language === 'am' ? 'አቁም' : 'Auto') : (language === 'am' ? 'ራስ-ሰር' : 'Auto')}</span>
-            </button>
-            <div className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200/70 text-rose-800 font-mono font-black text-[10px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-              <span>⏱️ {formattedTimerLeft}</span>
+          )}
+
+          {/* 2. GAME INFO CARD — Game Rule + ID + Time + Status */}
+          <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs space-y-2">
+            {/* Game Rule Row */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-600" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none block">
+                    {language === 'am' ? 'ጨዋታ' : 'Game'}
+                  </span>
+                  <div className="text-xs sm:text-[13px] font-bold text-slate-900 leading-tight truncate">
+                    {(() => {
+                      const ruleIdx = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
+                      const rule = HYPER_SPECIAL_RULES[ruleIdx];
+                      if (isWeekendGame) return language === 'am' ? 'ሙሉ ቤት ብቻ (Full House 24/24)' : 'Full House 24 out of 24 Numbers';
+                      if (rule) return language === 'am' ? rule.nameAm : rule.nameEn;
+                      return `${currentGame.winningRule || 'Standard'}`;
+                    })()}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPatternHintModal(true)}
+                className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-100 hover:bg-amber-200 flex items-center justify-center transition cursor-pointer"
+                title={language === 'am' ? 'እርዳታ (Hit)' : 'Hint / Game Hit'}
+              >
+                <Lightbulb className="w-3.5 h-3.5 text-amber-600 fill-amber-400" />
+              </button>
             </div>
+
+            {/* ID + Time + Status Row */}
+            <div className="grid grid-cols-3 gap-2 items-center">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Hash className="w-3 h-3 text-slate-400 shrink-0" />
+                <span className="text-[10px] font-bold text-slate-500 shrink-0">ID:</span>
+                <span className="text-[11px] font-mono font-black text-slate-800 truncate">{gameShortId}</span>
+              </div>
+              <div className="flex items-center gap-1.5 min-w-0 justify-center">
+                <div className="w-3 h-3 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                  <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                </div>
+                <span className="text-[10px] font-bold text-slate-500 shrink-0">
+                  {language === 'am' ? 'ሰዓት' : 'Time'}
+                </span>
+                <span className="text-[11px] font-mono font-black text-slate-800">{currentTime || '21:53'}</span>
+              </div>
+              <div className="flex items-center gap-1.5 min-w-0 justify-end">
+                <div className="w-3 h-3 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                  <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                </div>
+                <span className="text-[10px] font-bold text-slate-500 shrink-0">
+                  {language === 'am' ? 'ሁኔታ' : 'Status'}
+                </span>
+                <span className={`text-[11px] font-black ${
+                  gameStatus === 'Playing' || gameStatus.includes('ለይ') || gameStatus === 'Overtime'
+                    ? 'text-emerald-600'
+                    : gameStatus === 'Scheduled (Open)'
+                    ? 'text-indigo-600'
+                    : 'text-slate-700'
+                }`}>{gameStatus}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. PRICE / GAMES / PRIZE CARD */}
+          <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="text-emerald-600 font-bold text-xs">$</span>
+              <span className="text-[10px] font-bold uppercase text-slate-500">
+                {language === 'am' ? 'ዋጋ' : 'Price'}
+              </span>
+              <span className="text-sm sm:text-base font-black text-emerald-600">{formatETB(currentGame.entryPrice || 10)}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded-md bg-blue-100 flex items-center justify-center">
+                <Sparkles className="w-2.5 h-2.5 text-blue-600" />
+              </div>
+              <span className="text-[10px] font-bold uppercase text-slate-500">
+                {language === 'am' ? 'ጨዋታዎች' : 'Games'}
+              </span>
+              <span className="text-sm sm:text-base font-black text-blue-700">1</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Trophy className="w-3.5 h-3.5 text-amber-500" />
+              <span className="text-[10px] font-bold uppercase text-slate-500">
+                {language === 'am' ? 'ሽልማት' : 'Prize'}
+              </span>
+              <span className="text-sm sm:text-base font-black text-amber-600">{formatETB(gamePrizeDisplay)}</span>
+            </div>
+          </div>
+
+          {/* 4. 75-BALL DRAWN BOARD — Centered "Drawn: N" title */}
+          <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/80 shadow-xs">
+            <div className="text-center mb-2">
+              <span className="text-slate-500 font-bold text-sm sm:text-base">
+                {language === 'am' ? 'የተጠሩ' : 'Drawn'}
+                <span className="text-slate-800 font-black">: {currentGame.drawnNumbers.length}</span>
+              </span>
+            </div>
+            <div className="space-y-0.5 bg-slate-50/70 p-1 rounded-xl border border-slate-100">
+              {rows.map((row) => (
+                <div key={row.letter} className="flex items-center gap-1">
+                  <div className={`w-6 h-5 sm:w-7 sm:h-6 rounded-md text-[9px] sm:text-[10px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
+                    {row.letter}
+                  </div>
+                  <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
+                    {row.range.map((num) => {
+                      const isDrawn = drawnSet.has(num);
+                      const isCurrent = currentGame.currentBall === num;
+                      return (
+                        <div
+                          key={num}
+                          className={`h-5 sm:h-6 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-all ${
+                            isCurrent
+                              ? 'bg-amber-400 text-slate-950 font-black scale-105 shadow-xs ring-1 ring-amber-400 z-10'
+                              : isDrawn
+                              ? `${row.color} font-black shadow-xs`
+                              : 'bg-white text-slate-500 border border-slate-200'
+                          }`}
+                        >
+                          {num}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 5. BLOCKED COUNTER — Always visible (as per screenshot) */}
+          <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs flex items-center gap-2">
+            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+              <ShieldAlert className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-600" />
+            </div>
+            <span className="text-xs sm:text-[13px] font-bold text-slate-700">
+              {language === 'am' ? 'የታገዱ' : 'Blocked'}
+              <span className="text-slate-400">:</span>
+            </span>
+            <span className="px-2.5 py-0.5 rounded-md border-2 border-rose-300 bg-white text-rose-600 font-mono font-black text-sm sm:text-base shadow-xs">
+              {(currentGame.blockedCards || []).length}
+            </span>
           </div>
         </div>
       )}
+
+      {/* Shared: 75-Ball Master Board + Bingo Chips + Blocked only for Fetan now */}
+      {isFetanGame && (
+        <>
+      {/* ================================================================
+          CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
+          ================================================================ */}
 
       {/* ================================================================
           CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
@@ -1618,6 +1738,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </span>
           </button>
         </div>
+      )}
+        </>
       )}
 
       {/* ================================================================
