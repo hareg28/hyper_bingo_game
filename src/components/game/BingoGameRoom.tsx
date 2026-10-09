@@ -1257,6 +1257,21 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {(currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN') && (
+            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black font-mono shadow-xs shrink-0 tabular-nums ${
+              fetanIsIntermission 
+                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                : fetanOvertime 
+                ? 'bg-rose-100 text-rose-800 border border-rose-300 animate-pulse' 
+                : 'bg-amber-100 text-amber-900 border border-amber-300'
+            }`}>
+              {fetanIsIntermission 
+                ? `⏳ ${fetanSecondsLeft}s` 
+                : fetanOvertime 
+                ? (language === 'am' ? '⚡ ተጨማሪ' : '⚡ Overtime')
+                : `● ${fetanSecondsLeft}s`}
+            </span>
+          )}
           <span className="font-mono font-black text-slate-800 text-xs bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
             {currentTime}
           </span>
@@ -1322,78 +1337,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </div>
           </div>
         )}
-        {/* ================================================================
-            ONE-LINE COMPACT RULE & HIT BAR
-            ================================================================ */}
-        <div className="mx-2 mt-1.5 space-y-1">
-          <div className={`px-3 py-1.5 rounded-xl border flex items-center justify-between gap-2 shadow-2xs transition-all ${
-            currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
-              ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 border-amber-600'
-              : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
-              ? 'bg-gradient-to-r from-purple-900 to-indigo-900 text-white border-purple-400'
-              : 'bg-gradient-to-r from-slate-900 to-indigo-950 text-white border-indigo-400'
-          }`}>
-            <div className="flex items-center gap-1.5 min-w-0 truncate text-[11px]">
-              <span className="shrink-0 text-sm">
-                {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN' ? '⚡' : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND' ? '🌟' : '🎲'}
-              </span>
-              <span className="font-black uppercase tracking-wider shrink-0">
-                {language === 'am' ? 'ሕግ:' : 'Rule:'}
-              </span>
-              <span className="font-bold truncate">
-                {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
-                  ? (language === 'am' ? '1 አግድም፣ 1 ቀጥታ፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
-                  : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
-                  ? (language === 'am' ? 'ሙሉ ቤት ብቻ 24/24 (ሜጋ ጃክፖት)' : 'Full House Only (All 24 Numbers)')
-                  : (() => {
-                      const activeRule = HYPER_SPECIAL_RULES[Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
-                      return language === 'am' ? `የዙሩ ሕግ: ${activeRule.nameAm}` : `Round Law: ${activeRule.nameEn}`;
-                    })()}
-              </span>
-            </div>
 
-            {/* Fetan 1-min live counter badge or Category Badge */}
-            {(currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN') ? (
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black font-mono shadow-xs shrink-0 tabular-nums ${
-                fetanIsIntermission 
-                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' 
-                  : fetanOvertime 
-                  ? 'bg-rose-950 text-rose-300 border border-rose-500/50 animate-pulse' 
-                  : 'bg-slate-950 text-amber-300'
-              }`}>
-                {fetanIsIntermission 
-                  ? `⏳ Pick: ${fetanSecondsLeft}s` 
-                  : fetanOvertime 
-                  ? (language === 'am' ? '⚡ ተጨማሪ ሰዓት (እስከ አሸናፊ)' : '⚡ Overtime (Till Winner)')
-                  : `● Live: ${fetanSecondsLeft}s`}
-              </span>
-            ) : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND' ? (
-              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black shrink-0 ${isWeekendLive ? 'bg-rose-600 text-white animate-pulse' : 'bg-white/20 text-white'}`}>
-                {isWeekendLive ? '● LIVE' : `📅 ${currentGame.startTime || 'Fri-Sun'}`}
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowPatternHintModal(true)}
-                className="px-2 py-0.5 rounded-full text-[9px] font-black bg-indigo-500/40 hover:bg-indigo-500/60 text-indigo-200 border border-indigo-300/40 transition shrink-0 cursor-pointer flex items-center gap-1"
-              >
-                <span>📜 {language === 'am' ? `ሕግ #${(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1}/15` : `Law #${(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1}/15`}</span>
-              </button>
-            )}
-          </div>
-
-          {/* DYNAMIC HIT INFO IN ONE SLIM LINE IF HIT */}
-          {topHitRequirement && topHitRequirement.isHit && (
-            <div className="px-2.5 py-1 rounded-lg bg-amber-100 border border-amber-400 text-amber-950 flex items-center justify-between gap-1 text-[10px] font-black animate-pulse shadow-2xs">
-              <span className="truncate">🔥 {topHitRequirement.hitTitle}: {topHitRequirement.hitDetail}</span>
-              {topHitRequirement.progressText && (
-                <span className="px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 shrink-0 font-mono">
-                  {topHitRequirement.progressText}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
 
       {/* ── Clean & Simple Weekend Bar (No Crowding, Single Slim Row) ── */}
       {isWeekendGame && (
@@ -2661,6 +2605,18 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 <span>{language === 'am' ? 'ተመለስ' : 'Back'}</span>
               </button>
             </div>
+
+            {/* Live Hit Progress / Requirement (visible when player taps Hint button) */}
+            {topHitRequirement && topHitRequirement.isHit && (
+              <div className="mx-4 mt-3 px-3 py-2 rounded-xl bg-amber-100 border border-amber-400 text-amber-950 flex items-center justify-between gap-1 text-[11px] font-black shadow-xs">
+                <span className="truncate">🔥 {topHitRequirement.hitTitle}: {topHitRequirement.hitDetail}</span>
+                {topHitRequirement.progressText && (
+                  <span className="px-2 py-0.5 rounded-md bg-amber-200 text-amber-900 shrink-0 font-mono text-[10px]">
+                    {topHitRequirement.progressText}
+                  </span>
+                )}
+              </div>
+            )}
 
             <p className="px-4 pt-3 pb-2 text-xs text-slate-600 leading-relaxed">
               {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
