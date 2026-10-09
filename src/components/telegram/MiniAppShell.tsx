@@ -1186,9 +1186,10 @@ function WeekendLotteryNumberPicker({
     setSelectedGameIdx(getDefaultIdx(targetGames, activeGameId));
   }, [activeGameId, targetGames, getDefaultIdx]);
 
+  const selectedGame = targetGames[selectedGameIdx] || targetGames[0];
   const entryPrice = selectedGame?.entryPrice || (mode === 'FETAN' ? 10 : mode === 'SPECIAL' ? 20 : 50);
 
-  const TOTAL_NUMBERS = mode === 'FETAN' ? 500 : 1500;
+  const TOTAL_NUMBERS = mode === 'FETAN' ? 500 : mode === 'SPECIAL' ? 200 : 1500;
   const NUM_SLOTS = LOTTERY_MAX_SLOTS;
   const [slotNumbers, setSlotNumbers] = React.useState<(number | null)[]>(
     Array.from({ length: NUM_SLOTS }, () => null)
@@ -1318,10 +1319,12 @@ function WeekendLotteryNumberPicker({
             )}
             <div>
               <h3 className="text-xs font-black text-slate-900 leading-tight flex items-center gap-1">
-                <span>{mode === 'FETAN' ? '⚡' : '🌟'}</span>
+                <span>{mode === 'FETAN' ? '⚡' : mode === 'SPECIAL' ? '🎲' : '🌟'}</span>
                 <span>
                   {mode === 'FETAN' 
                     ? (isAm ? 'ሃይፐር ፈጣን ካርዶች (1-500)' : 'Hyper Fetan Cards (1-500)')
+                    : mode === 'SPECIAL'
+                    ? (isAm ? 'ሃይፐር ስፔሻል ካርዶች (1-200)' : 'Hyper Special Cards (1-200)')
                     : (isAm 
                         ? `${selectedGame?.weekendDay === 'FRI' ? 'የዓርብ' : selectedGame?.weekendDay === 'SAT' ? 'የቅዳሜ' : 'የእሑድ'} ሜጋ ሎተሪ (1-1500)`
                         : `${selectedGame?.weekendDay === 'FRI' ? 'Friday' : selectedGame?.weekendDay === 'SAT' ? 'Saturday' : 'Sunday'} Mega Lottery (1-1500)`)}
@@ -1330,6 +1333,8 @@ function WeekendLotteryNumberPicker({
               <span className="text-[10px] text-slate-500 font-bold">
                 {mode === 'FETAN' 
                   ? (isAm ? '1 ደቂቃ ዙር · 30 ሰከንድ ካርድ መምረጫ · 500 ካርዶች' : '1 Min Round · 30s Card Pick · 500 Cards')
+                  : mode === 'SPECIAL'
+                  ? (isAm ? `${entryPrice} ብር · ልዩ የማሸነፊያ ሕግ` : `${entryPrice} ETB · Rotating Special Law`)
                   : (isAm ? '50 ብር · 2:00 እና 6:00 PM · ሙሉ ቤት ብቻ (24/24)' : '50 ETB · 2:00 PM & 6:00 PM · Full House Only')}
               </span>
             </div>
