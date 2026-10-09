@@ -949,7 +949,7 @@ export default function MiniAppShell({
           }`}
         >
           <Zap className="w-5 h-5" />
-          <span>{language === 'am' ? 'አዲስ ክፍል' : 'Live'}</span>
+          <span>{language === 'am' ? 'የቀጥታ ክፍል' : 'Live Room'}</span>
         </button>
 
         <button
