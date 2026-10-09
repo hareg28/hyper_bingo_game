@@ -506,68 +506,7 @@ export default function MiniAppShell({
                             : g.status === 'RUNNING' ? '● LIVE' : g.status === 'STARTING' ? 'STARTING' : 'OPEN'}
                         </span>
                       </div>
-                      {categoryTab === 'SPECIAL' && (
-                        <div className="mt-2 p-2 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black text-amber-950 uppercase tracking-wider flex items-center gap-1">
-                              <span>⚡</span> {language === 'am' ? 'የውርርድ ዋጋ ይምረጡ (ምክር ወይም የራስዎ):' : 'Choose Stake (Recommended or Custom):'}
-                            </span>
-                            <span className="text-[10px] font-mono font-black text-amber-900 bg-amber-200 px-1.5 py-0.5 rounded">
-                              {g.entryPrice} ETB
-                            </span>
-                          </div>
-                          {/* Recommended chips */}
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {[10, 20, 50, 100].map((recVal) => {
-                              const isSel = g.entryPrice === recVal;
-                              return (
-                                <button
-                                  key={recVal}
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (updateGameEntryPrice) updateGameEntryPrice(g.id, recVal);
-                                  }}
-                                  className={`px-2 py-1 rounded-lg text-[10px] font-black transition cursor-pointer border ${
-                                    isSel
-                                      ? 'bg-amber-500 border-amber-600 text-slate-950 shadow-2xs'
-                                      : 'bg-white border-amber-200 text-slate-700 hover:bg-amber-100'
-                                  }`}
-                                >
-                                  {recVal === 20 ? `⭐ 20 ETB (${language === 'am' ? 'ምክር' : 'Rec'})` : `${recVal} ETB`}
-                                </button>
-                              );
-                            })}
-                            {/* Custom Stake numeric input */}
-                            <div className="flex items-center gap-1 bg-white border border-amber-300 rounded-lg px-1.5 py-0.5">
-                              <span className="text-[9px] text-slate-500 font-bold">{language === 'am' ? 'ብጁ:' : 'Custom:'}</span>
-                              <input
-                                type="number"
-                                min="10"
-                                max="1000"
-                                step="5"
-                                defaultValue={g.entryPrice}
-                                onBlur={(e) => {
-                                  const val = Number(e.target.value);
-                                  if (val >= 10 && updateGameEntryPrice) {
-                                    updateGameEntryPrice(g.id, val);
-                                  }
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    const val = Number((e.target as HTMLInputElement).value);
-                                    if (val >= 10 && updateGameEntryPrice) {
-                                      updateGameEntryPrice(g.id, val);
-                                    }
-                                  }
-                                }}
-                                className="w-12 text-[10px] font-mono font-black text-slate-900 outline-none text-center"
-                              />
-                              <span className="text-[9px] text-slate-400 font-bold">ETB</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+
 
                       <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                         <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
@@ -616,9 +555,9 @@ export default function MiniAppShell({
                           type="button"
                           onClick={() => handleSelectGameToPickCards(g.id, 'SPECIAL')}
                           className="px-2.5 py-2 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-400 text-slate-950 transition flex items-center gap-1 cursor-pointer shadow-xs border border-amber-600"
-                          title={language === 'am' ? 'ካርድ ምረጥ' : 'Pick Cards'}
+                          title={language === 'am' ? 'ካርድ ግዛ' : 'Buy Card'}
                         >
-                          <span>{language === 'am' ? 'ካርድ ምረጥ' : 'Cards'}</span>
+                          <span>{language === 'am' ? 'ካርድ ግዛ' : 'Buy Card'}</span>
                         </button>
                       )}
 
@@ -646,9 +585,7 @@ export default function MiniAppShell({
                         <span>
                           {categoryTab === 'SPECIAL'
                             ? (language === 'am' ? 'ተጫወት' : 'PLAY')
-                            : categoryTab === 'WEEKEND' 
-                            ? (language === 'am' ? 'ካርድ ግዛ' : 'Buy Card') 
-                            : (language === 'am' ? 'ካርድ ምረጥ' : 'Choose')}
+                            : (language === 'am' ? 'ካርድ ግዛ' : 'Buy Card')}
                         </span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
@@ -1249,8 +1186,7 @@ function WeekendLotteryNumberPicker({
     setSelectedGameIdx(getDefaultIdx(targetGames, activeGameId));
   }, [activeGameId, targetGames, getDefaultIdx]);
 
-  const selectedGame = targetGames[selectedGameIdx] || targetGames[0];
-  const entryPrice = selectedGame?.entryPrice || (mode === 'FETAN' ? 10 : 50);
+  const entryPrice = selectedGame?.entryPrice || (mode === 'FETAN' ? 10 : mode === 'SPECIAL' ? 20 : 50);
 
   const TOTAL_NUMBERS = mode === 'FETAN' ? 500 : 1500;
   const NUM_SLOTS = LOTTERY_MAX_SLOTS;
@@ -1532,77 +1468,7 @@ function WeekendLotteryNumberPicker({
             })}
           </div>
         </div>
-      ) : mode === 'FETAN' ? null : (
-        <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-2 shrink-0">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-600" />
-              {isAm ? 'የስፔሻል ውርርድ ይምረጡ (ምክር ወይም የራስዎ):' : 'Special Stake (Recommended or Custom):'}
-            </span>
-            <span className="text-[10px] font-black text-amber-950 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
-              ⚡ {entryPrice} ETB {isAm ? 'ተመርጧል' : 'Active'}
-            </span>
-          </div>
-          <div className="grid grid-cols-4 gap-1.5">
-            {[10, 20, 50, 100].map((recStake) => {
-              const isSelected = entryPrice === recStake;
-              return (
-                <button
-                  key={recStake}
-                  type="button"
-                  onClick={() => {
-                    if (selectedGame && onUpdateGameEntryPrice) {
-                      onUpdateGameEntryPrice(selectedGame.id, recStake);
-                    }
-                  }}
-                  className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center transition cursor-pointer border-2 ${
-                    isSelected
-                      ? 'bg-amber-500 border-amber-600 text-slate-950 font-black shadow-sm scale-[1.02]'
-                      : 'bg-slate-50 hover:bg-amber-50/50 border-slate-200 hover:border-amber-300 text-slate-700 font-bold'
-                  }`}
-                >
-                  <span className="text-xs font-black">⚡ {recStake} ETB</span>
-                  <span className={`text-[8px] ${isSelected ? 'text-amber-950 font-black' : 'text-slate-500'}`}>
-                    {recStake === 10 ? (isAm ? 'ጀማሪ' : 'Starter')
-                      : recStake === 20 ? (isAm ? '⭐ ምክር' : '⭐ Rec')
-                      : recStake === 50 ? (isAm ? 'ተመራጭ' : 'Popular')
-                      : (isAm ? 'VIP' : 'VIP')}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="flex items-center gap-1.5 pt-1 border-t border-amber-100">
-            <span className="text-[10px] font-bold text-slate-600 shrink-0">
-              {isAm ? 'ወይም ብጁ ዋጋ:' : 'Or Custom Stake:'}
-            </span>
-            <input
-              type="number"
-              min="10"
-              max="1000"
-              step="5"
-              defaultValue={entryPrice}
-              onBlur={(e) => {
-                const val = Number(e.target.value);
-                if (val >= 10 && selectedGame && onUpdateGameEntryPrice) {
-                  onUpdateGameEntryPrice(selectedGame.id, val);
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const val = Number((e.target as HTMLInputElement).value);
-                  if (val >= 10 && selectedGame && onUpdateGameEntryPrice) {
-                    onUpdateGameEntryPrice(selectedGame.id, val);
-                  }
-                }
-              }}
-              placeholder="e.g. 25, 40..."
-              className="flex-1 bg-slate-50 border border-slate-300 focus:border-amber-500 rounded-lg px-2 py-1 text-xs font-mono font-bold text-slate-900 outline-none"
-            />
-            <span className="text-[10px] font-bold text-slate-500">ETB</span>
-          </div>
-        </div>
-      )}
+      ) : null}
 
       {/* Light top stats card: SOLD | AVAILABLE | STAKE | REG CODE */}
       <div className="mx-2 mt-2 flex items-stretch rounded-2xl overflow-hidden bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100 text-slate-900 shadow-xs border border-amber-200 shrink-0">
