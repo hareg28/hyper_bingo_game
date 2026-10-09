@@ -1189,7 +1189,7 @@ function WeekendLotteryNumberPicker({
   const selectedGame = targetGames[selectedGameIdx] || targetGames[0];
   const entryPrice = selectedGame?.entryPrice || (mode === 'FETAN' ? 10 : mode === 'SPECIAL' ? 20 : 50);
 
-  const TOTAL_NUMBERS = mode === 'FETAN' ? 500 : mode === 'SPECIAL' ? 200 : 1500;
+  const TOTAL_NUMBERS = mode === 'FETAN' ? 500 : mode === 'SPECIAL' ? 75 : 1500;
   const NUM_SLOTS = LOTTERY_MAX_SLOTS;
   const [slotNumbers, setSlotNumbers] = React.useState<(number | null)[]>(
     Array.from({ length: NUM_SLOTS }, () => null)
@@ -1324,7 +1324,7 @@ function WeekendLotteryNumberPicker({
                   {mode === 'FETAN' 
                     ? (isAm ? 'ሃይፐር ፈጣን ካርዶች (1-500)' : 'Hyper Fetan Cards (1-500)')
                     : mode === 'SPECIAL'
-                    ? (isAm ? 'ሃይፐር ስፔሻል ካርዶች (1-200)' : 'Hyper Special Cards (1-200)')
+                    ? (isAm ? 'ሃይፐር ስፔሻል ካርዶች (1-75)' : 'Hyper Special Cards (1-75)')
                     : (isAm 
                         ? `${selectedGame?.weekendDay === 'FRI' ? 'የዓርብ' : selectedGame?.weekendDay === 'SAT' ? 'የቅዳሜ' : 'የእሑድ'} ሜጋ ሎተሪ (1-1500)`
                         : `${selectedGame?.weekendDay === 'FRI' ? 'Friday' : selectedGame?.weekendDay === 'SAT' ? 'Saturday' : 'Sunday'} Mega Lottery (1-1500)`)}

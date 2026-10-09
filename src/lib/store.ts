@@ -38,7 +38,7 @@ export const getGameLivePrizePool = (game: Game): number => {
 export const getInitialLotterySoldMap = (games: Game[]): Record<string, Set<number>> => {
   const map: Record<string, Set<number>> = {};
   games.forEach((g) => {
-    if (g.category === 'HYPER_FETAN' || g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) {
+    if (g.category === 'HYPER_FETAN' || g.category === 'HYPER_WEEKEND' || g.category === 'HYPER_SPECIAL' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) {
       // Real flow: no pre-sold cards initially; cards show as available and turn gray when bought
       map[g.id] = new Set<number>();
     }
@@ -115,7 +115,7 @@ export const INITIAL_GAMES: Game[] = [
     winningRule: 'STANDARD',
     activeSpecialRuleIndex: 0,
     entryPrice: 20,
-    maxPlayers: 200,
+    maxPlayers: 75,
     currentPlayers: 0,
     startTime: 'Live Round',
     drawInterval: 3,
