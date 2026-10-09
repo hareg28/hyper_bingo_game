@@ -55,7 +55,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     wallet,
     openAuthModal,
     language,
-    t
+    t,
+    purchaseLotteryNumbers,
+    getLotterySoldNumbers,
   } = useBingo();
 
   const [soundEnabled, setSoundEnabled] = useState(false);
@@ -1298,93 +1300,141 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       )}
 
       {/* ================================================================
-          CARD 1: Game Stats & Controls (Matches Telegram Mockup)
+          CARD 1: Game Stats & Controls
+          HYPER FETAN: Dark header matching reference image
+          OTHER GAMES: Standard white card
           ================================================================ */}
-      <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <span className="inline-block px-2.5 py-0.5 rounded-md bg-amber-100/80 text-amber-900 font-black text-[10px] uppercase tracking-wider">
-              {isWeekendGame
-                ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'HYPER WEEKEND')
-                : isSpecialGame
-                ? (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')
-                : isFetanGame
-                ? (language === 'am' ? 'ሃይፐር ፈጣን' : 'HYPER FETAN')
-                : (currentGame.name?.toUpperCase() || 'QUICK BINGO')}
-            </span>
-            <div className="text-xs text-slate-500 font-bold mt-1">
-              {language === 'am' ? 'የሽልማት ገንዳ:' : 'Prize Pool:'}
+      {isFetanGame ? (
+        /* ── Hyper Fetan Dark Header (matches reference: DERASH / BALLS / PLAYERS + ball) ── */
+        <div className="bg-slate-900 rounded-3xl overflow-hidden border border-slate-700 shadow-md">
+          {/* Top bar: DERASH | BALLS | PLAYERS | Current Ball */}
+          <div className="flex items-stretch">
+            {/* DERASH (Prize Pool) */}
+            <div className="flex-1 px-3 py-3 border-r border-slate-700/60">
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {language === 'am' ? 'ደርሻ' : 'DERASH'}
+              </div>
+              <div className="text-xl font-black text-emerald-400 font-mono leading-tight mt-0.5">
+                {formatETB(gamePrizeDisplay)}
+              </div>
             </div>
-            <div className="text-2xl font-black text-amber-700 font-mono tracking-tight leading-none mt-0.5">
-              {formatETB(gamePrizeDisplay)}
+            {/* BALLS */}
+            <div className="flex-1 px-3 py-3 border-r border-slate-700/60 text-center">
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {language === 'am' ? 'ኳሶች' : 'BALLS'}
+              </div>
+              <div className="text-xl font-black text-amber-400 font-mono leading-tight mt-0.5">
+                {currentGame.drawnNumbers.length}<span className="text-sm text-slate-500">/75</span>
+              </div>
+            </div>
+            {/* PLAYERS */}
+            <div className="flex-1 px-3 py-3 border-r border-slate-700/60 text-center">
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
+              </div>
+              <div className="text-xl font-black text-amber-300 font-mono leading-tight mt-0.5">
+                {currentGame.currentPlayers || 0}
+              </div>
+            </div>
+            {/* Current Ball (large circle on right like reference) */}
+            <div className="flex items-center justify-center px-3 py-2">
+              {currentGame.currentBall ? (
+                <div className={`w-14 h-14 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-lg ring-2 ring-amber-400/60 flex flex-col items-center justify-center`}>
+                  <span className="text-[9px] font-black uppercase leading-none opacity-80">{getBallLetter(currentGame.currentBall)}</span>
+                  <span className="text-lg font-black font-mono leading-tight">{currentGame.currentBall}</span>
+                </div>
+              ) : (
+                <div className="w-14 h-14 rounded-full border-2 border-dashed border-slate-600 flex items-center justify-center">
+                  <span className="text-[9px] font-black text-slate-500 text-center leading-tight">GET<br/>READY</span>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Top Right Controls */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* Controls row */}
+          <div className="flex items-center gap-2 px-3 pb-2.5 pt-1 border-t border-slate-700/50">
             <button
               type="button"
               onClick={() => setShowPatternHintModal(true)}
-              className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition active:scale-95"
-              title="Winning Rules & Hits"
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-lg shadow-xs flex items-center gap-1 cursor-pointer transition active:scale-95"
             >
-              <span>💡</span>
-              <span>Game Hit</span>
+              <span>💡</span><span>Hit</span>
             </button>
-
             <button
               type="button"
-              onClick={() => {
-                setSoundEnabled((prev) => {
-                  const next = !prev;
-                  if (next) audioManager.unlockAudio();
-                  return next;
-                });
-              }}
-              className={`p-2 rounded-xl border transition cursor-pointer flex items-center justify-center ${
-                soundEnabled
-                  ? 'bg-sky-50 text-sky-700 border-sky-200'
-                  : 'bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600'
+              onClick={() => { setSoundEnabled((prev) => { const next = !prev; if (next) audioManager.unlockAudio(); return next; }); }}
+              className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center ${
+                soundEnabled ? 'bg-sky-900 text-sky-300 border-sky-700' : 'bg-slate-800 text-slate-500 border-slate-700'
               }`}
-              title={soundEnabled ? (language === 'am' ? 'ድምፅ አጥፋ' : 'Mute') : (language === 'am' ? 'ድምፅ አብራ' : 'Unmute')}
             >
-              {soundEnabled ? (
-                <Volume2 className="w-4 h-4 text-sky-600" />
-              ) : (
-                <VolumeX className="w-4 h-4 text-slate-400" />
-              )}
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
             </button>
-
             <button
               type="button"
               onClick={() => setIsAutoDrawing((prev) => !prev)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-black transition cursor-pointer flex items-center gap-1.5 shadow-xs ${
-                isAutoDrawing
-                  ? 'bg-purple-100 border-purple-300 text-purple-900 ring-1 ring-purple-300'
-                  : 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700'
+              className={`px-2.5 py-1 rounded-lg border text-[10px] font-black transition cursor-pointer flex items-center gap-1 ${
+                isAutoDrawing ? 'bg-purple-900 border-purple-600 text-purple-200' : 'bg-slate-800 border-slate-600 text-slate-400'
               }`}
-              title="Auto Draw"
             >
-              <span className="text-xs">🪄</span>
-              <span>{isAutoDrawing ? (language === 'am' ? 'አቁም' : 'Auto') : (language === 'am' ? 'ራስ-ሰር' : 'Auto')}</span>
+              <span>🪄</span><span>{isAutoDrawing ? (language === 'am' ? 'አቁም' : 'Auto') : 'Auto'}</span>
             </button>
+            {/* Timer */}
+            <div className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-900/60 border border-rose-700/50 text-rose-300 font-mono font-black text-[10px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
+              <span>{formattedTimerLeft}</span>
+            </div>
           </div>
         </div>
-
-        {/* Card 1 Bottom Row */}
-        <div className="flex items-center justify-between mt-3.5 pt-1">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50/80 border border-blue-100 text-blue-900 font-bold text-xs">
-            <Users className="w-3.5 h-3.5 text-blue-700" />
-            <span>{currentGame.currentPlayers || 0} {language === 'am' ? 'ተጫዋቾች' : 'Players'}</span>
+      ) : (
+        <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <span className="inline-block px-2.5 py-0.5 rounded-md bg-amber-100/80 text-amber-900 font-black text-[10px] uppercase tracking-wider">
+                {isWeekendGame
+                  ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'HYPER WEEKEND')
+                  : isSpecialGame
+                  ? (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')
+                  : (currentGame.name?.toUpperCase() || 'QUICK BINGO')}
+              </span>
+              <div className="text-xs text-slate-500 font-bold mt-1">
+                {language === 'am' ? 'የሽልማት ገንዳ:' : 'Prize Pool:'}
+              </div>
+              <div className="text-2xl font-black text-amber-700 font-mono tracking-tight leading-none mt-0.5">
+                {formatETB(gamePrizeDisplay)}
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button type="button" onClick={() => setShowPatternHintModal(true)}
+                className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition active:scale-95">
+                <span>💡</span><span>Game Hit</span>
+              </button>
+              <button type="button" onClick={() => { setSoundEnabled((prev) => { const next = !prev; if (next) audioManager.unlockAudio(); return next; }); }}
+                className={`p-2 rounded-xl border transition cursor-pointer flex items-center justify-center ${
+                  soundEnabled ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600'
+                }`}>
+                {soundEnabled ? <Volume2 className="w-4 h-4 text-sky-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+              </button>
+              <button type="button" onClick={() => setIsAutoDrawing((prev) => !prev)}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-black transition cursor-pointer flex items-center gap-1.5 shadow-xs ${
+                  isAutoDrawing ? 'bg-purple-100 border-purple-300 text-purple-900 ring-1 ring-purple-300' : 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700'
+                }`}>
+                <span className="text-xs">🪄</span>
+                <span>{isAutoDrawing ? (language === 'am' ? 'አቁም' : 'Auto') : (language === 'am' ? 'ራስ-ሰር' : 'Auto')}</span>
+              </button>
+            </div>
           </div>
-
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200/70 text-rose-800 font-mono font-black text-xs">
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-            <span>⏱️</span>
-            <span>{formattedTimerLeft} {language === 'am' ? 'ቀሪ' : 'Left'}</span>
+          <div className="flex items-center justify-between mt-3.5 pt-1">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50/80 border border-blue-100 text-blue-900 font-bold text-xs">
+              <Users className="w-3.5 h-3.5 text-blue-700" />
+              <span>{currentGame.currentPlayers || 0} {language === 'am' ? 'ተጫዋቾች' : 'Players'}</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200/70 text-rose-800 font-mono font-black text-xs">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+              <span>⏱️</span>
+              <span>{formattedTimerLeft} {language === 'am' ? 'ቀሪ' : 'Left'}</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ================================================================
           CARD 2: 75-Ball Master Table (Matches Telegram Mockup)
@@ -1491,6 +1541,62 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </button>
         </div>
       </div>
+
+      {/* ================================================================
+          FETAN SOLD NUMBERS GRID — Click-to-buy (Hyper Fetan only)
+          Shows all 500 slots: green=available, red=sold. Click to purchase.
+          ================================================================ */}
+      {isFetanGame && (() => {
+        const fetanSoldSet = getLotterySoldNumbers(currentGame.id);
+        const myFetanCards = new Set(activeGameCards.map(c => parseInt(c.cardNumber, 10)).filter(n => !isNaN(n)));
+        const FETAN_TOTAL = 500;
+        const handleFetanClickBuy = (num: number) => {
+          if (fetanSoldSet.has(num)) return; // already sold
+          if (!user) { openAuthModal('register'); return; }
+          purchaseLotteryNumbers(currentGame.id, [num]);
+        };
+        return (
+          <div className="bg-slate-900 rounded-3xl p-3 border border-slate-700 shadow-md">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-black text-white">
+                {language === 'am' ? '🎟️ ካርዶች (ጠቅ ለመግዛት)' : '🎟️ Cards — Tap to Buy'}
+              </div>
+              <div className="flex items-center gap-2 text-[10px] font-bold">
+                <span className="flex items-center gap-1 text-emerald-400"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span>{language === 'am' ? 'ባዶ' : 'Available'}</span>
+                <span className="flex items-center gap-1 text-red-400"><span className="w-2.5 h-2.5 rounded-sm bg-red-600 inline-block"></span>{language === 'am' ? 'የተሸጠ' : 'Sold'}</span>
+                <span className="flex items-center gap-1 text-amber-400"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block"></span>{language === 'am' ? 'የኔ' : 'Mine'}</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-[repeat(25,minmax(0,1fr))] gap-0.5">
+              {Array.from({ length: FETAN_TOTAL }, (_, i) => i + 1).map(num => {
+                const isSold = fetanSoldSet.has(num);
+                const isMine = myFetanCards.has(num);
+                return (
+                  <button
+                    key={num}
+                    onClick={() => handleFetanClickBuy(num)}
+                    disabled={isSold && !isMine}
+                    title={isMine ? `#${num} (Yours)` : isSold ? `#${num} (Sold)` : `#${num} — Tap to buy`}
+                    className={`h-4 rounded-[2px] text-[7px] font-black flex items-center justify-center transition-all ${
+                      isMine
+                        ? 'bg-amber-400 text-slate-950 ring-1 ring-amber-200'
+                        : isSold
+                        ? 'bg-red-700 text-red-200 cursor-not-allowed'
+                        : 'bg-emerald-700 hover:bg-emerald-500 text-white cursor-pointer active:scale-90'
+                    }`}
+                  >
+                    {num <= 100 ? num : ''}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
+              <span>{fetanSoldSet.size}/{FETAN_TOTAL} {language === 'am' ? 'የተሸጡ' : 'sold'}</span>
+              <span>{FETAN_TOTAL - fetanSoldSet.size} {language === 'am' ? 'ቀሪ' : 'remaining'}</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ================================================================
           CARD 3: Bingo Cards Header & Chips Bar (Matches Telegram Mockup)
@@ -1820,32 +1926,34 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               })}
             </div>
 
-            {/* Quick Live Reactions Toolbar */}
-            <div className="bg-white/95 backdrop-blur-xs border border-slate-200 rounded-2xl p-2 flex items-center justify-between gap-1 shadow-xs">
-              <span className="text-[10px] font-black text-slate-400 pl-1 uppercase tracking-wider hidden sm:inline">
-                {language === 'am' ? 'ምላሽ:' : 'React:'}
-              </span>
-              <div className="flex items-center gap-1.5 flex-1 justify-around">
-                {[
-                  { emoji: '🔥', label: language === 'am' ? 'ደርሻለሁ!' : 'So Close!' },
-                  { emoji: '👏', label: language === 'am' ? 'እንኳን ደስ አለህ!' : 'Congrats!' },
-                  { emoji: '🎯', label: language === 'am' ? 'ቢንጎ!' : 'BINGO!' },
-                  { emoji: '⚡', label: language === 'am' ? 'ቀጥል!' : 'Let\'s Go!' },
-                  { emoji: '😂', label: language === 'am' ? 'አመለጠኝ!' : 'Ouch!' },
-                ].map((r) => (
-                  <button
-                    key={r.emoji}
-                    type="button"
-                    onClick={() => sendReaction(r.emoji, r.label, user?.name || 'You')}
-                    className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-amber-50 active:scale-95 text-xs font-black transition cursor-pointer flex items-center gap-1 border border-slate-200 hover:border-amber-300 shadow-2xs"
-                    title={r.label}
-                  >
-                    <span className="text-sm">{r.emoji}</span>
-                    <span className="text-[10px] text-slate-600 hidden sm:inline">{r.label}</span>
-                  </button>
-                ))}
+            {/* Quick Live Reactions Toolbar — hidden for Hyper Fetan */}
+            {!isFetanGame && (
+              <div className="bg-white/95 backdrop-blur-xs border border-slate-200 rounded-2xl p-2 flex items-center justify-between gap-1 shadow-xs">
+                <span className="text-[10px] font-black text-slate-400 pl-1 uppercase tracking-wider hidden sm:inline">
+                  {language === 'am' ? 'ምላሽ:' : 'React:'}
+                </span>
+                <div className="flex items-center gap-1.5 flex-1 justify-around">
+                  {[
+                    { emoji: '🔥', label: language === 'am' ? 'ደርሻለሁ!' : 'So Close!' },
+                    { emoji: '👏', label: language === 'am' ? 'እንኳን ደስ አለህ!' : 'Congrats!' },
+                    { emoji: '🎯', label: language === 'am' ? 'ቢንጎ!' : 'BINGO!' },
+                    { emoji: '⚡', label: language === 'am' ? 'ቀጥል!' : 'Let\'s Go!' },
+                    { emoji: '😂', label: language === 'am' ? 'አመለጠኝ!' : 'Ouch!' },
+                  ].map((r) => (
+                    <button
+                      key={r.emoji}
+                      type="button"
+                      onClick={() => sendReaction(r.emoji, r.label, user?.name || 'You')}
+                      className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-amber-50 active:scale-95 text-xs font-black transition cursor-pointer flex items-center gap-1 border border-slate-200 hover:border-amber-300 shadow-2xs"
+                      title={r.label}
+                    >
+                      <span className="text-sm">{r.emoji}</span>
+                      <span className="text-[10px] text-slate-600 hidden sm:inline">{r.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Bottom action bar: Board + Add Card (shared across all cards) */}
             <div className="flex items-center gap-2">
@@ -2560,22 +2668,24 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         </div>
       )}
 
-      {/* FLOATING LIVE REACTIONS OVERLAY */}
-      <div className="fixed inset-x-0 bottom-24 top-24 pointer-events-none z-40 overflow-hidden">
-        {reactions.map((r) => (
-          <div
-            key={r.id}
-            style={{ left: `${r.left}%` }}
-            className="absolute bottom-8 flex items-center gap-1.5 bg-slate-950/85 backdrop-blur-xs text-white px-3 py-1.5 rounded-full text-xs font-black shadow-xl border border-white/20 animate-in slide-in-from-bottom-8 fade-in duration-300"
-          >
-            <span className="text-lg">{r.emoji}</span>
-            <div className="flex flex-col text-left">
-              <span className="text-[9px] text-amber-300 font-bold leading-none">{r.sender}</span>
-              <span className="text-[10px] text-white font-black leading-tight">{r.text}</span>
+      {/* FLOATING LIVE REACTIONS OVERLAY — hidden for Hyper Fetan */}
+      {!isFetanGame && (
+        <div className="fixed inset-x-0 bottom-24 top-24 pointer-events-none z-40 overflow-hidden">
+          {reactions.map((r) => (
+            <div
+              key={r.id}
+              style={{ left: `${r.left}%` }}
+              className="absolute bottom-8 flex items-center gap-1.5 bg-slate-950/85 backdrop-blur-xs text-white px-3 py-1.5 rounded-full text-xs font-black shadow-xl border border-white/20 animate-in slide-in-from-bottom-8 fade-in duration-300"
+            >
+              <span className="text-lg">{r.emoji}</span>
+              <div className="flex flex-col text-left">
+                <span className="text-[9px] text-amber-300 font-bold leading-none">{r.sender}</span>
+                <span className="text-[10px] text-white font-black leading-tight">{r.text}</span>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
