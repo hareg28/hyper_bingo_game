@@ -633,7 +633,49 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
           })}
         </div>
 
-        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* ── Pending Finance Notifications Banner ──────────────────────────── */}
+        {(() => {
+          const pendingDeposits = transactions.filter((t) => t.type === 'DEPOSIT' && t.status === 'PENDING');
+          const pendingWithdrawalsCount = withdrawals.filter((w) => w.status === 'PENDING').length;
+          const total = pendingDeposits.length + pendingWithdrawalsCount;
+          if (total === 0) return null;
+          return (
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-rose-50 border border-rose-300 shadow-sm animate-in fade-in duration-200">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-600 text-white shadow-sm animate-pulse">
+                🔔
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black text-rose-900 leading-tight">
+                  {language === 'am' ? 'ወደ ፋይናንስ ትኩረት ያስፈልጋል!' : 'Finance Queue Needs Attention!'}
+                </p>
+                <p className="text-[11px] text-rose-700 font-medium mt-0.5 flex items-center gap-2 flex-wrap">
+                  {pendingDeposits.length > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                      {language === 'am' ? `${pendingDeposits.length} ያልተረጋገጠ ገቢ` : `${pendingDeposits.length} pending deposit${pendingDeposits.length > 1 ? 's' : ''}`}
+                    </span>
+                  )}
+                  {pendingDeposits.length > 0 && pendingWithdrawalsCount > 0 && <span className="text-rose-400">·</span>}
+                  {pendingWithdrawalsCount > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+                      {language === 'am' ? `${pendingWithdrawalsCount} ያልተፈቀደ ወጪ` : `${pendingWithdrawalsCount} pending withdrawal${pendingWithdrawalsCount > 1 ? 's' : ''}`}
+                    </span>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveTab('finance')}
+                className="shrink-0 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] transition shadow-sm cursor-pointer flex items-center gap-1"
+              >
+                <span>{language === 'am' ? 'ፋይናንስ' : 'Review'}</span>
+                <span className="bg-white text-rose-700 rounded-full px-1.5 py-0.5 font-black text-[10px]">{total}</span>
+              </button>
+            </div>
+          );
+        })()}
+
+
         {/* BROADCAST CENTER TAB (Separated Weekend Games vs Custom Rich Media)    */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'broadcast' && (

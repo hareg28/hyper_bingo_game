@@ -1594,32 +1594,30 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
           {/* Game Info Details: Patterns, Price, Cards, Prize */}
           <div className="px-3 py-1.5 space-y-1.5 border-b border-slate-100 bg-slate-50/50">
-            {/* Row 1: Category-specific Pattern hints description */}
-            <div className="flex items-center justify-between pr-4">
-              <span className="block text-[11px] text-slate-700 font-bold leading-tight truncate mr-2">
-                {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
-                  ? (language === 'am'
-                      ? '⚡ 4 የማሸነፊያ ደንቦች: 1 አግድም | 1 ቀጥታ | 1 ዲያጎናል | 4 ማዕዘናት'
-                      : '⚡ 4 Winning Rules: 1 Horizontal | 1 Vertical | 1 Diagonal | 4 Corners')
-                  : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
-                  ? (language === 'am'
-                      ? '🌟 የማሸነፊያ ደንብ: ሙሉ ቤት ብቻ (24/24 ቁጥሮች) — ሜጋ ጃክፖት'
-                      : '🌟 Winning Rule: Full House Only (All 24 Numbers) — Mega Jackpot')
-                  : (() => {
-                      const activeRule = HYPER_SPECIAL_RULES[Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
-                      return language === 'am'
-                        ? `🎲 የዚህ ዙር ሕግ #${(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1}: ${activeRule.nameAm}`
-                        : `🎲 Round Law #${(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1}: ${activeRule.nameEn}`;
-                    })()}
-              </span>
-              <button
-                onClick={() => setShowPatternHintModal(true)}
-                className="shrink-0 w-6 h-6 rounded-full bg-amber-100 hover:bg-amber-200 flex items-center justify-center text-amber-600 border border-amber-300 transition cursor-pointer shadow-xs"
-                title="Pattern Hints"
-              >
-                <Lightbulb className="w-3.5 h-3.5 fill-amber-400" />
-              </button>
-            </div>
+            {/* Row 1: Category-specific Pattern hints description — hidden for Fetan (rule already shown in top bar) */}
+            {!isFetanGame && (
+              <div className="flex items-center justify-between pr-4">
+                <span className="block text-[11px] text-slate-700 font-bold leading-tight truncate mr-2">
+                  {currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
+                    ? (language === 'am'
+                        ? '🌟 የማሸነፊያ ደንብ: ሙሉ ቤት ብቻ (24/24 ቁጥሮች) — ሜጋ ጃክፖት'
+                        : '🌟 Winning Rule: Full House Only (All 24 Numbers) — Mega Jackpot')
+                    : (() => {
+                        const activeRule = HYPER_SPECIAL_RULES[Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
+                        return language === 'am'
+                          ? `🎲 የዚህ ዙር ሕግ #${(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1}: ${activeRule.nameAm}`
+                          : `🎲 Round Law #${(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1}: ${activeRule.nameEn}`;
+                      })()}
+                </span>
+                <button
+                  onClick={() => setShowPatternHintModal(true)}
+                  className="shrink-0 w-6 h-6 rounded-full bg-amber-100 hover:bg-amber-200 flex items-center justify-center text-amber-600 border border-amber-300 transition cursor-pointer shadow-xs"
+                  title="Pattern Hints"
+                >
+                  <Lightbulb className="w-3.5 h-3.5 fill-amber-400" />
+                </button>
+              </div>
+            )}
 
             {/* Row 2: Players | Price | Cards | Prize */}
             <div className="flex items-center gap-3 text-[12px] flex-wrap">

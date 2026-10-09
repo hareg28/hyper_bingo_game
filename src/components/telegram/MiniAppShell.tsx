@@ -1417,29 +1417,7 @@ function WeekendLotteryNumberPicker({
         </div>
       )}
 
-      {/* 🎯 ONE-LINE COMPACT WINNING RULE & HIT BANNER */}
-      <div className="mx-2 mt-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-400 text-slate-950 flex items-center justify-between gap-2 shadow-2xs text-[11px]">
-        <div className="flex items-center gap-1.5 min-w-0 truncate">
-          <span className="shrink-0">{mode === 'FETAN' ? '⚡' : mode === 'SPECIAL' ? '🎲' : '🌟'}</span>
-          <span className="font-black text-amber-950 shrink-0">
-            {isAm ? 'ሕግ:' : 'Rule:'}
-          </span>
-          <span className="font-bold text-slate-800 truncate">
-            {mode === 'FETAN'
-              ? (isAm ? '1 አግድም፣ 1 ቀጥታ፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
-              : mode === 'SPECIAL'
-              ? (() => {
-                  const rule = HYPER_SPECIAL_RULES[Math.abs(selectedGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
-                  return isAm ? `የዙሩ ሕግ: ${rule.nameAm}` : `Round Law: ${rule.nameEn}`;
-                })()
-              : (isAm ? 'ሙሉ ቤት ብቻ 24/24 (ሜጋ ጃክፖት)' : 'Full House Only (All 24 Numbers)')
-            }
-          </span>
-        </div>
-        <span className="shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-slate-950">
-          {mode === 'FETAN' ? '⚡ 5 SLOTS' : mode === 'SPECIAL' ? '🎲 SPECIAL' : '🌟 FULL HOUSE'}
-        </span>
-      </div>
+
 
       {/* ⏳ TIMING CLOCK BANNER */}
       {mode === 'FETAN' ? (
@@ -1554,24 +1532,7 @@ function WeekendLotteryNumberPicker({
             })}
           </div>
         </div>
-      ) : mode === 'FETAN' ? (
-        <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 shadow-xs flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-base">⚡</span>
-            <div>
-              <span className="text-xs font-black text-slate-900 block leading-tight">
-                {isAm ? 'ሃይፐር ፈጣን የመግቢያ ዋጋ: 10 ብር ብቻ' : 'Hyper Fetan Fixed Entry: 10 ETB Only'}
-              </span>
-              <span className="text-[10px] text-amber-800 font-bold">
-                {isAm ? '1 መስመር ወይም 4 ማዕዘናት · 1 ደቂቃ ዙር · 500 ካርዶች' : '1 Line or 4 Corners · 1 Min Round · 500 Cards'}
-              </span>
-            </div>
-          </div>
-          <span className="px-3 py-1 rounded-xl bg-amber-500 text-slate-950 font-black text-xs shadow-2xs border border-amber-600">
-            10 ETB
-          </span>
-        </div>
-      ) : (
+      ) : mode === 'FETAN' ? null : (
         <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-white border border-amber-300 shadow-xs space-y-2 shrink-0">
           <div className="flex items-center justify-between px-1">
             <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1">
