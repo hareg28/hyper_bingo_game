@@ -1028,10 +1028,29 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     };
     setTransactions((prev) => [tx, ...prev]);
 
-    // Update game player count and entryPrice if customized
+    // Update game player count and entryPrice if customized (Reset balls if new round)
+    const isCompleted = targetGame.status === 'COMPLETED' || (targetGame.winners && targetGame.winners.length > 0);
     setGames((prev) =>
-      prev.map((g) => (g.id === gameId ? { ...g, entryPrice: actualStake, currentPlayers: g.currentPlayers + 1 } : g))
+      prev.map((g) => {
+        if (g.id !== gameId) return g;
+        if (isCompleted) {
+          return {
+            ...g,
+            entryPrice: actualStake,
+            currentPlayers: 1,
+            drawnNumbers: [],
+            currentBall: null,
+            winners: [],
+            blockedCards: [],
+            status: 'OPEN',
+          };
+        }
+        return { ...g, entryPrice: actualStake, currentPlayers: g.currentPlayers + 1 };
+      })
     );
+    if (isCompleted) {
+      setLotterySoldMap((prev) => ({ ...prev, [gameId]: new Set<number>() }));
+    }
 
     // Generate fresh cards for user
     const newCards = cardsToCreate.map((cNum) => createNewBingoCard(gameId, user.id, cNum));
@@ -1207,6 +1226,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
         return {
           ...g,
+          currentPlayers: 0,
           drawnNumbers: [],
           currentBall: null,
           blockedCards: [],
@@ -1217,6 +1237,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         };
       })
     );
+    setLotterySoldMap((prev) => ({ ...prev, [gameId]: new Set<number>() }));
     // 1-Game Card Rule: Cards are valid for ONE game only!
     // After the game finishes, player must purchase new cards for the next round
     setUserCards((prev) => prev.filter((card) => card.gameId !== gameId));
@@ -1249,17 +1270,31 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
 
     // ---- WINNING RULE CHECK ACCORDING TO GAME CATEGORY / RULE ----
-    // Hyper Fetan: 1 Horizontal, 1 Vertical, 1 Diagonal, 4 Corners (No Full House, No X, No 2 Horizontal)
+    // Include all drawn numbers so player is NEVER blocked for a valid horizontal line or pattern
+    const gameDrawnSet = new Set(game.drawnNumbers);
+    const effectiveMarked = card.numbers.map((row, rIdx) =>
+      row.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || card.marked[rIdx][cIdx] || gameDrawnSet.has(val))
+    );
+
+    const isFetan = game.category === 'HYPER_FETAN' || game.name?.includes('Fetan') || game.id.includes('fetan');
+    const isWeekend = !!game.isWeekendSpecial || game.gameType === 'WEEKEND_LOTTERY' || game.category === 'HYPER_WEEKEND';
+    const effectiveRuleType = isFetan
+      ? 'ONE_LINE_OR_CORNERS'
+      : isWeekend
+      ? 'FULL_HOUSE_ONLY'
+      : game.winningRule;
+
+    // Hyper Fetan: 1 Horizontal, 1 Vertical, 1 Diagonal, 4 Corners (Any 1 line from hint rule)
     // Hyper Weekend: Full House Only
-    // Hyper Special: Specific active rule for this game round until finished
-    const bestRule: WinningRuleMatch | null = getBestWinningRule(card.marked, game.winningRule, game.activeSpecialRuleIndex);
+    // Hyper Special: Specific active rule for this game round
+    const bestRule: WinningRuleMatch | null = getBestWinningRule(effectiveMarked, effectiveRuleType, game.activeSpecialRuleIndex);
 
     if (!bestRule) {
       blockCard(game.id, card.cardNumber);
       const isAm = language === 'am';
-      const ruleDesc = game.winningRule === 'ONE_LINE_OR_CORNERS'
+      const ruleDesc = effectiveRuleType === 'ONE_LINE_OR_CORNERS'
         ? (isAm ? '1 አግድም፣ 1 ቀጥታ (Vertical)፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
-        : game.winningRule === 'FULL_HOUSE_ONLY'
+        : effectiveRuleType === 'FULL_HOUSE_ONLY'
         ? (isAm ? 'ሙሉ ቤት (Full House Only)' : 'Full House Only')
         : (() => {
             const activeRule = HYPER_SPECIAL_RULES[Math.abs(game.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
@@ -1277,13 +1312,18 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    // ---- PRIZE LOGIC (business rule) ------------------------------------------
-    const totalCollected = Math.max(0, (game.entryPrice || 0) * Math.max(0, game.currentPlayers || 0));
-    const ownerCut = Math.round(totalCollected * OWNER_CUT_PCT); // 20% owner (internal only)
-    const isWeekend = !!game.isWeekendSpecial || game.gameType === 'WEEKEND_LOTTERY';
+    // ---- PRIZE LOGIC: 80% to winners (Derash) & 20% to owner ----
+    const soldCount = Math.max(
+      game.currentPlayers || 0,
+      (lotterySoldMap[game.id]?.size || 0),
+      userCards.filter(c => c.gameId === game.id).length,
+      1
+    );
+    const totalCollected = Math.max(0, (game.entryPrice || 10) * soldCount);
+    const ownerCut = Math.round(totalCollected * OWNER_CUT_PCT); // 20% owner
     const totalPrizePoolForWinners = isWeekend
       ? Math.round(game.prizePool || 0)
-      : Math.round(totalCollected * WINNERS_CUT_PCT);
+      : Math.round(totalCollected * WINNERS_CUT_PCT); // 80% Derash for winners
 
     const alreadyWonUsernames = new Set(game.winners.map(w => w.username));
     const newWinnerCount = alreadyWonUsernames.has(user.username)
@@ -1409,6 +1449,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const drawNextBall = (gameId: string): number | null => {
     const game = games.find((g) => g.id === gameId);
     if (!game) return null;
+    if (game.status === 'COMPLETED' || (game.winners && game.winners.length > 0)) return null;
 
     const drawnSet = new Set(game.drawnNumbers);
     if (drawnSet.size >= 75) return null;
@@ -1551,9 +1592,24 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       return { ...prev, [gameId]: current };
     });
 
-    // Increment players counter
+    // Increment players counter & reset balls if new round starting after completion
+    const isCompleted = game.status === 'COMPLETED' || (game.winners && game.winners.length > 0);
     setGames((prev) =>
-      prev.map((g) => (g.id === gameId ? { ...g, currentPlayers: g.currentPlayers + 1 } : g))
+      prev.map((g) => {
+        if (g.id !== gameId) return g;
+        if (isCompleted) {
+          return {
+            ...g,
+            currentPlayers: 1,
+            drawnNumbers: [],
+            currentBall: null,
+            winners: [],
+            blockedCards: [],
+            status: 'OPEN',
+          };
+        }
+        return { ...g, currentPlayers: g.currentPlayers + 1 };
+      })
     );
 
     // Create corresponding bingo cards for purchased numbers (so game room shows them)

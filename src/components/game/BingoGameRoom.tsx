@@ -813,8 +813,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     const canAutoDraw = isAutoDrawing && 
       currentGame && 
       currentGame.status !== 'COMPLETED' && 
+      (!currentGame.winners || currentGame.winners.length === 0) &&
       currentGame.drawnNumbers.length < 75 && 
       !fetanIsIntermission &&
+      !specialIsIntermission &&
       (!isWeekendGame || isWeekendLive);
 
     if (canAutoDraw) {
@@ -1119,17 +1121,30 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
     // Check pattern completeness according to game's winning rule:
     // Fetan: 1 Horizontal, 1 Vertical, 1 Diagonal, 4 Corners | Weekend: Full House Only | Special: Active Rule
-    const bestRule: WinningRuleMatch | null = getBestWinningRule(targetCard.marked, currentGame.winningRule, currentGame.activeSpecialRuleIndex);
+    const isFetan = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.id.includes('fetan') || isFetanGame;
+    const isWeekend = !!currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.category === 'HYPER_WEEKEND' || isWeekendGame;
+    const effectiveRuleType = isFetan
+      ? 'ONE_LINE_OR_CORNERS'
+      : isWeekend
+      ? 'FULL_HOUSE_ONLY'
+      : currentGame.winningRule;
+
+    const gameDrawnSet = new Set(currentGame.drawnNumbers);
+    const effectiveMarked = targetCard.numbers.map((row, rIdx) =>
+      row.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || targetCard.marked[rIdx][cIdx] || gameDrawnSet.has(val))
+    );
+
+    const bestRule: WinningRuleMatch | null = getBestWinningRule(effectiveMarked, effectiveRuleType, currentGame.activeSpecialRuleIndex);
 
     if (!bestRule) {
       // FALSE BINGO -> BLOCK THE PLAYER & CARD
       playErrorBuzzer();
-      const rem = countRemainingNumbers(targetCard.marked);
+      const rem = countRemainingNumbers(effectiveMarked);
       claimBingo(targetCard.id); // This adds card to blockedCards in context
       const isAm = language === 'am';
-      const ruleName = currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
+      const ruleName = effectiveRuleType === 'ONE_LINE_OR_CORNERS'
         ? (isAm ? '1 አግድም፣ 1 ቀጥታ (Vertical)፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
-        : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
+        : effectiveRuleType === 'FULL_HOUSE_ONLY'
         ? (isAm ? 'ሙሉ ቤት (Full House Only)' : 'Full House Only')
         : (() => {
             const activeRule = HYPER_SPECIAL_RULES[Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
@@ -1220,7 +1235,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   })();
 
   const gameShortId = (currentGame.id || 'game').slice(0, 8);
-  const gamePrizeDisplay = getGameLivePrizePool(currentGame);
+  const soldNumbers = getLotterySoldNumbers(currentGame.id);
+  const totalCardsSold = Math.max(
+    currentGame.currentPlayers || 0,
+    soldNumbers?.size || 0,
+    activeGameCards.length
+  );
+  const totalGrossMoney = (currentGame.entryPrice || 10) * totalCardsSold;
+  const gamePrizeDisplay = (currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY')
+    ? (currentGame.prizePool || 0)
+    : Math.round(totalGrossMoney * 0.80);
   const playableBalance = (wallet?.availableBalance || 0) + (wallet?.bonusBalance || 0);
   const hasSufficientBalance = playableBalance >= (currentGame?.entryPrice || 0);
 
@@ -1301,61 +1325,61 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
       {/* ================================================================
           CARD 1: Game Stats & Controls
-          HYPER FETAN: Dark header matching reference image
+          HYPER FETAN: Clean white header with black text
           OTHER GAMES: Standard white card
           ================================================================ */}
       {isFetanGame ? (
-        /* ── Hyper Fetan Dark Header (matches reference: DERASH / BALLS / PLAYERS + ball) ── */
-        <div className="bg-slate-900 rounded-3xl overflow-hidden border border-slate-700 shadow-md">
+        /* ── Hyper Fetan Clean White Header (DERASH / BALLS / PLAYERS + ball) ── */
+        <div className="bg-white rounded-3xl overflow-hidden border border-slate-200/90 shadow-sm">
           {/* Top bar: DERASH | BALLS | PLAYERS | Current Ball */}
           <div className="flex items-stretch">
-            {/* DERASH (Prize Pool) */}
-            <div className="flex-1 px-3 py-3 border-r border-slate-700/60">
-              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+            {/* DERASH (Prize Pool - 80% from card sales) */}
+            <div className="flex-1 px-3 py-3 border-r border-slate-200">
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                 {language === 'am' ? 'ደርሻ' : 'DERASH'}
               </div>
-              <div className="text-xl font-black text-emerald-400 font-mono leading-tight mt-0.5">
+              <div className="text-xl font-black text-slate-900 font-mono leading-tight mt-0.5">
                 {formatETB(gamePrizeDisplay)}
               </div>
             </div>
             {/* BALLS */}
-            <div className="flex-1 px-3 py-3 border-r border-slate-700/60 text-center">
-              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <div className="flex-1 px-3 py-3 border-r border-slate-200 text-center">
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                 {language === 'am' ? 'ኳሶች' : 'BALLS'}
               </div>
-              <div className="text-xl font-black text-amber-400 font-mono leading-tight mt-0.5">
-                {currentGame.drawnNumbers.length}<span className="text-sm text-slate-500">/75</span>
+              <div className="text-xl font-black text-slate-900 font-mono leading-tight mt-0.5">
+                {currentGame.drawnNumbers.length}<span className="text-sm text-slate-400">/75</span>
               </div>
             </div>
             {/* PLAYERS */}
-            <div className="flex-1 px-3 py-3 border-r border-slate-700/60 text-center">
-              <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <div className="flex-1 px-3 py-3 border-r border-slate-200 text-center">
+              <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                 {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
               </div>
-              <div className="text-xl font-black text-amber-300 font-mono leading-tight mt-0.5">
-                {currentGame.currentPlayers || 0}
+              <div className="text-xl font-black text-slate-900 font-mono leading-tight mt-0.5">
+                {totalCardsSold}
               </div>
             </div>
-            {/* Current Ball (large circle on right like reference) */}
+            {/* Current Ball (large circle on right) */}
             <div className="flex items-center justify-center px-3 py-2">
               {currentGame.currentBall ? (
-                <div className={`w-14 h-14 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-lg ring-2 ring-amber-400/60 flex flex-col items-center justify-center`}>
-                  <span className="text-[9px] font-black uppercase leading-none opacity-80">{getBallLetter(currentGame.currentBall)}</span>
+                <div className={`w-14 h-14 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-md ring-2 ring-amber-400 flex flex-col items-center justify-center text-white`}>
+                  <span className="text-[9px] font-black uppercase leading-none opacity-90">{getBallLetter(currentGame.currentBall)}</span>
                   <span className="text-lg font-black font-mono leading-tight">{currentGame.currentBall}</span>
                 </div>
               ) : (
-                <div className="w-14 h-14 rounded-full border-2 border-dashed border-slate-600 flex items-center justify-center">
-                  <span className="text-[9px] font-black text-slate-500 text-center leading-tight">GET<br/>READY</span>
+                <div className="w-14 h-14 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50">
+                  <span className="text-[9px] font-black text-slate-400 text-center leading-tight">GET<br/>READY</span>
                 </div>
               )}
             </div>
           </div>
           {/* Controls row */}
-          <div className="flex items-center gap-2 px-3 pb-2.5 pt-1 border-t border-slate-700/50">
+          <div className="flex items-center gap-2 px-3 pb-2.5 pt-1.5 border-t border-slate-100 bg-slate-50/50">
             <button
               type="button"
               onClick={() => setShowPatternHintModal(true)}
-              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-lg shadow-xs flex items-center gap-1 cursor-pointer transition active:scale-95"
+              className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition active:scale-95"
             >
               <span>💡</span><span>Hit</span>
             </button>
@@ -1363,23 +1387,23 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               type="button"
               onClick={() => { setSoundEnabled((prev) => { const next = !prev; if (next) audioManager.unlockAudio(); return next; }); }}
               className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center ${
-                soundEnabled ? 'bg-sky-900 text-sky-300 border-sky-700' : 'bg-slate-800 text-slate-500 border-slate-700'
+                soundEnabled ? 'bg-sky-50 text-sky-700 border-sky-300' : 'bg-white text-slate-400 border-slate-200 hover:text-slate-700'
               }`}
             >
-              {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-sky-600" /> : <VolumeX className="w-3.5 h-3.5" />}
             </button>
             <button
               type="button"
               onClick={() => setIsAutoDrawing((prev) => !prev)}
               className={`px-2.5 py-1 rounded-lg border text-[10px] font-black transition cursor-pointer flex items-center gap-1 ${
-                isAutoDrawing ? 'bg-purple-900 border-purple-600 text-purple-200' : 'bg-slate-800 border-slate-600 text-slate-400'
+                isAutoDrawing ? 'bg-purple-100 border-purple-300 text-purple-900' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
               }`}
             >
               <span>🪄</span><span>{isAutoDrawing ? (language === 'am' ? 'አቁም' : 'Auto') : 'Auto'}</span>
             </button>
             {/* Timer */}
-            <div className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-900/60 border border-rose-700/50 text-rose-300 font-mono font-black text-[10px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
+            <div className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 font-mono font-black text-[10px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
               <span>{formattedTimerLeft}</span>
             </div>
           </div>
@@ -1692,11 +1716,22 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             {/* ── Render 2 slots per page in compact 2-column grid ── */}
             <div className={`grid gap-2 ${activeGameCards.length === 1 ? 'grid-cols-1 max-w-sm mx-auto w-full' : 'grid-cols-2'}`}>
               {activeGameCards.map((card, cardIdx) => {
-                const cardIsWin = Boolean(getBestWinningRule(card.marked, currentGame.winningRule, currentGame.activeSpecialRuleIndex));
-                const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
+                const isFetan = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.id.includes('fetan') || isFetanGame;
+                const isWeekend = !!currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.category === 'HYPER_WEEKEND' || isWeekendGame;
+                const effectiveRuleType = isFetan
+                  ? 'ONE_LINE_OR_CORNERS'
+                  : isWeekend
+                  ? 'FULL_HOUSE_ONLY'
+                  : currentGame.winningRule;
+
                 const cardDrawnSet = new Set(currentGame.drawnNumbers);
+                const effectiveCardMarked = card.numbers.map((row, rIdx) =>
+                  row.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || card.marked[rIdx][cIdx] || cardDrawnSet.has(val))
+                );
+                const cardIsWin = Boolean(getBestWinningRule(effectiveCardMarked, effectiveRuleType, currentGame.activeSpecialRuleIndex));
+                const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
                 const cardIsHint = hintCardId === card.id;
-                const oneAway = checkOneAwayStatus(card.marked, card.numbers, currentGame.winningRule, currentGame.activeSpecialRuleIndex);
+                const oneAway = checkOneAwayStatus(effectiveCardMarked, card.numbers, effectiveRuleType, currentGame.activeSpecialRuleIndex);
 
                 return (
                   <div
@@ -2027,8 +2062,19 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           activeGameCards.find((c) => c.id === selectedCardId) || activeGameCards[0];
         if (!fsCard) return null;
         const fsBlocked = currentGame.blockedCards?.includes(fsCard.cardNumber);
-        const fsWin = checkFullHouseWin(fsCard.marked);
+        const isFetan = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.id.includes('fetan') || isFetanGame;
+        const isWeekend = !!currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.category === 'HYPER_WEEKEND' || isWeekendGame;
+        const effectiveRuleType = isFetan
+          ? 'ONE_LINE_OR_CORNERS'
+          : isWeekend
+          ? 'FULL_HOUSE_ONLY'
+          : currentGame.winningRule;
+
         const fsDrawnSet = new Set(currentGame.drawnNumbers);
+        const effectiveFsMarked = fsCard.numbers.map((row, rIdx) =>
+          row.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || fsCard.marked[rIdx][cIdx] || fsDrawnSet.has(val))
+        );
+        const fsWin = Boolean(getBestWinningRule(effectiveFsMarked, effectiveRuleType, currentGame.activeSpecialRuleIndex));
         return (
           <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col select-none">
             {/* Header: card tabs to switch between all picked cards in full screen + delete + close */}
