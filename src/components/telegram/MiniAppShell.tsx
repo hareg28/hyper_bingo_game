@@ -277,16 +277,18 @@ export default function MiniAppShell({
             </button>
           </div>
 
-          {/* Daily Spin Button */}
-          <button
-            type="button"
-            onClick={() => setShowLuckyWheel(true)}
-            className="px-2 py-1 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-[10px] hover:brightness-105 active:scale-95 transition flex items-center gap-1 shadow-xs cursor-pointer border border-amber-300 ring-1 ring-amber-300/50 animate-pulse"
-            title={language === 'am' ? 'ዕለታዊ ነፃ እድል' : 'Daily Free Spin'}
-          >
-            <span className="text-xs">🎁</span>
-            <span className="font-extrabold">{language === 'am' ? 'እድል' : 'Spin'}</span>
-          </button>
+          {/* Daily Spin Button — Lobby only */}
+          {activeTab === 'lobby' && (
+            <button
+              type="button"
+              onClick={() => setShowLuckyWheel(true)}
+              className="px-2 py-1 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-[10px] hover:brightness-105 active:scale-95 transition flex items-center gap-1 shadow-xs cursor-pointer border border-amber-300 ring-1 ring-amber-300/50 animate-pulse"
+              title={language === 'am' ? 'ዕለታዊ ነፃ እድል' : 'Daily Free Spin'}
+            >
+              <span className="text-xs">🎁</span>
+              <span className="font-extrabold">{language === 'am' ? 'እድል' : 'Spin'}</span>
+            </button>
+          )}
 
           {/* Wallet Balance Chip */}
           <button

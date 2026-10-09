@@ -1570,13 +1570,15 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 <span className="font-bold text-slate-500">{language === 'am' ? 'ሰዓት:' : 'Time:'}</span>
                 <span className="font-mono font-black text-slate-800">{currentTime}</span>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-slate-400">ⓘ</span>
-                <span className="font-bold text-slate-500">{language === 'am' ? 'ሁኔታ:' : 'Status:'}</span>
-                <span className={`font-black ${gameStatus === 'Playing' || gameStatus === 'በመጫወት ላይ' ? 'text-emerald-700' : gameStatus === 'Checking' || gameStatus === 'የተጠናቀቀ' ? 'text-green-700' : 'text-amber-700'}`}>
-                  {gameStatus}
-                </span>
-              </div>
+              {!isFetanGame && (
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-400">ⓘ</span>
+                  <span className="font-bold text-slate-500">{language === 'am' ? 'ሁኔታ:' : 'Status:'}</span>
+                  <span className={`font-black ${gameStatus === 'Playing' || gameStatus === 'በመጫወት ላይ' ? 'text-emerald-700' : gameStatus === 'Checking' || gameStatus === 'የተጠናቀቀ' ? 'text-green-700' : 'text-amber-700'}`}>
+                    {gameStatus}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Show Less toggle button */}
