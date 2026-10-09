@@ -1440,46 +1440,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           CARD 2: 75-Ball Master Table (Matches Telegram Mockup)
           ================================================================ */}
       <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs">
-        {/* Top 3 pills / header */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="bg-amber-50 text-amber-900 border border-amber-200/60 px-3 py-1.5 rounded-2xl text-center min-w-[76px]">
-            <div className="font-mono text-xs font-black leading-tight">
-              {currentGame.drawnNumbers.length} / 75
-            </div>
-            <div className="text-[10px] font-bold text-amber-800/80 uppercase">
-              {language === 'am' ? 'የተጠሩ' : 'Drawn'}
-            </div>
-          </div>
-
-          <div className="text-center font-black text-xs text-slate-800 leading-tight">
-            75-Ball Master<br />Table
-          </div>
-
-          <div className="bg-sky-50 text-sky-900 border border-sky-100 px-3 py-1.5 rounded-2xl text-center min-w-[76px] flex flex-col justify-center">
-            <div className="font-mono text-xs font-black leading-tight">
-              Ball #{currentGame.drawnNumbers.length} / 75
-            </div>
-          </div>
-        </div>
-
-        {/* Center circular ball indicator */}
-        <div className="flex justify-center my-3.5">
-          {currentGame.currentBall ? (
-            <div className={`w-20 h-20 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-lg ring-4 ring-amber-400/80 flex flex-col items-center justify-center text-white animate-in zoom-in-75 duration-200`}>
-              <span className="text-xs font-black uppercase tracking-wider leading-none opacity-90">
-                {getBallLetter(currentGame.currentBall)}
-              </span>
-              <span className="text-2xl font-black font-mono leading-none mt-0.5">
-                {currentGame.currentBall}
-              </span>
-            </div>
-          ) : (
-            <div className="w-20 h-20 rounded-full border-2 border-dashed border-sky-300 bg-sky-50/40 flex flex-col items-center justify-center text-center p-2">
-              <span className="text-[11px] font-black text-slate-600 leading-tight tracking-wider">
-                GET<br />READY
-              </span>
-            </div>
-          )}
+        {/* Slim board title */}
+        <div className="flex items-center justify-between mb-2 px-1">
+          <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">
+            {language === 'am' ? 'የቢንጎ 75-ኳስ ሰንጠረዥ' : '75-Ball Master Board'}
+          </span>
+          <span className="text-[10px] font-mono font-black text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+            {currentGame.drawnNumbers.length} / 75 {language === 'am' ? 'የተጠሩ' : 'Drawn'}
+          </span>
         </div>
 
         {/* 5 Rows B-I-N-G-O with 15 columns */}
