@@ -1267,17 +1267,32 @@ function WeekendLotteryNumberPicker({
   const handlePickNumber = (num: number) => {
     if (!user) { openAuthModal('register'); return; }
     if (soldSet.has(num)) return;
-    const existingIdx = slotNumbers.indexOf(num);
-    if (existingIdx >= 0) {
-      const next = [...slotNumbers];
-      next[existingIdx] = null;
-      setSlotNumbers(next);
+    if (!selectedGame) return;
+
+    if (playableBalance < entryPrice) {
+      setPurchaseFeedback(
+        isAm 
+          ? `በቂ ሒሳብ የለዎትም! (${entryPrice} ETB ያስፈልጋል፣ ያለዎት ${Math.floor(playableBalance)} ETB)` 
+          : `Insufficient balance! (Need ${entryPrice} ETB, have ${Math.floor(playableBalance)} ETB)`
+      );
+      setTimeout(() => setPurchaseFeedback(null), 3500);
       return;
     }
-    if (firstEmptySlotIdx < 0) return;
-    const next = [...slotNumbers];
-    next[firstEmptySlotIdx] = num;
-    setSlotNumbers(next);
+
+    // Direct 1-tap instant purchase: clicking the card number immediately buys it
+    const result = purchaseLotteryNumbers(selectedGame.id, [num]);
+    setPurchaseFeedback(result.message);
+    setTimeout(() => setPurchaseFeedback(null), 3500);
+
+    if (result.success) {
+      const cardStr = String(num).padStart(4, '0');
+      if (firstEmptySlotIdx >= 0) {
+        const next = [...slotNumbers];
+        next[firstEmptySlotIdx] = num;
+        setSlotNumbers(next);
+      }
+      onPickCards(selectedGame.id, result.purchased || [cardStr]);
+    }
   };
 
   const clearSlot = (slotIdx: number) => {
@@ -1288,16 +1303,8 @@ function WeekendLotteryNumberPicker({
 
   const handleBuy = () => {
     if (!user) { openAuthModal('register'); return; }
-    if (!selectedGame || slotCountFilled === 0) return;
-    if (!canAfford) return;
-    const nums = slotNumbers.filter((n): n is number => n !== null);
-    const result = purchaseLotteryNumbers(selectedGame.id, nums);
-    setPurchaseFeedback(result.message);
-    setTimeout(() => setPurchaseFeedback(null), 3500);
-    if (result.success) {
-      setSlotNumbers(Array.from({ length: NUM_SLOTS }, () => null));
-      onPickCards(selectedGame.id, result.purchased || nums.map((n) => String(n).padStart(4, '0')));
-    }
+    if (!selectedGame) return;
+    onPickCards(selectedGame.id, []);
   };
 
   const regCode = user ? user.referralCode?.toUpperCase() || '---' : '---';
@@ -1604,9 +1611,14 @@ function WeekendLotteryNumberPicker({
       {/* Master Lottery Numbers Table — Clean White Background, Bold Black Numbers */}
       <div className="mx-2 mt-2 bg-white rounded-2xl border border-slate-200 p-2 shadow-xs">
         <div className="flex items-center justify-between mb-1.5 px-1">
-          <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider">
-            {isAm ? `የቁጥሮች ሰንጠረዥ (1-${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`}
-          </span>
+          <div>
+            <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
+              {isAm ? `የቁጥሮች ሰንጠረዥ (1-${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`}
+            </span>
+            <span className="text-[9px] text-amber-600 font-bold block">
+              {isAm ? '⚡ ቁጥሩን ሲጫኑ ወዲያውኑ ይገዛል' : '⚡ Tap any card number to purchase instantly'}
+            </span>
+          </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-emerald-700 font-black bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
               ✓ {TOTAL_NUMBERS - soldSet.size} {isAm ? 'ነፃዎች' : 'Available'}
@@ -1649,28 +1661,17 @@ function WeekendLotteryNumberPicker({
         </div>
       )}
 
-      {/* Bottom Buy / Pick Cards Action Button */}
+      {/* Bottom Action Button: Go to Game Room */}
       <div className="mx-2 mt-3 space-y-2">
         <button
           type="button"
           onClick={handleBuy}
-          disabled={slotCountFilled === 0 || !canAfford || !selectedGame}
-          className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
-            slotCountFilled === 0
-              ? 'bg-slate-200 text-slate-500 cursor-not-allowed shadow-none border border-slate-300'
-              : !canAfford
-              ? 'bg-rose-100 text-rose-800 border border-rose-300 cursor-not-allowed'
-              : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 hover:brightness-105 shadow-amber-300/60 active:scale-[0.99]'
-          }`}
+          className="w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 hover:brightness-105 shadow-amber-300/60 active:scale-[0.99]"
         >
           {!user ? (
             isAm ? 'መመዝገብ →' : 'Register to Play →'
-          ) : slotCountFilled === 0 ? (
-            isAm ? '👉 ከሰንጠረዡ ካርድ ቁጥር ይምረጡ' : '👉 Tap Numbers Above to Pick'
-          ) : !canAfford ? (
-            isAm ? `ተጨማሪ ${Math.max(0, totalCost - playableBalance)} ETB ያስፈልጋል (Bonus+Balance: ${Math.floor(playableBalance)} ETB)` : `Need ${Math.max(0, totalCost - playableBalance)} ETB more (Have ${Math.floor(playableBalance)} ETB)`
           ) : (
-            `🏆 ${isAm ? 'ይግዙ' : 'BUY'} · ${slotCountFilled}×${entryPrice} = ${totalCost} ETB`
+            `🎮 ${isAm ? 'ወደ ጨዋታው ክፍል ይግቡ' : 'Go to Game Room'} ${slotCountFilled > 0 ? `(${slotCountFilled} ${isAm ? 'ካርዶች' : 'Cards'})` : ''}`
           )}
         </button>
 
