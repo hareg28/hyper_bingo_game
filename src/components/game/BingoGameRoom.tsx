@@ -214,6 +214,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const [showPatternHintModal, setShowPatternHintModal] = useState(false);
   const [showGameInfo, setShowGameInfo] = useState(false);
   const [cardToDelete, setCardToDelete] = useState<{ id: string; cardNumber: string } | null>(null);
+  const [activeSlotPage, setActiveSlotPage] = useState(0);
   const [reactions, setReactions] = useState<{ id: string; emoji: string; text: string; sender: string; left: number }[]>([]);
 
   const sendReaction = (emoji: string, text: string, sender = 'You') => {
@@ -349,7 +350,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             resetGameRound(currentGame.id);
             setFetanIsIntermission(false);
             setFetanOvertime(false);
-            setIsAutoDrawing(true);
+            if (onOpenLotteryTab) {
+              onOpenLotteryTab();
+            }
             return 60;
           }
           return prev - 1;
@@ -1329,57 +1332,61 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           OTHER GAMES: Standard white card
           ================================================================ */}
       {isFetanGame ? (
-        /* ── Hyper Fetan Clean White Header (DERASH / BALLS / PLAYERS + ball) ── */
-        <div className="bg-white rounded-3xl overflow-hidden border border-slate-200/90 shadow-sm">
-          {/* Top bar: DERASH | BALLS | PLAYERS | Current Ball */}
-          <div className="flex items-stretch">
-            {/* DERASH (Prize Pool - 80% from card sales) */}
-            <div className="flex-1 px-3 py-3 border-r border-slate-200">
-              <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+        /* ── Hyper Fetan Plain Text Header (No Box, Plain Text) ── */
+        <div className="px-1 py-1 space-y-1">
+          {/* Top row stats: DERASH | BALLS | PLAYERS | Current Ball (Plain Text without Box) */}
+          <div className="flex items-center justify-between gap-1 sm:gap-2 px-1">
+            {/* DERASH */}
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                 {language === 'am' ? 'ደርሻ' : 'DERASH'}
               </div>
-              <div className="text-xl font-black text-slate-900 font-mono leading-tight mt-0.5">
+              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
                 {formatETB(gamePrizeDisplay)}
               </div>
             </div>
+
             {/* BALLS */}
-            <div className="flex-1 px-3 py-3 border-r border-slate-200 text-center">
-              <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            <div className="text-center">
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                 {language === 'am' ? 'ኳሶች' : 'BALLS'}
               </div>
-              <div className="text-xl font-black text-slate-900 font-mono leading-tight mt-0.5">
+              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
                 {currentGame.drawnNumbers.length}<span className="text-sm text-slate-400">/75</span>
               </div>
             </div>
+
             {/* PLAYERS */}
-            <div className="flex-1 px-3 py-3 border-r border-slate-200 text-center">
-              <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            <div className="text-center">
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                 {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
               </div>
-              <div className="text-xl font-black text-slate-900 font-mono leading-tight mt-0.5">
+              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
                 {totalCardsSold}
               </div>
             </div>
-            {/* Current Ball (large circle on right) */}
-            <div className="flex items-center justify-center px-3 py-2">
+
+            {/* Current Ball */}
+            <div className="flex items-center justify-center shrink-0">
               {currentGame.currentBall ? (
-                <div className={`w-14 h-14 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-md ring-2 ring-amber-400 flex flex-col items-center justify-center text-white`}>
-                  <span className="text-[9px] font-black uppercase leading-none opacity-90">{getBallLetter(currentGame.currentBall)}</span>
-                  <span className="text-lg font-black font-mono leading-tight">{currentGame.currentBall}</span>
+                <div className={`w-12 h-12 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-sm flex flex-col items-center justify-center text-white`}>
+                  <span className="text-[8px] font-black uppercase leading-none opacity-90">{getBallLetter(currentGame.currentBall)}</span>
+                  <span className="text-base font-black font-mono leading-tight">{currentGame.currentBall}</span>
                 </div>
               ) : (
-                <div className="w-14 h-14 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50">
-                  <span className="text-[9px] font-black text-slate-400 text-center leading-tight">GET<br/>READY</span>
+                <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white">
+                  <span className="text-[8px] font-black text-slate-400 text-center leading-tight">GET<br/>READY</span>
                 </div>
               )}
             </div>
           </div>
-          {/* Controls row */}
-          <div className="flex items-center gap-2 px-3 pb-2.5 pt-1.5 border-t border-slate-100 bg-slate-50/50">
+
+          {/* Controls: Hit, Sound, Auto, Timer */}
+          <div className="flex items-center gap-1.5 px-1 pt-0.5">
             <button
               type="button"
               onClick={() => setShowPatternHintModal(true)}
-              className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition active:scale-95"
+              className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
             >
               <span>💡</span><span>Hit</span>
             </button>
@@ -1409,76 +1416,114 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs">
-          <div className="flex items-start justify-between gap-2">
+        /* ── Non-Fetan Plain Text Header (No Box, Plain Text) ── */
+        <div className="px-1 py-1 space-y-1">
+          {/* Top row stats: PRIZE POOL | BALLS | PLAYERS | Current Ball (Plain Text without Box) */}
+          <div className="flex items-center justify-between gap-1 sm:gap-2 px-1">
+            {/* Prize Pool */}
             <div>
-              <span className="inline-block px-2.5 py-0.5 rounded-md bg-amber-100/80 text-amber-900 font-black text-[10px] uppercase tracking-wider">
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                 {isWeekendGame
-                  ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'HYPER WEEKEND')
+                  ? (language === 'am' ? 'ዊክኤንድ ሽልማት' : 'WEEKEND PRIZE')
                   : isSpecialGame
-                  ? (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')
-                  : (currentGame.name?.toUpperCase() || 'QUICK BINGO')}
-              </span>
-              <div className="text-xs text-slate-500 font-bold mt-1">
-                {language === 'am' ? 'የሽልማት ገንዳ:' : 'Prize Pool:'}
+                  ? (language === 'am' ? 'ስፔሻል ሽልማት' : 'SPECIAL PRIZE')
+                  : (language === 'am' ? 'የሽልማት ገንዳ' : 'PRIZE POOL')}
               </div>
-              <div className="text-2xl font-black text-amber-700 font-mono tracking-tight leading-none mt-0.5">
+              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
                 {formatETB(gamePrizeDisplay)}
               </div>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button type="button" onClick={() => setShowPatternHintModal(true)}
-                className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition active:scale-95">
-                <span>💡</span><span>Game Hit</span>
-              </button>
-              <button type="button" onClick={() => { setSoundEnabled((prev) => { const next = !prev; if (next) audioManager.unlockAudio(); return next; }); }}
-                className={`p-2 rounded-xl border transition cursor-pointer flex items-center justify-center ${
-                  soundEnabled ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600'
-                }`}>
-                {soundEnabled ? <Volume2 className="w-4 h-4 text-sky-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
-              </button>
-              <button type="button" onClick={() => setIsAutoDrawing((prev) => !prev)}
-                className={`px-3 py-1.5 rounded-xl border text-xs font-black transition cursor-pointer flex items-center gap-1.5 shadow-xs ${
-                  isAutoDrawing ? 'bg-purple-100 border-purple-300 text-purple-900 ring-1 ring-purple-300' : 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700'
-                }`}>
-                <span className="text-xs">🪄</span>
-                <span>{isAutoDrawing ? (language === 'am' ? 'አቁም' : 'Auto') : (language === 'am' ? 'ራስ-ሰር' : 'Auto')}</span>
-              </button>
+
+            {/* BALLS */}
+            <div className="text-center">
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                {language === 'am' ? 'ኳሶች' : 'BALLS'}
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
+                {currentGame.drawnNumbers.length}<span className="text-sm text-slate-400">/75</span>
+              </div>
+            </div>
+
+            {/* PLAYERS */}
+            <div className="text-center">
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
+                {totalCardsSold}
+              </div>
+            </div>
+
+            {/* Current Ball */}
+            <div className="flex items-center justify-center shrink-0">
+              {currentGame.currentBall ? (
+                <div className={`w-12 h-12 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-sm flex flex-col items-center justify-center text-white`}>
+                  <span className="text-[8px] font-black uppercase leading-none opacity-90">{getBallLetter(currentGame.currentBall)}</span>
+                  <span className="text-base font-black font-mono leading-tight">{currentGame.currentBall}</span>
+                </div>
+              ) : (
+                <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white">
+                  <span className="text-[8px] font-black text-slate-400 text-center leading-tight">GET<br/>READY</span>
+                </div>
+              )}
             </div>
           </div>
-          <div className="flex items-center justify-between mt-3.5 pt-1">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50/80 border border-blue-100 text-blue-900 font-bold text-xs">
-              <Users className="w-3.5 h-3.5 text-blue-700" />
-              <span>{currentGame.currentPlayers || 0} {language === 'am' ? 'ተጫዋቾች' : 'Players'}</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200/70 text-rose-800 font-mono font-black text-xs">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-              <span>⏱️</span>
-              <span>{formattedTimerLeft} {language === 'am' ? 'ቀሪ' : 'Left'}</span>
+
+          {/* Controls: Game Hit, Sound, Auto, Timer */}
+          <div className="flex items-center gap-1.5 px-1 pt-0.5">
+            <button
+              type="button"
+              onClick={() => setShowPatternHintModal(true)}
+              className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
+            >
+              <span>💡</span><span>Game Hit</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setSoundEnabled((prev) => { const next = !prev; if (next) audioManager.unlockAudio(); return next; }); }}
+              className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center ${
+                soundEnabled ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600'
+              }`}
+            >
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-sky-600" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsAutoDrawing((prev) => !prev)}
+              className={`px-2.5 py-1 rounded-lg border text-[10px] font-black transition cursor-pointer flex items-center gap-1 shadow-2xs ${
+                isAutoDrawing ? 'bg-purple-100 border-purple-300 text-purple-900 ring-1 ring-purple-300' : 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700'
+              }`}
+            >
+              <span className="text-xs">🪄</span>
+              <span>{isAutoDrawing ? (language === 'am' ? 'አቁም' : 'Auto') : (language === 'am' ? 'ራስ-ሰር' : 'Auto')}</span>
+            </button>
+            <div className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200/70 text-rose-800 font-mono font-black text-[10px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+              <span>⏱️ {formattedTimerLeft}</span>
             </div>
           </div>
         </div>
       )}
 
       {/* ================================================================
-          CARD 2: 75-Ball Master Table (Matches Telegram Mockup)
+          CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
           ================================================================ */}
-      <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs">
+      <div className="bg-white rounded-2xl p-2.5 border border-slate-200/80 shadow-xs">
         {/* Slim board title */}
-        <div className="flex items-center justify-between mb-2 px-1">
-          <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">
+        <div className="flex items-center justify-between mb-1.5 px-0.5">
+          <span className="text-[10px] font-black text-slate-800 uppercase tracking-wider">
             {language === 'am' ? 'የቢንጎ 75-ኳስ ሰንጠረዥ' : '75-Ball Master Board'}
           </span>
-          <span className="text-[10px] font-mono font-black text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+          <span className="text-[9px] font-mono font-black text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
             {currentGame.drawnNumbers.length} / 75 {language === 'am' ? 'የተጠሩ' : 'Drawn'}
           </span>
         </div>
 
         {/* 5 Rows B-I-N-G-O with 15 columns */}
-        <div className="space-y-1 bg-slate-50/60 p-2 rounded-2xl border border-slate-100">
+        <div className="space-y-0.5 bg-slate-50/70 p-1 rounded-xl border border-slate-100">
           {rows.map((row) => (
             <div key={row.letter} className="flex items-center gap-1">
-              <div className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
+              <div className={`w-5 h-4 sm:w-6 sm:h-4.5 rounded text-[9px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
                 {row.letter}
               </div>
               <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
@@ -1488,12 +1533,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   return (
                     <div
                       key={num}
-                      className={`h-5 sm:h-6 rounded text-[9px] font-bold flex items-center justify-center transition-all ${
+                      className={`h-4 sm:h-4.5 rounded text-[8px] sm:text-[9px] font-bold flex items-center justify-center transition-all ${
                         isCurrent
-                          ? 'bg-amber-400 text-slate-950 font-black scale-110 shadow-xs ring-1 ring-amber-400 z-10'
+                          ? 'bg-amber-400 text-slate-950 font-black scale-105 shadow-xs ring-1 ring-amber-400 z-10'
                           : isDrawn
                           ? `${row.color} font-black shadow-xs`
-                          : 'bg-white text-slate-500 border border-slate-100'
+                          : 'bg-white text-slate-400 border border-slate-100'
                       }`}
                     >
                       {num}
@@ -1503,34 +1548,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
             </div>
           ))}
-        </div>
-
-        {/* Action Buttons: Draw Ball & Auto Draw */}
-        <div className="flex items-center justify-center gap-3 mt-4">
-          <button
-            type="button"
-            disabled={currentGame.drawnNumbers.length >= 75 || currentGame.status === 'COMPLETED'}
-            onClick={handleManualDraw}
-            className="bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-600 hover:to-amber-500 text-slate-950 font-black text-xs px-5 py-2.5 rounded-2xl shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-95"
-            title="Call next number now"
-          >
-            <Zap className="w-3.5 h-3.5 fill-slate-950" />
-            <span>{language === 'am' ? 'ኳስ ጥራ' : 'Draw Ball'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsAutoDrawing((prev) => !prev)}
-            className={`font-bold text-xs px-5 py-2.5 rounded-2xl border transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 ${
-              isAutoDrawing
-                ? 'bg-emerald-100 border-emerald-300 text-emerald-900'
-                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-            }`}
-            title="Toggle auto drawing"
-          >
-            <span>{isAutoDrawing ? '⏸' : '▷'}</span>
-            <span>{isAutoDrawing ? (language === 'am' ? 'አቁም' : 'Auto Draw') : (language === 'am' ? 'ራስ-ሰር ጥራ' : 'Auto Draw')}</span>
-          </button>
         </div>
       </div>
 
@@ -1650,11 +1667,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             <span className="truncate">{gameHitFeedback}</span>
           </div>
           <button onClick={() => setGameHitFeedback(null)} className="p-0.5 text-amber-900 shrink-0 cursor-pointer">
-            <X className="w-3 h-3" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
-
 
       {/* ================================================================
           6. BINGO CARDS — Each picked card gets its OWN separate table
@@ -1698,7 +1714,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   onClick={() => {
                     resetGameRound(currentGame.id);
                     setSpecialIsIntermission(false);
-                    setIsSelectorOpen(true);
+                    if (isSpecialGame) {
+                      setIsSelectorOpen(true);
+                    } else if (onOpenLotteryTab) {
+                      onOpenLotteryTab();
+                    } else {
+                      setIsSelectorOpen(true);
+                    }
                   }}
                   className={`w-full sm:w-auto px-3.5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0 ${
                     isSpecialGame
@@ -1713,174 +1735,227 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
             )}
 
-            {/* ── Render 2 slots per page in compact 2-column grid ── */}
-            <div className={`grid gap-2 ${activeGameCards.length === 1 ? 'grid-cols-1 max-w-sm mx-auto w-full' : 'grid-cols-2'}`}>
-              {activeGameCards.map((card, cardIdx) => {
-                const isFetan = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.id.includes('fetan') || isFetanGame;
-                const isWeekend = !!currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.category === 'HYPER_WEEKEND' || isWeekendGame;
-                const effectiveRuleType = isFetan
-                  ? 'ONE_LINE_OR_CORNERS'
-                  : isWeekend
-                  ? 'FULL_HOUSE_ONLY'
-                  : currentGame.winningRule;
+            {/* ── Render 2 slots per screen (Compact 2-Slot Grid with Switcher) ── */}
+            {(() => {
+              const CARDS_PER_PAGE = 2;
+              const totalCardPages = Math.ceil(activeGameCards.length / CARDS_PER_PAGE);
+              const safeCurrentPage = Math.min(activeSlotPage, Math.max(0, totalCardPages - 1));
+              const visibleCards = activeGameCards.slice(
+                safeCurrentPage * CARDS_PER_PAGE,
+                (safeCurrentPage + 1) * CARDS_PER_PAGE
+              );
 
-                const cardDrawnSet = new Set(currentGame.drawnNumbers);
-                const effectiveCardMarked = card.numbers.map((row, rIdx) =>
-                  row.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || card.marked[rIdx][cIdx] || cardDrawnSet.has(val))
-                );
-                const cardIsWin = Boolean(getBestWinningRule(effectiveCardMarked, effectiveRuleType, currentGame.activeSpecialRuleIndex));
-                const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
-                const cardIsHint = hintCardId === card.id;
-                const oneAway = checkOneAwayStatus(effectiveCardMarked, card.numbers, effectiveRuleType, currentGame.activeSpecialRuleIndex);
-
-                return (
-                  <div
-                    key={card.id}
-                    className={`bg-white rounded-3xl overflow-hidden p-2.5 sm:p-3 shadow-md border-2 transition-all flex flex-col justify-between ${
-                      cardIsBlocked
-                        ? 'border-rose-400 ring-2 ring-rose-200'
-                        : cardIsWin
-                        ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg shadow-amber-200 animate-pulse'
-                        : oneAway.isOneAway
-                        ? 'border-amber-400 ring-2 ring-amber-300 shadow-md shadow-amber-200/50'
-                        : 'border-slate-200/90'
-                    }`}
-                  >
-                    {/* Top micro-bar: Card #, 1-Away suspense & card tools */}
-                    <div className="flex items-center justify-between px-1 pb-1.5 border-b border-slate-100 mb-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-mono font-black text-xs text-slate-800">
-                          #{card.cardNumber}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-bold">
-                          ({cardIdx + 1}/{activeGameCards.length})
-                        </span>
-                        {cardIsBlocked ? (
-                          <span className="text-[8px] font-black bg-rose-600 text-white px-1.5 py-0.5 rounded uppercase">
-                            BLOCKED
-                          </span>
-                        ) : oneAway.isOneAway && !cardIsWin ? (
-                          <span className="text-[8px] font-black bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded-full shadow-2xs animate-bounce">
-                            🔥 #{oneAway.neededNumber}
-                          </span>
-                        ) : null}
+              return (
+                <div className="space-y-1.5">
+                  {/* Slot Page Navigation (shown when player has more than 2 cards) */}
+                  {totalCardPages > 1 && (
+                    <div className="flex items-center justify-between px-2 py-1 bg-white rounded-xl border border-slate-200 text-xs shadow-2xs">
+                      <button
+                        type="button"
+                        disabled={safeCurrentPage === 0}
+                        onClick={() => setActiveSlotPage((p) => Math.max(0, p - 1))}
+                        className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed font-black text-[10px] transition cursor-pointer"
+                      >
+                        ◀ {language === 'am' ? 'ቀዳሚ' : 'Prev'}
+                      </button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalCardPages }, (_, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setActiveSlotPage(idx)}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-black transition cursor-pointer ${
+                              safeCurrentPage === idx
+                                ? 'bg-amber-400 text-slate-950 shadow-2xs ring-1 ring-amber-500'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {idx === 0 ? 'S1-S2' : idx === 1 ? (activeGameCards.length >= 4 ? 'S3-S4' : 'S3') : 'S5'}
+                          </button>
+                        ))}
                       </div>
-
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => handleLightGameHit(card)}
-                          className="text-amber-600 hover:bg-amber-50 p-1 rounded-md transition cursor-pointer"
-                          title={language === 'am' ? 'ፍንጭ' : 'Hint'}
-                        >
-                          <Lightbulb className="w-3.5 h-3.5 fill-amber-500" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedCardId(card.id);
-                            setExpandCardModal(true);
-                          }}
-                          className="text-slate-500 hover:text-slate-900 hover:bg-slate-100 p-1 rounded-md transition cursor-pointer"
-                          title="View fullscreen"
-                        >
-                          <Maximize2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setCardToDelete({ id: card.id, cardNumber: card.cardNumber });
-                          }}
-                          className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition cursor-pointer"
-                          title="Remove card"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        disabled={safeCurrentPage >= totalCardPages - 1}
+                        onClick={() => setActiveSlotPage((p) => Math.min(totalCardPages - 1, p + 1))}
+                        className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed font-black text-[10px] transition cursor-pointer"
+                      >
+                        {language === 'am' ? 'ቀጣይ' : 'Next'} ▶
+                      </button>
                     </div>
+                  )}
 
-                    {/* B I N G O Header Row (Matches Reference Picture) */}
-                    <div className="grid grid-cols-5 gap-1.5 sm:gap-2 mb-2">
-                      {[
-                        { letter: 'B', bg: 'bg-[#2563eb]' },
-                        { letter: 'I', bg: 'bg-[#dc2626]' },
-                        { letter: 'N', bg: 'bg-[#f59e0b]' },
-                        { letter: 'G', bg: 'bg-[#16a34a]' },
-                        { letter: 'O', bg: 'bg-[#9333ea]' },
-                      ].map((col) => (
+                  <div className={`grid gap-1.5 sm:gap-2 ${visibleCards.length === 1 ? 'grid-cols-1 max-w-sm mx-auto w-full' : 'grid-cols-2'}`}>
+                    {visibleCards.map((card, cardIdx) => {
+                      const actualSlotNumber = safeCurrentPage * CARDS_PER_PAGE + cardIdx + 1;
+                      const isFetan = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.id.includes('fetan') || isFetanGame;
+                      const isWeekend = !!currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.category === 'HYPER_WEEKEND' || isWeekendGame;
+                      const effectiveRuleType = isFetan
+                        ? 'ONE_LINE_OR_CORNERS'
+                        : isWeekend
+                        ? 'FULL_HOUSE_ONLY'
+                        : currentGame.winningRule;
+
+                      const cardDrawnSet = new Set(currentGame.drawnNumbers);
+                      const effectiveCardMarked = card.numbers.map((row, rIdx) =>
+                        row.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || card.marked[rIdx][cIdx] || cardDrawnSet.has(val))
+                      );
+                      const cardIsWin = Boolean(getBestWinningRule(effectiveCardMarked, effectiveRuleType, currentGame.activeSpecialRuleIndex));
+                      const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
+                      const cardIsHint = hintCardId === card.id;
+                      const oneAway = checkOneAwayStatus(effectiveCardMarked, card.numbers, effectiveRuleType, currentGame.activeSpecialRuleIndex);
+
+                      return (
                         <div
-                          key={col.letter}
-                          className={`${col.bg} text-white font-black italic rounded-xl h-8 sm:h-9 flex items-center justify-center text-sm sm:text-base shadow-2xs`}
+                          key={card.id}
+                          className={`bg-white rounded-2xl overflow-hidden p-2 shadow-xs border-2 transition-all flex flex-col justify-between ${
+                            cardIsBlocked
+                              ? 'border-rose-400 ring-2 ring-rose-200'
+                              : cardIsWin
+                              ? 'border-amber-400 ring-2 ring-amber-300 shadow-md shadow-amber-200 animate-pulse'
+                              : oneAway.isOneAway
+                              ? 'border-amber-400 ring-2 ring-amber-300 shadow-xs shadow-amber-200/50'
+                              : 'border-slate-200/90'
+                          }`}
                         >
-                          {col.letter}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* 5x5 Number Grid (Matches Reference Picture) */}
-                    <div className="grid grid-cols-5 gap-1.5 sm:gap-2 flex-1 mb-2">
-                      {card.numbers.map((row, rIdx) =>
-                        row.map((val, cIdx) => {
-                          const isFree = rIdx === 2 && cIdx === 2;
-                          const isDrawn = !isFree && cardDrawnSet.has(val);
-                          const isMarked = card.marked[rIdx][cIdx];
-                          const isCurrent = currentGame.currentBall === val && !isFree;
-                          const isHintCell = cardIsHint && patternHint && patternHint[rIdx][cIdx] && !isMarked && !isFree;
-                          const isTargetNumber = oneAway.isOneAway && oneAway.neededNumber === val && !isMarked && !isFree;
-
-                          return (
-                            <button
-                              key={`${card.id}-${rIdx}-${cIdx}`}
-                              onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
-                              className={`aspect-square rounded-xl sm:rounded-2xl flex items-center justify-center font-extrabold transition-all relative select-none cursor-pointer ${
-                                isFree
-                                  ? 'bg-[#16a34a] border border-emerald-600 shadow-2xs'
-                                  : isMarked || isDrawn
-                                  ? 'bg-[#dc2626] border border-red-700 text-white shadow-inner'
-                                  : isTargetNumber
-                                  ? 'bg-amber-100 border border-amber-400 text-amber-950 ring-2 ring-amber-500 animate-pulse z-10'
-                                  : isCurrent
-                                  ? 'bg-amber-300 border border-amber-400 text-slate-950 ring-2 ring-amber-500 scale-105 z-10'
-                                  : isHintCell
-                                  ? 'bg-amber-100 border border-amber-400 text-amber-950 ring-2 ring-amber-400 animate-pulse'
-                                  : 'bg-slate-50/90 hover:bg-slate-100 border border-slate-200/90 text-slate-900 shadow-2xs'
-                              }`}
-                            >
-                              {isFree ? (
-                                <span className="text-[#2563eb] font-black text-base sm:text-lg leading-none">★</span>
-                              ) : (
-                                <span className={`text-xs sm:text-sm md:text-base font-black ${
-                                  isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950 font-black' : 'text-slate-900'
-                                }`}>
-                                  {val}
+                          {/* Top micro-bar: Slot #, Card #, 1-Away suspense & card tools */}
+                          <div className="flex items-center justify-between px-0.5 pb-1 border-b border-slate-100 mb-1">
+                            <div className="flex items-center gap-1 min-w-0">
+                              <span className="text-[9px] font-black uppercase px-1 py-0.2 rounded bg-amber-100 text-amber-900 shrink-0">
+                                S{actualSlotNumber}
+                              </span>
+                              <span className="font-mono font-black text-[11px] text-slate-800 truncate">
+                                #{card.cardNumber}
+                              </span>
+                              {cardIsBlocked ? (
+                                <span className="text-[7px] font-black bg-rose-600 text-white px-1 py-0.2 rounded uppercase shrink-0">
+                                  BLOCKED
                                 </span>
-                              )}
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
+                              ) : oneAway.isOneAway && !cardIsWin ? (
+                                <span className="text-[7px] font-black bg-amber-400 text-slate-950 px-1 py-0.2 rounded-full shadow-2xs animate-bounce shrink-0">
+                                  🔥 #{oneAway.neededNumber}
+                                </span>
+                              ) : null}
+                            </div>
 
-                    {/* Bottom Blue BINGO! Button (Matches Reference Picture) */}
-                    <button
-                      disabled={cardIsBlocked}
-                      onClick={() => !cardIsBlocked && handleClaimBingo(card.id)}
-                      className={`w-full py-2.5 sm:py-3 px-3 rounded-2xl font-black italic tracking-wider transition-all relative flex items-center justify-center cursor-pointer shadow-md ${
-                        cardIsBlocked
-                          ? 'bg-rose-900 text-rose-300 cursor-not-allowed text-sm'
-                          : cardIsWin
-                          ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse shadow-amber-300 text-lg sm:text-xl'
-                          : 'bg-[#2563eb] hover:bg-blue-700 text-white active:scale-[0.99] text-lg sm:text-xl'
-                      }`}
-                    >
-                      <span className="tracking-widest">
-                        {cardIsBlocked ? '🚫 BLOCKED' : 'BINGO!'}
-                      </span>
-                      <span className="absolute right-2.5 bottom-1.5 text-[10px] sm:text-xs font-mono font-bold text-blue-200">
-                        #{card.cardNumber}
-                      </span>
-                    </button>
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button
+                                onClick={() => handleLightGameHit(card)}
+                                className="text-amber-600 hover:bg-amber-50 p-0.5 rounded transition cursor-pointer"
+                                title={language === 'am' ? 'ፍንጭ' : 'Hint'}
+                              >
+                                <Lightbulb className="w-3.5 h-3.5 fill-amber-500" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedCardId(card.id);
+                                  setExpandCardModal(true);
+                                }}
+                                className="text-slate-500 hover:text-slate-900 hover:bg-slate-100 p-0.5 rounded transition cursor-pointer"
+                                title="View fullscreen"
+                              >
+                                <Maximize2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setCardToDelete({ id: card.id, cardNumber: card.cardNumber });
+                                }}
+                                className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-0.5 rounded transition cursor-pointer"
+                                title="Remove card"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* B I N G O Header Row (Matches Reference Picture) */}
+                          <div className="grid grid-cols-5 gap-1 mb-1">
+                            {[
+                              { letter: 'B', bg: 'bg-[#2563eb]' },
+                              { letter: 'I', bg: 'bg-[#dc2626]' },
+                              { letter: 'N', bg: 'bg-[#f59e0b]' },
+                              { letter: 'G', bg: 'bg-[#16a34a]' },
+                              { letter: 'O', bg: 'bg-[#9333ea]' },
+                            ].map((col) => (
+                              <div
+                                key={col.letter}
+                                className={`${col.bg} text-white font-black italic rounded-md h-5 sm:h-6 flex items-center justify-center text-xs shadow-2xs`}
+                              >
+                                {col.letter}
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* 5x5 Number Grid (Matches Reference Picture) */}
+                          <div className="grid grid-cols-5 gap-0.5 sm:gap-1 flex-1 mb-1">
+                            {card.numbers.map((row, rIdx) =>
+                              row.map((val, cIdx) => {
+                                const isFree = rIdx === 2 && cIdx === 2;
+                                const isDrawn = !isFree && cardDrawnSet.has(val);
+                                const isMarked = card.marked[rIdx][cIdx];
+                                const isCurrent = currentGame.currentBall === val && !isFree;
+                                const isHintCell = cardIsHint && patternHint && patternHint[rIdx][cIdx] && !isMarked && !isFree;
+                                const isTargetNumber = oneAway.isOneAway && oneAway.neededNumber === val && !isMarked && !isFree;
+
+                                return (
+                                  <button
+                                    key={`${card.id}-${rIdx}-${cIdx}`}
+                                    onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
+                                    className={`aspect-square rounded-md sm:rounded-lg flex items-center justify-center font-extrabold transition-all relative select-none cursor-pointer ${
+                                      isFree
+                                        ? 'bg-[#16a34a] border border-emerald-600 shadow-2xs'
+                                        : isMarked || isDrawn
+                                        ? 'bg-[#dc2626] border border-red-700 text-white shadow-inner'
+                                        : isTargetNumber
+                                        ? 'bg-amber-100 border border-amber-400 text-amber-950 ring-1 ring-amber-500 animate-pulse z-10'
+                                        : isCurrent
+                                        ? 'bg-amber-300 border border-amber-400 text-slate-950 ring-1 ring-amber-500 scale-105 z-10'
+                                        : isHintCell
+                                        ? 'bg-amber-100 border border-amber-400 text-amber-950 ring-1 ring-amber-400 animate-pulse'
+                                        : 'bg-slate-50/90 hover:bg-slate-100 border border-slate-200/90 text-slate-900 shadow-2xs'
+                                    }`}
+                                  >
+                                    {isFree ? (
+                                      <span className="text-[#2563eb] font-black text-xs sm:text-sm leading-none">★</span>
+                                    ) : (
+                                      <span className={`text-[10px] sm:text-xs font-black ${
+                                        isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950 font-black' : 'text-slate-900'
+                                      }`}>
+                                        {val}
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+
+                          {/* Bottom Blue BINGO! Button (Matches Reference Picture) */}
+                          <button
+                            disabled={cardIsBlocked}
+                            onClick={() => !cardIsBlocked && handleClaimBingo(card.id)}
+                            className={`w-full py-1.5 sm:py-2 px-2 rounded-xl font-black italic tracking-wider transition-all relative flex items-center justify-center cursor-pointer shadow-sm ${
+                              cardIsBlocked
+                                ? 'bg-rose-900 text-rose-300 cursor-not-allowed text-xs'
+                                : cardIsWin
+                                ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse shadow-amber-300 text-sm sm:text-base'
+                                : 'bg-[#2563eb] hover:bg-blue-700 text-white active:scale-[0.99] text-sm sm:text-base'
+                            }`}
+                          >
+                            <span className="tracking-widest">
+                              {cardIsBlocked ? '🚫 BLOCKED' : 'BINGO!'}
+                            </span>
+                            <span className="absolute right-2 bottom-1 text-[9px] font-mono font-bold text-blue-200">
+                              #{card.cardNumber}
+                            </span>
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })()}
 
             {/* Quick Live Reactions Toolbar — hidden for Hyper Fetan */}
             {!isFetanGame && (
@@ -1922,7 +1997,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </button>
               {!isWeekendGame && (
                 <button
-                  onClick={() => (!user ? openAuthModal('register') : setIsSelectorOpen(true))}
+                  onClick={() => (!user ? openAuthModal('register') : isSpecialGame ? setIsSelectorOpen(true) : onOpenLotteryTab ? onOpenLotteryTab() : setIsSelectorOpen(true))}
                   disabled={activeGameCards.length >= 5}
                   className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition cursor-pointer ${
                     activeGameCards.length >= 5
@@ -2019,7 +2094,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="flex flex-col sm:flex-row gap-2 px-4 w-full max-w-xs mx-auto">
                 <button
                   disabled={!hasSufficientBalance}
-                  onClick={() => (!user || user.id === 'usr_guest' ? openAuthModal('register') : setIsSelectorOpen(true))}
+                  onClick={() => (!user || user.id === 'usr_guest' ? openAuthModal('register') : isSpecialGame ? setIsSelectorOpen(true) : onOpenLotteryTab ? onOpenLotteryTab() : setIsSelectorOpen(true))}
                   className={`flex-1 px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${
                     !hasSufficientBalance
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
@@ -2478,7 +2553,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 onClick={() => {
                   resetGameRound(currentGame.id);
                   setShowWinnerModal(false);
-                  setIsSelectorOpen(true);
+                  if (isSpecialGame) {
+                    setIsSelectorOpen(true);
+                  } else if (onOpenLotteryTab) {
+                    onOpenLotteryTab();
+                  } else {
+                    setIsSelectorOpen(true);
+                  }
                 }}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:brightness-105 text-slate-950 font-black text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-1.5"
               >

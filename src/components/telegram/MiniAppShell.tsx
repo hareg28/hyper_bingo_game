@@ -734,8 +734,17 @@ export default function MiniAppShell({
           <BingoGameRoom
             gameId={activeGameId || games[0].id}
             onBack={() => setActiveTab('lobby')}
-            onChangeGameId={(newId) => setActiveGameId(newId)}
-            onOpenLotteryTab={() => setActiveTab('lottery')}
+            onOpenLotteryTab={() => {
+              const curGame = games.find((g) => g.id === (activeGameId || games[0].id));
+              if (curGame?.category === 'HYPER_SPECIAL' || curGame?.gameType === 'HYPER_SPECIAL') {
+                setLotteryMode('SPECIAL');
+              } else if (curGame?.category === 'HYPER_WEEKEND' || curGame?.gameType === 'WEEKEND_LOTTERY' || curGame?.isWeekendSpecial) {
+                setLotteryMode('WEEKEND');
+              } else {
+                setLotteryMode('FETAN');
+              }
+              setActiveTab('lottery');
+            }}
             onOpenWalletTab={() => setActiveTab('wallet')}
           />
         )}
@@ -1334,30 +1343,30 @@ function WeekendLotteryNumberPicker({
     if (soldSet.has(num)) return;
     if (!selectedGame) return;
 
-    if (playableBalance < entryPrice) {
-      setPurchaseFeedback(
-        isAm 
-          ? `በቂ ሒሳብ የለዎትም! (${entryPrice} ETB ያስፈልጋል፣ ያለዎት ${Math.floor(playableBalance)} ETB)` 
-          : `Insufficient balance! (Need ${entryPrice} ETB, have ${Math.floor(playableBalance)} ETB)`
-      );
-      setTimeout(() => setPurchaseFeedback(null), 3500);
+    // If already in a slot, remove it (toggle behavior)
+    const existingSlotIdx = slotNumbers.findIndex((n) => n === num);
+    if (existingSlotIdx >= 0) {
+      const next = [...slotNumbers];
+      next[existingSlotIdx] = null;
+      setSlotNumbers(next);
       return;
     }
 
-    // Direct 1-tap instant purchase: clicking the card number immediately buys it
-    const result = purchaseLotteryNumbers(selectedGame.id, [num]);
-    setPurchaseFeedback(result.message);
-    setTimeout(() => setPurchaseFeedback(null), 3500);
-
-    if (result.success) {
-      const cardStr = String(num).padStart(4, '0');
-      if (firstEmptySlotIdx >= 0) {
-        const next = [...slotNumbers];
-        next[firstEmptySlotIdx] = num;
-        setSlotNumbers(next);
-      }
-      onPickCards(selectedGame.id, result.purchased || [cardStr]);
+    // Check if all 5 slots are full
+    if (firstEmptySlotIdx < 0) {
+      setPurchaseFeedback(
+        isAm
+          ? `ከፍተኛው 5 ስሎቶች ተሞልተዋል! ለመቀየር ያለውን ያስወግዱ።`
+          : `All 5 slots are full! Remove one to add a new card.`
+      );
+      setTimeout(() => setPurchaseFeedback(null), 3000);
+      return;
     }
+
+    // Add to slot (selection only, no purchase yet)
+    const next = [...slotNumbers];
+    next[firstEmptySlotIdx] = num;
+    setSlotNumbers(next);
   };
 
   const clearSlot = (slotIdx: number) => {
@@ -1369,7 +1378,38 @@ function WeekendLotteryNumberPicker({
   const handleBuy = () => {
     if (!user) { openAuthModal('register'); return; }
     if (!selectedGame) return;
-    onPickCards(selectedGame.id, []);
+
+    // Get all selected numbers from slots
+    const selectedNums = slotNumbers.filter((n): n is number => n !== null);
+    if (selectedNums.length === 0) {
+      // No cards selected — just go to game room
+      onPickCards(selectedGame.id, []);
+      return;
+    }
+
+    // Check balance for all selected cards
+    const totalNeeded = selectedNums.length * entryPrice;
+    if (playableBalance < totalNeeded) {
+      setPurchaseFeedback(
+        isAm 
+          ? `በቂ ሒሳብ የለዎትም! (${totalNeeded} ETB ያስፈልጋል ለ ${selectedNums.length} ካርዶች፣ ያለዎት ${Math.floor(playableBalance)} ETB)` 
+          : `Insufficient balance! Need ${totalNeeded} ETB for ${selectedNums.length} cards (have ${Math.floor(playableBalance)} ETB)`
+      );
+      setTimeout(() => setPurchaseFeedback(null), 3500);
+      return;
+    }
+
+    // Purchase all selected numbers at once
+    const result = purchaseLotteryNumbers(selectedGame.id, selectedNums);
+    setPurchaseFeedback(result.message);
+    setTimeout(() => setPurchaseFeedback(null), 3500);
+
+    if (result.success) {
+      const cardStrs = selectedNums.map(n => String(n).padStart(4, '0'));
+      onPickCards(selectedGame.id, result.purchased || cardStrs);
+      // Clear slots after successful purchase
+      setSlotNumbers(Array.from({ length: NUM_SLOTS }, () => null));
+    }
   };
 
   const regCode = user ? user.referralCode?.toUpperCase() || '---' : '---';
@@ -1681,7 +1721,7 @@ function WeekendLotteryNumberPicker({
               {isAm ? `የቁጥሮች ሰንጠረዥ (1-${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`}
             </span>
             <span className="text-[9px] text-amber-600 font-bold block">
-              {isAm ? '⚡ ቁጥሩን ሲጫኑ ወዲያውኑ ይገዛል' : '⚡ Tap any card number to purchase instantly'}
+              {isAm ? '⚡ ቁጥሩን ይምረጡ (እስከ 5) ከዚያ ⬇️ ግዛ ይጫኑ' : '⚡ Tap to select (up to 5) then press Buy All below'}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -1731,12 +1771,19 @@ function WeekendLotteryNumberPicker({
         <button
           type="button"
           onClick={handleBuy}
-          className="w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 hover:brightness-105 shadow-amber-300/60 active:scale-[0.99]"
+          disabled={slotCountFilled === 0}
+          className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
+            slotCountFilled === 0
+              ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+              : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 hover:brightness-105 shadow-amber-300/60 active:scale-[0.99]'
+          }`}
         >
           {!user ? (
             isAm ? 'መመዝገብ →' : 'Register to Play →'
+          ) : slotCountFilled === 0 ? (
+            isAm ? 'ከላይ ቁጥሮችን ይምረጡ' : 'Select card numbers above'
           ) : (
-            `🎮 ${isAm ? 'ወደ ጨዋታው ክፍል ይግቡ' : 'Go to Game Room'} ${slotCountFilled > 0 ? `(${slotCountFilled} ${isAm ? 'ካርዶች' : 'Cards'})` : ''}`
+            `🛒 ${isAm ? `${slotCountFilled} ካርዶችን ግዛ` : `Buy ${slotCountFilled} Card${slotCountFilled > 1 ? 's' : ''}`} (${totalCost} ETB)`
           )}
         </button>
 
