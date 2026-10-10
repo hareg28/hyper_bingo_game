@@ -1320,6 +1320,21 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       {isFetanGame ? (
         /* ── Hyper Fetan Plain Text Header (No Box, Plain Text) ── */
         <div className="px-1 py-1 space-y-1">
+          {/* Top row: Back Arrow + Game Name + Timer */}
+          <div className="flex items-center gap-2 px-0.5 pb-1">
+            <button type="button" onClick={onBack} className="w-8 h-8 rounded-xl bg-amber-100 hover:bg-amber-200 text-slate-800 flex items-center justify-center transition cursor-pointer shadow-xs border border-amber-300 shrink-0" title={language === 'am' ? 'ተመለስ ወደ ሎቢ' : 'Back to Lobby'}>
+              <ChevronLeft className="w-4.5 h-4.5" />
+            </button>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-black text-slate-900 tracking-tight">
+                ⚡ {language === 'am' ? 'ሃይፐር ፈጣን' : 'HYPER FETAN'} <span className="italic tracking-widest">BINGO</span>
+              </span>
+            </div>
+            <div className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 font-mono font-black text-[10px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+              <span>{formattedTimerLeft}</span>
+            </div>
+          </div>
           {/* Top row stats: DERASH | BALLS | PLAYERS | Current Ball (Plain Text without Box) */}
           <div className="flex items-center justify-between gap-1 sm:gap-2 px-1">
             {/* DERASH */}
@@ -1425,33 +1440,19 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       ) : (
         /* ── Hyper Special & Weekend: Styled Gradient Header + Cards (Like First Screenshot) ── */
         <div className="space-y-2.5">
-          {/* 1. GRADIENT HEADER BAR — Blue → Purple with Game Type + BINGO */}
+          {/* 1. GRADIENT HEADER BAR — Blue → Purple with Back Arrow + Game Name Only */}
           <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-2.5 sm:p-3 shadow-md flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={onBack} className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition cursor-pointer shadow-inner" title={language === 'am' ? 'ተመለስ ወደ ሎቢ' : 'Back to Lobby'}>
+                <ChevronLeft className="w-5 h-5 sm:w-5 sm:h-5" />
+              </button>
               <span className="text-white font-black text-sm sm:text-base tracking-tight">
                 {isWeekendGame
-                  ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'WEEKEND')
+                  ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'HYPER WEEKEND')
                   : (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')}
                 {' '}
                 <span className="italic tracking-widest">BINGO</span>
               </span>
-            </div>
-            <div className="flex items-center gap-0.5 sm:gap-1">
-              <button type="button" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer" title={language === 'am' ? 'ተመለስ' : 'Undo'}>
-                <Undo2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </button>
-              <button type="button" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer" title={language === 'am' ? 'እንደገና' : 'Redo'}>
-                <Redo2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </button>
-              <button type="button" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer" title={language === 'am' ? 'ማሰናከሻ' : 'Settings'}>
-                <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </button>
-              <button type="button" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer" title={language === 'am' ? 'ሰንጠረዥ' : 'Grid'}>
-                <Grid className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </button>
-              <button type="button" onClick={onBack} className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer" title={language === 'am' ? 'ሌሎች ጨዋታዎች' : 'Menu / Lobby'}>
-                <Menu className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              </button>
             </div>
           </div>
 
