@@ -214,7 +214,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const [showPatternHintModal, setShowPatternHintModal] = useState(false);
   const [showGameInfo, setShowGameInfo] = useState(false);
   const [cardToDelete, setCardToDelete] = useState<{ id: string; cardNumber: string } | null>(null);
-  const [activeSlotPage, setActiveSlotPage] = useState(0);
 
 
   // Active card (kept for handlers, but UI now shows ALL cards)
@@ -1371,8 +1370,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             <div className="flex items-center justify-center shrink-0">
               {currentGame.currentBall ? (
                 <div className={`w-12 h-12 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-sm flex flex-col items-center justify-center text-white`}>
-                  <span className="text-[8px] font-black uppercase leading-none opacity-90">{getBallLetter(currentGame.currentBall)}</span>
-                  <span className="text-base font-black font-mono leading-tight">{currentGame.currentBall}</span>
+                  <span className="text-[8px] font-black uppercase leading-none opacity-90 font-serif">{getBallLetter(currentGame.currentBall)}</span>
+                  <span className="text-base font-black font-serif leading-tight">{currentGame.currentBall}</span>
                 </div>
               ) : (
                 <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white">
@@ -1574,7 +1573,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 </div>
               </div>
 
-              {/* 4. 75-BALL DRAWN BOARD — Centered "Drawn: N" title */}
+              {/* 4. 75-BALL DRAWN BOARD — Centered "Drawn: N" title (hidden for Hyper Special; only player cards shown) */}
+              {!isSpecialGame && (
               <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/80 shadow-xs">
                 <div className="text-center mb-2">
                   <span className="text-slate-500 font-bold text-sm sm:text-base">
@@ -1612,6 +1612,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   ))}
                 </div>
               </div>
+              )}
 
               {/* 5. BLOCKED COUNTER */}
               <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs flex items-center gap-2">
@@ -1814,59 +1815,15 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
             )}
 
-            {/* ── Render 2 slots per screen (Compact 2-Slot Grid with Switcher) ── */}
+            {/* ── Render all slots in a scrollable grid (no pagination; all cards visible & scrollable) ── */}
             {(() => {
-              const CARDS_PER_PAGE = 2;
-              const totalCardPages = Math.ceil(activeGameCards.length / CARDS_PER_PAGE);
-              const safeCurrentPage = Math.min(activeSlotPage, Math.max(0, totalCardPages - 1));
-              const visibleCards = activeGameCards.slice(
-                safeCurrentPage * CARDS_PER_PAGE,
-                (safeCurrentPage + 1) * CARDS_PER_PAGE
-              );
+              const visibleCards = activeGameCards;
 
               return (
                 <div className="space-y-1.5">
-                  {/* Slot Page Navigation (shown when player has more than 2 cards) */}
-                  {totalCardPages > 1 && (
-                    <div className="flex items-center justify-between px-2 py-1 bg-white rounded-xl border border-slate-200 text-xs shadow-2xs">
-                      <button
-                        type="button"
-                        disabled={safeCurrentPage === 0}
-                        onClick={() => setActiveSlotPage((p) => Math.max(0, p - 1))}
-                        className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed font-black text-[10px] transition cursor-pointer"
-                      >
-                        ◀ {language === 'am' ? 'ቀዳሚ' : 'Prev'}
-                      </button>
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: totalCardPages }, (_, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setActiveSlotPage(idx)}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-black transition cursor-pointer ${
-                              safeCurrentPage === idx
-                                ? 'bg-amber-400 text-slate-950 shadow-2xs ring-1 ring-amber-500'
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                            }`}
-                          >
-                            {idx === 0 ? 'S1-S2' : idx === 1 ? (activeGameCards.length >= 4 ? 'S3-S4' : 'S3') : 'S5'}
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        disabled={safeCurrentPage >= totalCardPages - 1}
-                        onClick={() => setActiveSlotPage((p) => Math.min(totalCardPages - 1, p + 1))}
-                        className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed font-black text-[10px] transition cursor-pointer"
-                      >
-                        {language === 'am' ? 'ቀጣይ' : 'Next'} ▶
-                      </button>
-                    </div>
-                  )}
-
-                  <div className={`grid gap-1.5 sm:gap-2 ${visibleCards.length === 1 ? 'grid-cols-1 max-w-sm mx-auto w-full' : 'grid-cols-2'}`}>
+                  <div className={`grid gap-1.5 sm:gap-2 ${visibleCards.length === 1 ? 'grid-cols-1 max-w-[280px] mx-auto w-full' : 'grid-cols-2'} max-h-[58vh] overflow-y-auto pr-0.5`}>
                     {visibleCards.map((card, cardIdx) => {
-                      const actualSlotNumber = safeCurrentPage * CARDS_PER_PAGE + cardIdx + 1;
+                      const actualSlotNumber = cardIdx + 1;
                       const isFetan = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.id.includes('fetan') || isFetanGame;
                       const isWeekend = !!currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.category === 'HYPER_WEEKEND' || isWeekendGame;
                       const effectiveRuleType = isFetan
