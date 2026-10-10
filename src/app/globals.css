@@ -41,6 +41,15 @@
   background: #334155;
 }
 
+/* Hide scrollbar but keep scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Glassmorphism utility */
 .glass-panel {
   background: rgba(19, 23, 40, 0.75);

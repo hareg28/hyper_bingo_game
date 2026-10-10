@@ -6,7 +6,7 @@ import {
   Volume2, VolumeX, Sparkles, Zap, 
   Plus, Star, Hash, Lightbulb, X, Grid, ChevronLeft,
   Undo2, Redo2, Settings, Menu, ShieldAlert, Trophy,
-  Trash2, Maximize2, Users, AlertTriangle, Eye, Wallet
+  Trash2, Maximize2, Users, AlertTriangle, Eye, Wallet, CheckCircle2
 } from 'lucide-react';
 import { 
   formatETB, 
@@ -1308,6 +1308,68 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <span>{language === 'am' ? 'ካርድ ምረጥ' : 'Pick Cards'}</span>
             </button>
           )}
+        </div>
+      )}
+
+      {/* ── Hyper Special: Bingo Cards Chips Row (max 5 slots) ── */}
+      {isSpecialGame && (
+        <div className="mx-2 mt-1.5 px-2.5 py-1.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center gap-2 overflow-hidden">
+          <div className="flex items-center gap-1 shrink-0">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span className="text-[11px] font-black text-slate-900 whitespace-nowrap">
+              {language === 'am' ? 'ካርዶች' : 'Bingo Cards'}:
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-1 overflow-x-auto no-scrollbar">
+            {activeGameCards.length === 0 ? (
+              <span className="text-[10px] text-slate-400 italic">{language === 'am' ? 'ካርድ የለም' : 'No cards yet'}</span>
+            ) : (
+              activeGameCards.slice(0, 5).map((card) => {
+                const isActive = card.id === selectedCardId || (!selectedCardId && card.id === activeGameCards[0]?.id);
+                return (
+                  <button
+                    key={card.id}
+                    type="button"
+                    onClick={() => setSelectedCardId(card.id)}
+                    className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-mono font-black transition cursor-pointer border ${
+                      isActive
+                        ? 'bg-emerald-500 text-white border-emerald-600 shadow-xs'
+                        : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                    }`}
+                  >
+                    #{card.cardNumber}
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          <button
+            type="button"
+            disabled={activeGameCards.length >= 5}
+            onClick={() => {
+              if (activeGameCards.length >= 5) return;
+              if (!user || user.id === 'usr_guest') {
+                openAuthModal('register');
+              } else if (isSpecialGame) {
+                setIsSelectorOpen(true);
+              } else if (onOpenLotteryTab) {
+                onOpenLotteryTab();
+              } else {
+                setIsSelectorOpen(true);
+              }
+            }}
+            className={`shrink-0 px-2.5 py-1 rounded-lg font-black text-[10px] uppercase tracking-wider flex items-center gap-1 transition border-2 ${
+              activeGameCards.length >= 5
+                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300 cursor-pointer'
+            }`}
+            title={activeGameCards.length >= 5 ? (language === 'am' ? 'ከ5 በላይ አይችሉም' : 'Max 5 cards') : (language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards')}
+          >
+            <Plus className="w-3 h-3" />
+            <span>{language === 'am' ? 'ካርድ' : 'Pick Cards'}</span>
+          </button>
         </div>
       )}
 
