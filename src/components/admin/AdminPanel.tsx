@@ -6,7 +6,7 @@ import { formatETB } from '../../lib/bingoUtils';
 import { 
   Users, Gamepad2, Wallet, ShieldCheck, FileText, PlusCircle, 
   CheckCircle, XCircle, Search, RefreshCw, AlertTriangle, ArrowLeft, 
-  Sparkles, Check, Clock, Globe, Shield, Flame, Trophy, Timer, Megaphone
+  Sparkles, Check, Clock, Globe, Shield, Flame, Trophy, Megaphone
 } from 'lucide-react';
 import Link from 'next/link';
 import { GameType, GameStatus } from '../../lib/types';
@@ -1259,13 +1259,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                       <span>{language === 'am' ? 'የሳምንቱ መጨረሻ ጨዋታዎች የቀረ ደቂቃ' : 'Weekend Lottery Games Countdown & Live Players'}</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-                      {weekendGames.map((wg, idx) => {
-                        const cycleMinutes = idx === 0 ? 15 : idx === 1 ? 8 : 22;
-                        const elapsedSec = Math.floor(now / 1000) % (cycleMinutes * 60);
-                        const remSec = (cycleMinutes * 60) - elapsedSec;
-                        const remMins = Math.floor(remSec / 60);
-                        const remSecs = remSec % 60;
-
+                      {weekendGames.map((wg) => {
                         return (
                           <div key={wg.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
                             <div>
@@ -1277,15 +1271,6 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                                 <span>•</span>
                                 <span className="text-emerald-700 font-black">{formatETB(wg.prizePool)}</span>
                               </div>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-[10px] text-slate-500 font-bold block">
-                                {language === 'am' ? 'የቀረ ደቂቃ' : 'Time Left'}
-                              </span>
-                              <span className="font-mono font-black text-xs text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300 flex items-center gap-1">
-                                <Timer className="w-3 h-3 animate-spin text-amber-700" />
-                                {remMins}m {remSecs < 10 ? `0${remSecs}` : remSecs}s
-                              </span>
                             </div>
                           </div>
                         );

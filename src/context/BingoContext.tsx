@@ -96,6 +96,7 @@ interface BingoContextType {
   // Weekend Lottery
   getLotterySoldNumbers: (gameId: string) => Set<number>;
   purchaseLotteryNumbers: (gameId: string, numbers: number[]) => { success: boolean; message: string; purchased?: string[] };
+  refundLotteryNumber: (gameId: string, number: number) => { success: boolean; message: string };
   // Auth extensions
   isAuthModalOpen: boolean;
   authModalMode: 'register' | 'login';
@@ -178,6 +179,66 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const dismissNotification = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
+
+  // Persist wallet to localStorage whenever it changes (so card purchases deduct birr permanently)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (wallet.userId) {
+      try {
+        localStorage.setItem('hyper_bingo_wallet', JSON.stringify(wallet));
+      } catch {}
+    }
+  }, [wallet]);
+
+  // Broadcast winner to all players/tabs via localStorage + CustomEvent
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleWinnerBroadcast = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || !detail.gameId || !detail.winner) return;
+      setGames((prev) =>
+        prev.map((g) => {
+          if (g.id !== detail.gameId) return g;
+          const alreadyHas = g.winners.some((w) => w.userId === detail.winner.userId);
+          if (alreadyHas) return g;
+          return {
+            ...g,
+            status: 'COMPLETED',
+            winners: [...g.winners, detail.winner],
+          };
+        })
+      );
+    };
+
+    const handleStorage = (e: StorageEvent) => {
+      if (!e.key || !e.key.startsWith('hyper_bingo_winner_')) return;
+      if (!e.newValue) return;
+      try {
+        const data = JSON.parse(e.newValue);
+        if (!data.gameId || !data.winner) return;
+        setGames((prev) =>
+          prev.map((g) => {
+            if (g.id !== data.gameId) return g;
+            const alreadyHas = g.winners.some((w) => w.userId === data.winner.userId);
+            if (alreadyHas) return g;
+            return {
+              ...g,
+              status: 'COMPLETED',
+              winners: [...g.winners, data.winner],
+            };
+          })
+        );
+      } catch {}
+    };
+
+    window.addEventListener('hyperbingo:winner', handleWinnerBroadcast);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('hyperbingo:winner', handleWinnerBroadcast);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
   // Restore saved session from localStorage on mount
   useEffect(() => {
@@ -1062,12 +1123,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     setActiveGameId(gameId);
 
-    addNotification(
-      '🎟️ Cards Purchased!',
-      `You joined ${targetGame.name} with ${cardsToCreate.length} card(s) (Slots: ${cardsToCreate.join(', ')}). Good luck!`,
-      'success'
-    );
-
     return true;
   };
 
@@ -1118,7 +1173,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const newCard = createNewBingoCard(gameId, user.id, cardNumber);
     setUserCards((prev) => [...prev, newCard]);
 
-    addNotification('🎟️ Card Added!', `Added card #${cardNumber} (Slot ${currentCardsCount + 1}/3).`, 'success');
     return true;
   };
 
@@ -1362,6 +1416,16 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           : g
       )
     );
+
+    // Broadcast winner to all players/tabs (localStorage + CustomEvent)
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`hyper_bingo_winner_${game.id}`, JSON.stringify({ gameId: game.id, winner: winRecord }));
+      } catch {}
+      try {
+        window.dispatchEvent(new CustomEvent('hyperbingo:winner', { detail: { gameId: game.id, winner: winRecord } }));
+      } catch {}
+    }
 
     // 1-Game Card Rule: All cards played in this game are now marked used for this round
     setUserCards((prev) =>
@@ -1628,16 +1692,66 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     ]);
 
     const purchasedLabels = numbers.map((n) => formatLotteryCardNumber(n));
-    addNotification(
-      '🎟️ Lottery Tickets Purchased!',
-      `Bought ${numbers.length} weekend lottery ticket(s): ${purchasedLabels.join(', ')}. Good luck!`,
-      'success'
-    );
     return {
       success: true,
       message: `Purchased ${numbers.length} ticket(s): ${purchasedLabels.join(', ')}`,
       purchased: purchasedLabels,
     };
+  };
+
+  // Refund a single purchased lottery number (for unselect toggle)
+  const refundLotteryNumber = (gameId: string, number: number): { success: boolean; message: string } => {
+    if (!user) return { success: false, message: 'Account required.' };
+    const game = games.find((g) => g.id === gameId);
+    if (!game) return { success: false, message: 'Game not found.' };
+
+    const soldSet = lotterySoldMap[gameId];
+    if (!soldSet || !soldSet.has(number)) {
+      return { success: false, message: 'Number was not purchased.' };
+    }
+
+    const label = formatLotteryCardNumber(number);
+
+    // Remove from sold set
+    setLotterySoldMap((prev) => {
+      const current = new Set(prev[gameId] || []);
+      current.delete(number);
+      return { ...prev, [gameId]: current };
+    });
+
+    // Remove the corresponding user card
+    setUserCards((prev) =>
+      prev.filter((c) => !(c.gameId === gameId && c.cardNumber === label))
+    );
+
+    // Refund entry price: reverse of purchase (available first, then bonus)
+    const refundAmount = game.entryPrice || 10;
+    let newBonus = wallet.bonusBalance;
+    let newAvail = wallet.availableBalance;
+    newAvail += refundAmount;
+
+    setWallet((prev) => ({
+      ...prev,
+      availableBalance: newAvail,
+      bonusBalance: newBonus,
+    }));
+
+    // Record refund transaction
+    const tx: Transaction = {
+      id: `TX_REFUND_${Date.now().toString().slice(-5)}`,
+      userId: user.id,
+      username: user.username,
+      type: 'GAME_ENTRY',
+      amount: refundAmount,
+      balanceAfter: newAvail,
+      reference: `REFUND-${gameId}`,
+      status: 'COMPLETED',
+      description: `Refund for unselected lottery card #${label} in ${game.name}`,
+      createdAt: new Date().toISOString(),
+    };
+    setTransactions((prev) => [tx, ...prev]);
+
+    return { success: true, message: `Refunded ${refundAmount} ETB for card #${label}` };
   };
 
   const updateGameEntryPrice = (gameId: string, newPrice: number) => {
@@ -1697,6 +1811,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         updateGameEntryPrice,
         getLotterySoldNumbers,
         purchaseLotteryNumbers,
+        refundLotteryNumber,
         isAuthModalOpen,
         authModalMode,
         openAuthModal,

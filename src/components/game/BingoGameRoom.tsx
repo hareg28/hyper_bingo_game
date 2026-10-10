@@ -1194,6 +1194,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   // 75-Ball rows for master board (always visible inline, not a modal)
   const drawnSet = new Set(currentGame.drawnNumbers);
+  const drawnNumbersArr = currentGame.drawnNumbers || [];
+  const currentBallNum = drawnNumbersArr.length > 0 ? drawnNumbersArr[drawnNumbersArr.length - 1] : null;
+  const previousBalls = drawnNumbersArr.length > 1 ? drawnNumbersArr.slice(Math.max(0, drawnNumbersArr.length - 4), drawnNumbersArr.length - 1) : [];
   const rows = [
     { letter: 'B', range: Array.from({ length: 15 }, (_, i) => i + 1), color: 'bg-blue-600 text-white' },
     { letter: 'I', range: Array.from({ length: 15 }, (_, i) => i + 16), color: 'bg-rose-600 text-white' },
@@ -1428,12 +1431,23 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
             </div>
 
-            {/* Current Ball */}
-            <div className="flex items-center justify-center shrink-0">
-              {currentGame.currentBall ? (
-                <div className={`w-12 h-12 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentGame.currentBall))} shadow-sm flex flex-col items-center justify-center text-white`}>
-                  <span className="text-[8px] font-black uppercase leading-none opacity-90 font-serif">{getBallLetter(currentGame.currentBall)}</span>
-                  <span className="text-base font-black font-serif leading-tight">{currentGame.currentBall}</span>
+            {/* Current Ball with 3 Previous Balls */}
+            <div className="flex items-center justify-center gap-1.5 shrink-0">
+              {/* Previous 3 balls (faded, smaller) */}
+              {previousBalls.length > 0 && previousBalls.map((pb, idx) => (
+                <div
+                  key={`prev-${idx}-${pb}`}
+                  className={`w-8 h-8 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(pb))} opacity-50 shadow-sm flex flex-col items-center justify-center text-white`}
+                >
+                  <span className="text-[6px] font-black uppercase leading-none opacity-80 font-serif">{getBallLetter(pb)}</span>
+                  <span className="text-[11px] font-black font-serif leading-tight">{pb}</span>
+                </div>
+              ))}
+              {/* Current ball (highlighted, larger) */}
+              {currentBallNum != null ? (
+                <div className={`w-12 h-12 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentBallNum))} shadow-md ring-2 ring-white flex flex-col items-center justify-center text-white animate-bounce-once`}>
+                  <span className="text-[8px] font-black uppercase leading-none opacity-90 font-serif">{getBallLetter(currentBallNum)}</span>
+                  <span className="text-base font-black font-serif leading-tight">{currentBallNum}</span>
                 </div>
               ) : (
                 <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white">
@@ -1441,6 +1455,27 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Sold Cards (visible to everyone) */}
+          <div className="flex items-center gap-1.5 px-1 pt-0.5">
+            <div className="flex items-center gap-1 text-[10px] font-black text-rose-600">
+              <span>🛒</span>
+              <span>{language === 'am' ? 'የተሸጡ ካርዶች' : 'SOLD CARDS'}</span>
+              <span className="bg-rose-100 text-rose-700 px-1.5 rounded-full">{soldNumbers?.size || 0}</span>
+            </div>
+            {soldNumbers && soldNumbers.size > 0 && (
+              <div className="flex-1 flex gap-1 overflow-x-auto no-scrollbar">
+                {Array.from(soldNumbers).slice(-20).map((n) => (
+                  <span
+                    key={n}
+                    className="shrink-0 text-[9px] font-mono font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded"
+                  >
+                    #{String(n).padStart(5, '0')}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Controls: Hit, Sound, Auto, Timer */}
@@ -1515,6 +1550,50 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 <span className="italic tracking-widest">BINGO</span>
               </span>
             </div>
+          </div>
+
+          {/* Current Ball with 3 Previous Balls (Special/Weekend) */}
+          <div className="flex items-center justify-center gap-2 py-1">
+            {previousBalls.length > 0 && previousBalls.map((pb, idx) => (
+              <div
+                key={`prev-sw-${idx}-${pb}`}
+                className={`w-9 h-9 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(pb))} opacity-50 shadow-sm flex flex-col items-center justify-center text-white`}
+              >
+                <span className="text-[6px] font-black uppercase leading-none opacity-80 font-serif">{getBallLetter(pb)}</span>
+                <span className="text-xs font-black font-serif leading-tight">{pb}</span>
+              </div>
+            ))}
+            {currentBallNum != null ? (
+              <div className={`w-14 h-14 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentBallNum))} shadow-lg ring-2 ring-white flex flex-col items-center justify-center text-white animate-bounce-once`}>
+                <span className="text-[9px] font-black uppercase leading-none opacity-90 font-serif">{getBallLetter(currentBallNum)}</span>
+                <span className="text-lg font-black font-serif leading-tight">{currentBallNum}</span>
+              </div>
+            ) : (
+              <div className="w-14 h-14 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center bg-white/10">
+                <span className="text-[9px] font-black text-white/70 text-center leading-tight">GET<br/>READY</span>
+              </div>
+            )}
+          </div>
+
+          {/* Sold Cards (visible to everyone) */}
+          <div className="flex items-center gap-1.5 px-1">
+            <div className="flex items-center gap-1 text-[10px] font-black text-rose-600">
+              <span>🛒</span>
+              <span>{language === 'am' ? 'የተሸጡ ካርዶች' : 'SOLD CARDS'}</span>
+              <span className="bg-rose-100 text-rose-700 px-1.5 rounded-full">{soldNumbers?.size || 0}</span>
+            </div>
+            {soldNumbers && soldNumbers.size > 0 && (
+              <div className="flex-1 flex gap-1 overflow-x-auto no-scrollbar">
+                {Array.from(soldNumbers).slice(-20).map((n) => (
+                  <span
+                    key={n}
+                    className="shrink-0 text-[9px] font-mono font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded"
+                  >
+                    #{String(n).padStart(5, '0')}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Show Less / Show More toggle below header (Special/Weekend) */}

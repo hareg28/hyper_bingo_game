@@ -70,6 +70,7 @@ export default function MiniAppShell({
     toggleUserRole,
     getLotterySoldNumbers,
     purchaseLotteryNumbers,
+    refundLotteryNumber,
   } = useBingo();
 
   const [activeTab, setActiveTab] = useState<'lobby' | 'game' | 'wallet' | 'profile' | 'admin' | 'lottery'>(initialTab);
@@ -628,6 +629,7 @@ export default function MiniAppShell({
             openAuthModal={openAuthModal}
             getLotterySoldNumbers={getLotterySoldNumbers}
             purchaseLotteryNumbers={purchaseLotteryNumbers}
+            refundLotteryNumber={refundLotteryNumber}
             activeGameId={activeGameId || undefined}
             onChangeGameId={(newId) => setActiveGameId(newId)}
             onPickCards={(gameId, cardNumbers) => {
@@ -963,6 +965,7 @@ function WeekendLotteryNumberPicker({
   openAuthModal,
   getLotterySoldNumbers,
   purchaseLotteryNumbers,
+  refundLotteryNumber,
   onPickCards,
   onBack,
   activeGameId,
@@ -979,6 +982,7 @@ function WeekendLotteryNumberPicker({
   openAuthModal: (mode?: 'register' | 'login') => void;
   getLotterySoldNumbers: ReturnType<typeof useBingo>['getLotterySoldNumbers'];
   purchaseLotteryNumbers: ReturnType<typeof useBingo>['purchaseLotteryNumbers'];
+  refundLotteryNumber: ReturnType<typeof useBingo>['refundLotteryNumber'];
   onPickCards: (gameId: string, cardNumbers: string[]) => void;
   onBack?: () => void;
   activeGameId?: string;
@@ -1116,13 +1120,13 @@ function WeekendLotteryNumberPicker({
     if (soldSet.has(num)) return;
     if (!selectedGame) return;
 
-    // Check if this number is already in active user slots
+    // Toggle: if already purchased, unselect (refund)
     if (activeSlotSet.has(num)) {
-      setPurchaseFeedback(
-        isAm
-          ? `ካርድ #${String(num).padStart(4, '0')} አስቀድሞ ተገዝቷል!`
-          : `Card #${String(num).padStart(4, '0')} already purchased!`
-      );
+      const refundRes = refundLotteryNumber(selectedGame.id, num);
+      if (refundRes.success) {
+        setSlotNumbers((prev) => prev.map((n) => (n === num ? null : n)));
+      }
+      setPurchaseFeedback(refundRes.message);
       setTimeout(() => setPurchaseFeedback(null), 2500);
       return;
     }
@@ -1230,9 +1234,10 @@ function WeekendLotteryNumberPicker({
                 <span>{isAm ? 'እይ' : 'Watch'}</span>
               </button>
             )}
-            <div className="px-2 py-1 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 font-mono font-black text-[10px] flex items-center gap-1 shadow-2xs">
-              <Wallet className="w-3 h-3 text-emerald-600 shrink-0" />
-              <span>{wallet.availableBalance} ETB</span>
+            <div className="px-2 py-1 rounded-xl bg-indigo-50 border border-indigo-300 text-indigo-800 font-mono font-black text-[10px] flex items-center gap-1 shadow-2xs">
+              <span className="text-indigo-600">#</span>
+              <span className="text-[9px] uppercase">{isAm ? 'ኮድ' : 'REG'}</span>
+              <span>{regCode}</span>
             </div>
           </div>
         </div>
@@ -1398,10 +1403,12 @@ function WeekendLotteryNumberPicker({
           </span>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center py-2 px-1">
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 leading-none">
-            {isAm ? 'ኮድ' : 'Reg Code'}
+          <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 leading-none">
+            {isAm ? 'ቀሪ' : 'Balance'}
           </span>
-          <span className="text-xs font-black leading-tight mt-0.5 font-mono text-slate-900">{regCode}</span>
+          <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-emerald-800">
+            {wallet.availableBalance} ETB
+          </span>
         </div>
       </div>
 

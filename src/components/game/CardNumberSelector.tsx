@@ -32,7 +32,7 @@ export default function CardNumberSelector({
   gameId,
   mode = 'SPECIAL',
 }: CardNumberSelectorProps) {
-  const { t, language, purchaseLotteryNumbers, getLotterySoldNumbers, wallet } = useBingo();
+  const { t, language, purchaseLotteryNumbers, getLotterySoldNumbers, refundLotteryNumber, wallet } = useBingo();
   const isAm = language === 'am';
 
   const TOTAL_NUMBERS = mode === 'FETAN' ? 500 : mode === 'SPECIAL' ? 99999 : 1500;
@@ -109,12 +109,24 @@ export default function CardNumberSelector({
     }
 
     if (purchasedSet.has(num)) {
-      showMessage(
-        isAm
-          ? `ካርድ #${String(num).padStart(5, '0')} አስቀድሞ ተገዝቷል!`
-          : `Card #${String(num).padStart(5, '0')} already purchased!`
-      );
-      return false;
+      const label = String(num).padStart(5, '0');
+      if (gameId) {
+        const refundRes = refundLotteryNumber(gameId, num);
+        if (!refundRes.success) {
+          setErrorMsg(refundRes.message);
+          setTimeout(() => setErrorMsg(''), 3000);
+          return false;
+        }
+        showMessage(refundRes.message);
+      } else {
+        showMessage(
+          isAm
+            ? `ካርድ #${label} ተወግዷል (Unselected)`
+            : `Card #${label} unselected`
+        );
+      }
+      setPurchasedNumbers((prev) => prev.filter((n) => n !== label));
+      return true;
     }
 
     if (soldSet.has(num)) {
@@ -302,9 +314,21 @@ export default function CardNumberSelector({
                     )}
                   </div>
                   {filled ? (
-                    <span className="text-[9px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full border border-emerald-300">
-                      ✓ {isAm ? 'ተገዝቷል' : 'Paid'}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const label = String(num).padStart(5, '0');
+                        const n = parseInt(label, 10);
+                        if (gameId && !Number.isNaN(n)) {
+                          refundLotteryNumber(gameId, n);
+                        }
+                        setPurchasedNumbers((prev) => prev.filter((x) => x !== label));
+                      }}
+                      className="text-[9px] font-black text-rose-700 bg-rose-100 hover:bg-rose-200 px-1.5 py-0.5 rounded-full border border-rose-300 flex items-center gap-0.5 cursor-pointer shrink-0"
+                      title={isAm ? 'ካርድ አውጣ (Unselect)' : 'Unselect card'}
+                    >
+                      <X className="w-2.5 h-2.5" /> {isAm ? 'አውጣ' : 'Remove'}
+                    </button>
                   ) : (
                     <span className="text-slate-300 text-xs font-black shrink-0">+</span>
                   )}
