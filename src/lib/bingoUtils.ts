@@ -1246,7 +1246,7 @@ export function generateSoldNumbersForGame(gameId: string, count: number, entryP
 }
 
 export function formatLotteryCardNumber(num: number): string {
-  return String(num).padStart(4, '0');
+  return String(num).padStart(5, '0');
 }
 
 export function getLotteryGameSoldCount(gameId: string, entryPrice: number): number {

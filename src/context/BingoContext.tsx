@@ -1525,7 +1525,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const soldSet = new Set(lotterySoldMap[gameId] || []);
     const invalidNums: number[] = [];
     const alreadySold: number[] = [];
-    const maxNumbersForGame = (game.category === 'HYPER_FETAN' || game.name?.includes('Fetan') || game.id.includes('fetan')) ? 500 : LOTTERY_NUMBERS_TOTAL;
+    const isFetanGame = game.category === 'HYPER_FETAN' || game.name?.includes('Fetan') || game.id.includes('fetan');
+    const isSpecialGame = game.category === 'HYPER_SPECIAL' || game.name?.includes('Special') || game.id.includes('special');
+    const maxNumbersForGame = isFetanGame ? 500 : isSpecialGame ? 99999 : LOTTERY_NUMBERS_TOTAL;
     numbers.forEach((n) => {
       if (n < 1 || n > maxNumbersForGame || !Number.isInteger(n)) invalidNums.push(n);
       else if (soldSet.has(n)) alreadySold.push(n);

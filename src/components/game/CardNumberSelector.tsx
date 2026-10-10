@@ -35,7 +35,8 @@ export default function CardNumberSelector({
   const { t, language, purchaseLotteryNumbers, getLotterySoldNumbers, wallet } = useBingo();
   const isAm = language === 'am';
 
-  const TOTAL_NUMBERS = mode === 'FETAN' ? 500 : mode === 'SPECIAL' ? 75 : 1500;
+  const TOTAL_NUMBERS = mode === 'FETAN' ? 500 : mode === 'SPECIAL' ? 99999 : 1500;
+  const isSpecial = mode === 'SPECIAL';
 
   const [purchasedNumbers, setPurchasedNumbers] = useState<string[]>(() => {
     if (initialCards && initialCards.length >= 1) {
@@ -87,7 +88,11 @@ export default function CardNumberSelector({
     if (!Number.isInteger(num) || num < 1 || num > TOTAL_NUMBERS) {
       setErrorMsg(
         isAm
-          ? `ካርድ ቁጥር በ1-${TOTAL_NUMBERS} መካከል መሆን አለበት።`
+          ? isSpecial
+            ? 'ካርድ ቁጥር ትክክል መሆን አለበት (1-99999)።'
+            : `ካርድ ቁጥር በ1-${TOTAL_NUMBERS} መካከል መሆን አለበት።`
+          : isSpecial
+          ? 'Card number must be a valid number (1–99999).'
           : `Card number must be between 1 and ${TOTAL_NUMBERS}.`
       );
       return false;
@@ -106,8 +111,8 @@ export default function CardNumberSelector({
     if (purchasedSet.has(num)) {
       showMessage(
         isAm
-          ? `ካርድ #${String(num).padStart(4, '0')} አስቀድሞ ተገዝቷል!`
-          : `Card #${String(num).padStart(4, '0')} already purchased!`
+          ? `ካርድ #${String(num).padStart(5, '0')} አስቀድሞ ተገዝቷል!`
+          : `Card #${String(num).padStart(5, '0')} already purchased!`
       );
       return false;
     }
@@ -115,8 +120,8 @@ export default function CardNumberSelector({
     if (soldSet.has(num)) {
       showMessage(
         isAm
-          ? `ካርድ #${String(num).padStart(4, '0')} ሌላ ሰው ተወስዷል።`
-          : `Card #${String(num).padStart(4, '0')} is already sold.`
+          ? `ካርድ #${String(num).padStart(5, '0')} ሌላ ሰው ተወስዷል።`
+          : `Card #${String(num).padStart(5, '0')} is already sold.`
       );
       return false;
     }
@@ -132,7 +137,7 @@ export default function CardNumberSelector({
     }
 
     if (!gameId) {
-      const label = String(num).padStart(4, '0');
+      const label = String(num).padStart(5, '0');
       setPurchasedNumbers((prev) => (prev.length >= MAX_CARDS ? prev : [...prev, label]));
       showMessage(isAm ? `ካርድ #${label} ተመርጧል` : `Card #${label} added`);
       return true;
@@ -214,12 +219,16 @@ export default function CardNumberSelector({
             </div>
             <div className="min-w-0">
               <h3 className="font-black text-slate-950 text-sm leading-tight truncate">
-                {isAm ? `ካርዶችን በቀጥታ ይግዙ (1–${TOTAL_NUMBERS})` : `Tap Cards to Buy (1–${TOTAL_NUMBERS})`}
+                {isSpecial
+                  ? (isAm ? 'ካርድ ቁጥር ይምረጡ (#65676)' : 'Pick Card Number (#65676)')
+                  : (isAm ? `ካርዶችን በቀጥታ ይግዙ (1–${TOTAL_NUMBERS})` : `Tap Cards to Buy (1–${TOTAL_NUMBERS})`)}
               </h3>
               <p className="text-[10px] text-emerald-700 font-bold truncate">
-                {isAm
-                  ? `⭐ ከ${MIN_CARDS}–${MAX_CARDS} ካርዶች · ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል`
-                  : `⭐ Min ${MIN_CARDS} / Max ${MAX_CARDS} · Tap any number → instant purchase`}
+                {isSpecial
+                  ? (isAm ? `⭐ ከ${MIN_CARDS}–${MAX_CARDS} ካርዶች · ካርድ ቁጥር ያስገቡ ወይም ከነሲብ ይምረጡ` : `⭐ Min ${MIN_CARDS} / Max ${MAX_CARDS} · Enter card # or pick random`)
+                  : (isAm
+                    ? `⭐ ከ${MIN_CARDS}–${MAX_CARDS} ካርዶች · ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል`
+                    : `⭐ Min ${MIN_CARDS} / Max ${MAX_CARDS} · Tap any number → instant purchase`)}
               </p>
             </div>
           </div>
@@ -240,7 +249,7 @@ export default function CardNumberSelector({
             <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 leading-none">
               {isAm ? 'ነፃዎች' : 'Left'}
             </span>
-            <span className="text-sm font-black leading-tight mt-0.5 tabular-nums text-emerald-800">{TOTAL_NUMBERS - soldSet.size}</span>
+            <span className="text-sm font-black leading-tight mt-0.5 tabular-nums text-emerald-800">{isSpecial ? '∞' : TOTAL_NUMBERS - soldSet.size}</span>
           </div>
           <div className="flex-1 flex flex-col items-center justify-center px-1 border-r border-amber-200">
             <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 leading-none">
@@ -341,7 +350,7 @@ export default function CardNumberSelector({
                 value={inputNumber}
                 onChange={(e) => setInputNumber(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddCustomNumber()}
-                placeholder={`1–${TOTAL_NUMBERS}`}
+                placeholder={isSpecial ? '#65676' : `1–${TOTAL_NUMBERS}`}
                 className="w-full bg-white border-2 border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-950 font-mono font-bold focus:outline-none focus:border-emerald-600 transition"
               />
             </div>
@@ -370,7 +379,7 @@ export default function CardNumberSelector({
             </div>
             <div className="flex flex-wrap gap-1.5">
               {presetsForMode.map((n) => {
-                const label = String(n).padStart(4, '0');
+                const label = String(n).padStart(5, '0');
                 const isBought = purchasedSet.has(n);
                 const isSold = soldSet.has(n);
                 const isMax = purchasedCount >= MAX_CARDS;
@@ -397,7 +406,8 @@ export default function CardNumberSelector({
           </div>
         </div>
 
-        {/* Master Lottery Board Grid */}
+        {/* Master Lottery Board Grid — only for FETAN & WEEKEND (hidden for SPECIAL) */}
+        {!isSpecial && (
         <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs flex-1 flex flex-col min-h-0">
           <div className="flex items-center justify-between mb-1.5 px-1 shrink-0">
             <div>
@@ -436,6 +446,7 @@ export default function CardNumberSelector({
             })}
           </div>
         </div>
+        )}
 
         {/* Messages */}
         {(purchaseMsg || errorMsg) && (
