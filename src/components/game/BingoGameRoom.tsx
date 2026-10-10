@@ -215,21 +215,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const [showGameInfo, setShowGameInfo] = useState(false);
   const [cardToDelete, setCardToDelete] = useState<{ id: string; cardNumber: string } | null>(null);
   const [activeSlotPage, setActiveSlotPage] = useState(0);
-  const [reactions, setReactions] = useState<{ id: string; emoji: string; text: string; sender: string; left: number }[]>([]);
 
-  const sendReaction = (emoji: string, text: string, sender = 'You') => {
-    const newReaction = {
-      id: `${Date.now()}_${Math.random()}`,
-      emoji,
-      text,
-      sender,
-      left: Math.floor(15 + Math.random() * 70),
-    };
-    setReactions((prev) => [...prev.slice(-6), newReaction]);
-    setTimeout(() => {
-      setReactions((prev) => prev.filter((r) => r.id !== newReaction.id));
-    }, 2800);
-  };
 
   // Active card (kept for handlers, but UI now shows ALL cards)
   const activeUserCard = 
@@ -1414,6 +1400,27 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <span>{formattedTimerLeft}</span>
             </div>
           </div>
+
+          {/* Show Less / Show More toggle (Fetan) */}
+          {showMoreNumbers ? (
+            <button
+              type="button"
+              onClick={() => setShowMoreNumbers(false)}
+              className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600 pt-0.5"
+            >
+              <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
+              <span>{language === 'am' ? 'ከሌላ በኩል አሳይ' : 'Show Less'}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowMoreNumbers(true)}
+              className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600 pt-0.5"
+            >
+              <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
+              <span>{language === 'am' ? 'በጣም አሳይ' : 'Show More'}</span>
+            </button>
+          )}
         </div>
       ) : (
         /* ── Hyper Special & Weekend: Styled Gradient Header + Cards (Like First Screenshot) ── */
@@ -1448,11 +1455,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </div>
           </div>
 
-          {/* Show Less / Show More toggle below header */}
-          {!showMoreNumbers ? (
+          {/* Show Less / Show More toggle below header (Special/Weekend) */}
+          {showMoreNumbers ? (
             <button
               type="button"
-              onClick={() => setShowMoreNumbers(true)}
+              onClick={() => setShowMoreNumbers(false)}
               className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600"
             >
               <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
@@ -1461,7 +1468,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           ) : (
             <button
               type="button"
-              onClick={() => setShowMoreNumbers(false)}
+              onClick={() => setShowMoreNumbers(true)}
               className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600"
             >
               <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
@@ -1469,162 +1476,163 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </button>
           )}
 
-          {/* 2. GAME INFO CARD — Game Rule + ID + Time + Status */}
-          <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs space-y-2">
-            {/* Game Rule Row */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-600" />
+          {/* EXPANDED PANELS — only visible in SHOW MORE mode (Special/Weekend) */}
+          {showMoreNumbers && (
+            <>
+              {/* 2. GAME INFO CARD — Game Rule + ID + Time + Status */}
+              <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs space-y-2">
+                {/* Game Rule Row */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                      <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none block">
+                        {language === 'am' ? 'ጨዋታ' : 'Game'}
+                      </span>
+                      <div className="text-xs sm:text-[13px] font-bold text-slate-900 leading-tight truncate">
+                        {(() => {
+                          const ruleIdx = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
+                          const rule = HYPER_SPECIAL_RULES[ruleIdx];
+                          if (isWeekendGame) return language === 'am' ? 'ሙሉ ቤት ብቻ (Full House 24/24)' : 'Full House 24 out of 24 Numbers';
+                          if (rule) return language === 'am' ? rule.nameAm : rule.nameEn;
+                          return `${currentGame.winningRule || 'Standard'}`;
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPatternHintModal(true)}
+                    className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-100 hover:bg-amber-200 flex items-center justify-center transition cursor-pointer"
+                    title={language === 'am' ? 'እርዳታ (Hit)' : 'Hint / Game Hit'}
+                  >
+                    <Lightbulb className="w-3.5 h-3.5 text-amber-600 fill-amber-400" />
+                  </button>
                 </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none block">
-                    {language === 'am' ? 'ጨዋታ' : 'Game'}
+
+                {/* ID + Time + Status Row */}
+                <div className="grid grid-cols-3 gap-2 items-center">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Hash className="w-3 h-3 text-slate-400 shrink-0" />
+                    <span className="text-[10px] font-bold text-slate-500 shrink-0">ID:</span>
+                    <span className="text-[11px] font-mono font-black text-slate-800 truncate">{gameShortId}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 min-w-0 justify-center">
+                    <div className="w-3 h-3 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-500 shrink-0">
+                      {language === 'am' ? 'ሰዓት' : 'Time'}
+                    </span>
+                    <span className="text-[11px] font-mono font-black text-slate-800">{currentTime || '21:53'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 min-w-0 justify-end">
+                    <div className="w-3 h-3 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-500 shrink-0">
+                      {language === 'am' ? 'ሁኔታ' : 'Status'}
+                    </span>
+                    <span className={`text-[11px] font-black ${
+                      gameStatus === 'Playing' || gameStatus.includes('ለይ') || gameStatus === 'Overtime'
+                        ? 'text-emerald-600'
+                        : gameStatus === 'Scheduled (Open)'
+                        ? 'text-indigo-600'
+                        : 'text-slate-700'
+                    }`}>{gameStatus}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. PRICE / GAMES / PRIZE CARD */}
+              <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-emerald-600 font-bold text-xs">$</span>
+                  <span className="text-[10px] font-bold uppercase text-slate-500">
+                    {language === 'am' ? 'ዋጋ' : 'Price'}
                   </span>
-                  <div className="text-xs sm:text-[13px] font-bold text-slate-900 leading-tight truncate">
-                    {(() => {
-                      const ruleIdx = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
-                      const rule = HYPER_SPECIAL_RULES[ruleIdx];
-                      if (isWeekendGame) return language === 'am' ? 'ሙሉ ቤት ብቻ (Full House 24/24)' : 'Full House 24 out of 24 Numbers';
-                      if (rule) return language === 'am' ? rule.nameAm : rule.nameEn;
-                      return `${currentGame.winningRule || 'Standard'}`;
-                    })()}
+                  <span className="text-sm sm:text-base font-black text-emerald-600">{formatETB(currentGame.entryPrice || 10)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded-md bg-blue-100 flex items-center justify-center">
+                    <Sparkles className="w-2.5 h-2.5 text-blue-600" />
                   </div>
+                  <span className="text-[10px] font-bold uppercase text-slate-500">
+                    {language === 'am' ? 'ጨዋታዎች' : 'Games'}
+                  </span>
+                  <span className="text-sm sm:text-base font-black text-blue-700">1</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-[10px] font-bold uppercase text-slate-500">
+                    {language === 'am' ? 'ሽልማት' : 'Prize'}
+                  </span>
+                  <span className="text-sm sm:text-base font-black text-amber-600">{formatETB(gamePrizeDisplay)}</span>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowPatternHintModal(true)}
-                className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-100 hover:bg-amber-200 flex items-center justify-center transition cursor-pointer"
-                title={language === 'am' ? 'እርዳታ (Hit)' : 'Hint / Game Hit'}
-              >
-                <Lightbulb className="w-3.5 h-3.5 text-amber-600 fill-amber-400" />
-              </button>
-            </div>
 
-            {/* ID + Time + Status Row */}
-            <div className="grid grid-cols-3 gap-2 items-center">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Hash className="w-3 h-3 text-slate-400 shrink-0" />
-                <span className="text-[10px] font-bold text-slate-500 shrink-0">ID:</span>
-                <span className="text-[11px] font-mono font-black text-slate-800 truncate">{gameShortId}</span>
-              </div>
-              <div className="flex items-center gap-1.5 min-w-0 justify-center">
-                <div className="w-3 h-3 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+              {/* 4. 75-BALL DRAWN BOARD — Centered "Drawn: N" title */}
+              <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/80 shadow-xs">
+                <div className="text-center mb-2">
+                  <span className="text-slate-500 font-bold text-sm sm:text-base">
+                    {language === 'am' ? 'የተጠሩ' : 'Drawn'}
+                    <span className="text-slate-800 font-black">: {currentGame.drawnNumbers.length}</span>
+                  </span>
                 </div>
-                <span className="text-[10px] font-bold text-slate-500 shrink-0">
-                  {language === 'am' ? 'ሰዓት' : 'Time'}
+                <div className="space-y-0.5 bg-slate-50/70 p-1 rounded-xl border border-slate-100">
+                  {rows.map((row) => (
+                    <div key={row.letter} className="flex items-center gap-1">
+                      <div className={`w-6 h-5 sm:w-7 sm:h-6 rounded-md text-[9px] sm:text-[10px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
+                        {row.letter}
+                      </div>
+                      <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
+                        {row.range.map((num) => {
+                          const isDrawn = drawnSet.has(num);
+                          const isCurrent = currentGame.currentBall === num;
+                          return (
+                            <div
+                              key={num}
+                              className={`h-5 sm:h-6 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-all ${
+                                isCurrent
+                                  ? 'bg-amber-400 text-slate-950 font-black scale-105 shadow-xs ring-1 ring-amber-400 z-10'
+                                  : isDrawn
+                                  ? `${row.color} font-black shadow-xs`
+                                  : 'bg-white text-slate-500 border border-slate-200'
+                              }`}
+                            >
+                              {num}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 5. BLOCKED COUNTER */}
+              <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs flex items-center gap-2">
+                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                  <ShieldAlert className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-600" />
+                </div>
+                <span className="text-xs sm:text-[13px] font-bold text-slate-700">
+                  {language === 'am' ? 'የታገዱ' : 'Blocked'}
+                  <span className="text-slate-400">:</span>
                 </span>
-                <span className="text-[11px] font-mono font-black text-slate-800">{currentTime || '21:53'}</span>
-              </div>
-              <div className="flex items-center gap-1.5 min-w-0 justify-end">
-                <div className="w-3 h-3 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                </div>
-                <span className="text-[10px] font-bold text-slate-500 shrink-0">
-                  {language === 'am' ? 'ሁኔታ' : 'Status'}
+                <span className="px-2.5 py-0.5 rounded-md border-2 border-rose-300 bg-white text-rose-600 font-mono font-black text-sm sm:text-base shadow-xs">
+                  {(currentGame.blockedCards || []).length}
                 </span>
-                <span className={`text-[11px] font-black ${
-                  gameStatus === 'Playing' || gameStatus.includes('ለይ') || gameStatus === 'Overtime'
-                    ? 'text-emerald-600'
-                    : gameStatus === 'Scheduled (Open)'
-                    ? 'text-indigo-600'
-                    : 'text-slate-700'
-                }`}>{gameStatus}</span>
               </div>
-            </div>
-          </div>
-
-          {/* 3. PRICE / GAMES / PRIZE CARD */}
-          <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="text-emerald-600 font-bold text-xs">$</span>
-              <span className="text-[10px] font-bold uppercase text-slate-500">
-                {language === 'am' ? 'ዋጋ' : 'Price'}
-              </span>
-              <span className="text-sm sm:text-base font-black text-emerald-600">{formatETB(currentGame.entryPrice || 10)}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded-md bg-blue-100 flex items-center justify-center">
-                <Sparkles className="w-2.5 h-2.5 text-blue-600" />
-              </div>
-              <span className="text-[10px] font-bold uppercase text-slate-500">
-                {language === 'am' ? 'ጨዋታዎች' : 'Games'}
-              </span>
-              <span className="text-sm sm:text-base font-black text-blue-700">1</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Trophy className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-[10px] font-bold uppercase text-slate-500">
-                {language === 'am' ? 'ሽልማት' : 'Prize'}
-              </span>
-              <span className="text-sm sm:text-base font-black text-amber-600">{formatETB(gamePrizeDisplay)}</span>
-            </div>
-          </div>
-
-          {/* 4. 75-BALL DRAWN BOARD — Centered "Drawn: N" title */}
-          <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/80 shadow-xs">
-            <div className="text-center mb-2">
-              <span className="text-slate-500 font-bold text-sm sm:text-base">
-                {language === 'am' ? 'የተጠሩ' : 'Drawn'}
-                <span className="text-slate-800 font-black">: {currentGame.drawnNumbers.length}</span>
-              </span>
-            </div>
-            <div className="space-y-0.5 bg-slate-50/70 p-1 rounded-xl border border-slate-100">
-              {rows.map((row) => (
-                <div key={row.letter} className="flex items-center gap-1">
-                  <div className={`w-6 h-5 sm:w-7 sm:h-6 rounded-md text-[9px] sm:text-[10px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
-                    {row.letter}
-                  </div>
-                  <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
-                    {row.range.map((num) => {
-                      const isDrawn = drawnSet.has(num);
-                      const isCurrent = currentGame.currentBall === num;
-                      return (
-                        <div
-                          key={num}
-                          className={`h-5 sm:h-6 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-all ${
-                            isCurrent
-                              ? 'bg-amber-400 text-slate-950 font-black scale-105 shadow-xs ring-1 ring-amber-400 z-10'
-                              : isDrawn
-                              ? `${row.color} font-black shadow-xs`
-                              : 'bg-white text-slate-500 border border-slate-200'
-                          }`}
-                        >
-                          {num}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 5. BLOCKED COUNTER — Always visible (as per screenshot) */}
-          <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs flex items-center gap-2">
-            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
-              <ShieldAlert className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-600" />
-            </div>
-            <span className="text-xs sm:text-[13px] font-bold text-slate-700">
-              {language === 'am' ? 'የታገዱ' : 'Blocked'}
-              <span className="text-slate-400">:</span>
-            </span>
-            <span className="px-2.5 py-0.5 rounded-md border-2 border-rose-300 bg-white text-rose-600 font-mono font-black text-sm sm:text-base shadow-xs">
-              {(currentGame.blockedCards || []).length}
-            </span>
-          </div>
+            </>
+          )}
         </div>
       )}
 
-      {/* Shared: 75-Ball Master Board + Bingo Chips + Blocked only for Fetan now */}
-      {isFetanGame && (
+      {/* Shared: 75-Ball Master Board + Bingo Chips + Blocked only for Fetan — visible in SHOW MORE */}
+      {isFetanGame && showMoreNumbers && (
         <>
-      {/* ================================================================
-          CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
-          ================================================================ */}
-
       {/* ================================================================
           CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
           ================================================================ */}
@@ -1670,58 +1678,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           ))}
         </div>
       </div>
-
-      {/* ================================================================
-          CARD 3: Bingo Cards Header & Chips Bar (Matches Telegram Mockup)
-          Hidden for Hyper Fetan as requested
-          ================================================================ */}
-      {!isFetanGame && (
-        <div className="bg-white rounded-2xl p-3 border border-slate-200/80 shadow-xs flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="w-5 h-5 rounded-full border-2 border-emerald-500 flex items-center justify-center text-emerald-600 text-[10px] font-black">
-              ✓
-            </div>
-            <div className="text-xs font-black text-slate-900 leading-tight">
-              Bingo<br />Cards:
-            </div>
-          </div>
-
-          {/* Active card chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 max-w-[190px] sm:max-w-xs scrollbar-none">
-            {activeGameCards.length > 0 ? (
-              activeGameCards.map((card, idx) => (
-                <span
-                  key={card.id}
-                  className={`font-mono text-xs font-bold px-3 py-1.5 rounded-xl shrink-0 transition ${
-                    idx === 0
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'bg-slate-50 text-slate-700 border border-slate-200'
-                  }`}
-                >
-                  #{card.cardNumber}
-                </span>
-              ))
-            ) : (
-              <span className="text-[11px] text-slate-400 italic">
-                {language === 'am' ? 'ካርድ አልተገዛም' : 'No cards yet'}
-              </span>
-            )}
-          </div>
-
-          {/* + Pick Cards Button */}
-          <button
-            type="button"
-            onClick={() => {
-              if (onOpenLotteryTab) onOpenLotteryTab();
-              else setIsSelectorOpen(true);
-            }}
-            className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-black text-xs px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer transition active:scale-95 shrink-0"
-          >
-            <span>+</span>
-            <span className="leading-tight text-center">Pick<br />Cards</span>
-          </button>
-        </div>
-      )}
 
       {/* Blocked Cards Pill (Only shown if any cards are blocked) */}
       {(currentGame.blockedCards || []).length > 0 && (
@@ -1990,8 +1946,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                             </div>
                           </div>
 
-                          {/* B I N G O Header Row (Matches Reference Picture) */}
-                          <div className="grid grid-cols-5 gap-1 mb-1">
+                          {/* B I N G O Header Row (Smaller) */}
+                          <div className="grid grid-cols-5 gap-0.5 mb-0.5">
                             {[
                               { letter: 'B', bg: 'bg-[#2563eb]' },
                               { letter: 'I', bg: 'bg-[#dc2626]' },
@@ -2001,15 +1957,15 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                             ].map((col) => (
                               <div
                                 key={col.letter}
-                                className={`${col.bg} text-white font-black italic rounded-md h-5 sm:h-6 flex items-center justify-center text-xs shadow-2xs`}
+                                className={`${col.bg} text-white font-black italic rounded h-4 sm:h-5 flex items-center justify-center text-[11px] shadow-2xs`}
                               >
                                 {col.letter}
                               </div>
                             ))}
                           </div>
 
-                          {/* 5x5 Number Grid (Matches Reference Picture) */}
-                          <div className="grid grid-cols-5 gap-0.5 sm:gap-1 flex-1 mb-1">
+                          {/* 5x5 Number Grid (Smaller) */}
+                          <div className="grid grid-cols-5 gap-0.5 flex-1 mb-0.5">
                             {card.numbers.map((row, rIdx) =>
                               row.map((val, cIdx) => {
                                 const isFree = rIdx === 2 && cIdx === 2;
@@ -2023,7 +1979,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                                   <button
                                     key={`${card.id}-${rIdx}-${cIdx}`}
                                     onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
-                                    className={`aspect-square rounded-md sm:rounded-lg flex items-center justify-center font-extrabold transition-all relative select-none cursor-pointer ${
+                                    className={`aspect-square rounded flex items-center justify-center font-extrabold transition-all relative select-none cursor-pointer ${
                                       isFree
                                         ? 'bg-[#16a34a] border border-emerald-600 shadow-2xs'
                                         : isMarked || isDrawn
@@ -2038,9 +1994,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                                     }`}
                                   >
                                     {isFree ? (
-                                      <span className="text-[#2563eb] font-black text-xs sm:text-sm leading-none">★</span>
+                                      <span className="text-[#2563eb] font-black text-[10px] sm:text-[11px] leading-none">★</span>
                                     ) : (
-                                      <span className={`text-[10px] sm:text-xs font-black ${
+                                      <span className={`text-[9px] sm:text-[10px] font-black ${
                                         isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950 font-black' : 'text-slate-900'
                                       }`}>
                                         {val}
@@ -2052,22 +2008,22 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                             )}
                           </div>
 
-                          {/* Bottom Blue BINGO! Button (Matches Reference Picture) */}
+                          {/* Bottom Blue BINGO! Button (Smaller) */}
                           <button
                             disabled={cardIsBlocked}
                             onClick={() => !cardIsBlocked && handleClaimBingo(card.id)}
-                            className={`w-full py-1.5 sm:py-2 px-2 rounded-xl font-black italic tracking-wider transition-all relative flex items-center justify-center cursor-pointer shadow-sm ${
+                            className={`w-full py-1 px-1.5 rounded-lg font-black italic tracking-wider transition-all relative flex items-center justify-center cursor-pointer shadow-xs ${
                               cardIsBlocked
-                                ? 'bg-rose-900 text-rose-300 cursor-not-allowed text-xs'
+                                ? 'bg-rose-900 text-rose-300 cursor-not-allowed text-[10px]'
                                 : cardIsWin
-                                ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse shadow-amber-300 text-sm sm:text-base'
-                                : 'bg-[#2563eb] hover:bg-blue-700 text-white active:scale-[0.99] text-sm sm:text-base'
+                                ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse shadow-amber-300 text-xs sm:text-sm'
+                                : 'bg-[#2563eb] hover:bg-blue-700 text-white active:scale-[0.99] text-xs sm:text-sm'
                             }`}
                           >
                             <span className="tracking-widest">
                               {cardIsBlocked ? '🚫 BLOCKED' : 'BINGO!'}
                             </span>
-                            <span className="absolute right-2 bottom-1 text-[9px] font-mono font-bold text-blue-200">
+                            <span className="absolute right-1.5 bottom-0.5 text-[8px] font-mono font-bold text-blue-200">
                               #{card.cardNumber}
                             </span>
                           </button>
@@ -2079,60 +2035,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               );
             })()}
 
-            {/* Quick Live Reactions Toolbar — hidden for Hyper Fetan */}
-            {!isFetanGame && (
-              <div className="bg-white/95 backdrop-blur-xs border border-slate-200 rounded-2xl p-2 flex items-center justify-between gap-1 shadow-xs">
-                <span className="text-[10px] font-black text-slate-400 pl-1 uppercase tracking-wider hidden sm:inline">
-                  {language === 'am' ? 'ምላሽ:' : 'React:'}
-                </span>
-                <div className="flex items-center gap-1.5 flex-1 justify-around">
-                  {[
-                    { emoji: '🔥', label: language === 'am' ? 'ደርሻለሁ!' : 'So Close!' },
-                    { emoji: '👏', label: language === 'am' ? 'እንኳን ደስ አለህ!' : 'Congrats!' },
-                    { emoji: '🎯', label: language === 'am' ? 'ቢንጎ!' : 'BINGO!' },
-                    { emoji: '⚡', label: language === 'am' ? 'ቀጥል!' : 'Let\'s Go!' },
-                    { emoji: '😂', label: language === 'am' ? 'አመለጠኝ!' : 'Ouch!' },
-                  ].map((r) => (
-                    <button
-                      key={r.emoji}
-                      type="button"
-                      onClick={() => sendReaction(r.emoji, r.label, user?.name || 'You')}
-                      className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-amber-50 active:scale-95 text-xs font-black transition cursor-pointer flex items-center gap-1 border border-slate-200 hover:border-amber-300 shadow-2xs"
-                      title={r.label}
-                    >
-                      <span className="text-sm">{r.emoji}</span>
-                      <span className="text-[10px] text-slate-600 hidden sm:inline">{r.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* Bottom action bar: Board + Add Card (shared across all cards) */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowTableModal(true)}
-                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs border border-slate-200 flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <Grid className="w-3.5 h-3.5 text-blue-600" />
-                {language === 'am' ? 'ሰሌዳ' : 'Board'}
-              </button>
-              {!isWeekendGame && (
-                <button
-                  onClick={() => (!user ? openAuthModal('register') : isSpecialGame ? setIsSelectorOpen(true) : onOpenLotteryTab ? onOpenLotteryTab() : setIsSelectorOpen(true))}
-                  disabled={activeGameCards.length >= 5}
-                  className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1 transition cursor-pointer ${
-                    activeGameCards.length >= 5
-                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-sm'
-                  }`}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  {language === 'am' ? 'ካርድ ጨምር' : 'Add Card'}
-                  {activeGameCards.length >= 5 && <span className="text-[10px]">(Max 5)</span>}
-                </button>
-              )}
-            </div>
           </>
         ) : (
           /* No cards yet — Spectator Mode & Card Purchase Area */
@@ -2320,8 +2223,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
             </div>
 
-            {/* B I N G O Header Row */}
-            <div className="grid grid-cols-5 gap-2 px-3 pt-3 bg-slate-900 shrink-0">
+            {/* B I N G O Header Row (Smaller) */}
+            <div className="grid grid-cols-5 gap-1.5 px-3 pt-3 bg-slate-900 shrink-0">
               {[
                 { letter: 'B', bg: 'bg-[#2563eb]' },
                 { letter: 'I', bg: 'bg-[#dc2626]' },
@@ -2331,15 +2234,15 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               ].map((col) => (
                 <div
                   key={col.letter}
-                  className={`${col.bg} text-white font-black italic rounded-xl h-10 sm:h-12 flex items-center justify-center text-lg sm:text-xl shadow-xs`}
+                  className={`${col.bg} text-white font-black italic rounded-lg h-8 sm:h-10 flex items-center justify-center text-base sm:text-lg shadow-xs`}
                 >
                   {col.letter}
                 </div>
               ))}
             </div>
 
-            {/* Full-screen 5x5 grid */}
-            <div className="flex-1 grid grid-cols-5 gap-2 p-3 bg-slate-900">
+            {/* Full-screen 5x5 grid (Smaller) */}
+            <div className="flex-1 grid grid-cols-5 gap-1.5 p-3 bg-slate-900">
               {fsCard.numbers.map((row, rIdx) =>
                 row.map((val, cIdx) => {
                   const isFree = rIdx === 2 && cIdx === 2;
@@ -2350,7 +2253,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     <button
                       key={`fs-${rIdx}-${cIdx}`}
                       onClick={() => !isFree && daubCell(fsCard.id, rIdx, cIdx)}
-                      className={`flex items-center justify-center font-extrabold rounded-2xl border transition-all cursor-pointer aspect-square ${
+                      className={`flex items-center justify-center font-extrabold rounded-xl border transition-all cursor-pointer aspect-square ${
                         isFree
                           ? 'bg-[#16a34a] border-emerald-500 shadow-sm'
                           : isMarked || isDrawn
@@ -2361,9 +2264,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       }`}
                     >
                       {isFree ? (
-                        <span className="text-[#2563eb] font-black text-3xl sm:text-4xl leading-none">★</span>
+                        <span className="text-[#2563eb] font-black text-2xl sm:text-3xl leading-none">★</span>
                       ) : (
-                        <span className={`font-black text-2xl sm:text-3xl ${
+                        <span className={`font-black text-xl sm:text-2xl ${
                           isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950 font-black' : 'text-slate-950'
                         }`}>
                           {val}
@@ -2375,12 +2278,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               )}
             </div>
 
-            {/* Bottom BINGO button */}
+            {/* Bottom BINGO button (Smaller) */}
             <div className="p-3 bg-slate-900 shrink-0">
               <button
                 disabled={fsBlocked}
                 onClick={() => { if (!fsBlocked) { handleClaimBingo(fsCard.id); setExpandCardModal(false); } }}
-                className={`w-full py-4 rounded-2xl font-black text-xl sm:text-2xl tracking-widest italic relative flex items-center justify-center cursor-pointer shadow-lg transition-all ${
+                className={`w-full py-3 rounded-xl font-black text-lg sm:text-xl tracking-widest italic relative flex items-center justify-center cursor-pointer shadow-lg transition-all ${
                   fsBlocked
                     ? 'bg-rose-900 text-rose-300 cursor-not-allowed'
                     : fsWin
@@ -2389,7 +2292,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 }`}
               >
                 <span>{fsBlocked ? '🚫 BLOCKED' : 'BINGO!'}</span>
-                <span className="absolute right-4 bottom-3 text-xs sm:text-sm font-mono font-bold text-blue-200">
+                <span className="absolute right-3 bottom-2 text-[11px] sm:text-xs font-mono font-bold text-blue-200">
                   #{fsCard.cardNumber}
                 </span>
               </button>
@@ -2516,6 +2419,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         onConfirm={handleConfirmCardNumbers}
         entryPrice={currentGame.entryPrice}
         initialCards={initialCardNumbers}
+        gameId={currentGame.id}
+        mode={isFetanGame ? 'FETAN' : isWeekendGame ? 'WEEKEND' : 'SPECIAL'}
       />
 
       {/* BLOCKED PLAYERS MODAL */}
@@ -2861,24 +2766,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         </div>
       )}
 
-      {/* FLOATING LIVE REACTIONS OVERLAY — hidden for Hyper Fetan */}
-      {!isFetanGame && (
-        <div className="fixed inset-x-0 bottom-24 top-24 pointer-events-none z-40 overflow-hidden">
-          {reactions.map((r) => (
-            <div
-              key={r.id}
-              style={{ left: `${r.left}%` }}
-              className="absolute bottom-8 flex items-center gap-1.5 bg-slate-950/85 backdrop-blur-xs text-white px-3 py-1.5 rounded-full text-xs font-black shadow-xl border border-white/20 animate-in slide-in-from-bottom-8 fade-in duration-300"
-            >
-              <span className="text-lg">{r.emoji}</span>
-              <div className="flex flex-col text-left">
-                <span className="text-[9px] text-amber-300 font-bold leading-none">{r.sender}</span>
-                <span className="text-[10px] text-white font-black leading-tight">{r.text}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+
     </div>
   );
 }

@@ -515,19 +515,7 @@ export default function MiniAppShell({
                         <span className="hidden sm:inline">{language === 'am' ? 'እይ' : 'Watch'}</span>
                       </button>
 
-                      {/* For Special: Choose Cards Button */}
-                      {categoryTab === 'SPECIAL' && (
-                        <button
-                          type="button"
-                          onClick={() => handleSelectGameToPickCards(g.id, 'SPECIAL')}
-                          className="px-2.5 py-2 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-400 text-slate-950 transition flex items-center gap-1 cursor-pointer shadow-xs border border-amber-600"
-                          title={language === 'am' ? 'ካርድ ግዛ' : 'Buy Card'}
-                        >
-                          <span>{language === 'am' ? 'ካርድ ግዛ' : 'Buy Card'}</span>
-                        </button>
-                      )}
-
-                      {/* Main Play Button */}
+                      {/* Main Play Button — Special enters room, Fetan/Weekend open the master number board (1-tap buy) */}
                       <button
                         onClick={() => {
                           if (categoryTab === 'SPECIAL') {
@@ -551,7 +539,7 @@ export default function MiniAppShell({
                         <span>
                           {categoryTab === 'SPECIAL'
                             ? (language === 'am' ? 'ተጫወት' : 'PLAY')
-                            : (language === 'am' ? 'ካርድ ግዛ' : 'Buy Card')}
+                            : (language === 'am' ? 'ካርዶችን ይምረጡ' : 'Pick Cards')}
                         </span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
@@ -1149,73 +1137,56 @@ function WeekendLotteryNumberPicker({
     if (soldSet.has(num)) return;
     if (!selectedGame) return;
 
-    // If already in a slot, remove it (toggle behavior)
-    const existingSlotIdx = slotNumbers.findIndex((n) => n === num);
-    if (existingSlotIdx >= 0) {
-      const next = [...slotNumbers];
-      next[existingSlotIdx] = null;
-      setSlotNumbers(next);
+    // Check if this number is already in active user slots
+    if (activeSlotSet.has(num)) {
+      setPurchaseFeedback(
+        isAm
+          ? `ካርድ #${String(num).padStart(4, '0')} አስቀድሞ ተገዝቷል!`
+          : `Card #${String(num).padStart(4, '0')} already purchased!`
+      );
+      setTimeout(() => setPurchaseFeedback(null), 2500);
       return;
     }
 
-    // Check if all 5 slots are full
-    if (firstEmptySlotIdx < 0) {
+    // Check if player has already reached max 5 cards
+    if (slotCountFilled >= NUM_SLOTS || firstEmptySlotIdx < 0) {
       setPurchaseFeedback(
         isAm
-          ? `ከፍተኛው 5 ስሎቶች ተሞልተዋል! ለመቀየር ያለውን ያስወግዱ።`
-          : `All 5 slots are full! Remove one to add a new card.`
+          ? `ከፍተኛው 5 ካርዶች ተሞልተዋል! (Max 5 cards reached)`
+          : `Maximum 5 cards reached for this round!`
       );
       setTimeout(() => setPurchaseFeedback(null), 3000);
       return;
     }
 
-    // Add to slot (selection only, no purchase yet)
-    const next = [...slotNumbers];
-    next[firstEmptySlotIdx] = num;
-    setSlotNumbers(next);
-  };
-
-  const clearSlot = (slotIdx: number) => {
-    const next = [...slotNumbers];
-    next[slotIdx] = null;
-    setSlotNumbers(next);
-  };
-
-  const handleBuy = () => {
-    if (!user) { openAuthModal('register'); return; }
-    if (!selectedGame) return;
-
-    // Get all selected numbers from slots
-    const selectedNums = slotNumbers.filter((n): n is number => n !== null);
-    if (selectedNums.length === 0) {
-      // No cards selected — just go to game room
-      onPickCards(selectedGame.id, []);
-      return;
-    }
-
-    // Check balance for all selected cards
-    const totalNeeded = selectedNums.length * entryPrice;
-    if (playableBalance < totalNeeded) {
+    // Check playable balance
+    if (playableBalance < entryPrice) {
       setPurchaseFeedback(
         isAm 
-          ? `በቂ ሒሳብ የለዎትም! (${totalNeeded} ETB ያስፈልጋል ለ ${selectedNums.length} ካርዶች፣ ያለዎት ${Math.floor(playableBalance)} ETB)` 
-          : `Insufficient balance! Need ${totalNeeded} ETB for ${selectedNums.length} cards (have ${Math.floor(playableBalance)} ETB)`
+          ? `በቂ ሒሳብ የለዎትም! (${entryPrice} ETB ያስፈልጋል፣ ያለዎት ${Math.floor(playableBalance)} ETB)` 
+          : `Insufficient balance! (Need ${entryPrice} ETB, have ${Math.floor(playableBalance)} ETB)`
       );
       setTimeout(() => setPurchaseFeedback(null), 3500);
       return;
     }
 
-    // Purchase all selected numbers at once
-    const result = purchaseLotteryNumbers(selectedGame.id, selectedNums);
+    // Direct 1-tap instant purchase: clicking the card number immediately buys it
+    const result = purchaseLotteryNumbers(selectedGame.id, [num]);
     setPurchaseFeedback(result.message);
-    setTimeout(() => setPurchaseFeedback(null), 3500);
+    setTimeout(() => setPurchaseFeedback(null), 3000);
 
     if (result.success) {
-      const cardStrs = selectedNums.map(n => String(n).padStart(4, '0'));
-      onPickCards(selectedGame.id, result.purchased || cardStrs);
-      // Clear slots after successful purchase
-      setSlotNumbers(Array.from({ length: NUM_SLOTS }, () => null));
+      const next = [...slotNumbers];
+      next[firstEmptySlotIdx] = num;
+      setSlotNumbers(next);
     }
+  };
+
+  const handleGoToGameRoom = () => {
+    if (!selectedGame) return;
+    const selectedNums = slotNumbers.filter((n): n is number => n !== null);
+    const cardStrs = selectedNums.map(n => String(n).padStart(4, '0'));
+    onPickCards(selectedGame.id, cardStrs);
   };
 
   const regCode = user ? user.referralCode?.toUpperCase() || '---' : '---';
@@ -1480,14 +1451,9 @@ function WeekendLotteryNumberPicker({
                   )}
                 </div>
                 {filled ? (
-                  <button
-                    type="button"
-                    onClick={() => clearSlot(i)}
-                    className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center hover:bg-rose-500 hover:text-white transition cursor-pointer shrink-0 border border-white shadow-2xs"
-                    title="Remove"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+                  <span className="text-[9px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full border border-emerald-300">
+                    ✓ {isAm ? 'ተገዝቷል' : 'Paid'}
+                  </span>
                 ) : (
                   <span className="text-slate-300 text-xs font-black shrink-0">+</span>
                 )}
@@ -1499,7 +1465,7 @@ function WeekendLotteryNumberPicker({
         {/* Visual scroll hint */}
         <div className="flex items-center justify-between text-[9px] text-slate-400 px-1 pt-0.5 border-t border-slate-100">
           <span>{isAm ? '← ወደ ጎን ያሸብልሉ →' : '← Swipe to see S3, S4, S5 →'}</span>
-          <span>{slotCountFilled} {isAm ? 'ተመርጧል' : 'selected'}</span>
+          <span>{slotCountFilled}/5 {isAm ? 'ተገዝቷል' : 'bought'}</span>
         </div>
       </div>
 
@@ -1511,11 +1477,11 @@ function WeekendLotteryNumberPicker({
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded border border-amber-500 bg-amber-400" />
-          <span className="text-slate-800 font-bold">{isAm ? 'የተመረጠ' : 'Selected'}</span>
+          <span className="text-slate-800 font-bold">{isAm ? 'የተገዛ (የእርስዎ)' : 'Your Card'}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded border border-slate-300 bg-slate-200" />
-          <span className="text-slate-600 font-bold">{isAm ? 'የተሸጠ (ግራጫ)' : 'Sold (Gray)'}</span>
+          <span className="text-slate-600 font-bold">{isAm ? 'የተሸጠ (ሌላ ሰው)' : 'Sold'}</span>
         </div>
       </div>
 
@@ -1527,7 +1493,7 @@ function WeekendLotteryNumberPicker({
               {isAm ? `የቁጥሮች ሰንጠረዥ (1-${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`}
             </span>
             <span className="text-[9px] text-amber-600 font-bold block">
-              {isAm ? '⚡ ቁጥሩን ይምረጡ (እስከ 5) ከዚያ ⬇️ ግዛ ይጫኑ' : '⚡ Tap to select (up to 5) then press Buy All below'}
+              {isAm ? '⚡ ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል (1-5 ካርዶች)' : '⚡ Tap any card to purchase instantly (Min 1, Max 5)'}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -1572,36 +1538,36 @@ function WeekendLotteryNumberPicker({
         </div>
       )}
 
-      {/* Bottom Action Button: Go to Game Room */}
+      {/* Bottom Action Area: Enter Game Room (NO separate Buy button) */}
       <div className="mx-2 mt-3 space-y-2">
         <button
           type="button"
-          onClick={handleBuy}
-          disabled={slotCountFilled === 0}
+          onClick={handleGoToGameRoom}
           className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
             slotCountFilled === 0
-              ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+              ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border border-slate-300'
               : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 hover:brightness-105 shadow-amber-300/60 active:scale-[0.99]'
           }`}
         >
           {!user ? (
             isAm ? 'መመዝገብ →' : 'Register to Play →'
           ) : slotCountFilled === 0 ? (
-            isAm ? 'ከላይ ቁጥሮችን ይምረጡ' : 'Select card numbers above'
+            isAm ? '👀 ያለ ካርድ በቀጥታ ይመልከቱ (Spectator) →' : '👀 Watch Live Game as Spectator →'
           ) : (
-            `🛒 ${isAm ? `${slotCountFilled} ካርዶችን ግዛ` : `Buy ${slotCountFilled} Card${slotCountFilled > 1 ? 's' : ''}`} (${totalCost} ETB)`
+            `🎮 ${isAm ? 'ወደ ጨዋታው ክፍል ይግቡ' : 'Enter Game Room'} (${slotCountFilled} ${isAm ? 'ካርድ' : 'Card'}${slotCountFilled > 1 ? 's' : ''}) →`
           )}
         </button>
 
-        {/* Spectator Button: Watch live game without buying cards */}
-        <button
-          type="button"
-          onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_50_2pm', [])}
-          className="w-full py-2.5 rounded-xl font-bold text-xs bg-slate-200/80 hover:bg-slate-300 text-slate-800 transition flex items-center justify-center gap-1.5 cursor-pointer border border-slate-300/80"
-        >
-          <Eye className="w-3.5 h-3.5 text-blue-600" />
-          <span>{isAm ? '👀 ያለ ካርድ ጨዋታውን በቀጥታ ይመልከቱ (Watch Live Game)' : '👀 Watch Live Game as Spectator'}</span>
-        </button>
+        {slotCountFilled > 0 && (
+          <button
+            type="button"
+            onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_50_2pm', [])}
+            className="w-full py-2 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 transition flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200"
+          >
+            <Eye className="w-3.5 h-3.5 text-blue-600" />
+            <span>{isAm ? '👀 ያለ ካርድ በቀጥታ ተመልካች ይሁኑ' : '👀 Watch as Spectator'}</span>
+          </button>
+        )}
       </div>
     </div>
   );
