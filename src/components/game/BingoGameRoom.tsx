@@ -341,12 +341,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         // Intermission countdown: card picking
         setFetanSecondsLeft((prev) => {
           if (prev <= 1) {
-            // Intermission ended -> start next round fresh! Open card selector to redirect to game
+            // Intermission ended -> start next round fresh! Redirect to live game
             resetGameRound(currentGame.id);
             setFetanIsIntermission(false);
             setFetanOvertime(false);
-            // Redirect to game by opening card selector
-            setIsSelectorOpen(true);
+            setIsSelectorOpen(false);
+            setIsAutoDrawing(true);
             return 60;
           }
           return prev - 1;
@@ -1535,36 +1535,28 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </button>
           </div>
 
-          {/* ── Centered Ball Display (middle area) ── */}
-          <div className="flex items-center justify-center gap-2 py-2">
-            {previousBalls.length > 0 && previousBalls.map((pb, idx) => {
-              const pbLetter = getBallLetter(pb);
-              const pbColor = getLetterColor(pbLetter);
-              return (
-                <div
-                  key={`fetan-mid-prev-${idx}-${pb}`}
-                  className={`rounded-full bg-gradient-to-br ${pbColor} opacity-55 shadow flex flex-col items-center justify-center relative overflow-hidden`}
-                  style={{width:'36px',height:'36px',border:'2.5px solid white'}}
-                >
-                  <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35) 0%, transparent 65%)'}} />
-                  <span className="text-[6px] font-black uppercase leading-none text-white z-10">{pbLetter}</span>
-                  <span className="text-[10px] font-black text-white leading-tight z-10">{pb}</span>
-                </div>
-              );
-            })}
-            {currentBallNum != null ? (
-              <div
-                className={`rounded-full bg-gradient-to-br ${getLetterColor(getBallLetter(currentBallNum))} flex flex-col items-center justify-center relative overflow-hidden ball-active-anim`}
-                style={{width:'56px',height:'56px',border:'3px solid white',boxShadow:'0 4px 18px rgba(0,0,0,0.3)'}}
-              >
-                <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 28%, rgba(255,255,255,0.45) 0%, transparent 60%)'}} />
-                <span className="text-[9px] font-black uppercase leading-none text-white z-10">{getBallLetter(currentBallNum)}</span>
-                <span className="text-[17px] font-black text-white leading-tight z-10">{currentBallNum}</span>
+          {/* ── Middle Area: Balls called counter (X/75) + 30s Card Pick Countdown ── */}
+          <div className="flex items-center justify-between gap-2 py-2 px-2.5 bg-slate-50 rounded-xl border border-slate-200 mx-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider">
+                {language === 'am' ? 'የተጠሩ ኳሶች' : 'Balls Called'}:
+              </span>
+              <span className="text-base font-black font-mono text-slate-900">
+                {currentGame.drawnNumbers.length}<span className="text-xs text-slate-400">/75</span>
+              </span>
+            </div>
+
+            {/* 30-second card-picking intermission timer */}
+            {fetanIsIntermission ? (
+              <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
+                <span>⏳</span>
+                <span>{language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards'}:</span>
+                <span className="font-mono text-sm">{fetanSecondsLeft}s</span>
               </div>
             ) : (
-              <div className="rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white/80" style={{width:'56px',height:'56px'}}>
-                <span className="text-[8px] font-black text-slate-400 text-center leading-tight">GET<br/>READY</span>
-              </div>
+              <span className="text-[10px] font-bold text-slate-400">
+                {Math.max(0, 75 - currentGame.drawnNumbers.length)} {language === 'am' ? 'ቀሪ' : 'left'}
+              </span>
             )}
           </div>
 

@@ -48,6 +48,7 @@ export default function CardNumberSelector({
   const [errorMsg, setErrorMsg] = useState('');
   const [purchaseMsg, setPurchaseMsg] = useState<string | null>(null);
   const [showMorePresets, setShowMorePresets] = useState(false);
+  const [pickCountdown, setPickCountdown] = useState(30);
 
   const prevIsOpenRef = React.useRef(false);
 
@@ -61,9 +62,29 @@ export default function CardNumberSelector({
       setInputNumber('');
       setErrorMsg('');
       setPurchaseMsg(null);
+      setPickCountdown(30);
     }
     prevIsOpenRef.current = isOpen;
-  }, [isOpen]);
+  }, [isOpen, initialCards]);
+
+  // 30-second card-picking timer: after finishing 30s, redirect to game if user bought cards
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const timer = setInterval(() => {
+      setPickCountdown((prev) => {
+        if (prev <= 1) {
+          // Time expired! If user bought cards, auto-confirm and enter game
+          if (purchasedNumbers.length > 0) {
+            onConfirm(purchasedNumbers);
+          }
+          onClose();
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isOpen, purchasedNumbers, onConfirm, onClose]);
 
   if (!isOpen) return null;
 
@@ -232,21 +253,26 @@ export default function CardNumberSelector({
             <div className="min-w-0">
               <h3 className="font-black text-slate-950 text-sm leading-tight truncate">
                 {isSpecial
-                  ? (isAm ? 'ካርድ ቁጥር ይምረጡ (1-500)' : 'Pick Card Number (1–500 Grid)')
+                  ? (isAm ? 'ካርድ ቁጥር ይምረጡ (#12345)' : 'Pick Card Number (#12345)')
                   : (isAm ? `ካርዶችን በቀጥታ ይግዙ (1–${TOTAL_NUMBERS})` : `Tap Cards to Buy (1–${TOTAL_NUMBERS})`)}
               </h3>
               <p className="text-[10px] text-emerald-700 font-bold truncate">
                 {isSpecial
-                  ? (isAm ? `⭐ ከ${MIN_CARDS}–${MAX_CARDS} ካርዶች · ቁጥር ሲጫኑ ይምረጣሉ` : `⭐ Min ${MIN_CARDS} / Max ${MAX_CARDS} · Tap number to select`)
+                  ? (isAm ? `⭐ ከ${MIN_CARDS}–${MAX_CARDS} ካርዶች · የካርድ ሳጥን ይጫኑ ወይም በነሲብ ይምረጡ` : `⭐ Min ${MIN_CARDS} / Max ${MAX_CARDS} · Tap card box to select`)
                   : (isAm
                     ? `⭐ ከ${MIN_CARDS}–${MAX_CARDS} ካርዶች · ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል`
                     : `⭐ Min ${MIN_CARDS} / Max ${MAX_CARDS} · Tap any number → instant purchase`)}
               </p>
             </div>
           </div>
-          <button onClick={handleClose} className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:text-slate-950 hover:bg-slate-200 transition cursor-pointer shrink-0">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="px-2.5 py-1 rounded-full bg-amber-400 text-slate-950 font-mono font-black text-xs animate-pulse shadow-2xs">
+              ⏳ {pickCountdown}s
+            </span>
+            <button onClick={handleClose} className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:text-slate-950 hover:bg-slate-200 transition cursor-pointer">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Price / Balance / Bought status row */}
@@ -430,48 +456,91 @@ export default function CardNumberSelector({
           </div>
         </div>
 
-        {/* Master Lottery Board Grid — for ALL game modes */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs flex-1 flex flex-col min-h-0">
-          <div className="flex items-center justify-between mb-1.5 px-1 shrink-0">
-            <div>
-              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider block">
-                {isSpecial
-                  ? (isAm ? 'ካርድ ቁጥር ምረጡ (1–500 ፈጣን ምርጫ)' : 'Pick Card Number (1–500 Quick Grid or enter above)')
-                  : (isAm ? `የቁጥሮች ሰንጠረዥ (1–${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`)
-                }
-              </span>
-              <span className="text-[9px] text-amber-600 font-bold block">
-                {isAm ? '⚡ ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል' : '⚡ Tap any number → instant select'}
-              </span>
+        {/* Master Lottery Board Grid — only for FETAN & WEEKEND */}
+        {!isSpecial && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs flex-1 flex flex-col min-h-0">
+            <div className="flex items-center justify-between mb-1.5 px-1 shrink-0">
+              <div>
+                <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider block">
+                  {isAm ? `የቁጥሮች ሰንጠረዥ (1–${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`}
+                </span>
+                <span className="text-[9px] text-amber-600 font-bold block">
+                  {isAm ? '⚡ ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል' : '⚡ Tap any number → instant purchase'}
+                </span>
+              </div>
+            </div>
+            <div className={`grid ${colClass} gap-0.5 sm:gap-1 overflow-y-auto pr-0.5`}>
+              {Array.from({ length: TOTAL_NUMBERS }, (_, i) => i + 1).map((num) => {
+                const bought = purchasedSet.has(num);
+                const sold = soldSet.has(num);
+                const isMax = purchasedCount >= MAX_CARDS;
+                return (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => attemptPurchaseByNumber(num)}
+                    disabled={(sold && !bought) || (isMax && !bought)}
+                    className={`h-7 sm:h-8 rounded-md text-[10px] sm:text-xs font-black tabular-nums transition-all border select-none flex items-center justify-center shrink-0 ${
+                      bought
+                        ? 'bg-amber-400 border-amber-500 text-slate-950 shadow shadow-amber-300 scale-105 ring-2 ring-amber-500 z-10'
+                        : sold
+                        ? 'bg-slate-200 border-slate-300 text-slate-500 cursor-not-allowed line-through decoration-slate-400/80 font-bold'
+                        : isMax
+                        ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                        : 'bg-white border-slate-300 text-slate-950 hover:bg-amber-50 hover:border-amber-400 active:scale-95 cursor-pointer shadow-2xs'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <div className={`grid ${isSpecial ? 'grid-cols-10' : colClass} gap-0.5 sm:gap-1 overflow-y-auto pr-0.5`}>
-            {Array.from({ length: isSpecial ? 500 : TOTAL_NUMBERS }, (_, i) => i + 1).map((num) => {
-              const bought = purchasedSet.has(num);
-              const sold = soldSet.has(num);
-              const isMax = purchasedCount >= MAX_CARDS;
-              return (
-                <button
-                  key={num}
-                  type="button"
-                  onClick={() => attemptPurchaseByNumber(num)}
-                  disabled={(sold && !bought) || (isMax && !bought)}
-                  className={`h-7 sm:h-8 rounded-md text-[10px] sm:text-xs font-black tabular-nums transition-all border select-none flex items-center justify-center shrink-0 ${
-                    bought
-                      ? 'bg-amber-400 border-amber-500 text-slate-950 shadow shadow-amber-300 scale-105 ring-2 ring-amber-500 z-10'
-                      : sold
-                      ? 'bg-slate-200 border-slate-300 text-slate-500 cursor-not-allowed line-through decoration-slate-400/80 font-bold'
-                      : isMax
-                      ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-white border-slate-300 text-slate-950 hover:bg-amber-50 hover:border-amber-400 active:scale-95 cursor-pointer shadow-2xs'
-                  }`}
-                >
-                  {num}
-                </button>
-              );
-            })}
+        )}
+
+        {/* Hyper Special: Card Boxes with numbers like #12608, #11302 */}
+        {isSpecial && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-2.5 shadow-xs flex-1 flex flex-col min-h-0 space-y-2">
+            <div className="flex items-center justify-between px-1 shrink-0">
+              <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider block">
+                {isAm ? 'የስፔሻል ካርዶች ሳጥኖች (Card Boxes)' : 'Special Card Boxes (#12345)'}
+              </span>
+              <span className="text-[10px] text-amber-700 font-bold">
+                {isAm ? 'ሳጥኑን በመጫን ይምረጡ' : 'Tap box to pick'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 overflow-y-auto pr-0.5">
+              {ALL_PRESETS.map((presetStr) => {
+                const n = parseInt(presetStr, 10);
+                const isBought = purchasedSet.has(n);
+                const isSold = soldSet.has(n);
+                const isMax = purchasedCount >= MAX_CARDS;
+                return (
+                  <button
+                    key={presetStr}
+                    type="button"
+                    onClick={() => attemptPurchaseByNumber(n)}
+                    disabled={(isSold && !isBought) || (isMax && !isBought)}
+                    className={`py-3 px-2 rounded-xl text-center font-mono font-black text-xs transition border-2 flex flex-col items-center justify-center gap-0.5 cursor-pointer shadow-xs ${
+                      isBought
+                        ? 'bg-amber-400 border-amber-500 text-slate-950 shadow-md scale-102 ring-2 ring-amber-400'
+                        : isSold
+                        ? 'bg-slate-200 border-slate-300 text-slate-400 cursor-not-allowed line-through'
+                        : isMax
+                        ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                        : 'bg-white border-slate-300 text-slate-900 hover:border-amber-400 hover:bg-amber-50/50'
+                    }`}
+                  >
+                    <span className="text-sm font-black">#{presetStr}</span>
+                    <span className={`text-[9px] font-bold ${isBought ? 'text-slate-950' : 'text-slate-500'}`}>
+                      {isBought ? (isAm ? '✓ የተመረጠ' : '✓ Selected') : (isAm ? 'ነፃ ካርድ' : 'Available')}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Messages */}
         {(purchaseMsg || errorMsg) && (

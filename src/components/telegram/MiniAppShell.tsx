@@ -1165,6 +1165,17 @@ function WeekendLotteryNumberPicker({
     onPickCards(selectedGame.id, cardStrs);
   };
 
+  // Auto-redirect to live game room after 30s card-picking intermission if user bought cards
+  const prevFetanIntermissionRef = React.useRef(fetanIsIntermission);
+  React.useEffect(() => {
+    if (mode === 'FETAN' && prevFetanIntermissionRef.current && !fetanIsIntermission) {
+      if (slotCountFilled > 0 && selectedGame) {
+        handleGoToGameRoom();
+      }
+    }
+    prevFetanIntermissionRef.current = fetanIsIntermission;
+  }, [fetanIsIntermission, slotCountFilled, selectedGame, mode]);
+
   const regCode = user ? user.referralCode?.toUpperCase() || '---' : '---';
 
   return (
@@ -1189,7 +1200,7 @@ function WeekendLotteryNumberPicker({
                   {mode === 'FETAN' 
                     ? (isAm ? 'ሃይፐር ፈጣን ካርዶች (1-500)' : 'Hyper Fetan Cards (1-500)')
                     : mode === 'SPECIAL'
-                    ? (isAm ? 'ሃይፐር ስፔሻል ካርዶች (1-75)' : 'Hyper Special Cards (1-75)')
+                    ? (isAm ? 'ሃይፐር ስፔሻል ካርዶች' : 'Hyper Special Cards')
                     : (isAm 
                         ? `${selectedGame?.weekendDay === 'FRI' ? 'የዓርብ' : selectedGame?.weekendDay === 'SAT' ? 'የቅዳሜ' : 'የእሑድ'} ሜጋ ሎተሪ (1-1500)`
                         : `${selectedGame?.weekendDay === 'FRI' ? 'Friday' : selectedGame?.weekendDay === 'SAT' ? 'Saturday' : 'Sunday'} Mega Lottery (1-1500)`)}
@@ -1436,51 +1447,102 @@ function WeekendLotteryNumberPicker({
         </div>
       </div>
 
-      {/* Master Lottery Numbers Table — Clean White Background, Bold Black Numbers */}
-      <div className="mx-2 mt-2 bg-white rounded-2xl border border-slate-200 p-2 shadow-xs">
-        <div className="flex items-center justify-between mb-1.5 px-1">
-          <div>
-            <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
-              {isAm ? `የቁጥሮች ሰንጠረዥ (1-${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`}
-            </span>
-            <span className="text-[9px] text-amber-600 font-bold block">
-              {isAm ? '⚡ ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል (1-5 ካርዶች)' : '⚡ Tap any card to purchase instantly (Min 1, Max 5)'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
+      {mode === 'SPECIAL' ? (
+        /* Hyper Special: Card Boxes with numbers like #12608, #11302, #12345 */
+        <div className="mx-2 mt-2 bg-white rounded-2xl border border-slate-200 p-3 shadow-xs space-y-2.5">
+          <div className="flex items-center justify-between px-0.5">
+            <div>
+              <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider block">
+                {isAm ? 'የስፔሻል ካርዶች ሳጥኖች (Card Boxes)' : 'Special Card Boxes (#12345)'}
+              </span>
+              <span className="text-[9px] text-amber-600 font-bold block">
+                {isAm ? '⚡ ሳጥን በመጫን ይምረጡ (ከ1-5 ካርዶች)' : '⚡ Tap card box to select/unselect (Min 1, Max 5)'}
+              </span>
+            </div>
             <span className="text-[10px] text-emerald-700 font-black bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-              ✓ {TOTAL_NUMBERS - soldSet.size} {isAm ? 'ነፃዎች' : 'Available'}
-            </span>
-            <span className="text-[10px] text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-              ✗ {soldSet.size} {isAm ? 'የተሸጡ' : 'Sold'}
+              {slotCountFilled}/5 {isAm ? 'ተመርጧል' : 'Selected'}
             </span>
           </div>
-        </div>
 
-        <div className="grid grid-cols-10 gap-1 sm:gap-1.5">
-          {Array.from({ length: TOTAL_NUMBERS }, (_, i) => i + 1).map((num) => {
-            const sold = soldSet.has(num);
-            const inSlot = activeSlotSet.has(num);
-            return (
-              <button
-                key={num}
-                type="button"
-                onClick={() => handlePickNumber(num)}
-                disabled={sold && !inSlot}
-                className={`h-8 sm:h-9 rounded-lg text-xs font-black tabular-nums transition-all border select-none flex items-center justify-center ${
-                  inSlot
-                    ? 'bg-amber-400 border-amber-500 text-slate-950 shadow shadow-amber-300 scale-105 ring-2 ring-amber-500 z-10'
-                    : sold
-                    ? 'bg-slate-200 border-slate-300 text-slate-500 cursor-not-allowed line-through decoration-slate-400/80 font-bold'
-                    : 'bg-white border-slate-300 text-slate-950 hover:bg-amber-50 hover:border-amber-400 active:scale-95 cursor-pointer shadow-2xs'
-                }`}
-              >
-                {num}
-              </button>
-            );
-          })}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              12608, 11302, 24890, 35012, 98104,
+              44192, 53001, 67123, 78904, 81234,
+              19045, 27651, 63421, 89100, 95420,
+              12345, 23456, 34567, 45678, 56789,
+            ].map((num) => {
+              const inSlot = activeSlotSet.has(num);
+              const isSold = soldSet.has(num);
+              return (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => handlePickNumber(num)}
+                  disabled={isSold && !inSlot}
+                  className={`py-3 px-2 rounded-xl text-center font-mono font-black text-xs transition border-2 flex flex-col items-center justify-center gap-0.5 cursor-pointer shadow-xs ${
+                    inSlot
+                      ? 'bg-amber-400 border-amber-500 text-slate-950 shadow-md scale-102 ring-2 ring-amber-400'
+                      : isSold
+                      ? 'bg-slate-200 border-slate-300 text-slate-400 cursor-not-allowed line-through'
+                      : 'bg-white border-slate-300 text-slate-900 hover:border-amber-400 hover:bg-amber-50/50'
+                  }`}
+                >
+                  <span className="text-sm font-black">#{num}</span>
+                  <span className={`text-[9px] font-bold ${inSlot ? 'text-slate-950' : 'text-slate-500'}`}>
+                    {inSlot ? (isAm ? '✓ የተመረጠ' : '✓ Selected') : (isAm ? 'ነፃ ካርድ' : 'Available')}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Master Lottery Numbers Table — Clean White Background, Bold Black Numbers */
+        <div className="mx-2 mt-2 bg-white rounded-2xl border border-slate-200 p-2 shadow-xs">
+          <div className="flex items-center justify-between mb-1.5 px-1">
+            <div>
+              <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
+                {isAm ? `የቁጥሮች ሰንጠረዥ (1-${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`}
+              </span>
+              <span className="text-[9px] text-amber-600 font-bold block">
+                {isAm ? '⚡ ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል (1-5 ካርዶች)' : '⚡ Tap any card to purchase instantly (Min 1, Max 5)'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-emerald-700 font-black bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                ✓ {TOTAL_NUMBERS - soldSet.size} {isAm ? 'ነፃዎች' : 'Available'}
+              </span>
+              <span className="text-[10px] text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                ✗ {soldSet.size} {isAm ? 'የተሸጡ' : 'Sold'}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-10 gap-1 sm:gap-1.5">
+            {Array.from({ length: TOTAL_NUMBERS }, (_, i) => i + 1).map((num) => {
+              const sold = soldSet.has(num);
+              const inSlot = activeSlotSet.has(num);
+              return (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => handlePickNumber(num)}
+                  disabled={sold && !inSlot}
+                  className={`h-8 sm:h-9 rounded-lg text-xs font-black tabular-nums transition-all border select-none flex items-center justify-center ${
+                    inSlot
+                      ? 'bg-amber-400 border-amber-500 text-slate-950 shadow shadow-amber-300 scale-105 ring-2 ring-amber-500 z-10'
+                      : sold
+                      ? 'bg-slate-200 border-slate-300 text-slate-500 cursor-not-allowed line-through decoration-slate-400/80 font-bold'
+                      : 'bg-white border-slate-300 text-slate-950 hover:bg-amber-50 hover:border-amber-400 active:scale-95 cursor-pointer shadow-2xs'
+                  }`}
+                >
+                  {num}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Purchase Feedback Toast */}
       {purchaseFeedback && (
