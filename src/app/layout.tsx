@@ -30,11 +30,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning style={{ fontFamily: "'Times New Roman', Times, serif" }}>
       <head>
         <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
       </head>
-      <body className="antialiased bg-[#070913] text-slate-100 min-h-screen">
+      <body className="antialiased bg-[#070913] text-slate-100 min-h-screen" style={{ fontFamily: "'Times New Roman', Times, serif" }}>
         <BingoProvider>
           <NotificationToast />
           <AuthModal />

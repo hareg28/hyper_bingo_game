@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+*, *::before, *::after, html, body {
+  font-family: 'Times New Roman', Times, serif !important;
+}
+
 @layer base {
   :root {
     --bg-dark: #0b0d17;
@@ -17,7 +21,7 @@
   body {
     background-color: #ffffff;
     color: #0f172a;
-    font-family: 'Times New Roman', Times, serif;
+    font-family: 'Times New Roman', Times, serif !important;
     overflow-x: hidden;
     overflow-y: hidden;
     max-width: 100vw;
@@ -25,6 +29,25 @@
   }
 
   /* Force all text to use Times New Roman (override Tailwind font-mono/font-sans/font-serif) */
+  html,
+  body,
+  button,
+  input,
+  select,
+  textarea,
+  div,
+  span,
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  table,
+  tr,
+  td,
+  th,
   *,
   *::before,
   *::after {

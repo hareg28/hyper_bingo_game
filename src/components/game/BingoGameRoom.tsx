@@ -333,8 +333,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       if (typeof document !== 'undefined' && document.hidden) return;
       setSpecialSecondsLeft((prev) => {
         if (prev <= 1) {
-          // 5-min intermission finished -> automatically start next round with NEW LAW & NEW PRICE!
-          resetGameRound(currentGame.id);
+          // 5-min intermission finished -> automatically start drawing for the new round!
           setSpecialIsIntermission(false);
           setIsAutoDrawing(true);
           return 300;
@@ -344,14 +343,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isSpecialGame, specialIsIntermission, currentGame.id, resetGameRound]);
-
-  // Auto-seed 1 initial card for Hyper Special if player has none yet
-  useEffect(() => {
-    if (isSpecialGame && activeGameCards.length === 0) {
-      addSpecialCards(currentGame.id, 1);
-    }
-  }, [isSpecialGame, activeGameCards.length, currentGame.id, addSpecialCards]);
+  }, [isSpecialGame, specialIsIntermission]);
 
   // Fetan 1-second countdown ticker
   useEffect(() => {
@@ -1291,6 +1283,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   return (
     <div 
       className="w-full h-full min-h-0 max-w-sm sm:max-w-md mx-auto flex flex-col select-none overflow-hidden"
+      style={{ fontFamily: "'Times New Roman', Times, serif" }}
       onClickCapture={() => audioManager.unlockAudio()}
       onTouchStartCapture={() => audioManager.unlockAudio()}
     >
@@ -1901,141 +1894,159 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           );
         })()}
 
-        {activeGameCards.length > 0 ? (
-          <>
+        {isSpecialGame ? (
+          /* ── Hyper Special: 2 Slots Per Screen with Rectangular Number Cells ── */
+          <div className="space-y-2 pb-24">
+            <div className="flex items-center justify-between px-1.5 pt-0.5 text-xs">
+              <span className="font-black text-slate-700">
+                {language === 'am' ? 'የተመረጡ ካርዶች' : 'Selected Cards'}: {activeGameCards.length}/30
+              </span>
+              <span className="font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-lg shadow-2xs">
+                {activeGameCards.filter((c) => c.isRegistered).length}/5 {language === 'am' ? 'የተመዘገቡ ካርዶች' : 'Registered Cards'}
+              </span>
+            </div>
 
-            {isSpecialGame ? (
-              /* ── Hyper Special: Card Tables Matching Image 1 ── */
-              <div className="space-y-2.5 pb-24">
-                <div className="flex items-center justify-between px-2 pt-1 text-xs">
-                  <span className="font-black text-slate-700">
-                    {language === 'am' ? 'የተመረጡ ካርዶች' : 'Selected Cards'}: {activeGameCards.length}/30
-                  </span>
-                  <span className="font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-lg shadow-2xs">
-                    {activeGameCards.filter((c) => c.isRegistered).length}/5 {language === 'am' ? 'የተመዘገቡ ካርዶች' : 'Registered Cards'}
-                  </span>
+            {/* When entering to choose cards: NO BINGO BOX initially until user chooses cards via the (+) button */}
+            {activeGameCards.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-14 px-4 text-center space-y-3 bg-white rounded-2xl border border-dashed border-slate-300 mx-1 shadow-2xs">
+                <div className="w-10 h-10 rounded-full bg-red-50 text-[#ef4444] flex items-center justify-center text-xl font-black shadow-xs">
+                  +
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {activeGameCards.map((card) => {
-                    const isRegistered = Boolean(card.isRegistered);
-                    const cardDrawnSet = new Set(currentGame.drawnNumbers);
-                    const effectiveCardMarked = card.numbers.map((row, rIdx) =>
-                      row.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || card.marked[rIdx][cIdx] || cardDrawnSet.has(val))
-                    );
-                    const cardIsWin = Boolean(getBestWinningRule(effectiveCardMarked, currentGame.winningRule, currentGame.activeSpecialRuleIndex));
-                    const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
-
-                    return (
-                      <div
-                        key={card.id}
-                        className={`bg-white rounded-2xl overflow-hidden border-2 shadow-md transition-all ${
-                          cardIsBlocked
-                            ? 'border-rose-400 ring-2 ring-rose-200'
-                            : cardIsWin
-                            ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg shadow-amber-200 animate-pulse'
-                            : isRegistered
-                            ? 'border-blue-500 shadow-blue-100 ring-2 ring-blue-400'
-                            : 'border-slate-300/80'
-                        }`}
-                      >
-                        {/* Blue Top Bar (Credit card icon, card number, X button) */}
-                        <div className="bg-[#2563eb] text-white px-3 py-1.5 flex items-center justify-between font-mono font-black text-xs shadow-xs">
-                          <div className="flex items-center gap-1.5">
-                            <CreditCard className="w-3.5 h-3.5" />
-                            <span>{card.cardNumber}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeCard(card.id)}
-                            className="text-white/80 hover:text-white hover:bg-blue-700 p-0.5 rounded cursor-pointer transition"
-                            title="Remove card"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        <div className="p-2.5 space-y-2">
-                          {/* Register Card Button */}
-                          <div className="flex justify-center">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const res = toggleSpecialCardRegistration(card.id);
-                                setSpecialToast(res.message);
-                                setTimeout(() => setSpecialToast(null), 3000);
-                              }}
-                              className={`py-1.5 px-6 rounded-xl font-bold text-xs transition cursor-pointer shadow-xs active:scale-95 ${
-                                isRegistered
-                                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1'
-                                  : 'bg-[#38bdf8] hover:bg-[#0ea5e9] text-white'
-                              }`}
-                            >
-                              {isRegistered ? '✓ Registered' : 'Register Card'}
-                            </button>
-                          </div>
-
-                          {/* B I N G O Header Row */}
-                          <div className="grid grid-cols-5 gap-1 text-center font-black text-white text-xs py-0.5">
-                            <div className="bg-[#22c55e] py-1 rounded">B</div>
-                            <div className="bg-[#ef4444] py-1 rounded">I</div>
-                            <div className="bg-[#06b6d4] py-1 rounded">N</div>
-                            <div className="bg-[#3b82f6] py-1 rounded">G</div>
-                            <div className="bg-[#f59e0b] py-1 rounded">O</div>
-                          </div>
-
-                          {/* 5x5 Number Grid (Circular Cells, center green F) */}
-                          <div className="grid grid-cols-5 gap-1.5 text-center">
-                            {card.numbers.map((row, rIdx) =>
-                              row.map((val, cIdx) => {
-                                const isFree = rIdx === 2 && cIdx === 2;
-                                const isMarked = effectiveCardMarked[rIdx][cIdx];
-                                return (
-                                  <div
-                                    key={`${rIdx}-${cIdx}`}
-                                    onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
-                                    className={`aspect-square rounded-full flex items-center justify-center font-black text-xs sm:text-sm cursor-pointer transition select-none ${
-                                      isFree
-                                        ? 'bg-[#22c55e] text-white shadow-xs'
-                                        : isMarked
-                                        ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-500 font-black shadow-xs scale-102'
-                                        : 'bg-white border border-slate-200 text-slate-900 shadow-2xs hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    {isFree ? 'F' : val}
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-
-                          {/* Claim Bingo */}
-                          {isRegistered && cardIsWin && (
-                            <div className="pt-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const res = claimBingo(card.id);
-                                  if (res.message) setSpecialToast(res.message);
-                                  setTimeout(() => setSpecialToast(null), 3500);
-                                }}
-                                className="w-full py-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black text-xs uppercase shadow-md animate-bounce cursor-pointer flex items-center justify-center gap-1.5"
-                              >
-                                <span>🎉</span>
-                                <span>BINGO! (#{card.cardNumber})</span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-slate-800">
+                    {language === 'am' ? 'ምንም የተመረጠ ካርድ የለም' : 'No Cards Selected Yet'}
+                  </h3>
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                    {language === 'am'
+                      ? 'የካርድ ቁጥር ለመምረጥና ለመመዝገብ ከታች በቀኝ በኩል ያለውን (+) ቁልፍ ይጫኑ (1፣ 2፣ 5 ወይም 10 ካርዶች)'
+                      : 'Tap the (+) button on the bottom right to choose card numbers to register (1, 2, 5, or 10 cards).'}
+                  </p>
                 </div>
+                <span className="text-[11px] font-semibold text-slate-400">
+                  {language === 'am' ? 'እስከ 30 ካርዶች መምረጥ እና 5 ካርዶች መመዝገብ ይችላሉ' : 'Select up to 30 cards, register up to 5'}
+                </span>
               </div>
             ) : (
-            /* ── Render all slots in a scrollable grid (no pagination; all cards visible & scrollable) ── */
-            (() => {
-              const visibleCards = activeGameCards;
+              <div className="grid grid-cols-2 gap-2 pb-6">
+                {activeGameCards.map((card) => {
+                  const isRegistered = Boolean(card.isRegistered);
+                  const cardDrawnSet = new Set(currentGame.drawnNumbers);
+                  const effectiveCardMarked = card.numbers.map((row, rIdx) =>
+                    row.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || card.marked[rIdx][cIdx] || cardDrawnSet.has(val))
+                  );
+                  const cardIsWin = Boolean(getBestWinningRule(effectiveCardMarked, currentGame.winningRule, currentGame.activeSpecialRuleIndex));
+                  const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
+
+                  return (
+                    <div
+                      key={card.id}
+                      className={`bg-white rounded-xl overflow-hidden border-2 shadow-xs transition-all flex flex-col justify-between ${
+                        cardIsBlocked
+                          ? 'border-rose-400 ring-1 ring-rose-200'
+                          : cardIsWin
+                          ? 'border-amber-400 ring-2 ring-amber-300 shadow-md shadow-amber-200 animate-pulse'
+                          : isRegistered
+                          ? 'border-blue-500 shadow-blue-100 ring-1 ring-blue-400'
+                          : 'border-slate-300'
+                      }`}
+                    >
+                      {/* Blue Top Bar (Credit card icon, card number, X button) */}
+                      <div className="bg-[#2563eb] text-white px-2 py-1 flex items-center justify-between font-mono font-black text-[11px] shadow-2xs">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <CreditCard className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{card.cardNumber}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeCard(card.id)}
+                          className="text-white/80 hover:text-white hover:bg-blue-700 p-0.5 rounded cursor-pointer transition shrink-0"
+                          title="Remove card"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="p-1.5 space-y-1 flex-1 flex flex-col justify-between">
+                        {/* Register Card Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const res = toggleSpecialCardRegistration(card.id);
+                            setSpecialToast(res.message);
+                            setTimeout(() => setSpecialToast(null), 3000);
+                          }}
+                          className={`w-full py-1 px-1 rounded-md font-bold text-[10px] sm:text-[11px] transition cursor-pointer shadow-2xs active:scale-95 ${
+                            isRegistered
+                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1'
+                              : 'bg-[#38bdf8] hover:bg-[#0ea5e9] text-white'
+                          }`}
+                        >
+                          {isRegistered ? '✓ Registered' : 'Register Card'}
+                        </button>
+
+                        {/* B I N G O Header Row */}
+                        <div className="grid grid-cols-5 gap-[2px] text-center font-black text-white text-[9px]">
+                          <div className="bg-[#22c55e] py-0.5 rounded">B</div>
+                          <div className="bg-[#ef4444] py-0.5 rounded">I</div>
+                          <div className="bg-[#06b6d4] py-0.5 rounded">N</div>
+                          <div className="bg-[#3b82f6] py-0.5 rounded">G</div>
+                          <div className="bg-[#f59e0b] py-0.5 rounded">O</div>
+                        </div>
+
+                        {/* 5x5 Number Grid (Rectangle / Square Cells like others, center green F) */}
+                        <div className="grid grid-cols-5 gap-[2px] text-center">
+                          {card.numbers.map((row, rIdx) =>
+                            row.map((val, cIdx) => {
+                              const isFree = rIdx === 2 && cIdx === 2;
+                              const isMarked = effectiveCardMarked[rIdx][cIdx];
+                              const isCurrent = currentGame.currentBall === val && !isFree;
+                              return (
+                                <div
+                                  key={`${rIdx}-${cIdx}`}
+                                  onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
+                                  className={`rounded aspect-square flex items-center justify-center font-bold text-[9px] sm:text-[10px] cursor-pointer transition select-none ${
+                                    isFree
+                                      ? 'bg-[#22c55e] text-white border border-emerald-600 shadow-2xs font-black'
+                                      : isCurrent
+                                      ? 'bg-amber-300 text-slate-950 font-black ring-1 ring-amber-500 scale-105 z-10'
+                                      : isMarked
+                                      ? 'bg-amber-400 text-slate-950 ring-1 ring-amber-500 font-black shadow-2xs'
+                                      : 'bg-white border border-slate-200 text-slate-900 shadow-2xs hover:bg-slate-50'
+                                  }`}
+                                >
+                                  {isFree ? 'F' : val}
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Claim Bingo */}
+                        {isRegistered && cardIsWin && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const res = claimBingo(card.id);
+                              if (res.message) setSpecialToast(res.message);
+                              setTimeout(() => setSpecialToast(null), 3500);
+                            }}
+                            className="w-full py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black text-[10px] uppercase shadow-md animate-bounce cursor-pointer flex items-center justify-center gap-1"
+                          >
+                            <span>🎉</span>
+                            <span>BINGO! (#{card.cardNumber})</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : activeGameCards.length > 0 ? (
+          /* ── Render all slots in a scrollable grid (no pagination; all cards visible & scrollable) ── */
+          (() => {
+            const visibleCards = activeGameCards;
 
               return (
                 <div className="space-y-1.5">
@@ -2212,10 +2223,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 </div>
               );
             })()
-            )}
-
-
-          </>
         ) : (
           /* No cards yet — Spectator Mode & Card Purchase Area */
           <div className="flex flex-col items-center justify-center py-6 px-3 text-center space-y-3.5 bg-white rounded-2xl border border-slate-200 mx-1 shadow-xs">
@@ -2944,12 +2951,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </div>
         </div>
       )}
-      {/* Floating Action Button for Hyper Special (Options: 10, 5, 3, 2, 1) */}
+      {/* Floating Action Button for Hyper Special (Options: 10, 5, 2, 1) */}
       {isSpecialGame && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-center gap-2.5">
+        <div className="fixed bottom-20 right-4 z-40 flex flex-col items-center gap-2">
           {fabOpen && (
-            <div className="flex flex-col items-center gap-2 animate-in fade-in slide-in-from-bottom-3 duration-200">
-              {[10, 5, 3, 2, 1].map((qty) => (
+            <div className="flex flex-col items-center gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
+              {[10, 5, 2, 1].map((qty) => (
                 <button
                   key={qty}
                   type="button"
@@ -2959,8 +2966,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     setFabOpen(false);
                     setTimeout(() => setSpecialToast(null), 3000);
                   }}
-                  className="w-11 h-11 rounded-full bg-[#ef4444] hover:bg-[#dc2626] text-white font-black text-sm flex items-center justify-center shadow-lg active:scale-95 transition cursor-pointer"
-                  title={`Add ${qty} tables`}
+                  className="w-8 h-8 rounded-full bg-[#ef4444] hover:bg-[#dc2626] text-white font-bold text-xs flex items-center justify-center shadow-md active:scale-95 transition cursor-pointer"
+                  title={`Add ${qty} cards`}
                 >
                   {qty}
                 </button>
@@ -2971,8 +2978,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           <button
             type="button"
             onClick={() => setFabOpen((prev) => !prev)}
-            className="w-14 h-14 rounded-full bg-[#ef4444] hover:bg-[#dc2626] text-white text-3xl font-light flex items-center justify-center shadow-2xl active:scale-95 transition cursor-pointer"
-            title="Add card tables"
+            className="w-10 h-10 rounded-full bg-[#ef4444] hover:bg-[#dc2626] text-white text-xl font-bold flex items-center justify-center shadow-lg active:scale-95 transition cursor-pointer"
+            title="Add cards"
           >
             {fabOpen ? '✕' : '+'}
           </button>
@@ -2981,7 +2988,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
       {/* Special Feedback Toast */}
       {specialToast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xl backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2">
+        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xl backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2">
           {specialToast}
         </div>
       )}

@@ -1747,11 +1747,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         if (g.id !== gameId) return g;
         const isWknd = g.gameType === 'WEEKEND_LOTTERY' || g.category === 'HYPER_WEEKEND' || g.isWeekendSpecial;
         const shouldRun = isWknd ? isWeekendSlotCurrentlyLive(g) : (g.status === 'STARTING' || g.status === 'OPEN');
+        const isCompleted = updatedDrawn.length >= 75;
         return {
           ...g,
           drawnNumbers: updatedDrawn,
           currentBall: nextBall,
-          status: shouldRun ? 'RUNNING' : g.status,
+          status: isCompleted ? 'COMPLETED' : shouldRun ? 'RUNNING' : g.status,
         };
       })
     );
