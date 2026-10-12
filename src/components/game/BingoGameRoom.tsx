@@ -6,7 +6,7 @@ import {
   Volume2, VolumeX, Sparkles, Zap, 
   Plus, Star, Hash, Lightbulb, X, Grid, ChevronLeft,
   Undo2, Redo2, Settings, Menu, ShieldAlert, Trophy,
-  Trash2, Maximize2, Users, AlertTriangle, Eye, Wallet, CheckCircle2
+  Trash2, Maximize2, Users, AlertTriangle, Eye, Wallet, CheckCircle2, CreditCard
 } from 'lucide-react';
 import { 
   formatETB, 
@@ -58,9 +58,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     t,
     purchaseLotteryNumbers,
     getLotterySoldNumbers,
+    addSpecialCards,
+    toggleSpecialCardRegistration,
   } = useBingo();
 
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
+  const [specialToast, setSpecialToast] = useState<string | null>(null);
   // Cached voices + robust preload via onvoiceschanged (fixes empty voice list on first speak)
   const [loadedVoices, setLoadedVoices] = useState<SpeechSynthesisVoice[]>([]);
   // Cached picked voice so we don't re-scan getVoices() on every ball draw (major perf fix)
@@ -273,11 +277,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   const isFetanGame = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.winningRule === 'ONE_LINE_OR_CORNERS';
   const isSpecialGame = currentGame.category === 'HYPER_SPECIAL' || currentGame.gameType === 'HYPER_SPECIAL';
-  const [specialSecondsLeft, setSpecialSecondsLeft] = useState<number>(25);
+  const [specialSecondsLeft, setSpecialSecondsLeft] = useState<number>(300);
   const [specialIsIntermission, setSpecialIsIntermission] = useState<boolean>(false);
   const hasGameWinner = Boolean((currentGame.winners && currentGame.winners.length > 0) || currentGame.status === 'COMPLETED');
 
-  // Unified 10-second winner announcement countdown for ALL games (redirects to card buy board)
+  // Unified 10-second winner announcement countdown for ALL games (redirects to card buy board or 5-min special gap)
   const [announcementSecondsLeft, setAnnouncementSecondsLeft] = useState<number>(10);
 
   useEffect(() => {
@@ -294,7 +298,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           clearInterval(timer);
           setShowWinnerModal(false);
           resetGameRound(currentGame.id);
-          if (onOpenLotteryTab) {
+          if (isSpecialGame) {
+            // For Hyper Special: enter 5-minute intermission between rounds!
+            setSpecialIsIntermission(true);
+            setSpecialSecondsLeft(300);
+          } else if (onOpenLotteryTab) {
             onOpenLotteryTab();
           } else {
             setIsSelectorOpen(true);
@@ -306,7 +314,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [hasGameWinner, currentGame.id, resetGameRound, onOpenLotteryTab]);
+  }, [hasGameWinner, currentGame.id, resetGameRound, onOpenLotteryTab, isSpecialGame]);
 
   // Auto-show winner announcement celebration modal to EVERYONE when a winner claims Bingo!
   const prevWinnersCountRef = React.useRef(currentGame.winners?.length || 0);
@@ -325,12 +333,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       if (typeof document !== 'undefined' && document.hidden) return;
       setSpecialSecondsLeft((prev) => {
         if (prev <= 1) {
-          // Intermission finished -> automatically start next round with NEW LAW & NEW PRICE!
+          // 5-min intermission finished -> automatically start next round with NEW LAW & NEW PRICE!
           resetGameRound(currentGame.id);
           setSpecialIsIntermission(false);
-          setIsAutoDrawing(false);
-          setIsSelectorOpen(true);
-          return 25;
+          setIsAutoDrawing(true);
+          return 300;
         }
         return prev - 1;
       });
@@ -338,6 +345,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
     return () => clearInterval(timer);
   }, [isSpecialGame, specialIsIntermission, currentGame.id, resetGameRound]);
+
+  // Auto-seed 1 initial card for Hyper Special if player has none yet
+  useEffect(() => {
+    if (isSpecialGame && activeGameCards.length === 0) {
+      addSpecialCards(currentGame.id, 1);
+    }
+  }, [isSpecialGame, activeGameCards.length, currentGame.id, addSpecialCards]);
 
   // Fetan 1-second countdown ticker
   useEffect(() => {
@@ -1337,97 +1351,31 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         </div>
       )}
 
-      {/* ── Hyper Special: Bingo Cards Chips Row (max 5 slots) — Picture 2 style ── */}
-      {isSpecialGame && (
-        <div className="mx-2 mt-1.5 px-3 py-2 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center gap-2 overflow-hidden">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-            <span className="text-xs font-black text-slate-900 whitespace-nowrap">
-              {language === 'am' ? 'ካርዶች:' : 'Bingo Cards:'}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 flex-1 overflow-x-auto no-scrollbar">
-            {activeGameCards.length === 0 ? (
-              <span className="text-[10px] text-slate-400 italic">{language === 'am' ? 'ካርድ የለም' : 'No cards yet'}</span>
-            ) : (
-              activeGameCards.slice(0, 5).map((card) => {
-                const isActive = card.id === selectedCardId || (!selectedCardId && card.id === activeGameCards[0]?.id);
-                return (
-                  <div key={card.id} className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCardId(card.id)}
-                      className={`px-4 py-1.5 rounded-full text-sm font-black font-mono transition cursor-pointer shadow-xs border-2 ${
-                        isActive
-                          ? 'bg-emerald-500 text-white border-emerald-600 shadow-emerald-200'
-                          : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
-                      }`}
-                    >
-                      #{card.cardNumber}
-                    </button>
-                    {/* Unselect / Remove chip button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCardToDelete({ id: card.id, cardNumber: card.cardNumber });
-                      }}
-                      className="w-5 h-5 rounded-full bg-rose-100 hover:bg-rose-200 text-rose-600 flex items-center justify-center transition cursor-pointer border border-rose-300"
-                      title={language === 'am' ? 'ካርድ አውጣ' : 'Remove card'}
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          <button
-            type="button"
-            disabled={activeGameCards.length >= 5}
-            onClick={() => {
-              if (activeGameCards.length >= 5) return;
-              if (!user || user.id === 'usr_guest') {
-                openAuthModal('register');
-              } else if (isSpecialGame) {
-                setIsSelectorOpen(true);
-              } else if (onOpenLotteryTab) {
-                onOpenLotteryTab();
-              } else {
-                setIsSelectorOpen(true);
-              }
-            }}
-            className={`shrink-0 px-3.5 py-2 rounded-full font-black text-sm flex items-center gap-1.5 transition border-2 ${
-              activeGameCards.length >= 5
-                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-400 cursor-pointer shadow-xs'
-            }`}
-            title={activeGameCards.length >= 5 ? (language === 'am' ? 'ከ5 በላይ አይችሉም' : 'Max 5 cards') : (language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards')}
-          >
-            <Plus className="w-4 h-4" />
-            <span>{language === 'am' ? 'ካርድ' : 'Pick Cards'}</span>
-          </button>
-        </div>
-      )}
-
-
       {/* ================================================================
           CARD 1: Game Stats & Controls
-          HYPER FETAN: Clean white header with black text
+          HYPER FETAN & HYPER SPECIAL: Clean plain-text header with stats & bingo balls
           OTHER GAMES: Standard white card
           ================================================================ */}
-      {isFetanGame ? (
-        /* ── Hyper Fetan Plain Text Header (No Box, Plain Text) ── */
+      {isFetanGame || isSpecialGame ? (
+        /* ── Hyper Fetan & Hyper Special Plain Text Header (No Box, Plain Text) ── */
         <div className="px-1 py-1 space-y-1">
-          {/* Top row: Back Arrow + Game Name (no 1-min countdown here) */}
+          {/* Top row: Back Arrow + Game Name */}
           <div className="flex items-center gap-2 px-0.5 pb-1">
-            <button type="button" onClick={onBack} className="w-8 h-8 rounded-xl bg-amber-100 hover:bg-amber-200 text-slate-800 flex items-center justify-center transition cursor-pointer shadow-xs border border-amber-300 shrink-0" title={language === 'am' ? 'ተመለስ ወደ ሎቢ' : 'Back to Lobby'}>
+            <button
+              type="button"
+              onClick={onBack}
+              className="w-8 h-8 rounded-xl bg-amber-100 hover:bg-amber-200 text-slate-800 flex items-center justify-center transition cursor-pointer shadow-xs border border-amber-300 shrink-0"
+              title={language === 'am' ? 'ተመለስ ወደ ሎቢ' : 'Back to Lobby'}
+            >
               <ChevronLeft className="w-4.5 h-4.5" />
             </button>
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-black text-slate-900 tracking-tight">
-                ⚡ {language === 'am' ? 'ሃይፐር ፈጣን' : 'HYPER FETAN'} <span className="italic tracking-widest">BINGO</span>
+                {isSpecialGame ? '🎲 ' : '⚡ '}
+                {isSpecialGame
+                  ? (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')
+                  : (language === 'am' ? 'ሃይፐር ፈጣን' : 'HYPER FETAN')}{' '}
+                <span className="italic tracking-widest">BINGO</span>
               </span>
             </div>
           </div>
@@ -1463,7 +1411,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
             </div>
 
-            {/* Current Ball — Bingo Ball Style (no previous balls here) */}
+            {/* Current Ball — Bingo Ball Style */}
             <div className="flex items-center justify-center shrink-0">
               {currentBallNum != null ? (
                 <div
@@ -1482,9 +1430,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </div>
           </div>
 
-
-
-          {/* Controls: Hit, Sound only — no Auto button */}
+          {/* Controls: Hit, Sound only */}
           <div className="flex items-center gap-1.5 px-1 pt-0.5">
             <button
               type="button"
@@ -1504,7 +1450,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </button>
           </div>
 
-          {/* ── Middle Area: Previous balls + 30s intermission timer ── */}
+          {/* ── Middle Area: Previous balls + Intermission timer ── */}
           <div className="flex items-center justify-between gap-2 py-1.5 px-2.5 bg-slate-50 rounded-xl border border-slate-200 mx-1">
             {/* Previous 3 balls — bingo ball style */}
             <div className="flex items-center gap-1">
@@ -1525,8 +1471,15 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               }) : null}
             </div>
 
-            {/* 30-second card-picking intermission timer */}
-            {fetanIsIntermission && (
+            {/* Intermission timer */}
+            {isSpecialGame && specialIsIntermission && (
+              <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
+                <span>⏳</span>
+                <span>{language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards'}:</span>
+                <span className="font-mono text-sm">{formatTimeRemaining(specialSecondsLeft)}</span>
+              </div>
+            )}
+            {isFetanGame && fetanIsIntermission && (
               <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
                 <span>⏳</span>
                 <span>{language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards'}:</span>
@@ -1534,32 +1487,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
             )}
           </div>
-
-          {/* Show Less / Show More toggle (Fetan) */}
-          {showMoreNumbers ? (
-            <button
-              type="button"
-              onClick={() => setShowMoreNumbers(false)}
-              className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600 pt-0.5"
-            >
-              <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
-              <span>{language === 'am' ? 'ከሌላ በኩል አሳይ' : 'Show Less'}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowMoreNumbers(true)}
-              className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600 pt-0.5"
-            >
-              <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
-              <span>{language === 'am' ? 'በጣም አሳይ' : 'Show More'}</span>
-            </button>
-          )}
         </div>
       ) : (
-        /* ── Hyper Special & Weekend: Styled Gradient Header + Cards (Like First Screenshot) ── */
+        /* ── Hyper Weekend: Styled Gradient Header + Cards ── */
         <div className="space-y-2.5">
-          {/* 1. GRADIENT HEADER BAR — Blue → Purple with Back Arrow + Game Name Only */}
+          {/* 1. GRADIENT HEADER BAR */}
           <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-2.5 sm:p-3 shadow-md flex items-center justify-between">
             <div className="flex items-center gap-2">
               <button type="button" onClick={onBack} className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition cursor-pointer shadow-inner" title={language === 'am' ? 'ተመለስ ወደ ሎቢ' : 'Back to Lobby'}>
@@ -1575,7 +1507,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </div>
           </div>
 
-          {/* Current Ball with 3 Previous Balls (Special/Weekend) — Bingo Ball Style */}
+          {/* Current Ball with 3 Previous Balls — Bingo Ball Style */}
           <div className="flex items-center justify-center gap-2 py-1">
             {previousBalls.length > 0 && previousBalls.map((pb, idx) => {
               const pbLetter = getBallLetter(pb);
@@ -1608,9 +1540,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             )}
           </div>
 
-
-
-          {/* Show Less / Show More toggle below header (Special/Weekend) */}
+          {/* Show Less / Show More toggle below header */}
           {showMoreNumbers ? (
             <button
               type="button"
@@ -1631,12 +1561,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </button>
           )}
 
-          {/* EXPANDED PANELS — only visible in SHOW MORE mode (Special/Weekend) */}
+          {/* EXPANDED PANELS */}
           {showMoreNumbers && (
             <>
-              {/* 2. GAME INFO CARD — Game Rule + ID + Time + Status */}
               <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs space-y-2">
-                {/* Game Rule Row */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
@@ -1647,13 +1575,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                         {language === 'am' ? 'ጨዋታ' : 'Game'}
                       </span>
                       <div className="text-xs sm:text-[13px] font-bold text-slate-900 leading-tight truncate">
-                        {(() => {
-                          const ruleIdx = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
-                          const rule = HYPER_SPECIAL_RULES[ruleIdx];
-                          if (isWeekendGame) return language === 'am' ? 'ሙሉ ቤት ብቻ (Full House 24/24)' : 'Full House 24 out of 24 Numbers';
-                          if (rule) return language === 'am' ? rule.nameAm : rule.nameEn;
-                          return `${currentGame.winningRule || 'Standard'}`;
-                        })()}
+                        {language === 'am' ? 'ሙሉ ቤት ብቻ (Full House 24/24)' : 'Full House 24 out of 24 Numbers'}
                       </div>
                     </div>
                   </div>
@@ -1667,7 +1589,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   </button>
                 </div>
 
-                {/* ID + Time + Status Row */}
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Hash className="w-3 h-3 text-slate-400 shrink-0" />
@@ -1690,18 +1611,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     <span className="text-[10px] font-bold text-slate-500 shrink-0">
                       {language === 'am' ? 'ሁኔታ' : 'Status'}
                     </span>
-                    <span className={`text-[11px] font-black ${
-                      gameStatus === 'Playing' || gameStatus.includes('ለይ') || gameStatus === 'Overtime'
-                        ? 'text-emerald-600'
-                        : gameStatus === 'Scheduled (Open)'
-                        ? 'text-indigo-600'
-                        : 'text-slate-700'
-                    }`}>{gameStatus}</span>
+                    <span className="text-[11px] font-black text-slate-700">{gameStatus}</span>
                   </div>
                 </div>
               </div>
 
-              {/* 3. PRICE / GAMES / PRIZE CARD */}
               <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="text-emerald-600 font-bold text-xs">$</span>
@@ -1728,8 +1642,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 </div>
               </div>
 
-              {/* 4. 75-BALL DRAWN BOARD — Centered "Drawn: N" title (hidden for Hyper Special; only player cards shown) */}
-              {!isSpecialGame && (
               <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/80 shadow-xs">
                 <div className="text-center mb-2">
                   <span className="text-slate-500 font-bold text-sm sm:text-base">
@@ -1767,28 +1679,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   ))}
                 </div>
               </div>
-              )}
-
-              {/* 5. BLOCKED COUNTER */}
-              <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs flex items-center gap-2">
-                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
-                  <ShieldAlert className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-600" />
-                </div>
-                <span className="text-xs sm:text-[13px] font-bold text-slate-700">
-                  {language === 'am' ? 'የታገዱ' : 'Blocked'}
-                  <span className="text-slate-400">:</span>
-                </span>
-                <span className="px-2.5 py-0.5 rounded-md border-2 border-rose-300 bg-white text-rose-600 font-mono font-black text-sm sm:text-base shadow-xs">
-                  {(currentGame.blockedCards || []).length}
-                </span>
-              </div>
             </>
           )}
         </div>
       )}
 
-      {/* Shared: 75-Ball Master Board + Bingo Chips + Blocked only for Fetan — visible in SHOW MORE */}
-      {isFetanGame && showMoreNumbers && (
+      {/* ── CARD 2: 75-Ball Master Table (Compact 1-Screen Layout for Fetan & Special) ── */}
+      {(isFetanGame || isSpecialGame) && (
         <>
       {/* ================================================================
           CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
@@ -1986,8 +1883,137 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         {activeGameCards.length > 0 ? (
           <>
 
-            {/* ── Render all slots in a scrollable grid (no pagination; all cards visible & scrollable) ── */}
-            {(() => {
+            {isSpecialGame ? (
+              /* ── Hyper Special: Card Tables Matching Image 1 ── */
+              <div className="space-y-2.5 pb-24">
+                <div className="flex items-center justify-between px-2 pt-1 text-xs">
+                  <span className="font-black text-slate-700">
+                    {language === 'am' ? 'የተመረጡ ካርዶች' : 'Selected Cards'}: {activeGameCards.length}/30
+                  </span>
+                  <span className="font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-lg shadow-2xs">
+                    {activeGameCards.filter((c) => c.isRegistered).length}/5 {language === 'am' ? 'የተመዘገቡ ካርዶች' : 'Registered Cards'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {activeGameCards.map((card) => {
+                    const isRegistered = Boolean(card.isRegistered);
+                    const cardDrawnSet = new Set(currentGame.drawnNumbers);
+                    const effectiveCardMarked = card.numbers.map((row, rIdx) =>
+                      row.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || card.marked[rIdx][cIdx] || cardDrawnSet.has(val))
+                    );
+                    const cardIsWin = Boolean(getBestWinningRule(effectiveCardMarked, currentGame.winningRule, currentGame.activeSpecialRuleIndex));
+                    const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
+
+                    return (
+                      <div
+                        key={card.id}
+                        className={`bg-white rounded-2xl overflow-hidden border-2 shadow-md transition-all ${
+                          cardIsBlocked
+                            ? 'border-rose-400 ring-2 ring-rose-200'
+                            : cardIsWin
+                            ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg shadow-amber-200 animate-pulse'
+                            : isRegistered
+                            ? 'border-blue-500 shadow-blue-100 ring-2 ring-blue-400'
+                            : 'border-slate-300/80'
+                        }`}
+                      >
+                        {/* Blue Top Bar (Credit card icon, card number, X button) */}
+                        <div className="bg-[#2563eb] text-white px-3 py-1.5 flex items-center justify-between font-mono font-black text-xs shadow-xs">
+                          <div className="flex items-center gap-1.5">
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>{card.cardNumber}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeCard(card.id)}
+                            className="text-white/80 hover:text-white hover:bg-blue-700 p-0.5 rounded cursor-pointer transition"
+                            title="Remove card"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="p-2.5 space-y-2">
+                          {/* Register Card Button */}
+                          <div className="flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const res = toggleSpecialCardRegistration(card.id);
+                                setSpecialToast(res.message);
+                                setTimeout(() => setSpecialToast(null), 3000);
+                              }}
+                              className={`py-1.5 px-6 rounded-xl font-bold text-xs transition cursor-pointer shadow-xs active:scale-95 ${
+                                isRegistered
+                                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1'
+                                  : 'bg-[#38bdf8] hover:bg-[#0ea5e9] text-white'
+                              }`}
+                            >
+                              {isRegistered ? '✓ Registered' : 'Register Card'}
+                            </button>
+                          </div>
+
+                          {/* B I N G O Header Row */}
+                          <div className="grid grid-cols-5 gap-1 text-center font-black text-white text-xs py-0.5">
+                            <div className="bg-[#22c55e] py-1 rounded">B</div>
+                            <div className="bg-[#ef4444] py-1 rounded">I</div>
+                            <div className="bg-[#06b6d4] py-1 rounded">N</div>
+                            <div className="bg-[#3b82f6] py-1 rounded">G</div>
+                            <div className="bg-[#f59e0b] py-1 rounded">O</div>
+                          </div>
+
+                          {/* 5x5 Number Grid (Circular Cells, center green F) */}
+                          <div className="grid grid-cols-5 gap-1.5 text-center">
+                            {card.numbers.map((row, rIdx) =>
+                              row.map((val, cIdx) => {
+                                const isFree = rIdx === 2 && cIdx === 2;
+                                const isMarked = effectiveCardMarked[rIdx][cIdx];
+                                return (
+                                  <div
+                                    key={`${rIdx}-${cIdx}`}
+                                    onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
+                                    className={`aspect-square rounded-full flex items-center justify-center font-black text-xs sm:text-sm cursor-pointer transition select-none ${
+                                      isFree
+                                        ? 'bg-[#22c55e] text-white shadow-xs'
+                                        : isMarked
+                                        ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-500 font-black shadow-xs scale-102'
+                                        : 'bg-white border border-slate-200 text-slate-900 shadow-2xs hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {isFree ? 'F' : val}
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+
+                          {/* Claim Bingo */}
+                          {isRegistered && cardIsWin && (
+                            <div className="pt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const res = claimBingo(card.id);
+                                  if (res.message) setSpecialToast(res.message);
+                                  setTimeout(() => setSpecialToast(null), 3500);
+                                }}
+                                className="w-full py-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black text-xs uppercase shadow-md animate-bounce cursor-pointer flex items-center justify-center gap-1.5"
+                              >
+                                <span>🎉</span>
+                                <span>BINGO! (#{card.cardNumber})</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+            /* ── Render all slots in a scrollable grid (no pagination; all cards visible & scrollable) ── */
+            (() => {
               const visibleCards = activeGameCards;
 
               return (
@@ -2164,7 +2190,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   </div>
                 </div>
               );
-            })()}
+            })()
+            )}
 
 
           </>
@@ -2896,7 +2923,47 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </div>
         </div>
       )}
+      {/* Floating Action Button for Hyper Special (Options: 10, 5, 3, 2, 1) */}
+      {isSpecialGame && (
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-center gap-2.5">
+          {fabOpen && (
+            <div className="flex flex-col items-center gap-2 animate-in fade-in slide-in-from-bottom-3 duration-200">
+              {[10, 5, 3, 2, 1].map((qty) => (
+                <button
+                  key={qty}
+                  type="button"
+                  onClick={() => {
+                    const res = addSpecialCards(currentGame.id, qty);
+                    setSpecialToast(res.message);
+                    setFabOpen(false);
+                    setTimeout(() => setSpecialToast(null), 3000);
+                  }}
+                  className="w-11 h-11 rounded-full bg-[#ef4444] hover:bg-[#dc2626] text-white font-black text-sm flex items-center justify-center shadow-lg active:scale-95 transition cursor-pointer"
+                  title={`Add ${qty} tables`}
+                >
+                  {qty}
+                </button>
+              ))}
+            </div>
+          )}
 
+          <button
+            type="button"
+            onClick={() => setFabOpen((prev) => !prev)}
+            className="w-14 h-14 rounded-full bg-[#ef4444] hover:bg-[#dc2626] text-white text-3xl font-light flex items-center justify-center shadow-2xl active:scale-95 transition cursor-pointer"
+            title="Add card tables"
+          >
+            {fabOpen ? '✕' : '+'}
+          </button>
+        </div>
+      )}
+
+      {/* Special Feedback Toast */}
+      {specialToast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xl backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2">
+          {specialToast}
+        </div>
+      )}
 
     </div>
   );

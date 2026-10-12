@@ -97,6 +97,9 @@ interface BingoContextType {
   getLotterySoldNumbers: (gameId: string) => Set<number>;
   purchaseLotteryNumbers: (gameId: string, numbers: number[]) => { success: boolean; message: string; purchased?: string[] };
   refundLotteryNumber: (gameId: string, number: number) => { success: boolean; message: string };
+  // Hyper Special Card additions
+  addSpecialCards: (gameId: string, count: number) => { success: boolean; message: string; added: number };
+  toggleSpecialCardRegistration: (cardId: string) => { success: boolean; message: string; isRegistered?: boolean };
   // Auth extensions
   isAuthModalOpen: boolean;
   authModalMode: 'register' | 'login';
@@ -1261,6 +1264,130 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     addNotification('🗑️ Card Removed', `Card #${card.cardNumber} removed and ${refundAmount} ETB refunded.`, 'info');
   };
 
+  // Add multiple cards for Hyper Special (options: 1, 2, 3, 5, 10 up to max 30)
+  const addSpecialCards = (gameId: string, count: number): { success: boolean; message: string; added: number } => {
+    const currentCards = userCards.filter((c) => c.gameId === gameId);
+    const availableSlots = 30 - currentCards.length;
+    if (availableSlots <= 0) {
+      return { success: false, message: 'ከ30 በላይ ካርዶች አይፈቀድም (Max 30 cards allowed)', added: 0 };
+    }
+    const toAdd = Math.min(count, availableSlots);
+    const existingNums = new Set(currentCards.map((c) => parseInt(c.cardNumber, 10)));
+
+    // Pick unique numbers from 1 to 1000
+    const newCards: BingoCard[] = [];
+    let candidate = Math.floor(Math.random() * 1000) + 1;
+    for (let i = 0; i < toAdd; i++) {
+      let attempts = 0;
+      while (existingNums.has(candidate) && attempts < 1000) {
+        candidate = (candidate % 1000) + 1;
+        attempts++;
+      }
+      existingNums.add(candidate);
+      const newCard = createNewBingoCard(gameId, user?.id || 'guest', String(candidate));
+      newCard.isRegistered = false;
+      newCards.push(newCard);
+      candidate = Math.floor(Math.random() * 1000) + 1;
+    }
+
+    setUserCards((prev) => [...prev, ...newCards]);
+    return {
+      success: true,
+      message: `${toAdd} ካርዶች ተጨምረዋል (${toAdd} card${toAdd > 1 ? 's' : ''} added)`,
+      added: toAdd,
+    };
+  };
+
+  // Register / Unregister a card in Hyper Special (max 5 registered cards per player)
+  const toggleSpecialCardRegistration = (cardId: string): { success: boolean; message: string; isRegistered?: boolean } => {
+    const card = userCards.find((c) => c.id === cardId);
+    if (!card) return { success: false, message: 'Card not found' };
+
+    const game = games.find((g) => g.id === card.gameId);
+    const entryPrice = game?.entryPrice || 10;
+
+    if (card.isRegistered) {
+      // Unregister card
+      if (game && game.drawnNumbers.length > 0) {
+        return { success: false, message: 'ጨዋታው ስለተጀመረ መሰረዝ አይቻልም (Game already started)' };
+      }
+      // Refund entry price
+      let newAvail = wallet.availableBalance + entryPrice;
+      setWallet((prev) => {
+        newAvail = prev.availableBalance + entryPrice;
+        const updated = { ...prev, availableBalance: newAvail };
+        try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+
+      setUserCards((prev) =>
+        prev.map((c) => (c.id === cardId ? { ...c, isRegistered: false } : c))
+      );
+
+      const num = parseInt(card.cardNumber, 10);
+      if (!Number.isNaN(num)) {
+        setLotterySoldMap((prev) => {
+          const cur = new Set(prev[card.gameId] || []);
+          cur.delete(num);
+          return { ...prev, [card.gameId]: cur };
+        });
+      }
+
+      return { success: true, message: `ካርድ #${card.cardNumber} ተሰርዟል (${entryPrice} ETB ተመልሷል)`, isRegistered: false };
+    } else {
+      // Register card
+      const registeredInGame = userCards.filter((c) => c.gameId === card.gameId && c.isRegistered).length;
+      if (registeredInGame >= 5) {
+        return { success: false, message: 'ከ5 በላይ ካርዶች መመዝገብ አይቻልም! (Max 5 registered cards)' };
+      }
+
+      const playableBalance = wallet.availableBalance + wallet.bonusBalance;
+      if (playableBalance < entryPrice) {
+        return { success: false, message: `በቂ ሒሳብ የለዎትም! (${entryPrice} ETB ያስፈልጋል)` };
+      }
+
+      // Deduct entry price from bonus first
+      let remCost = entryPrice;
+      let newBonus = wallet.bonusBalance;
+      let newAvailable = wallet.availableBalance;
+      if (newBonus >= remCost) {
+        newBonus -= remCost;
+      } else {
+        remCost -= newBonus;
+        newBonus = 0;
+        newAvailable = Math.max(0, newAvailable - remCost);
+      }
+
+      setWallet((prev) => {
+        const updated = { ...prev, availableBalance: newAvailable, bonusBalance: newBonus };
+        try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+
+      setUserCards((prev) =>
+        prev.map((c) => (c.id === cardId ? { ...c, isRegistered: true } : c))
+      );
+
+      // Increment game player count if first registered card
+      if (registeredInGame === 0) {
+        setGames((prev) =>
+          prev.map((g) => (g.id === card.gameId ? { ...g, currentPlayers: (g.currentPlayers || 0) + 1 } : g))
+        );
+      }
+
+      const num = parseInt(card.cardNumber, 10);
+      if (!Number.isNaN(num)) {
+        setLotterySoldMap((prev) => {
+          const cur = new Set(prev[card.gameId] || []);
+          cur.add(num);
+          return { ...prev, [card.gameId]: cur };
+        });
+      }
+
+      return { success: true, message: `ካርድ #${card.cardNumber} ተመዝግቧል! (${entryPrice} ETB ተቀንሷል)`, isRegistered: true };
+    }
+  };
+
   // 6. CREATE GAME (ADMIN)
   //    · Weekend/Lottery games → use the prizePool passed in by admin (owner-set fixed prize)
   //    · Regular games        → use PrizePool = 0 and compute live at render:
@@ -1352,8 +1479,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           ? ((g.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length
           : g.activeSpecialRuleIndex;
 
-        // Rotating recommended price cycle for Hyper Special: [20, 30, 50, 10, 25, 100]
-        const SPECIAL_PRICE_CYCLE = [20, 30, 50, 10, 25, 100];
+        // Rotating recommended price cycle for Hyper Special: [10, 20, 25] ETB
+        const SPECIAL_PRICE_CYCLE = [10, 20, 25];
         const nextPrice = isSpecial
           ? SPECIAL_PRICE_CYCLE[nextSpecialIndex % SPECIAL_PRICE_CYCLE.length]
           : g.entryPrice;
@@ -1400,6 +1527,14 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       return {
         success: false,
         message: `🚫 Card #${card.cardNumber} is blocked in this round due to an invalid claim.`,
+      };
+    }
+
+    // For Hyper Special: card must be registered (max 5) to play and claim Bingo
+    if ((game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL') && card.isRegistered === false) {
+      return {
+        success: false,
+        message: 'ካርዱ አልተመዘገበም! ለመጫወት እባክዎ «Register Card» ይጫኑ (Card is not registered! Click Register Card to play)',
       };
     }
 
@@ -1924,6 +2059,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         getLotterySoldNumbers,
         purchaseLotteryNumbers,
         refundLotteryNumber,
+        addSpecialCards,
+        toggleSpecialCardRegistration,
         isAuthModalOpen,
         authModalMode,
         openAuthModal,

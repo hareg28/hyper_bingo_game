@@ -36,14 +36,52 @@ export function generateBingoCardMatrix(): number[][] {
   return matrix;
 }
 
+export function generateSeededBingoCardMatrix(seed: number): number[][] {
+  let state = ((Math.abs(seed) || 1) * 9301 + 49297) % 233280;
+  const nextRand = () => {
+    state = (state * 9301 + 49297) % 233280;
+    return state / 233280;
+  };
+
+  const pickUnique = (min: number, max: number, count: number): number[] => {
+    const pool = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(nextRand() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool.slice(0, count);
+  };
+
+  const colB = pickUnique(1, 15, 5);
+  const colI = pickUnique(16, 30, 5);
+  const colN = pickUnique(31, 45, 4);
+  const colG = pickUnique(46, 60, 5);
+  const colO = pickUnique(61, 75, 5);
+
+  const matrix: number[][] = Array(5).fill(0).map(() => Array(5).fill(0));
+  for (let r = 0; r < 5; r++) {
+    matrix[r][0] = colB[r];
+    matrix[r][1] = colI[r];
+    if (r < 2) matrix[r][2] = colN[r];
+    else if (r === 2) matrix[r][2] = 0;
+    else matrix[r][2] = colN[r - 1];
+    matrix[r][3] = colG[r];
+    matrix[r][4] = colO[r];
+  }
+  return matrix;
+}
+
 export function createNewBingoCard(gameId: string, userId: string, customCardNumber?: string): BingoCard {
-  const numbers = generateBingoCardMatrix();
+  const seed = customCardNumber ? parseInt(customCardNumber, 10) : NaN;
+  const numbers = !Number.isNaN(seed) && seed > 0
+    ? generateSeededBingoCardMatrix(seed)
+    : generateBingoCardMatrix();
   const marked: boolean[][] = Array(5).fill(false).map(() => Array(5).fill(false));
   // FREE center square is marked by default
   marked[2][2] = true;
 
-  // Generate realistic 5-digit card number like 12608 if custom not provided
-  const cardNumber = customCardNumber || Math.floor(10000 + Math.random() * 89999).toString();
+  // Generate realistic card number like 12608 or from 1-1000 if custom not provided
+  const cardNumber = customCardNumber || Math.floor(1 + Math.random() * 1000).toString();
 
   return {
     id: `card_${cardNumber}_${Math.random().toString(36).substring(2, 6)}`,
@@ -214,12 +252,12 @@ export interface HyperSpecialRuleDefinition {
 }
 
 export const HYPER_SPECIAL_RULES: HyperSpecialRuleDefinition[] = [
-  // 1. 2 Non-intersecting Lines
+  // 1. 2 Non-intersecting Lines / 2 Rectangles + 4 Corners
   {
     id: 'TWO_NON_INTERSECTING_LINES',
-    nameAm: '2 የማይገናኙ መስመሮች',
-    nameEn: '2 Non-intersecting Lines',
-    descAm: 'የጋራ ነጥብ የሌላቸው 2 ሙሉ መስመሮች (2 አግድም ወይም 2 ቀጥታ)',
+    nameAm: '2 ሬክታንግል የማይገናኙ ከ 4 የማዕዘን ኳስ ነጥብ ጋር ሁሉም የማይገናኙ(የጋራ ነጥብ የሌላቸው)',
+    nameEn: '2 Non-intersecting Rectangles + 4 Corners (No Shared Points)',
+    descAm: '2 ሬክታንግል የማይገናኙ ከ 4 የማዕዘን ኳስ ነጥብ ጋር ሁሉም የማይገናኙ(የጋራ ነጥብ የሌላቸው)',
     descEn: '2 complete lines that share no common numbers (2 rows or 2 columns)',
     checkWin: (m) => getCompletedRows(m).length >= 2 || getCompletedCols(m).length >= 2,
     checkOneAway: (m, nums) => {

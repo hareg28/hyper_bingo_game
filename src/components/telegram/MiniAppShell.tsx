@@ -87,8 +87,12 @@ export default function MiniAppShell({
       resetGameRound(gameId);
     }
     setActiveGameId(gameId);
-    setLotteryMode(cat);
-    setActiveTab('lottery');
+    if (cat === 'SPECIAL') {
+      setActiveTab('game');
+    } else {
+      setLotteryMode(cat);
+      setActiveTab('lottery');
+    }
   };
 
   useEffect(() => {

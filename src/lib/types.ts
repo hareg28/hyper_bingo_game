@@ -79,6 +79,7 @@ export interface BingoCard {
   hasWonFullHouse?: boolean;
   isUsed?: boolean;          // Single-game rule: card is marked used once the game finishes
   roundCompleted?: boolean;  // True when the game round finishes
+  isRegistered?: boolean;    // For Hyper Special: card must be registered (max 5) to play
 }
 
 export type TransactionType = 
