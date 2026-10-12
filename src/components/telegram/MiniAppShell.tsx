@@ -1161,7 +1161,7 @@ function WeekendLotteryNumberPicker({
   const handleGoToGameRoom = () => {
     if (!selectedGame) return;
     const selectedNums = slotNumbers.filter((n): n is number => n !== null);
-    const cardStrs = selectedNums.map(n => String(n).padStart(4, '0'));
+    const cardStrs = selectedNums.map(n => String(n));
     onPickCards(selectedGame.id, cardStrs);
   };
 

@@ -1121,6 +1121,16 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const newCards = cardsToCreate.map((cNum) => createNewBingoCard(gameId, user.id, cNum));
     setUserCards((prev) => [...prev.filter((c) => c.gameId !== gameId), ...newCards]);
 
+    // Track sold cards in global lotterySoldMap so ALL players in the game see them
+    setLotterySoldMap((prev) => {
+      const cur = new Set(prev[gameId] || []);
+      cardsToCreate.forEach((cNum) => {
+        const n = parseInt(cNum, 10);
+        if (!Number.isNaN(n)) cur.add(n);
+      });
+      return { ...prev, [gameId]: cur };
+    });
+
     setActiveGameId(gameId);
 
     return true;
@@ -1173,6 +1183,16 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const newCard = createNewBingoCard(gameId, user.id, cardNumber);
     setUserCards((prev) => [...prev, newCard]);
 
+    // Track sold card globally
+    const num = parseInt(cardNumber, 10);
+    if (!Number.isNaN(num)) {
+      setLotterySoldMap((prev) => {
+        const cur = new Set(prev[gameId] || []);
+        cur.add(num);
+        return { ...prev, [gameId]: cur };
+      });
+    }
+
     return true;
   };
 
@@ -1182,6 +1202,14 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const card = userCards.find((c) => c.id === cardId);
     if (!card) return;
     setUserCards((prev) => prev.filter((c) => c.id !== cardId));
+    const num = parseInt(card.cardNumber, 10);
+    if (!Number.isNaN(num)) {
+      setLotterySoldMap((prev) => {
+        const cur = new Set(prev[card.gameId] || []);
+        cur.delete(num);
+        return { ...prev, [card.gameId]: cur };
+      });
+    }
     addNotification('🗑️ Card Removed', `Card #${card.cardNumber} removed from your hand.`, 'info');
   };
 

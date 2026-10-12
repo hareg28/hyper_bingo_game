@@ -109,7 +109,7 @@ export default function CardNumberSelector({
     }
 
     if (purchasedSet.has(num)) {
-      const label = String(num).padStart(5, '0');
+      const label = String(num);
       if (gameId) {
         const refundRes = refundLotteryNumber(gameId, num);
         if (!refundRes.success) {
@@ -132,8 +132,8 @@ export default function CardNumberSelector({
     if (soldSet.has(num)) {
       showMessage(
         isAm
-          ? `ካርድ #${String(num).padStart(5, '0')} ሌላ ሰው ተወስዷል።`
-          : `Card #${String(num).padStart(5, '0')} is already sold.`
+          ? `ካርድ #${num} ሌላ ሰው ተወስዷል።`
+          : `Card #${num} is already sold.`
       );
       return false;
     }
@@ -149,7 +149,7 @@ export default function CardNumberSelector({
     }
 
     if (!gameId) {
-      const label = String(num).padStart(5, '0');
+      const label = String(num);
       setPurchasedNumbers((prev) => (prev.length >= MAX_CARDS ? prev : [...prev, label]));
       showMessage(isAm ? `ካርድ #${label} ተመርጧል` : `Card #${label} added`);
       return true;
@@ -317,7 +317,7 @@ export default function CardNumberSelector({
                     <button
                       type="button"
                       onClick={() => {
-                        const label = String(num).padStart(5, '0');
+                        const label = String(num);
                         const n = parseInt(label, 10);
                         if (gameId && !Number.isNaN(n)) {
                           refundLotteryNumber(gameId, n);
@@ -403,7 +403,7 @@ export default function CardNumberSelector({
             </div>
             <div className="flex flex-wrap gap-1.5">
               {presetsForMode.map((n) => {
-                const label = String(n).padStart(5, '0');
+                const label = String(n);
                 const isBought = purchasedSet.has(n);
                 const isSold = soldSet.has(n);
                 const isMax = purchasedCount >= MAX_CARDS;

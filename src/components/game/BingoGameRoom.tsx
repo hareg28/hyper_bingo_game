@@ -299,6 +299,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     }
   }, [hasGameWinner, isSpecialGame, specialIsIntermission]);
 
+  // Auto-show winner announcement celebration modal to EVERYONE when a winner claims Bingo!
+  const prevWinnersCountRef = React.useRef(currentGame.winners?.length || 0);
+  useEffect(() => {
+    const count = currentGame.winners?.length || 0;
+    if (count > 0 && count !== prevWinnersCountRef.current) {
+      setShowWinnerModal(true);
+    }
+    prevWinnersCountRef.current = count;
+  }, [currentGame.winners?.length]);
+
   useEffect(() => {
     if (!isSpecialGame || !specialIsIntermission) return;
 
@@ -1313,31 +1323,31 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         </div>
       )}
 
-      {/* ── Hyper Special: Bingo Cards Chips Row (max 5 slots) ── */}
+      {/* ── Hyper Special: Bingo Cards Chips Row (max 5 slots) — Picture 2 style ── */}
       {isSpecialGame && (
-        <div className="mx-2 mt-1.5 px-2.5 py-1.5 bg-white rounded-xl border border-slate-200 shadow-2xs flex items-center gap-2 overflow-hidden">
-          <div className="flex items-center gap-1 shrink-0">
+        <div className="mx-2 mt-1.5 px-3 py-2 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center gap-2 overflow-hidden">
+          <div className="flex items-center gap-1.5 shrink-0">
             <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-            <span className="text-[11px] font-black text-slate-900 whitespace-nowrap">
-              {language === 'am' ? 'ካርዶች' : 'Bingo Cards'}:
+            <span className="text-xs font-black text-slate-900 whitespace-nowrap">
+              {language === 'am' ? 'ካርዶች:' : 'Bingo Cards:'}
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-1 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2 flex-1 overflow-x-auto no-scrollbar">
             {activeGameCards.length === 0 ? (
               <span className="text-[10px] text-slate-400 italic">{language === 'am' ? 'ካርድ የለም' : 'No cards yet'}</span>
             ) : (
               activeGameCards.slice(0, 5).map((card) => {
                 const isActive = card.id === selectedCardId || (!selectedCardId && card.id === activeGameCards[0]?.id);
                 return (
-                  <div key={card.id} className="flex items-center gap-0.5 shrink-0">
+                  <div key={card.id} className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
                       onClick={() => setSelectedCardId(card.id)}
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-black transition cursor-pointer border ${
+                      className={`px-4 py-1.5 rounded-full text-sm font-black font-mono transition cursor-pointer shadow-xs border-2 ${
                         isActive
-                          ? 'bg-emerald-500 text-white border-emerald-600 shadow-xs'
-                          : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                          ? 'bg-emerald-500 text-white border-emerald-600 shadow-emerald-200'
+                          : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
                       }`}
                     >
                       #{card.cardNumber}
@@ -1348,10 +1358,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       onClick={() => {
                         setCardToDelete({ id: card.id, cardNumber: card.cardNumber });
                       }}
-                      className="w-4 h-4 rounded-full bg-rose-100 hover:bg-rose-200 text-rose-600 flex items-center justify-center transition cursor-pointer border border-rose-300"
+                      className="w-5 h-5 rounded-full bg-rose-100 hover:bg-rose-200 text-rose-600 flex items-center justify-center transition cursor-pointer border border-rose-300"
                       title={language === 'am' ? 'ካርድ አውጣ' : 'Remove card'}
                     >
-                      <X className="w-2.5 h-2.5" />
+                      <X className="w-3 h-3" />
                     </button>
                   </div>
                 );
@@ -1374,18 +1384,19 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 setIsSelectorOpen(true);
               }
             }}
-            className={`shrink-0 px-2.5 py-1 rounded-lg font-black text-[10px] uppercase tracking-wider flex items-center gap-1 transition border-2 ${
+            className={`shrink-0 px-3.5 py-2 rounded-full font-black text-sm flex items-center gap-1.5 transition border-2 ${
               activeGameCards.length >= 5
                 ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300 cursor-pointer'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-400 cursor-pointer shadow-xs'
             }`}
             title={activeGameCards.length >= 5 ? (language === 'am' ? 'ከ5 በላይ አይችሉም' : 'Max 5 cards') : (language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards')}
           >
-            <Plus className="w-3 h-3" />
+            <Plus className="w-4 h-4" />
             <span>{language === 'am' ? 'ካርድ' : 'Pick Cards'}</span>
           </button>
         </div>
       )}
+
 
       {/* ================================================================
           CARD 1: Game Stats & Controls
@@ -1488,14 +1499,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     key={n}
                     className="shrink-0 text-[9px] font-mono font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded"
                   >
-                    #{String(n).padStart(5, '0')}
+                    #{n}
                   </span>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Controls: Hit, Sound, Auto, Timer */}
+          {/* Controls: Hit, Sound, Auto — no timer */}
           <div className="flex items-center gap-1.5 px-1 pt-0.5">
             <button
               type="button"
@@ -1522,11 +1533,39 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             >
               <span>🪄</span><span>{isAutoDrawing ? (language === 'am' ? 'አቁም' : 'Auto') : 'Auto'}</span>
             </button>
-            {/* Timer */}
-            <div className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 font-mono font-black text-[10px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-              <span>{formattedTimerLeft}</span>
-            </div>
+          </div>
+
+          {/* ── Centered Ball Display (middle area) ── */}
+          <div className="flex items-center justify-center gap-2 py-2">
+            {previousBalls.length > 0 && previousBalls.map((pb, idx) => {
+              const pbLetter = getBallLetter(pb);
+              const pbColor = getLetterColor(pbLetter);
+              return (
+                <div
+                  key={`fetan-mid-prev-${idx}-${pb}`}
+                  className={`rounded-full bg-gradient-to-br ${pbColor} opacity-55 shadow flex flex-col items-center justify-center relative overflow-hidden`}
+                  style={{width:'36px',height:'36px',border:'2.5px solid white'}}
+                >
+                  <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35) 0%, transparent 65%)'}} />
+                  <span className="text-[6px] font-black uppercase leading-none text-white z-10">{pbLetter}</span>
+                  <span className="text-[10px] font-black text-white leading-tight z-10">{pb}</span>
+                </div>
+              );
+            })}
+            {currentBallNum != null ? (
+              <div
+                className={`rounded-full bg-gradient-to-br ${getLetterColor(getBallLetter(currentBallNum))} flex flex-col items-center justify-center relative overflow-hidden ball-active-anim`}
+                style={{width:'56px',height:'56px',border:'3px solid white',boxShadow:'0 4px 18px rgba(0,0,0,0.3)'}}
+              >
+                <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 28%, rgba(255,255,255,0.45) 0%, transparent 60%)'}} />
+                <span className="text-[9px] font-black uppercase leading-none text-white z-10">{getBallLetter(currentBallNum)}</span>
+                <span className="text-[17px] font-black text-white leading-tight z-10">{currentBallNum}</span>
+              </div>
+            ) : (
+              <div className="rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white/80" style={{width:'56px',height:'56px'}}>
+                <span className="text-[8px] font-black text-slate-400 text-center leading-tight">GET<br/>READY</span>
+              </div>
+            )}
           </div>
 
           {/* Show Less / Show More toggle (Fetan) */}
@@ -1616,7 +1655,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     key={n}
                     className="shrink-0 text-[9px] font-mono font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded"
                   >
-                    #{String(n).padStart(5, '0')}
+                    #{n}
                   </span>
                 ))}
               </div>
@@ -1924,64 +1963,82 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           6. BINGO CARDS — Each picked card gets its OWN separate table
           ================================================================ */}
       <div className="p-2 pb-4 bg-slate-100 flex flex-col gap-3">
+        {/* Global Winner Announcement Banner — VISIBLE TO EVERYONE IN THE ROOM */}
+        {hasGameWinner && (() => {
+          const latestWinner = (currentGame.winners && currentGame.winners.length > 0)
+            ? currentGame.winners[currentGame.winners.length - 1]
+            : null;
+          return (
+            <div className={`border-2 rounded-2xl p-3 shadow-md flex flex-col sm:flex-row items-center justify-between gap-2.5 animate-in slide-in-from-top-2 duration-300 ${
+              isSpecialGame
+                ? 'bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 border-indigo-400 text-white'
+                : 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 border-amber-600 text-slate-950'
+            }`}>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-2xl shrink-0">🏆</span>
+                <div className="min-w-0">
+                  <div className="text-xs font-black uppercase tracking-wider flex items-center gap-2 flex-wrap">
+                    <span>
+                      {latestWinner
+                        ? (language === 'am'
+                          ? `🎉 ቢንጎ አሸናፊ: @${latestWinner.username} (ካርድ #${latestWinner.cardNumber})!`
+                          : `🎉 BINGO WINNER: @${latestWinner.username} (Card #${latestWinner.cardNumber})!`)
+                        : (isSpecialGame
+                          ? (language === 'am' ? 'የስፔሻል ዙር ተጠናቋል!' : 'Hyper Special Round Finished!')
+                          : (language === 'am' ? 'ዙሩ ተጠናቋል!' : 'Round Finished!'))
+                      }
+                    </span>
+                    {latestWinner && (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black">
+                        {formatETB(latestWinner.prizeWon)}
+                      </span>
+                    )}
+                    {isSpecialGame && specialIsIntermission && (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-mono font-black animate-pulse">
+                        ⏳ {specialSecondsLeft}s
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-[11px] font-medium leading-tight mt-0.5 ${isSpecialGame ? 'text-indigo-200' : 'text-slate-900'}`}>
+                    {isSpecialGame
+                      ? (language === 'am'
+                          ? `ቀጣዩ ዙር በአዲስ ሕግ (ሕግ #${((currentGame.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length + 1}) እና አዲስ ዋጋ ይጀምራል።`
+                          : `Next game rotates to Law #${((currentGame.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length + 1} with a new price.`)
+                      : (language === 'am'
+                          ? 'እያንዳንዱ ካርድ ለአንድ ዙር ብቻ ያገለግላል። ቀጣዩን ዙር ለመጫወት አዲስ ካርድ መግዛት አለብዎት።'
+                          : 'Cards are valid for 1 game only. To play again, please purchase new cards for the next round.')}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  resetGameRound(currentGame.id);
+                  setSpecialIsIntermission(false);
+                  if (isSpecialGame) {
+                    setIsSelectorOpen(true);
+                  } else if (onOpenLotteryTab) {
+                    onOpenLotteryTab();
+                  } else {
+                    setIsSelectorOpen(true);
+                  }
+                }}
+                className={`w-full sm:w-auto px-3.5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0 ${
+                  isSpecialGame
+                    ? 'bg-amber-400 hover:bg-amber-300 text-slate-950'
+                    : 'bg-slate-950 hover:bg-slate-900 text-amber-300'
+                }`}
+              >
+                <span>🎮 {isSpecialGame
+                  ? (language === 'am' ? 'ቀጣይ ዙር ጀምር (አዲስ ሕግና ዋጋ)' : 'Start Next Game (New Law & Price)')
+                  : (language === 'am' ? 'አዲስ ካርድ ይግዙና ይጫወቱ' : 'Purchase Cards to Play Again')}</span>
+              </button>
+            </div>
+          );
+        })()}
+
         {activeGameCards.length > 0 ? (
           <>
-            {/* 1-Game Card Rule & Special Next Game Rotation Banner */}
-            {hasGameWinner && (
-              <div className={`border-2 rounded-2xl p-3 shadow-md flex flex-col sm:flex-row items-center justify-between gap-2.5 animate-in slide-in-from-top-2 duration-300 ${
-                isSpecialGame
-                  ? 'bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 border-indigo-400 text-white'
-                  : 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 border-amber-600 text-slate-950'
-              }`}>
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="text-2xl shrink-0">{isSpecialGame ? '🎲' : '🏁'}</span>
-                  <div className="min-w-0">
-                    <div className="text-xs font-black uppercase tracking-wider flex items-center gap-2 flex-wrap">
-                      <span>{isSpecialGame
-                        ? (language === 'am' ? 'የስፔሻል ዙር ተጠናቋል!' : 'Hyper Special Round Finished!')
-                        : (language === 'am' ? 'ዙሩ ተጠናቋል! ካርዶችዎ አገልግለዋል' : 'Round Finished!')}</span>
-                      {isSpecialGame && specialIsIntermission && (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-mono font-black animate-pulse">
-                          ⏳ {specialSecondsLeft}s
-                        </span>
-                      )}
-                    </div>
-                    <p className={`text-[11px] font-medium leading-tight mt-0.5 ${isSpecialGame ? 'text-indigo-200' : 'text-slate-900'}`}>
-                      {isSpecialGame
-                        ? (language === 'am'
-                            ? `ቀጣዩ ዙር በአዲስ ሕግ (ሕግ #${((currentGame.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length + 1}) እና አዲስ ዋጋ ይጀምራል።`
-                            : `Next game rotates to Law #${((currentGame.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length + 1} with a new price.`)
-                        : (language === 'am'
-                            ? 'እያንዳንዱ ካርድ ለአንድ ዙር ብቻ ያገለግላል። ቀጣዩን ዙር ለመጫወት አዲስ ካርድ መግዛት አለብዎት።'
-                            : 'Cards are valid for 1 game only. To play again, please purchase new cards for the next round.')}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetGameRound(currentGame.id);
-                    setSpecialIsIntermission(false);
-                    if (isSpecialGame) {
-                      setIsSelectorOpen(true);
-                    } else if (onOpenLotteryTab) {
-                      onOpenLotteryTab();
-                    } else {
-                      setIsSelectorOpen(true);
-                    }
-                  }}
-                  className={`w-full sm:w-auto px-3.5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0 ${
-                    isSpecialGame
-                      ? 'bg-amber-400 hover:bg-amber-300 text-slate-950'
-                      : 'bg-slate-950 hover:bg-slate-900 text-amber-300'
-                  }`}
-                >
-                  <span>🎮 {isSpecialGame
-                    ? (language === 'am' ? 'ቀጣይ ዙር ጀምር (አዲስ ሕግና ዋጋ)' : 'Start Next Game (New Law & Price)')
-                    : (language === 'am' ? 'አዲስ ካርድ ይግዙና ይጫወቱ' : 'Purchase Cards to Play Again')}</span>
-                </button>
-              </div>
-            )}
 
             {/* ── Render all slots in a scrollable grid (no pagination; all cards visible & scrollable) ── */}
             {(() => {
