@@ -183,11 +183,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   // Persist wallet to localStorage whenever it changes (so card purchases deduct birr permanently)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (wallet.userId) {
-      try {
-        localStorage.setItem('hyper_bingo_wallet', JSON.stringify(wallet));
-      } catch {}
-    }
+    try {
+      localStorage.setItem('hyper_bingo_wallet', JSON.stringify(wallet));
+    } catch {}
   }, [wallet]);
 
   // Broadcast winner to all players/tabs via localStorage + CustomEvent
@@ -1045,55 +1043,71 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     // Slot max 5: cap cards to at most 5
     const rawCards = chosenCardNumbers && chosenCardNumbers.length > 0 ? chosenCardNumbers : [String(Math.floor(10000 + Math.random() * 90000))];
     const cardsToCreate = rawCards.slice(0, 5);
-    const totalCost = actualStake * cardsToCreate.length;
 
-    // Bonus balance is playable (can play but cannot withdraw)
-    const playableBalance = wallet.availableBalance + wallet.bonusBalance;
-    if (playableBalance < totalCost) {
-      addNotification(
-        '⚠️ Insufficient Balance',
-        `Required ${totalCost} ETB for ${cardsToCreate.length} card(s). Playable balance: ${(playableBalance).toFixed(0)} ETB (inc. bonus).`,
-        'warning'
-      );
-      return false;
-    }
+    // Check which cards have not yet been purchased (prevents double charging if already bought via purchaseLotteryNumbers)
+    const existingCardNumbers = new Set(
+      userCards.filter((c) => c.gameId === gameId && c.userId === user.id).map((c) => c.cardNumber)
+    );
+    const unpurchasedCards = cardsToCreate.filter((cNum) => !existingCardNumbers.has(cNum));
+    const totalCost = actualStake * unpurchasedCards.length;
 
-    // Deduct from bonus balance first, then available balance
-    let remCost = totalCost;
-    let newBonus = wallet.bonusBalance;
     let newAvailable = wallet.availableBalance;
+    if (totalCost > 0) {
+      // Bonus balance is playable (can play but cannot withdraw)
+      const playableBalance = wallet.availableBalance + wallet.bonusBalance;
+      if (playableBalance < totalCost) {
+        addNotification(
+          '⚠️ Insufficient Balance',
+          `Required ${totalCost} ETB for ${unpurchasedCards.length} card(s). Playable balance: ${(playableBalance).toFixed(0)} ETB (inc. bonus).`,
+          'warning'
+        );
+        return false;
+      }
 
-    if (newBonus >= remCost) {
-      newBonus -= remCost;
-      remCost = 0;
-    } else {
-      remCost -= newBonus;
-      newBonus = 0;
-      newAvailable = Math.max(0, newAvailable - remCost);
+      setWallet((prev) => {
+        let remCost = totalCost;
+        let newBonus = prev.bonusBalance;
+        let newAvail = prev.availableBalance;
+        if (newBonus >= remCost) {
+          newBonus -= remCost;
+          remCost = 0;
+        } else {
+          remCost -= newBonus;
+          newBonus = 0;
+          newAvail = Math.max(0, newAvail - remCost);
+        }
+        newAvailable = newAvail;
+        const updated = {
+          ...prev,
+          availableBalance: newAvail,
+          bonusBalance: newBonus,
+        };
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated));
+          } catch {}
+        }
+        return updated;
+      });
+
+      // Create entry transaction
+      const tx: Transaction = {
+        id: `TX_ENTRY_${Date.now().toString().slice(-5)}`,
+        userId: user.id,
+        username: user.username,
+        type: 'GAME_ENTRY',
+        amount: -totalCost,
+        balanceAfter: newAvailable,
+        reference: `GM-${targetGame.id}`,
+        status: 'COMPLETED',
+        description: `Entry ticket (${unpurchasedCards.length} cards, max 5 slots) for ${targetGame.name}`,
+        createdAt: new Date().toISOString(),
+      };
+      setTransactions((prev) => [tx, ...prev]);
     }
 
-    setWallet((prev) => ({
-      ...prev,
-      availableBalance: newAvailable,
-      bonusBalance: newBonus,
-    }));
-
-    // Create entry transaction
-    const tx: Transaction = {
-      id: `TX_ENTRY_${Date.now().toString().slice(-5)}`,
-      userId: user.id,
-      username: user.username,
-      type: 'GAME_ENTRY',
-      amount: -totalCost,
-      balanceAfter: newAvailable,
-      reference: `GM-${targetGame.id}`,
-      status: 'COMPLETED',
-      description: `Entry ticket (${cardsToCreate.length} cards, max 5 slots) for ${targetGame.name}`,
-      createdAt: new Date().toISOString(),
-    };
-    setTransactions((prev) => [tx, ...prev]);
-
-    // Update game player count and entryPrice if customized (Reset balls if new round)
+    // Update game player count: only increment if this user did not already have cards in this game
+    const userAlreadyInGame = userCards.some((c) => c.gameId === gameId && c.userId === user.id);
     const isCompleted = targetGame.status === 'COMPLETED' || (targetGame.winners && targetGame.winners.length > 0);
     setGames((prev) =>
       prev.map((g) => {
@@ -1110,7 +1124,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             status: 'OPEN',
           };
         }
-        return { ...g, entryPrice: actualStake, currentPlayers: g.currentPlayers + 1 };
+        return {
+          ...g,
+          entryPrice: actualStake,
+          currentPlayers: userAlreadyInGame ? g.currentPlayers : (g.currentPlayers || 0) + 1,
+        };
       })
     );
     if (isCompleted) {
@@ -1649,22 +1667,32 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
 
     // Deduct from wallet: bonus first, then available
-    let rem = totalCost;
-    let newBonus = wallet.bonusBalance;
     let newAvail = wallet.availableBalance;
-    if (newBonus >= rem) {
-      newBonus -= rem;
-      rem = 0;
-    } else {
-      rem -= newBonus;
-      newBonus = 0;
-      newAvail = Math.max(0, newAvail - rem);
-    }
-    setWallet((prev) => ({
-      ...prev,
-      availableBalance: newAvail,
-      bonusBalance: newBonus,
-    }));
+    setWallet((prev) => {
+      let rem = totalCost;
+      let newBonus = prev.bonusBalance;
+      let newAv = prev.availableBalance;
+      if (newBonus >= rem) {
+        newBonus -= rem;
+        rem = 0;
+      } else {
+        rem -= newBonus;
+        newBonus = 0;
+        newAv = Math.max(0, newAv - rem);
+      }
+      newAvail = newAv;
+      const updated = {
+        ...prev,
+        availableBalance: newAv,
+        bonusBalance: newBonus,
+      };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
 
     // Record transaction
     const tx: Transaction = {
@@ -1690,7 +1718,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       return { ...prev, [gameId]: current };
     });
 
-    // Increment players counter & reset balls if new round starting after completion
+    // Increment players counter only if user doesn't already have cards in this game
+    const userAlreadyInGame = userCards.some((c) => c.gameId === gameId && c.userId === user.id);
     const isCompleted = game.status === 'COMPLETED' || (game.winners && game.winners.length > 0);
     setGames((prev) =>
       prev.map((g) => {
@@ -1706,7 +1735,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             status: 'OPEN',
           };
         }
-        return { ...g, currentPlayers: g.currentPlayers + 1 };
+        return { ...g, currentPlayers: userAlreadyInGame ? g.currentPlayers : (g.currentPlayers || 0) + 1 };
       })
     );
 
@@ -1752,17 +1781,34 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       prev.filter((c) => !(c.gameId === gameId && c.cardNumber === label))
     );
 
-    // Refund entry price: reverse of purchase (available first, then bonus)
+    // Refund entry price
     const refundAmount = game.entryPrice || 10;
-    let newBonus = wallet.bonusBalance;
-    let newAvail = wallet.availableBalance;
-    newAvail += refundAmount;
+    let newAvail = wallet.availableBalance + refundAmount;
+    setWallet((prev) => {
+      newAvail = prev.availableBalance + refundAmount;
+      const updated = {
+        ...prev,
+        availableBalance: newAvail,
+      };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
 
-    setWallet((prev) => ({
-      ...prev,
-      availableBalance: newAvail,
-      bonusBalance: newBonus,
-    }));
+    // Decrement player count if user has no more cards in this game
+    const remainingCardsForGame = userCards.filter(
+      (c) => c.gameId === gameId && c.cardNumber !== label && c.userId === user.id
+    );
+    if (remainingCardsForGame.length === 0) {
+      setGames((prev) =>
+        prev.map((g) =>
+          g.id === gameId ? { ...g, currentPlayers: Math.max(0, (g.currentPlayers || 1) - 1) } : g
+        )
+      );
+    }
 
     // Record refund transaction
     const tx: Transaction = {

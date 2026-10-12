@@ -1182,8 +1182,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       openAuthModal('register');
       return;
     }
-    // Always join/update with the exact selected card numbers
-    joinGame(currentGame.id, selectedCardNumbers);
+    // Only join for numbers that are not already purchased in userCards
+    const existingCards = userCards.filter((c) => c.gameId === currentGame.id);
+    const existingCardNumbers = new Set(existingCards.map((c) => c.cardNumber));
+    const unpurchasedNumbers = selectedCardNumbers.filter((num) => !existingCardNumbers.has(num));
+    if (unpurchasedNumbers.length > 0) {
+      joinGame(currentGame.id, unpurchasedNumbers);
+    }
     if (!isWeekendGame || isWeekendLive) {
       setIsAutoDrawing(true);
     }
@@ -1417,7 +1422,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </span>
             </div>
           </div>
-          {/* Top row stats: DERASH | BALLS | PLAYERS | Ball Display */}
+          {/* Top row stats: DERASH | BALLS | PLAYERS */}
           <div className="flex items-center justify-between gap-1 sm:gap-2 px-1">
             {/* DERASH */}
             <div>
@@ -1445,32 +1450,15 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
               </div>
               <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
-                {totalCardsSold}
+                {Math.max(activeGameCards.length > 0 ? 1 : 0, currentGame.currentPlayers || 0)}
               </div>
             </div>
 
-            {/* Current Ball + Previous Balls — Bingo Ball Style */}
-            <div className="flex items-center justify-center gap-1 shrink-0">
-              {/* Previous 3 balls (faded, smaller) — real bingo ball style */}
-              {previousBalls.length > 0 && previousBalls.map((pb, idx) => {
-                const pbLetter = getBallLetter(pb);
-                const pbColor = getLetterColor(pbLetter);
-                return (
-                  <div
-                    key={`prev-${idx}-${pb}`}
-                    className={`w-9 h-9 rounded-full bg-gradient-to-br ${pbColor} opacity-55 shadow flex flex-col items-center justify-center relative overflow-hidden`}
-                    style={{border: '2.5px solid white'}}
-                  >
-                    <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35) 0%, transparent 65%)'}} />
-                    <span className="text-[7px] font-black uppercase leading-none text-white z-10">{pbLetter}</span>
-                    <span className="text-[10px] font-black text-white leading-tight z-10">{pb}</span>
-                  </div>
-                );
-              })}
-              {/* Current ball (highlighted, larger) — premium bingo ball */}
+            {/* Current Ball — Bingo Ball Style (no previous balls here) */}
+            <div className="flex items-center justify-center shrink-0">
               {currentBallNum != null ? (
                 <div
-                  className={`w-13 h-13 rounded-full bg-gradient-to-br ${getLetterColor(getBallLetter(currentBallNum))} shadow-lg flex flex-col items-center justify-center relative overflow-hidden ball-active-anim`}
+                  className={`rounded-full bg-gradient-to-br ${getLetterColor(getBallLetter(currentBallNum))} shadow-lg flex flex-col items-center justify-center relative overflow-hidden ball-active-anim`}
                   style={{width:'52px',height:'52px',border:'3px solid white',boxShadow:'0 4px 15px rgba(0,0,0,0.3)'}}
                 >
                   <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 28%, rgba(255,255,255,0.45) 0%, transparent 60%)'}} />
@@ -1478,7 +1466,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   <span className="text-[15px] font-black text-white leading-tight z-10">{currentBallNum}</span>
                 </div>
               ) : (
-                <div className="w-13 h-13 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white" style={{width:'52px',height:'52px'}}>
+                <div className="rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white" style={{width:'52px',height:'52px'}}>
                   <span className="text-[8px] font-black text-slate-400 text-center leading-tight">GET<br/>READY</span>
                 </div>
               )}
@@ -1506,7 +1494,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             )}
           </div>
 
-          {/* Controls: Hit, Sound, Auto — no timer */}
+          {/* Controls: Hit, Sound only — no Auto button */}
           <div className="flex items-center gap-1.5 px-1 pt-0.5">
             <button
               type="button"
@@ -1524,39 +1512,36 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             >
               {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-sky-600" /> : <VolumeX className="w-3.5 h-3.5" />}
             </button>
-            <button
-              type="button"
-              onClick={() => setIsAutoDrawing((prev) => !prev)}
-              className={`px-2.5 py-1 rounded-lg border text-[10px] font-black transition cursor-pointer flex items-center gap-1 ${
-                isAutoDrawing ? 'bg-purple-100 border-purple-300 text-purple-900' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              <span>🪄</span><span>{isAutoDrawing ? (language === 'am' ? 'አቁም' : 'Auto') : 'Auto'}</span>
-            </button>
           </div>
 
-          {/* ── Middle Area: Balls called counter (X/75) + 30s Card Pick Countdown ── */}
-          <div className="flex items-center justify-between gap-2 py-2 px-2.5 bg-slate-50 rounded-xl border border-slate-200 mx-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider">
-                {language === 'am' ? 'የተጠሩ ኳሶች' : 'Balls Called'}:
-              </span>
-              <span className="text-base font-black font-mono text-slate-900">
-                {currentGame.drawnNumbers.length}<span className="text-xs text-slate-400">/75</span>
-              </span>
+          {/* ── Middle Area: Previous balls + 30s intermission timer ── */}
+          <div className="flex items-center justify-between gap-2 py-1.5 px-2.5 bg-slate-50 rounded-xl border border-slate-200 mx-1">
+            {/* Previous 3 balls — bingo ball style */}
+            <div className="flex items-center gap-1">
+              {previousBalls.length > 0 ? previousBalls.map((pb, idx) => {
+                const pbLetter = getBallLetter(pb);
+                const pbColor = getLetterColor(pbLetter);
+                return (
+                  <div
+                    key={`mid-prev-${idx}-${pb}`}
+                    className={`rounded-full bg-gradient-to-br ${pbColor} opacity-70 shadow flex flex-col items-center justify-center relative overflow-hidden`}
+                    style={{width:'30px',height:'30px',border:'2px solid white'}}
+                  >
+                    <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35) 0%, transparent 65%)'}} />
+                    <span className="text-[6px] font-black uppercase leading-none text-white z-10">{pbLetter}</span>
+                    <span className="text-[9px] font-black text-white leading-tight z-10">{pb}</span>
+                  </div>
+                );
+              }) : null}
             </div>
 
             {/* 30-second card-picking intermission timer */}
-            {fetanIsIntermission ? (
+            {fetanIsIntermission && (
               <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
                 <span>⏳</span>
                 <span>{language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards'}:</span>
                 <span className="font-mono text-sm">{fetanSecondsLeft}s</span>
               </div>
-            ) : (
-              <span className="text-[10px] font-bold text-slate-400">
-                {Math.max(0, 75 - currentGame.drawnNumbers.length)} {language === 'am' ? 'ቀሪ' : 'left'}
-              </span>
             )}
           </div>
 

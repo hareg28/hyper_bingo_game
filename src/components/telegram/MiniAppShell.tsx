@@ -199,7 +199,7 @@ export default function MiniAppShell({
               className="px-2 py-1 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 font-mono font-black text-[10px] hover:bg-emerald-100 transition flex items-center gap-0.5 cursor-pointer shadow-2xs"
             >
               <Wallet className="w-3 h-3 text-emerald-600 shrink-0" />
-              <span className="truncate max-w-[56px]">{formatETB(wallet.availableBalance)}</span>
+              <span className="truncate max-w-[56px]">{formatETB(wallet.availableBalance + wallet.bonusBalance)}</span>
             </button>
           </div>
         </div>
@@ -292,7 +292,7 @@ export default function MiniAppShell({
               className="px-2 py-1 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 font-mono font-black text-[10px] hover:bg-emerald-100 transition flex items-center gap-0.5 cursor-pointer shadow-2xs"
             >
               <Wallet className="w-3 h-3 text-emerald-600 shrink-0" />
-              <span className="truncate max-w-[52px]">{formatETB(wallet.availableBalance)}</span>
+              <span className="truncate max-w-[52px]">{formatETB(wallet.availableBalance + wallet.bonusBalance)}</span>
             </button>
 
             {/* When in game and opened, show close button to collapse back */}
