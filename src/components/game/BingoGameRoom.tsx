@@ -331,13 +331,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         // Intermission countdown: card picking
         setFetanSecondsLeft((prev) => {
           if (prev <= 1) {
-            // Intermission ended -> start next round fresh!
+            // Intermission ended -> start next round fresh! Open card selector to redirect to game
             resetGameRound(currentGame.id);
             setFetanIsIntermission(false);
             setFetanOvertime(false);
-            if (onOpenLotteryTab) {
-              onOpenLotteryTab();
-            }
+            // Redirect to game by opening card selector
+            setIsSelectorOpen(true);
             return 60;
           }
           return prev - 1;
@@ -1331,18 +1330,30 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               activeGameCards.slice(0, 5).map((card) => {
                 const isActive = card.id === selectedCardId || (!selectedCardId && card.id === activeGameCards[0]?.id);
                 return (
-                  <button
-                    key={card.id}
-                    type="button"
-                    onClick={() => setSelectedCardId(card.id)}
-                    className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-mono font-black transition cursor-pointer border ${
-                      isActive
-                        ? 'bg-emerald-500 text-white border-emerald-600 shadow-xs'
-                        : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                    }`}
-                  >
-                    #{card.cardNumber}
-                  </button>
+                  <div key={card.id} className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCardId(card.id)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-black transition cursor-pointer border ${
+                        isActive
+                          ? 'bg-emerald-500 text-white border-emerald-600 shadow-xs'
+                          : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                      }`}
+                    >
+                      #{card.cardNumber}
+                    </button>
+                    {/* Unselect / Remove chip button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCardToDelete({ id: card.id, cardNumber: card.cardNumber });
+                      }}
+                      className="w-4 h-4 rounded-full bg-rose-100 hover:bg-rose-200 text-rose-600 flex items-center justify-center transition cursor-pointer border border-rose-300"
+                      title={language === 'am' ? 'ካርድ አውጣ' : 'Remove card'}
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
                 );
               })
             )}
@@ -1384,7 +1395,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       {isFetanGame ? (
         /* ── Hyper Fetan Plain Text Header (No Box, Plain Text) ── */
         <div className="px-1 py-1 space-y-1">
-          {/* Top row: Back Arrow + Game Name + Timer */}
+          {/* Top row: Back Arrow + Game Name (no 1-min countdown here) */}
           <div className="flex items-center gap-2 px-0.5 pb-1">
             <button type="button" onClick={onBack} className="w-8 h-8 rounded-xl bg-amber-100 hover:bg-amber-200 text-slate-800 flex items-center justify-center transition cursor-pointer shadow-xs border border-amber-300 shrink-0" title={language === 'am' ? 'ተመለስ ወደ ሎቢ' : 'Back to Lobby'}>
               <ChevronLeft className="w-4.5 h-4.5" />
@@ -1394,12 +1405,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 ⚡ {language === 'am' ? 'ሃይፐር ፈጣን' : 'HYPER FETAN'} <span className="italic tracking-widest">BINGO</span>
               </span>
             </div>
-            <div className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 font-mono font-black text-[10px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-              <span>{formattedTimerLeft}</span>
-            </div>
           </div>
-          {/* Top row stats: DERASH | BALLS | PLAYERS | Current Ball (Plain Text without Box) */}
+          {/* Top row stats: DERASH | BALLS | PLAYERS | Ball Display */}
           <div className="flex items-center justify-between gap-1 sm:gap-2 px-1">
             {/* DERASH */}
             <div>
@@ -1431,26 +1438,36 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
             </div>
 
-            {/* Current Ball with 3 Previous Balls */}
-            <div className="flex items-center justify-center gap-1.5 shrink-0">
-              {/* Previous 3 balls (faded, smaller) */}
-              {previousBalls.length > 0 && previousBalls.map((pb, idx) => (
-                <div
-                  key={`prev-${idx}-${pb}`}
-                  className={`w-8 h-8 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(pb))} opacity-50 shadow-sm flex flex-col items-center justify-center text-white`}
-                >
-                  <span className="text-[6px] font-black uppercase leading-none opacity-80 font-serif">{getBallLetter(pb)}</span>
-                  <span className="text-[11px] font-black font-serif leading-tight">{pb}</span>
-                </div>
-              ))}
-              {/* Current ball (highlighted, larger) */}
+            {/* Current Ball + Previous Balls — Bingo Ball Style */}
+            <div className="flex items-center justify-center gap-1 shrink-0">
+              {/* Previous 3 balls (faded, smaller) — real bingo ball style */}
+              {previousBalls.length > 0 && previousBalls.map((pb, idx) => {
+                const pbLetter = getBallLetter(pb);
+                const pbColor = getLetterColor(pbLetter);
+                return (
+                  <div
+                    key={`prev-${idx}-${pb}`}
+                    className={`w-9 h-9 rounded-full bg-gradient-to-br ${pbColor} opacity-55 shadow flex flex-col items-center justify-center relative overflow-hidden`}
+                    style={{border: '2.5px solid white'}}
+                  >
+                    <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35) 0%, transparent 65%)'}} />
+                    <span className="text-[7px] font-black uppercase leading-none text-white z-10">{pbLetter}</span>
+                    <span className="text-[10px] font-black text-white leading-tight z-10">{pb}</span>
+                  </div>
+                );
+              })}
+              {/* Current ball (highlighted, larger) — premium bingo ball */}
               {currentBallNum != null ? (
-                <div className={`w-12 h-12 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentBallNum))} shadow-md ring-2 ring-white flex flex-col items-center justify-center text-white animate-bounce-once`}>
-                  <span className="text-[8px] font-black uppercase leading-none opacity-90 font-serif">{getBallLetter(currentBallNum)}</span>
-                  <span className="text-base font-black font-serif leading-tight">{currentBallNum}</span>
+                <div
+                  className={`w-13 h-13 rounded-full bg-gradient-to-br ${getLetterColor(getBallLetter(currentBallNum))} shadow-lg flex flex-col items-center justify-center relative overflow-hidden ball-active-anim`}
+                  style={{width:'52px',height:'52px',border:'3px solid white',boxShadow:'0 4px 15px rgba(0,0,0,0.3)'}}
+                >
+                  <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 28%, rgba(255,255,255,0.45) 0%, transparent 60%)'}} />
+                  <span className="text-[9px] font-black uppercase leading-none text-white z-10">{getBallLetter(currentBallNum)}</span>
+                  <span className="text-[15px] font-black text-white leading-tight z-10">{currentBallNum}</span>
                 </div>
               ) : (
-                <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white">
+                <div className="w-13 h-13 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white" style={{width:'52px',height:'52px'}}>
                   <span className="text-[8px] font-black text-slate-400 text-center leading-tight">GET<br/>READY</span>
                 </div>
               )}
@@ -1552,24 +1569,34 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </div>
           </div>
 
-          {/* Current Ball with 3 Previous Balls (Special/Weekend) */}
+          {/* Current Ball with 3 Previous Balls (Special/Weekend) — Bingo Ball Style */}
           <div className="flex items-center justify-center gap-2 py-1">
-            {previousBalls.length > 0 && previousBalls.map((pb, idx) => (
-              <div
-                key={`prev-sw-${idx}-${pb}`}
-                className={`w-9 h-9 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(pb))} opacity-50 shadow-sm flex flex-col items-center justify-center text-white`}
-              >
-                <span className="text-[6px] font-black uppercase leading-none opacity-80 font-serif">{getBallLetter(pb)}</span>
-                <span className="text-xs font-black font-serif leading-tight">{pb}</span>
-              </div>
-            ))}
+            {previousBalls.length > 0 && previousBalls.map((pb, idx) => {
+              const pbLetter = getBallLetter(pb);
+              const pbColor = getLetterColor(pbLetter);
+              return (
+                <div
+                  key={`prev-sw-${idx}-${pb}`}
+                  className={`rounded-full bg-gradient-to-br ${pbColor} opacity-60 shadow flex flex-col items-center justify-center relative overflow-hidden`}
+                  style={{width:'38px',height:'38px',border:'2.5px solid rgba(255,255,255,0.8)'}}
+                >
+                  <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.4) 0%, transparent 65%)'}} />
+                  <span className="text-[7px] font-black uppercase leading-none text-white z-10">{pbLetter}</span>
+                  <span className="text-[11px] font-black text-white leading-tight z-10">{pb}</span>
+                </div>
+              );
+            })}
             {currentBallNum != null ? (
-              <div className={`w-14 h-14 rounded-full bg-gradient-to-tr ${getLetterColor(getBallLetter(currentBallNum))} shadow-lg ring-2 ring-white flex flex-col items-center justify-center text-white animate-bounce-once`}>
-                <span className="text-[9px] font-black uppercase leading-none opacity-90 font-serif">{getBallLetter(currentBallNum)}</span>
-                <span className="text-lg font-black font-serif leading-tight">{currentBallNum}</span>
+              <div
+                className={`rounded-full bg-gradient-to-br ${getLetterColor(getBallLetter(currentBallNum))} flex flex-col items-center justify-center relative overflow-hidden ball-active-anim`}
+                style={{width:'56px',height:'56px',border:'3px solid white',boxShadow:'0 6px 20px rgba(0,0,0,0.35)'}}
+              >
+                <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 28%, rgba(255,255,255,0.5) 0%, transparent 60%)'}} />
+                <span className="text-[9px] font-black uppercase leading-none text-white z-10">{getBallLetter(currentBallNum)}</span>
+                <span className="text-lg font-black text-white leading-tight z-10">{currentBallNum}</span>
               </div>
             ) : (
-              <div className="w-14 h-14 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center bg-white/10">
+              <div className="rounded-full border-2 border-dashed border-white/50 flex items-center justify-center bg-white/10" style={{width:'56px',height:'56px'}}>
                 <span className="text-[9px] font-black text-white/70 text-center leading-tight">GET<br/>READY</span>
               </div>
             )}
@@ -2045,8 +2072,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                             </div>
                           </div>
 
-                          {/* B I N G O Header Row (Smaller) */}
-                          <div className="grid grid-cols-5 gap-0.5 mb-0.5">
+                          {/* B I N G O Header Row */}
+                          <div className="grid grid-cols-5 gap-[2px] mb-[2px]">
                             {[
                               { letter: 'B', bg: 'bg-[#2563eb]' },
                               { letter: 'I', bg: 'bg-[#dc2626]' },
@@ -2056,15 +2083,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                             ].map((col) => (
                               <div
                                 key={col.letter}
-                                className={`${col.bg} text-white font-black italic rounded h-4 sm:h-5 flex items-center justify-center text-[11px] shadow-2xs`}
+                                className={`${col.bg} text-white font-black italic rounded flex items-center justify-center text-[10px] shadow-2xs`}
+                                style={{height:'16px'}}
                               >
                                 {col.letter}
                               </div>
                             ))}
                           </div>
 
-                          {/* 5x5 Number Grid (Smaller) */}
-                          <div className="grid grid-cols-5 gap-0.5 flex-1 mb-0.5">
+                          {/* 5x5 Number Grid — proportional compact cells */}
+                          <div className="grid grid-cols-5 gap-[2px] flex-1 mb-0.5">
                             {card.numbers.map((row, rIdx) =>
                               row.map((val, cIdx) => {
                                 const isFree = rIdx === 2 && cIdx === 2;
@@ -2078,7 +2106,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                                   <button
                                     key={`${card.id}-${rIdx}-${cIdx}`}
                                     onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
-                                    className={`aspect-square rounded flex items-center justify-center font-extrabold transition-all relative select-none cursor-pointer ${
+                                    className={`rounded flex items-center justify-center font-extrabold transition-all relative select-none cursor-pointer ${
                                       isFree
                                         ? 'bg-[#16a34a] border border-emerald-600 shadow-2xs'
                                         : isMarked || isDrawn
@@ -2091,11 +2119,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                                         ? 'bg-amber-100 border border-amber-400 text-amber-950 ring-1 ring-amber-400 animate-pulse'
                                         : 'bg-slate-50/90 hover:bg-slate-100 border border-slate-200/90 text-slate-900 shadow-2xs'
                                     }`}
+                                    style={{aspectRatio:'1/1', minHeight:'0'}}
                                   >
                                     {isFree ? (
-                                      <span className="text-[#2563eb] font-black text-[10px] sm:text-[11px] leading-none">★</span>
+                                      <span className="text-[#2563eb] font-black text-[9px] leading-none">★</span>
                                     ) : (
-                                      <span className={`text-[9px] sm:text-[10px] font-black ${
+                                      <span className={`text-[8px] sm:text-[9px] font-black leading-none ${
                                         isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950 font-black' : 'text-slate-900'
                                       }`}>
                                         {val}

@@ -232,12 +232,12 @@ export default function CardNumberSelector({
             <div className="min-w-0">
               <h3 className="font-black text-slate-950 text-sm leading-tight truncate">
                 {isSpecial
-                  ? (isAm ? 'ካርድ ቁጥር ይምረጡ (#65676)' : 'Pick Card Number (#65676)')
+                  ? (isAm ? 'ካርድ ቁጥር ይምረጡ (1-500)' : 'Pick Card Number (1–500 Grid)')
                   : (isAm ? `ካርዶችን በቀጥታ ይግዙ (1–${TOTAL_NUMBERS})` : `Tap Cards to Buy (1–${TOTAL_NUMBERS})`)}
               </h3>
               <p className="text-[10px] text-emerald-700 font-bold truncate">
                 {isSpecial
-                  ? (isAm ? `⭐ ከ${MIN_CARDS}–${MAX_CARDS} ካርዶች · ካርድ ቁጥር ያስገቡ ወይም ከነሲብ ይምረጡ` : `⭐ Min ${MIN_CARDS} / Max ${MAX_CARDS} · Enter card # or pick random`)
+                  ? (isAm ? `⭐ ከ${MIN_CARDS}–${MAX_CARDS} ካርዶች · ቁጥር ሲጫኑ ይምረጣሉ` : `⭐ Min ${MIN_CARDS} / Max ${MAX_CARDS} · Tap number to select`)
                   : (isAm
                     ? `⭐ ከ${MIN_CARDS}–${MAX_CARDS} ካርዶች · ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል`
                     : `⭐ Min ${MIN_CARDS} / Max ${MAX_CARDS} · Tap any number → instant purchase`)}
@@ -430,21 +430,23 @@ export default function CardNumberSelector({
           </div>
         </div>
 
-        {/* Master Lottery Board Grid — only for FETAN & WEEKEND (hidden for SPECIAL) */}
-        {!isSpecial && (
+        {/* Master Lottery Board Grid — for ALL game modes */}
         <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs flex-1 flex flex-col min-h-0">
           <div className="flex items-center justify-between mb-1.5 px-1 shrink-0">
             <div>
               <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider block">
-                {isAm ? `የቁጥሮች ሰንጠረዥ (1–${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`}
+                {isSpecial
+                  ? (isAm ? 'ካርድ ቁጥር ምረጡ (1–500 ፈጣን ምርጫ)' : 'Pick Card Number (1–500 Quick Grid or enter above)')
+                  : (isAm ? `የቁጥሮች ሰንጠረዥ (1–${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`)
+                }
               </span>
               <span className="text-[9px] text-amber-600 font-bold block">
-                {isAm ? '⚡ ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል' : '⚡ Tap any card → instant purchase (no Buy button)'}
+                {isAm ? '⚡ ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል' : '⚡ Tap any number → instant select'}
               </span>
             </div>
           </div>
-          <div className={`grid ${colClass} gap-0.5 sm:gap-1 overflow-y-auto pr-0.5`}>
-            {Array.from({ length: TOTAL_NUMBERS }, (_, i) => i + 1).map((num) => {
+          <div className={`grid ${isSpecial ? 'grid-cols-10' : colClass} gap-0.5 sm:gap-1 overflow-y-auto pr-0.5`}>
+            {Array.from({ length: isSpecial ? 500 : TOTAL_NUMBERS }, (_, i) => i + 1).map((num) => {
               const bought = purchasedSet.has(num);
               const sold = soldSet.has(num);
               const isMax = purchasedCount >= MAX_CARDS;
@@ -470,7 +472,6 @@ export default function CardNumberSelector({
             })}
           </div>
         </div>
-        )}
 
         {/* Messages */}
         {(purchaseMsg || errorMsg) && (

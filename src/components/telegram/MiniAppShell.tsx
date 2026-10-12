@@ -480,15 +480,8 @@ export default function MiniAppShell({
                         <span className="flex items-center gap-1 text-amber-700 font-black">
                           🏆 {language === 'am' ? 'ሽልማት' : 'Prize'}: <strong className="text-amber-900">{formatETB(getGameLivePrizePool(g))}</strong>
                         </span>
-                        <span className="flex items-center gap-1 text-emerald-700 font-black">
-                          <Users className="w-3 h-3" />
-                          {g.currentPlayers || 0} {language === 'am' ? 'ተጫዋቾች' : 'players'}
-                        </span>
-                        {categoryTab === 'FETAN' && (
-                          <span className="text-amber-800 font-bold text-[10px]">
-                            ⚡ {language === 'am' ? '1 ደቂቃ ዙር' : '1 Min Round'}
-                          </span>
-                        )}
+
+
                         {categoryTab === 'WEEKEND' && (
                           <span className="text-purple-800 font-bold text-[10px]">
                             🏆 {language === 'am' ? '30k+ ብር ጃክፖት' : '30k+ ETB Jackpot'}
@@ -1261,64 +1254,8 @@ function WeekendLotteryNumberPicker({
 
 
 
-      {/* ⏳ TIMING CLOCK BANNER */}
-      {mode === 'FETAN' ? (
-        <div className={`mx-2 mt-2 p-2.5 rounded-2xl border text-white shadow-md flex items-center justify-between gap-2 ${
-          fetanIsIntermission 
-            ? 'bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-950 border-emerald-400/50' 
-            : 'bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border-amber-400/40'
-        }`}>
-          <div className="flex items-center gap-2 min-w-0">
-            <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0 animate-pulse ${
-              fetanIsIntermission ? 'bg-emerald-400/20 text-emerald-400' : 'bg-amber-400/20 text-amber-400'
-            }`}>
-              {fetanIsIntermission ? '🎟️' : '⚡'}
-            </div>
-            <div className="min-w-0">
-              <span className={`text-[9px] uppercase tracking-widest font-black block leading-none ${
-                fetanIsIntermission ? 'text-emerald-300' : 'text-amber-300'
-              }`}>
-                {fetanIsIntermission 
-                  ? (isAm ? 'የካርድ መምረጫ ጊዜ (30 ሰከንድ):' : 'PICK YOUR CARDS (30s INTERMISSION):')
-                  : (isAm ? 'ፈጣን ዙር በመካሄድ ላይ (1 ደቂቃ):' : 'FAST ROUND IN PROGRESS (1 MIN):')
-                }
-              </span>
-              <span className="text-[10px] text-slate-300 font-bold truncate block mt-0.5">
-                {fetanIsIntermission 
-                  ? (isAm ? 'ካርዶችን ይምረጡ · ቀጣዩ ዙር በቅርቡ ይጀምራል' : 'Select your cards now · Next round starting!')
-                  : (isAm ? `ዙሩ በ ${fetanSeconds} ሰከንድ ውስጥ ይጠናቀቃል · 30 ሰከንድ ምርጫ ይቀጥላል` : `Round ends in ${fetanSeconds}s · 30s card pick follows`)
-                }
-              </span>
-            </div>
-          </div>
-          <div className={`px-3 py-1 rounded-xl border font-mono font-black text-sm tracking-widest tabular-nums shadow-inner shrink-0 ${
-            fetanIsIntermission 
-              ? 'bg-emerald-400/10 border-emerald-400/50 text-emerald-300 animate-pulse'
-              : 'bg-amber-400/10 border-amber-400/40 text-amber-300'
-          }`}>
-            00:{fetanSeconds.toString().padStart(2, '0')}
-          </div>
-        </div>
-      ) : mode === 'SPECIAL' ? (
-        <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-indigo-400/40 text-white shadow-md flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-base shrink-0 animate-pulse">
-              🎲
-            </div>
-            <div className="min-w-0">
-              <span className="text-[9px] uppercase tracking-widest text-indigo-300 font-black block leading-none">
-                {isAm ? 'የስፔሻል ክፍል ካርድ መምረጫ:' : 'SPECIAL CARD SELECTION:'}
-              </span>
-              <span className="text-[10px] text-slate-300 font-bold truncate block mt-0.5">
-                {selectedGame?.name || 'Hyper Special'} · {isAm ? 'እስከ 5 ካርዶች ይምረጡ' : 'Select up to 5 cards (S1..S5)'}
-              </span>
-            </div>
-          </div>
-          <div className="px-3 py-1 rounded-xl bg-indigo-400/10 border border-indigo-400/40 text-indigo-300 font-mono font-black text-xs tracking-wider shrink-0">
-            {selectedGame?.status === 'RUNNING' ? '● LIVE' : 'STARTING'}
-          </div>
-        </div>
-      ) : null}
+
+
 
       {/* ── Subgroup / Stake Tier Selector ── */}
       {mode === 'WEEKEND' ? (
@@ -1456,7 +1393,7 @@ function WeekendLotteryNumberPicker({
                   </span>
                   {filled ? (
                     <span className="text-xs font-black font-mono tabular-nums text-slate-950 truncate">
-                      #{String(num).padStart(4, '0')}
+                      #{num}
                     </span>
                   ) : (
                     <span className="text-[10px] text-slate-400 font-bold">
