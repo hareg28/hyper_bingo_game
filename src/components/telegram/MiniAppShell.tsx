@@ -1208,7 +1208,7 @@ function WeekendLotteryNumberPicker({
               </h3>
               <span className="text-[10px] text-slate-500 font-bold">
                 {mode === 'FETAN' 
-                  ? (isAm ? '1 ደቂቃ ዙር · 30 ሰከንድ ካርድ መምረጫ · 500 ካርዶች' : '1 Min Round · 30s Card Pick · 500 Cards')
+                  ? (isAm ? '30 ሰከንድ ካርድ መምረጫ · 500 ካርዶች' : '30s Card Pick · 500 Cards')
                   : mode === 'SPECIAL'
                   ? (isAm ? `${entryPrice} ብር · ልዩ የማሸነፊያ ሕግ` : `${entryPrice} ETB · Rotating Special Law`)
                   : (isAm ? '50 ብር · 2:00 እና 6:00 PM · ሙሉ ቤት ብቻ (24/24)' : '50 ETB · 2:00 PM & 6:00 PM · Full House Only')}
