@@ -32,7 +32,7 @@ export default function CardNumberSelector({
   gameId,
   mode = 'SPECIAL',
 }: CardNumberSelectorProps) {
-  const { t, language, purchaseLotteryNumbers, getLotterySoldNumbers, refundLotteryNumber, wallet } = useBingo();
+  const { t, language, purchaseLotteryNumbers, getLotterySoldNumbers, refundLotteryNumber, wallet, userCards } = useBingo();
   const isAm = language === 'am';
 
   const TOTAL_NUMBERS = mode === 'FETAN' ? 500 : mode === 'SPECIAL' ? 99999 : 1500;
@@ -93,8 +93,21 @@ export default function CardNumberSelector({
     return getLotterySoldNumbers(gameId);
   }, [gameId, getLotterySoldNumbers, purchaseMsg, purchasedNumbers]);
 
-  const purchasedSet = new Set(purchasedNumbers.map((s) => parseInt(s, 10)).filter((n) => !Number.isNaN(n)));
-  const purchasedCount = purchasedNumbers.length;
+  const purchasedSet = React.useMemo(() => {
+    const set = new Set<number>();
+    purchasedNumbers.forEach((s) => {
+      const n = parseInt(s, 10);
+      if (!Number.isNaN(n)) set.add(n);
+    });
+    if (gameId && userCards) {
+      userCards.filter((c) => c.gameId === gameId).forEach((c) => {
+        const n = parseInt(c.cardNumber, 10);
+        if (!Number.isNaN(n)) set.add(n);
+      });
+    }
+    return set;
+  }, [purchasedNumbers, gameId, userCards]);
+  const purchasedCount = purchasedSet.size;
   const totalSpent = purchasedCount * entryPrice;
   const playableBalance = wallet.availableBalance + wallet.bonusBalance;
 
@@ -492,7 +505,7 @@ export default function CardNumberSelector({
                     disabled={(sold && !bought) || (isMax && !bought)}
                     className={`h-7 sm:h-8 rounded-md text-[10px] sm:text-xs font-black tabular-nums transition-all border select-none flex items-center justify-center shrink-0 ${
                       bought
-                        ? 'bg-amber-400 border-amber-500 text-slate-950 shadow shadow-amber-300 scale-105 ring-2 ring-amber-500 z-10'
+                        ? 'bg-amber-400 border-amber-500 text-slate-950 shadow shadow-amber-300 scale-105 ring-2 ring-amber-500 z-10 cursor-pointer'
                         : sold
                         ? 'bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed font-medium'
                         : isMax

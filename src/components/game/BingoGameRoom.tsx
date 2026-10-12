@@ -277,27 +277,36 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const [specialIsIntermission, setSpecialIsIntermission] = useState<boolean>(false);
   const hasGameWinner = Boolean((currentGame.winners && currentGame.winners.length > 0) || currentGame.status === 'COMPLETED');
 
-  // When a winner claims Bingo or game finishes in Fetan, transition to 30s intermission
-  useEffect(() => {
-    if (!isFetanGame) return;
-    if (hasGameWinner && !fetanIsIntermission) {
-      setFetanIsIntermission(true);
-      setFetanOvertime(false);
-      setFetanSecondsLeft(30);
-      setIsAutoDrawing(false);
-    }
-  }, [hasGameWinner, isFetanGame, fetanIsIntermission]);
+  // Unified 10-second winner announcement countdown for ALL games (redirects to card buy board)
+  const [announcementSecondsLeft, setAnnouncementSecondsLeft] = useState<number>(10);
 
-  // Hyper Special intermission when round finishes:
-  // After a game concludes, triggers 25s intermission before advancing to next game with NEW LAW and NEW PRICE
   useEffect(() => {
-    if (!isSpecialGame) return;
-    if (hasGameWinner && !specialIsIntermission) {
-      setSpecialIsIntermission(true);
-      setSpecialSecondsLeft(25);
-      setIsAutoDrawing(false);
-    }
-  }, [hasGameWinner, isSpecialGame, specialIsIntermission]);
+    if (!hasGameWinner) return;
+
+    setAnnouncementSecondsLeft(10);
+    setIsAutoDrawing(false);
+
+    const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      setAnnouncementSecondsLeft((prev) => {
+        if (prev <= 1) {
+          // Exactly 10 seconds finished! Redirect to card buy board
+          clearInterval(timer);
+          setShowWinnerModal(false);
+          resetGameRound(currentGame.id);
+          if (onOpenLotteryTab) {
+            onOpenLotteryTab();
+          } else {
+            setIsSelectorOpen(true);
+          }
+          return 10;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [hasGameWinner, currentGame.id, resetGameRound, onOpenLotteryTab]);
 
   // Auto-show winner announcement celebration modal to EVERYONE when a winner claims Bingo!
   const prevWinnersCountRef = React.useRef(currentGame.winners?.length || 0);
@@ -1811,7 +1820,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       key={num}
                       className={`h-4 sm:h-4.5 rounded text-[8px] sm:text-[9px] font-bold flex items-center justify-center transition-all ${
                         isCurrent
-                          ? 'bg-amber-400 text-slate-950 font-black scale-105 shadow-xs ring-1 ring-amber-400 z-10'
+                          ? 'bg-yellow-300 text-slate-950 font-black scale-125 shadow-[0_0_12px_3px_rgba(250,204,21,0.85)] ring-2 ring-yellow-400 animate-pulse z-20 brightness-110'
                           : isDrawn
                           ? `${row.color} font-black shadow-xs`
                           : 'bg-white text-slate-400 border border-slate-100'
@@ -1932,11 +1941,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                         {formatETB(latestWinner.prizeWon)}
                       </span>
                     )}
-                    {isSpecialGame && specialIsIntermission && (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-mono font-black animate-pulse">
-                        ⏳ {specialSecondsLeft}s
-                      </span>
-                    )}
+                    <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-mono font-black animate-pulse">
+                      ⏳ {announcementSecondsLeft}s {language === 'am' ? 'ወደ ካርድ መግዣ...' : 'to card board...'}
+                    </span>
                   </div>
                   <p className={`text-[11px] font-medium leading-tight mt-0.5 ${isSpecialGame ? 'text-indigo-200' : 'text-slate-900'}`}>
                     {isSpecialGame
@@ -2462,7 +2469,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                           key={num}
                           className={`h-5 rounded-md text-[9px] font-bold flex items-center justify-center transition-all ${
                             isCurrent
-                              ? 'bg-amber-400 text-slate-950 font-black scale-110 shadow-xs ring-1 ring-amber-400'
+                              ? 'bg-yellow-300 text-slate-950 font-black scale-125 shadow-[0_0_12px_3px_rgba(250,204,21,0.85)] ring-2 ring-yellow-400 animate-pulse z-20 brightness-110'
                               : isDrawn
                               ? `${row.color} font-black`
                               : 'bg-white text-slate-700 border border-slate-200'
@@ -2714,7 +2721,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 }}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:brightness-105 text-slate-950 font-black text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-1.5"
               >
-                <span>🎮 {isSpecialGame ? (language === 'am' ? 'ቀጣይ ዙር (አዲስ ሕግና ዋጋ)' : 'Play Next Round (New Law & Price)') : (language === 'am' ? 'ቀጣይ ዙር ይጫወቱ (አዲስ ካርድ ይግዙ)' : 'Play Next Round (Purchase New Cards)')}</span>
+                <span>🎮 {isSpecialGame ? (language === 'am' ? `ቀጣይ ዙር (${announcementSecondsLeft}s)` : `Play Next Round (${announcementSecondsLeft}s)`) : (language === 'am' ? `ቀጣይ ዙር ይጫወቱ (${announcementSecondsLeft}s)` : `Play Next Round (${announcementSecondsLeft}s)`)}</span>
               </button>
               <div className="flex items-center gap-2">
                 {onBack && (

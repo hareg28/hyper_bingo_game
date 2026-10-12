@@ -1108,13 +1108,24 @@ function WeekendLotteryNumberPicker({
   const canAfford = playableBalance >= totalCost;
   const firstEmptySlotIdx = slotNumbers.findIndex((n) => n === null);
 
+  const userPurchasedNumbers = React.useMemo(() => {
+    if (!selectedGame) return new Set<number>();
+    const set = new Set<number>();
+    userCards.filter((c) => c.gameId === selectedGame.id).forEach((c) => {
+      const n = parseInt(c.cardNumber, 10);
+      if (!Number.isNaN(n)) set.add(n);
+    });
+    slotNumbers.forEach((n) => { if (n !== null) set.add(n); });
+    return set;
+  }, [selectedGame?.id, userCards, slotNumbers]);
+
   const handlePickNumber = (num: number) => {
     if (!user) { openAuthModal('register'); return; }
-    if (soldSet.has(num)) return;
     if (!selectedGame) return;
 
-    // Toggle: if already purchased, unselect (refund)
-    if (activeSlotSet.has(num)) {
+    // Toggle: if already selected/purchased by this user, unselect (refund)!
+    const isAlreadyPicked = activeSlotSet.has(num) || userPurchasedNumbers.has(num);
+    if (isAlreadyPicked) {
       const refundRes = refundLotteryNumber(selectedGame.id, num);
       if (refundRes.success) {
         setSlotNumbers((prev) => prev.map((n) => (n === num ? null : n)));
@@ -1123,6 +1134,8 @@ function WeekendLotteryNumberPicker({
       setTimeout(() => setPurchaseFeedback(null), 2500);
       return;
     }
+
+    if (soldSet.has(num)) return;
 
     // Check if player has already reached max 5 cards
     if (slotCountFilled >= NUM_SLOTS || firstEmptySlotIdx < 0) {
@@ -1532,7 +1545,7 @@ function WeekendLotteryNumberPicker({
           <div className="grid grid-cols-10 gap-1 sm:gap-1.5">
             {Array.from({ length: TOTAL_NUMBERS }, (_, i) => i + 1).map((num) => {
               const sold = soldSet.has(num);
-              const inSlot = activeSlotSet.has(num);
+              const inSlot = activeSlotSet.has(num) || userPurchasedNumbers.has(num);
               return (
                 <button
                   key={num}
@@ -1541,7 +1554,7 @@ function WeekendLotteryNumberPicker({
                   disabled={sold && !inSlot}
                   className={`h-8 sm:h-9 rounded-lg text-xs font-black tabular-nums transition-all border select-none flex items-center justify-center ${
                     inSlot
-                      ? 'bg-amber-400 border-amber-500 text-slate-950 shadow shadow-amber-300 scale-105 ring-2 ring-amber-500 z-10'
+                      ? 'bg-amber-400 border-amber-500 text-slate-950 shadow shadow-amber-300 scale-105 ring-2 ring-amber-500 z-10 cursor-pointer'
                       : sold
                       ? 'bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed font-medium'
                       : 'bg-white border-slate-300 text-slate-950 hover:bg-amber-50 hover:border-amber-400 active:scale-95 cursor-pointer shadow-2xs'
