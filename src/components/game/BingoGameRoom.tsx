@@ -1487,6 +1487,27 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
             )}
           </div>
+
+          {/* Show Less / Show More toggle */}
+          {showMoreNumbers ? (
+            <button
+              type="button"
+              onClick={() => setShowMoreNumbers(false)}
+              className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600 pt-0.5 cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
+              <span>{language === 'am' ? 'ከሌላ በኩል አሳይ' : 'Show Less'}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowMoreNumbers(true)}
+              className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600 pt-0.5 cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
+              <span>{language === 'am' ? 'በጣም አሳይ' : 'Show More'}</span>
+            </button>
+          )}
         </div>
       ) : (
         /* ── Hyper Weekend: Styled Gradient Header + Cards ── */
@@ -1685,7 +1706,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       )}
 
       {/* ── CARD 2: 75-Ball Master Table (Compact 1-Screen Layout for Fetan & Special) ── */}
-      {(isFetanGame || isSpecialGame) && (
+      {(isFetanGame || isSpecialGame) && showMoreNumbers && (
         <>
       {/* ================================================================
           CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
