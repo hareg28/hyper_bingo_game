@@ -1473,26 +1473,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </div>
           </div>
 
-          {/* Sold Cards (visible to everyone) */}
-          <div className="flex items-center gap-1.5 px-1 pt-0.5">
-            <div className="flex items-center gap-1 text-[10px] font-black text-rose-600">
-              <span>🛒</span>
-              <span>{language === 'am' ? 'የተሸጡ ካርዶች' : 'SOLD CARDS'}</span>
-              <span className="bg-rose-100 text-rose-700 px-1.5 rounded-full">{soldNumbers?.size || 0}</span>
-            </div>
-            {soldNumbers && soldNumbers.size > 0 && (
-              <div className="flex-1 flex gap-1 overflow-x-auto no-scrollbar">
-                {Array.from(soldNumbers).slice(-20).map((n) => (
-                  <span
-                    key={n}
-                    className="shrink-0 text-[9px] font-mono font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded"
-                  >
-                    #{n}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+
 
           {/* Controls: Hit, Sound only — no Auto button */}
           <div className="flex items-center gap-1.5 px-1 pt-0.5">
@@ -1618,26 +1599,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             )}
           </div>
 
-          {/* Sold Cards (visible to everyone) */}
-          <div className="flex items-center gap-1.5 px-1">
-            <div className="flex items-center gap-1 text-[10px] font-black text-rose-600">
-              <span>🛒</span>
-              <span>{language === 'am' ? 'የተሸጡ ካርዶች' : 'SOLD CARDS'}</span>
-              <span className="bg-rose-100 text-rose-700 px-1.5 rounded-full">{soldNumbers?.size || 0}</span>
-            </div>
-            {soldNumbers && soldNumbers.size > 0 && (
-              <div className="flex-1 flex gap-1 overflow-x-auto no-scrollbar">
-                {Array.from(soldNumbers).slice(-20).map((n) => (
-                  <span
-                    key={n}
-                    className="shrink-0 text-[9px] font-mono font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded"
-                  >
-                    #{n}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+
 
           {/* Show Less / Show More toggle below header (Special/Weekend) */}
           {showMoreNumbers ? (

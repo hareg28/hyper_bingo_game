@@ -119,16 +119,8 @@ export default function CardNumberSelector({
       return false;
     }
 
-    if (purchasedCount >= MAX_CARDS) {
-      setErrorMsg(
-        isAm
-          ? `ከፍተኛው ${MAX_CARDS} ካርዶች ተሞልተዋል! (Max ${MAX_CARDS} cards reached)`
-          : `Maximum ${MAX_CARDS} cards reached for this round!`
-      );
-      setTimeout(() => setErrorMsg(''), 3000);
-      return false;
-    }
-
+    // 1. UNSELECT / REFUND MUST BE CHECKED FIRST!
+    // Even if player reached max cards, they MUST be able to tap an existing card to unselect it!
     if (purchasedSet.has(num)) {
       const label = String(num);
       if (gameId) {
@@ -146,8 +138,18 @@ export default function CardNumberSelector({
             : `Card #${label} unselected`
         );
       }
-      setPurchasedNumbers((prev) => prev.filter((n) => n !== label));
+      setPurchasedNumbers((prev) => prev.filter((n) => n !== label && parseInt(n, 10) !== num));
       return true;
+    }
+
+    if (purchasedCount >= MAX_CARDS) {
+      setErrorMsg(
+        isAm
+          ? `ከፍተኛው ${MAX_CARDS} ካርዶች ተሞልተዋል! (Max ${MAX_CARDS} cards reached)`
+          : `Maximum ${MAX_CARDS} cards reached for this round!`
+      );
+      setTimeout(() => setErrorMsg(''), 3000);
+      return false;
     }
 
     if (soldSet.has(num)) {
@@ -465,7 +467,15 @@ export default function CardNumberSelector({
                   {isAm ? `የቁጥሮች ሰንጠረዥ (1–${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`}
                 </span>
                 <span className="text-[9px] text-amber-600 font-bold block">
-                  {isAm ? '⚡ ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል' : '⚡ Tap any number → instant purchase'}
+                  {isAm ? '⚡ ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል / ለመሰረዝ ድጋሚ ይጫኑ' : '⚡ Tap number to buy · tap again to unselect'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                <span className="text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-lg">
+                  {soldSet.size} {isAm ? 'የተሸጡ ካርዶች' : 'sold cards'}
+                </span>
+                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg font-black">
+                  {Math.max(0, TOTAL_NUMBERS - soldSet.size)} {isAm ? 'ያልተሸጡ ካርዶች' : 'unsold cards'}
                 </span>
               </div>
             </div>
@@ -484,7 +494,7 @@ export default function CardNumberSelector({
                       bought
                         ? 'bg-amber-400 border-amber-500 text-slate-950 shadow shadow-amber-300 scale-105 ring-2 ring-amber-500 z-10'
                         : sold
-                        ? 'bg-slate-200 border-slate-300 text-slate-500 cursor-not-allowed line-through decoration-slate-400/80 font-bold'
+                        ? 'bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed font-medium'
                         : isMax
                         ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
                         : 'bg-white border-slate-300 text-slate-950 hover:bg-amber-50 hover:border-amber-400 active:scale-95 cursor-pointer shadow-2xs'

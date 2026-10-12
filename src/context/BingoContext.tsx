@@ -1219,16 +1219,46 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const removeCard = (cardId: string) => {
     const card = userCards.find((c) => c.id === cardId);
     if (!card) return;
+    const game = games.find((g) => g.id === card.gameId);
+    const refundAmount = game?.entryPrice || 10;
+
     setUserCards((prev) => prev.filter((c) => c.id !== cardId));
     const num = parseInt(card.cardNumber, 10);
     if (!Number.isNaN(num)) {
       setLotterySoldMap((prev) => {
         const cur = new Set(prev[card.gameId] || []);
         cur.delete(num);
+        cur.delete(card.cardNumber as any);
         return { ...prev, [card.gameId]: cur };
       });
     }
-    addNotification('🗑️ Card Removed', `Card #${card.cardNumber} removed from your hand.`, 'info');
+
+    // Refund entry price
+    let newAvail = wallet.availableBalance + refundAmount;
+    setWallet((prev) => {
+      newAvail = prev.availableBalance + refundAmount;
+      const updated = { ...prev, availableBalance: newAvail };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
+
+    // If user has no more cards in this game, decrement player count
+    const remaining = userCards.filter(
+      (c) => c.gameId === card.gameId && c.id !== cardId && c.userId === card.userId
+    );
+    if (remaining.length === 0) {
+      setGames((prev) =>
+        prev.map((g) =>
+          g.id === card.gameId ? { ...g, currentPlayers: Math.max(0, (g.currentPlayers || 1) - 1) } : g
+        )
+      );
+    }
+
+    addNotification('🗑️ Card Removed', `Card #${card.cardNumber} removed and ${refundAmount} ETB refunded.`, 'info');
   };
 
   // 6. CREATE GAME (ADMIN)
@@ -1762,23 +1792,31 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const game = games.find((g) => g.id === gameId);
     if (!game) return { success: false, message: 'Game not found.' };
 
-    const soldSet = lotterySoldMap[gameId];
-    if (!soldSet || !soldSet.has(number)) {
-      return { success: false, message: 'Number was not purchased.' };
-    }
+    const numInt = typeof number === 'number' ? number : parseInt(String(number), 10);
+    const label = String(numInt);
 
-    const label = formatLotteryCardNumber(number);
+    // Check if card is owned by user in userCards OR marked in lotterySoldMap
+    const userHasCard = userCards.some(
+      (c) => c.gameId === gameId && (c.cardNumber === label || parseInt(c.cardNumber, 10) === numInt)
+    );
+    const soldSet = lotterySoldMap[gameId];
+    const isMarkedSold = soldSet && (soldSet.has(numInt) || (soldSet as any).has(label));
+
+    if (!userHasCard && !isMarkedSold) {
+      return { success: false, message: 'Card not found in your cards.' };
+    }
 
     // Remove from sold set
     setLotterySoldMap((prev) => {
       const current = new Set(prev[gameId] || []);
-      current.delete(number);
+      current.delete(numInt);
+      current.delete(label as any);
       return { ...prev, [gameId]: current };
     });
 
     // Remove the corresponding user card
     setUserCards((prev) =>
-      prev.filter((c) => !(c.gameId === gameId && c.cardNumber === label))
+      prev.filter((c) => !(c.gameId === gameId && (c.cardNumber === label || parseInt(c.cardNumber, 10) === numInt)))
     );
 
     // Refund entry price
@@ -1800,7 +1838,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     // Decrement player count if user has no more cards in this game
     const remainingCardsForGame = userCards.filter(
-      (c) => c.gameId === gameId && c.cardNumber !== label && c.userId === user.id
+      (c) => c.gameId === gameId && c.cardNumber !== label && parseInt(c.cardNumber, 10) !== numInt && c.userId === user.id
     );
     if (remainingCardsForGame.length === 0) {
       setGames((prev) =>

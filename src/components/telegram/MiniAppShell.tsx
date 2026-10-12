@@ -1519,12 +1519,12 @@ function WeekendLotteryNumberPicker({
                 {isAm ? '⚡ ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል (1-5 ካርዶች)' : '⚡ Tap any card to purchase instantly (Min 1, Max 5)'}
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-emerald-700 font-black bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                ✓ {TOTAL_NUMBERS - soldSet.size} {isAm ? 'ነፃዎች' : 'Available'}
+            <div className="flex items-center gap-1.5 text-[10px] font-bold">
+              <span className="text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-lg">
+                {soldSet.size} {isAm ? 'የተሸጡ ካርዶች' : 'sold cards'}
               </span>
-              <span className="text-[10px] text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                ✗ {soldSet.size} {isAm ? 'የተሸጡ' : 'Sold'}
+              <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg font-black">
+                {Math.max(0, TOTAL_NUMBERS - soldSet.size)} {isAm ? 'ያልተሸጡ ካርዶች' : 'unsold cards'}
               </span>
             </div>
           </div>
@@ -1543,7 +1543,7 @@ function WeekendLotteryNumberPicker({
                     inSlot
                       ? 'bg-amber-400 border-amber-500 text-slate-950 shadow shadow-amber-300 scale-105 ring-2 ring-amber-500 z-10'
                       : sold
-                      ? 'bg-slate-200 border-slate-300 text-slate-500 cursor-not-allowed line-through decoration-slate-400/80 font-bold'
+                      ? 'bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed font-medium'
                       : 'bg-white border-slate-300 text-slate-950 hover:bg-amber-50 hover:border-amber-400 active:scale-95 cursor-pointer shadow-2xs'
                   }`}
                 >
