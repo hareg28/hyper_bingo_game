@@ -1413,9 +1413,20 @@ function WeekendLotteryNumberPicker({
                   )}
                 </div>
                 {filled ? (
-                  <span className="text-[9px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full border border-emerald-300">
-                    ✓ {isAm ? 'ተገዝቷል' : 'Paid'}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedGame) return;
+                      const refundRes = refundLotteryNumber(selectedGame.id, num!);
+                      setSlotNumbers((prev) => prev.map((n) => (n === num ? null : n)));
+                      setPurchaseFeedback(refundRes.message || (isAm ? `ካርድ #${num} ተወግዷል` : `Card #${num} removed`));
+                      setTimeout(() => setPurchaseFeedback(null), 2500);
+                    }}
+                    className="text-[9px] font-black text-rose-700 bg-rose-100 hover:bg-rose-200 px-1.5 py-0.5 rounded-full border border-rose-300 flex items-center gap-0.5 cursor-pointer shrink-0 transition"
+                    title={isAm ? 'ካርድ አውጣ (Unselect)' : 'Unselect card'}
+                  >
+                    ✕ {isAm ? 'አውጣ' : 'Remove'}
+                  </button>
                 ) : (
                   <span className="text-slate-300 text-xs font-black shrink-0">+</span>
                 )}
@@ -1488,8 +1499,8 @@ function WeekendLotteryNumberPicker({
                   }`}
                 >
                   <span className="text-sm font-black">#{num}</span>
-                  <span className={`text-[9px] font-bold ${inSlot ? 'text-slate-950' : 'text-slate-500'}`}>
-                    {inSlot ? (isAm ? '✓ የተመረጠ' : '✓ Selected') : (isAm ? 'ነፃ ካርድ' : 'Available')}
+                  <span className={`text-[9px] font-bold ${inSlot ? 'text-rose-700' : 'text-slate-500'}`}>
+                    {inSlot ? (isAm ? '✓ ተመርጧል · ጠቅ ይንሱ' : '✓ Selected · tap to unselect') : (isAm ? 'ነፃ ካርድ' : 'Available')}
                   </span>
                 </button>
               );
