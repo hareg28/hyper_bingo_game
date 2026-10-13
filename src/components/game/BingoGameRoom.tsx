@@ -202,7 +202,15 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const isWeekendLive = computeIsWeekendLive(currentGame);
 
   // Outside scheduled live draw times, weekend games remain in scheduled/open entry mode without auto-drawing
-  const [isAutoDrawing, setIsAutoDrawing] = useState(() => !isWeekendGame || computeIsWeekendLive(currentGame));
+  const [isAutoDrawing, setIsAutoDrawing] = useState(() => {
+    if (isWeekendGame) return computeIsWeekendLive(currentGame);
+    const isSpecial = currentGame.category === 'HYPER_SPECIAL' || currentGame.gameType === 'HYPER_SPECIAL';
+    if (isSpecial) {
+      if (currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) return false;
+      if (currentGame.drawnNumbers.length === 0 && (!currentGame.winners || currentGame.winners.length === 0)) return false;
+    }
+    return true;
+  });
   const [claimStatus, setClaimStatus] = useState<{ success?: boolean; message?: string; prize?: number } | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
@@ -277,9 +285,35 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   const isFetanGame = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.winningRule === 'ONE_LINE_OR_CORNERS';
   const isSpecialGame = currentGame.category === 'HYPER_SPECIAL' || currentGame.gameType === 'HYPER_SPECIAL';
-  const [specialSecondsLeft, setSpecialSecondsLeft] = useState<number>(300);
-  const [specialIsIntermission, setSpecialIsIntermission] = useState<boolean>(false);
+  const [specialSecondsLeft, setSpecialSecondsLeft] = useState<number>(() => {
+    if (isSpecialGame) {
+      if (currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) {
+        return Math.max(0, Math.ceil((currentGame.nextRoundStartsAt - Date.now()) / 1000));
+      }
+      if (currentGame.drawnNumbers.length === 0 && (!currentGame.winners || currentGame.winners.length === 0)) {
+        return 300;
+      }
+    }
+    return 300;
+  });
+  const [specialIsIntermission, setSpecialIsIntermission] = useState<boolean>(() => {
+    if (!isSpecialGame) return false;
+    if (currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) return true;
+    if (currentGame.drawnNumbers.length === 0 && (!currentGame.winners || currentGame.winners.length === 0)) return true;
+    return false;
+  });
   const hasGameWinner = Boolean((currentGame.winners && currentGame.winners.length > 0) || currentGame.status === 'COMPLETED');
+
+  // Sync specialIsIntermission if currentGame.nextRoundStartsAt updates
+  useEffect(() => {
+    if (!isSpecialGame) return;
+    if (currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) {
+      const remaining = Math.max(0, Math.ceil((currentGame.nextRoundStartsAt - Date.now()) / 1000));
+      setSpecialSecondsLeft(remaining);
+      setSpecialIsIntermission(true);
+      setIsAutoDrawing(false);
+    }
+  }, [isSpecialGame, currentGame.nextRoundStartsAt]);
 
   // Unified 10-second winner announcement countdown for ALL games (redirects to card buy board or 5-min special gap)
   const [announcementSecondsLeft, setAnnouncementSecondsLeft] = useState<number>(10);
@@ -302,6 +336,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             // For Hyper Special: enter 5-minute intermission between rounds!
             setSpecialIsIntermission(true);
             setSpecialSecondsLeft(300);
+            setIsAutoDrawing(false);
           } else if (onOpenLotteryTab) {
             onOpenLotteryTab();
           } else {
@@ -820,15 +855,17 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   // Auto Draw interval timer simulation — calls balls automatically without requiring player action
   // Pauses when the page/app is hidden (backgrounded) to prevent phone freezing/stacking
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
+    const isSpecialIntermissionNow = isSpecialGame && (
+      specialIsIntermission || (currentGame.nextRoundStartsAt ? Date.now() < currentGame.nextRoundStartsAt : false)
+    );
+
     const canAutoDraw = isAutoDrawing && 
       currentGame && 
       currentGame.status !== 'COMPLETED' && 
       (!currentGame.winners || currentGame.winners.length === 0) &&
       currentGame.drawnNumbers.length < 75 && 
       !fetanIsIntermission &&
-      !specialIsIntermission &&
+      !isSpecialIntermissionNow &&
       (!isWeekendGame || isWeekendLive);
 
     if (canAutoDraw) {
@@ -844,7 +881,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       }, Math.max(2500, (currentGame.drawInterval || 3) * 1000));
     }
     return () => clearInterval(interval);
-  }, [isAutoDrawing, currentGame, drawNextBall, soundEnabled, fetanIsIntermission, isWeekendGame, isWeekendLive]);
+  }, [isAutoDrawing, currentGame, drawNextBall, soundEnabled, fetanIsIntermission, specialIsIntermission, isSpecialGame, isWeekendGame, isWeekendLive]);
 
   // Automatically trigger Winner Celebration Modal when game ends or a winner is registered
   useEffect(() => {
@@ -1871,8 +1908,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 type="button"
                 onClick={() => {
                   resetGameRound(currentGame.id);
-                  setSpecialIsIntermission(false);
                   if (isSpecialGame) {
+                    setSpecialIsIntermission(true);
+                    setSpecialSecondsLeft(300);
+                    setIsAutoDrawing(false);
                     setIsSelectorOpen(true);
                   } else if (onOpenLotteryTab) {
                     onOpenLotteryTab();
@@ -1897,6 +1936,26 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         {isSpecialGame ? (
           /* ── Hyper Special: 2 Slots Per Screen with Rectangular Number Cells ── */
           <div className="space-y-2 pb-24">
+            {/* 5-minute Intermission Countdown Banner for Hyper Special */}
+            {specialIsIntermission && (
+              <div className="mx-1 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 p-2.5 rounded-xl border border-amber-500 shadow-xs flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">⏳</span>
+                  <div>
+                    <span className="text-xs font-black block leading-tight">
+                      {language === 'am' ? 'ካርድ ይምረጡ · ቀጣዩ ዙር ይጀምራል:' : 'Pick Cards · Next Round Starts In:'}
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-950 block leading-tight">
+                      {language === 'am' ? 'ከታች (+) በመጫን ካርድ ይምረጡ (ከ1-5 ካርዶች)' : 'Tap (+) button to select & register cards'}
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-slate-950 text-amber-300 font-mono font-black text-sm px-2.5 py-1 rounded-lg border border-amber-400 shrink-0 shadow-xs">
+                  {formatTimeRemaining(specialSecondsLeft)}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between px-1.5 pt-0.5 text-xs">
               <span className="font-black text-slate-700">
                 {language === 'am' ? 'የተመረጡ ካርዶች' : 'Selected Cards'}: {activeGameCards.length}/30
@@ -2767,6 +2826,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   resetGameRound(currentGame.id);
                   setShowWinnerModal(false);
                   if (isSpecialGame) {
+                    setSpecialIsIntermission(true);
+                    setSpecialSecondsLeft(300);
+                    setIsAutoDrawing(false);
                     setIsSelectorOpen(true);
                   } else if (onOpenLotteryTab) {
                     onOpenLotteryTab();

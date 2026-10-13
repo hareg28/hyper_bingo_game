@@ -1495,6 +1495,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           status: 'OPEN',
           activeSpecialRuleIndex: nextSpecialIndex,
           entryPrice: nextPrice,
+          nextRoundStartsAt: isSpecial ? Date.now() + 5 * 60 * 1000 : undefined,
         };
       })
     );
@@ -1729,6 +1730,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const game = games.find((g) => g.id === gameId);
     if (!game) return null;
     if (game.status === 'COMPLETED' || (game.winners && game.winners.length > 0)) return null;
+
+    const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL';
+    if (isSpecial && game.nextRoundStartsAt && Date.now() < game.nextRoundStartsAt) {
+      return null;
+    }
 
     const drawnSet = new Set(game.drawnNumbers);
     if (drawnSet.size >= 75) return null;
