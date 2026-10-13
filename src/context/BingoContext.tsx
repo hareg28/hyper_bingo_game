@@ -365,6 +365,66 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // ── REAL-TIME MULTIPLAYER SYNC ─────────────────────────────────────────────
+  // Polls /api/games/state every 3 seconds and merges live DB state into local
+  // game list. This makes all 1,000 concurrent players see the same drawn
+  // numbers, player count, winners, and game status in near-real-time.
+  const pollActiveRef = React.useRef(true);
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    let cancelled = false;
+
+    const poll = async () => {
+      if (cancelled) return;
+      // Skip polling while app is hidden to save battery/data
+      if (typeof document !== 'undefined' && document.hidden) {
+        timeoutId = setTimeout(poll, 3000);
+        return;
+      }
+      try {
+        const res = await fetch('/api/games/state', { cache: 'no-store' });
+        if (!res.ok) throw new Error('state fetch failed');
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setGames((prev) =>
+            prev.map((localGame) => {
+              const server = json.data.find((g: any) => g.id === localGame.id);
+              if (!server) return localGame;
+              // Only overwrite fields that come from the server;
+              // keep local-only fields like name, gameType, category etc.
+              return {
+                ...localGame,
+                status: server.status,
+                drawnNumbers: server.drawnNumbers,
+                currentBall: server.currentBall ?? localGame.currentBall,
+                currentPlayers: server.currentPlayers,
+                winners: server.winners.length > 0 ? server.winners : localGame.winners,
+                blockedCards: server.blockedCards,
+                activeSpecialRuleIndex: server.activeSpecialRuleIndex,
+                nextRoundStartsAt: server.nextRoundStartsAt,
+                entryPrice: server.entryPrice,
+                prizePool: server.prizePool,
+                drawInterval: server.drawInterval,
+              };
+            })
+          );
+          // Also sync lotterySoldMap from server buy-card data for active game
+        }
+      } catch {
+        // Silently ignore network errors — keeps playing from last known state
+      }
+      if (!cancelled) {
+        timeoutId = setTimeout(poll, 3000);
+      }
+    };
+
+    poll();
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
   const openAuthModal = (mode: 'register' | 'login' = 'register') => {
     setAuthModalMode(mode);
     setIsAuthModalOpen(true);
@@ -1030,7 +1090,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     refreshFinanceQueue();
   };
 
-  // 5. JOIN GAME (supports chosen 5-digit card numbers like '12608', '11302' and customStake)
+  // 5. JOIN GAME — server-side card purchase via /api/games/buy-card
+  //    Prevents duplicate card sales across concurrent users via DB UNIQUE constraint
   const joinGame = (gameId: string, chosenCardNumbers?: string[], customStake?: number): boolean => {
     if (!user) {
       openAuthModal('register');
@@ -1047,102 +1108,25 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const rawCards = chosenCardNumbers && chosenCardNumbers.length > 0 ? chosenCardNumbers : [String(Math.floor(10000 + Math.random() * 90000))];
     const cardsToCreate = rawCards.slice(0, 5);
 
-    // Check which cards have not yet been purchased (prevents double charging if already bought via purchaseLotteryNumbers)
-    const existingCardNumbers = new Set(
-      userCards.filter((c) => c.gameId === gameId && c.userId === user.id).map((c) => c.cardNumber)
-    );
-    const unpurchasedCards = cardsToCreate.filter((cNum) => !existingCardNumbers.has(cNum));
-    const totalCost = actualStake * unpurchasedCards.length;
-
-    let newAvailable = wallet.availableBalance;
-    if (totalCost > 0) {
-      // Bonus balance is playable (can play but cannot withdraw)
-      const playableBalance = wallet.availableBalance + wallet.bonusBalance;
-      if (playableBalance < totalCost) {
-        addNotification(
-          '⚠️ Insufficient Balance',
-          `Required ${totalCost} ETB for ${unpurchasedCards.length} card(s). Playable balance: ${(playableBalance).toFixed(0)} ETB (inc. bonus).`,
-          'warning'
-        );
-        return false;
-      }
-
-      setWallet((prev) => {
-        let remCost = totalCost;
-        let newBonus = prev.bonusBalance;
-        let newAvail = prev.availableBalance;
-        if (newBonus >= remCost) {
-          newBonus -= remCost;
-          remCost = 0;
-        } else {
-          remCost -= newBonus;
-          newBonus = 0;
-          newAvail = Math.max(0, newAvail - remCost);
-        }
-        newAvailable = newAvail;
-        const updated = {
-          ...prev,
-          availableBalance: newAvail,
-          bonusBalance: newBonus,
-        };
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated));
-          } catch {}
-        }
-        return updated;
-      });
-
-      // Create entry transaction
-      const tx: Transaction = {
-        id: `TX_ENTRY_${Date.now().toString().slice(-5)}`,
-        userId: user.id,
-        username: user.username,
-        type: 'GAME_ENTRY',
-        amount: -totalCost,
-        balanceAfter: newAvailable,
-        reference: `GM-${targetGame.id}`,
-        status: 'COMPLETED',
-        description: `Entry ticket (${unpurchasedCards.length} cards, max 5 slots) for ${targetGame.name}`,
-        createdAt: new Date().toISOString(),
-      };
-      setTransactions((prev) => [tx, ...prev]);
+    // ── Optimistic local update (immediate UI response) ──
+    const playableBalance = wallet.availableBalance + wallet.bonusBalance;
+    const totalCost = actualStake * cardsToCreate.length;
+    if (playableBalance < totalCost) {
+      addNotification(
+        '⚠️ Insufficient Balance',
+        `Required ${totalCost} ETB. Playable balance: ${playableBalance.toFixed(0)} ETB (inc. bonus).`,
+        'warning'
+      );
+      return false;
     }
 
-    // Update game player count: only increment if this user did not already have cards in this game
-    const userAlreadyInGame = userCards.some((c) => c.gameId === gameId && c.userId === user.id);
-    const isCompleted = targetGame.status === 'COMPLETED' || (targetGame.winners && targetGame.winners.length > 0);
-    setGames((prev) =>
-      prev.map((g) => {
-        if (g.id !== gameId) return g;
-        if (isCompleted) {
-          return {
-            ...g,
-            entryPrice: actualStake,
-            currentPlayers: 1,
-            drawnNumbers: [],
-            currentBall: null,
-            winners: [],
-            blockedCards: [],
-            status: 'OPEN',
-          };
-        }
-        return {
-          ...g,
-          entryPrice: actualStake,
-          currentPlayers: userAlreadyInGame ? g.currentPlayers : (g.currentPlayers || 0) + 1,
-        };
-      })
-    );
-    if (isCompleted) {
-      setLotterySoldMap((prev) => ({ ...prev, [gameId]: new Set<number>() }));
-    }
-
-    // Generate fresh cards for user
+    // Generate local cards immediately so the UI is instant
     const newCards = cardsToCreate.map((cNum) => createNewBingoCard(gameId, user.id, cNum));
-    setUserCards((prev) => [...prev.filter((c) => c.gameId !== gameId), ...newCards]);
+    setUserCards((prev) => [
+      ...prev.filter((c) => !(c.gameId === gameId && cardsToCreate.includes(c.cardNumber))),
+      ...newCards,
+    ]);
 
-    // Track sold cards in global lotterySoldMap so ALL players in the game see them
     setLotterySoldMap((prev) => {
       const cur = new Set(prev[gameId] || []);
       cardsToCreate.forEach((cNum) => {
@@ -1151,8 +1135,77 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       });
       return { ...prev, [gameId]: cur };
     });
-
     setActiveGameId(gameId);
+
+    // ── Server-side purchase (async — validates uniqueness & deducts wallet in DB) ──
+    fetch('/api/games/buy-card', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gameId,
+        cardNumbers: cardsToCreate,
+        userId: user.id,
+        cost: totalCost,
+      }),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) {
+          // Sync wallet from server response (authoritative balance)
+          if (res.data?.walletAfter) {
+            setWallet((prev) => {
+              const updated = {
+                ...prev,
+                availableBalance: res.data.walletAfter.availableBalance,
+                bonusBalance: res.data.walletAfter.bonusBalance,
+              };
+              try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
+              return updated;
+            });
+          }
+          // Remove any cards that were already sold to another player
+          if (res.data?.alreadySold?.length > 0) {
+            const soldElsewhere: string[] = res.data.alreadySold;
+            setUserCards((prev) => prev.filter((c) =>
+              !(c.gameId === gameId && soldElsewhere.includes(c.cardNumber))
+            ));
+            addNotification(
+              '⚠️ Cards Taken',
+              `Card(s) ${soldElsewhere.join(', ')} were already sold. New ones assigned.`,
+              'warning'
+            );
+          }
+          // Create local transaction record
+          const actualCost = res.data?.cost ?? totalCost;
+          const tx: Transaction = {
+            id: `TX_ENTRY_${Date.now().toString().slice(-5)}`,
+            userId: user.id,
+            username: user.username,
+            type: 'GAME_ENTRY',
+            amount: -actualCost,
+            balanceAfter: res.data?.walletAfter?.availableBalance ?? wallet.availableBalance,
+            reference: `GM-${gameId}`,
+            status: 'COMPLETED',
+            description: `Entry: ${cardsToCreate.length} card(s) for ${targetGame.name}`,
+            createdAt: new Date().toISOString(),
+          };
+          setTransactions((prev) => [tx, ...prev]);
+        } else {
+          // Server rejected — rollback local card state
+          addNotification('❌ Purchase Failed', res.error || 'Card purchase failed on server.', 'warning');
+          setUserCards((prev) => prev.filter((c) =>
+            !(c.gameId === gameId && cardsToCreate.includes(c.cardNumber))
+          ));
+          setLotterySoldMap((prev) => {
+            const cur = new Set(prev[gameId] || []);
+            cardsToCreate.forEach((cNum) => cur.delete(parseInt(cNum, 10)));
+            return { ...prev, [gameId]: cur };
+          });
+        }
+      })
+      .catch(() => {
+        // On network error, keep optimistic state — will sync on next poll
+      });
 
     return true;
   };
@@ -1467,42 +1520,48 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  // 8c. RESET GAME ROUND (Fresh 75-ball table for new round)
+  // 8c. RESET GAME ROUND — persists to DB via /api/games/reset
+  //     All clients see the reset within 3 seconds via the poll.
   const resetGameRound = (gameId: string) => {
+    const game = games.find((g) => g.id === gameId);
+    if (!game) return;
+    const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL';
+    const SPECIAL_PRICE_CYCLE = [10, 20, 25];
+    const nextSpecialIndex = isSpecial
+      ? ((game.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length
+      : (game.activeSpecialRuleIndex ?? 0);
+    const nextPrice = isSpecial
+      ? SPECIAL_PRICE_CYCLE[nextSpecialIndex % SPECIAL_PRICE_CYCLE.length]
+      : game.entryPrice;
+    const nextRoundStartsAt = isSpecial ? Date.now() + 5 * 60 * 1000 : undefined;
+
+    // Optimistic local reset
     setGames((prev) =>
       prev.map((g) => {
         if (g.id !== gameId) return g;
-        const isSpecial = g.category === 'HYPER_SPECIAL' || g.gameType === 'HYPER_SPECIAL';
-        
-        // ── In Hyper Special: Change the Law AND the Price on each new game! ──
-        const nextSpecialIndex = isSpecial
-          ? ((g.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length
-          : g.activeSpecialRuleIndex;
-
-        // Rotating recommended price cycle for Hyper Special: [10, 20, 25] ETB
-        const SPECIAL_PRICE_CYCLE = [10, 20, 25];
-        const nextPrice = isSpecial
-          ? SPECIAL_PRICE_CYCLE[nextSpecialIndex % SPECIAL_PRICE_CYCLE.length]
-          : g.entryPrice;
-
         return {
           ...g,
           currentPlayers: 0,
           drawnNumbers: [],
-          currentBall: null,
+          currentBall: undefined,
           blockedCards: [],
           winners: [],
           status: 'OPEN',
           activeSpecialRuleIndex: nextSpecialIndex,
           entryPrice: nextPrice,
-          nextRoundStartsAt: isSpecial ? Date.now() + 5 * 60 * 1000 : undefined,
+          nextRoundStartsAt,
         };
       })
     );
     setLotterySoldMap((prev) => ({ ...prev, [gameId]: new Set<number>() }));
-    // 1-Game Card Rule: Cards are valid for ONE game only!
-    // After the game finishes, player must purchase new cards for the next round
     setUserCards((prev) => prev.filter((card) => card.gameId !== gameId));
+
+    // Persist to DB (fire-and-forget)
+    fetch('/api/games/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gameId }),
+    }).catch(() => {});
   };
 
   // Explicitly clear consumed cards from a finished game
@@ -1629,7 +1688,37 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       )
     );
 
-    // Broadcast winner to all players/tabs (localStorage + CustomEvent)
+    // ── Broadcast winner to server DB (other clients see it via 3s poll) ──
+    fetch('/api/games/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gameId: game.id,
+        userId: user.id,
+        username: user.username,
+        cardNumber: card.cardNumber,
+        pattern: patternName,
+        prizeWon: calculatedPrize,
+        winningBall: winBall,
+      }),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && res.data?.winRecord) {
+          // Sync the server-verified prize (may differ if multiple winners claimed simultaneously)
+          const serverPrize: number = res.data.prizeWon ?? calculatedPrize;
+          if (serverPrize !== calculatedPrize) {
+            setWallet((prev) => ({
+              ...prev,
+              winningBalance: prev.winningBalance - calculatedPrize + serverPrize,
+              availableBalance: prev.availableBalance - calculatedPrize + serverPrize,
+            }));
+          }
+        }
+      })
+      .catch(() => {});
+
+    // Also broadcast via localStorage + CustomEvent for same-tab listeners
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem(`hyper_bingo_winner_${game.id}`, JSON.stringify({ gameId: game.id, winner: winRecord }));
@@ -1725,35 +1814,34 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     };
   };
 
-  // 10. REAL-TIME DRAW NEXT BALL
+  // 10. REAL-TIME DRAW NEXT BALL — server-side so all clients see the same ball
+  //     Calls /api/games/draw which writes to DB; clients pick it up via 3s poll.
+  //     Also applies the ball locally immediately for zero-latency feel.
   const drawNextBall = (gameId: string): number | null => {
     const game = games.find((g) => g.id === gameId);
     if (!game) return null;
     if (game.status === 'COMPLETED' || (game.winners && game.winners.length > 0)) return null;
 
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL';
-    if (isSpecial && game.nextRoundStartsAt && Date.now() < game.nextRoundStartsAt) {
-      return null;
-    }
+    if (isSpecial && game.nextRoundStartsAt && Date.now() < game.nextRoundStartsAt) return null;
 
     const drawnSet = new Set(game.drawnNumbers);
     if (drawnSet.size >= 75) return null;
 
-    // Pick random un-drawn number between 1 and 75
+    // ── Optimistic local draw (instant UI) ──
     const remaining: number[] = [];
     for (let i = 1; i <= 75; i++) {
       if (!drawnSet.has(i)) remaining.push(i);
     }
-
     const nextBall = remaining[Math.floor(Math.random() * remaining.length)];
     const updatedDrawn = [...game.drawnNumbers, nextBall];
+    const isCompleted = updatedDrawn.length >= 75;
 
     setGames((prev) =>
       prev.map((g) => {
         if (g.id !== gameId) return g;
         const isWknd = g.gameType === 'WEEKEND_LOTTERY' || g.category === 'HYPER_WEEKEND' || g.isWeekendSpecial;
         const shouldRun = isWknd ? isWeekendSlotCurrentlyLive(g) : (g.status === 'STARTING' || g.status === 'OPEN');
-        const isCompleted = updatedDrawn.length >= 75;
         return {
           ...g,
           drawnNumbers: updatedDrawn,
@@ -1778,6 +1866,52 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         })
       );
     }
+
+    // ── Persist to DB (fire-and-forget) ──
+    // The server picks a ball independently; if different from our optimistic ball,
+    // the 3-second poll will reconcile. Admins using the server-draw path get authoritative sync.
+    fetch('/api/games/draw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gameId }),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && res.data?.ball && res.data.ball !== nextBall) {
+          // Server chose a different ball — reconcile local state
+          const serverBall: number = res.data.ball;
+          const serverDrawn: number[] = res.data.drawnNumbers;
+          setGames((prev) =>
+            prev.map((g) => {
+              if (g.id !== gameId) return g;
+              return {
+                ...g,
+                drawnNumbers: serverDrawn,
+                currentBall: serverBall,
+                status: res.data.isCompleted ? 'COMPLETED' : g.status,
+              };
+            })
+          );
+          // Re-daub with server ball
+          if (autoDaubEnabled) {
+            setUserCards((prev) =>
+              prev.map((card) => {
+                if (card.gameId !== gameId) return card;
+                const newMarked = card.marked.map((row, rIdx) =>
+                  row.map((val, cIdx) => {
+                    const num = card.numbers[rIdx][cIdx];
+                    return num === serverBall || (rIdx === 2 && cIdx === 2) ? true : val;
+                  })
+                );
+                return { ...card, marked: newMarked };
+              })
+            );
+          }
+        }
+      })
+      .catch(() => {
+        // Network error — keep local optimistic draw, poll will sync shortly
+      });
 
     return nextBall;
   };

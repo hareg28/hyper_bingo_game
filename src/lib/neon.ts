@@ -116,20 +116,61 @@ export async function initDatabaseSchema() {
       );
     `;
 
-    // 6. Games Table
+    // 6. Games Table (expanded for full multiplayer support)
     await sql`
       CREATE TABLE IF NOT EXISTS games (
         id VARCHAR(64) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         game_type VARCHAR(64) NOT NULL,
+        category VARCHAR(64),
+        winning_rule VARCHAR(64),
         entry_price NUMERIC(10, 2) NOT NULL,
         prize_pool NUMERIC(12, 2) NOT NULL,
         status VARCHAR(64) NOT NULL,
         drawn_numbers INTEGER[] DEFAULT '{}',
         current_ball INTEGER,
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        current_players INTEGER DEFAULT 0,
+        winners JSONB DEFAULT '[]',
+        blocked_cards TEXT[] DEFAULT '{}',
+        active_special_rule_index INTEGER DEFAULT 0,
+        next_round_starts_at BIGINT,
+        draw_interval INTEGER DEFAULT 3,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
       );
     `;
+    // 6b. Safe ALTER for existing games table — add missing multiplayer columns
+    try {
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS category VARCHAR(64)`;
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS winning_rule VARCHAR(64)`;
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS current_players INTEGER DEFAULT 0`;
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS winners JSONB DEFAULT '[]'`;
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS blocked_cards TEXT[] DEFAULT '{}'`;
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS active_special_rule_index INTEGER DEFAULT 0`;
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS next_round_starts_at BIGINT`;
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS draw_interval INTEGER DEFAULT 3`;
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`;
+    } catch {}
+
+    // 8. Game Cards Table — server-side card ownership (prevents duplicate sales)
+    await sql`
+      CREATE TABLE IF NOT EXISTS game_cards (
+        id VARCHAR(64) PRIMARY KEY,
+        game_id VARCHAR(64) NOT NULL,
+        card_number VARCHAR(16) NOT NULL,
+        user_id VARCHAR(64) NOT NULL,
+        username VARCHAR(255),
+        cost NUMERIC(10,2) NOT NULL DEFAULT 0,
+        is_registered BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(game_id, card_number)
+      );
+    `;
+    try {
+      await sql`CREATE INDEX IF NOT EXISTS idx_game_cards_game_id ON game_cards(game_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_game_cards_user_id ON game_cards(user_id)`;
+      await sql`ALTER TABLE game_cards ADD COLUMN IF NOT EXISTS is_registered BOOLEAN DEFAULT FALSE`;
+    } catch {}
 
     // 7. Announcements Table
     await sql`
