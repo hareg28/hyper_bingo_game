@@ -1182,7 +1182,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   };
 
   // 75-Ball rows for master board (always visible inline, not a modal)
-  const drawnSet = new Set(currentGame.drawnNumbers);
+  const drawnSet = new Set(currentGame.drawnNumbers || []);
+  const cardDrawnSet = drawnSet;
   const drawnNumbersArr = currentGame.drawnNumbers || [];
   const currentBallNum = drawnNumbersArr.length > 0 ? drawnNumbersArr[drawnNumbersArr.length - 1] : null;
   const previousBalls = drawnNumbersArr.length > 1 ? drawnNumbersArr.slice(Math.max(0, drawnNumbersArr.length - 4), drawnNumbersArr.length - 1) : [];
@@ -1907,6 +1908,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             ) : (
               <div className="grid grid-cols-2 gap-2 pb-6">
                 {activeGameCards.map((card) => {
+                  const cardDrawnSet = new Set(currentGame.drawnNumbers || []);
                   const isRegistered = Boolean(card.isRegistered);
                   const effectiveCardMarked = (card.numbers || []).map((row, rIdx) =>
                     (row || []).map((val, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]) || cardDrawnSet.has(val))
