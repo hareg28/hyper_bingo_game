@@ -19,6 +19,49 @@ class AudioManager {
   private unlocked = false;
   private currentAudio: HTMLAudioElement | null = null;
   private audioCtx: AudioContext | null = null;
+  /** True while the app is hidden (backgrounded in Telegram). Calls are dropped, not queued. */
+  private hidden = false;
+
+  /**
+   * Call when the app goes to background (visibilitychange → hidden).
+   * Stops all audio and suspends the AudioContext to free CPU/memory.
+   */
+  pause(): void {
+    this.hidden = true;
+    // Stop any currently playing audio element
+    if (this.currentAudio) {
+      try {
+        this.currentAudio.pause();
+        this.currentAudio.currentTime = 0;
+      } catch {}
+      this.currentAudio = null;
+    }
+    // Cancel any queued SpeechSynthesis utterances
+    try {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    } catch {}
+    // Suspend AudioContext so it stops consuming CPU
+    try {
+      if (this.audioCtx && this.audioCtx.state === 'running') {
+        this.audioCtx.suspend().catch(() => {});
+      }
+    } catch {}
+  }
+
+  /**
+   * Call when the app comes back to the foreground (visibilitychange → visible).
+   * Resumes the AudioContext so future sounds work immediately.
+   */
+  resume(): void {
+    this.hidden = false;
+    try {
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+    } catch {}
+  }
 
   /**
    * Unlocks mobile browser autoplay policies on iOS/Android.
@@ -83,8 +126,11 @@ class AudioManager {
    */
   playCall(num: number, onFallback?: () => void): void {
     if (typeof window === 'undefined') return;
+    // Drop calls while app is hidden — prevents audio queue stacking when returning from another app
+    if (this.hidden) return;
 
     this.unlockAudio();
+
 
     if (this.currentAudio) {
       try {

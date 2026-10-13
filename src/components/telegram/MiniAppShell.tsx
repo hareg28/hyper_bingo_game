@@ -74,6 +74,25 @@ export default function MiniAppShell({
     refundLotteryNumber,
   } = useBingo();
 
+  // Ref: true while app is hidden in Telegram. Prevents state-update storms on return.
+  const isHiddenRef = React.useRef(typeof document !== 'undefined' && document.hidden);
+
+  // Central visibility manager — pauses/resumes audio and keeps isHiddenRef in sync
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVisibilityChange = () => {
+      const hidden = document.hidden;
+      isHiddenRef.current = hidden;
+      if (!hidden) {
+        // Re-expand Telegram WebApp when user returns (some phones collapse it)
+        try { (window as any).Telegram?.WebApp?.expand(); } catch {}
+      }
+    };
+    isHiddenRef.current = document.hidden;
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
+
   const [activeTab, setActiveTab] = useState<'lobby' | 'game' | 'wallet' | 'profile' | 'admin' | 'lottery'>(initialTab);
   const [copiedRef, setCopiedRef] = useState(false);
   const [categoryTab, setCategoryTab] = useState<'FETAN' | 'SPECIAL' | 'WEEKEND'>(initialTab === 'lottery' ? 'WEEKEND' : 'FETAN');
@@ -1056,7 +1075,7 @@ function WeekendLotteryNumberPicker({
   React.useEffect(() => {
     if (mode === 'FETAN') {
       const updateFetanClock = () => {
-        if (typeof document !== 'undefined' && document.hidden) return;
+        if (isHiddenRef.current) return;
         const nowSec = Math.floor(Date.now() / 1000);
         const cycle = nowSec % 90; // 60s live + 30s card pick
         if (cycle < 60) {
@@ -1072,7 +1091,7 @@ function WeekendLotteryNumberPicker({
       return () => clearInterval(interval);
     } else {
       const updateCountdown = () => {
-        if (typeof document !== 'undefined' && document.hidden) return;
+        if (isHiddenRef.current) return;
         const now = new Date();
         const currentHour = now.getHours();
         const currentMinute = now.getMinutes();

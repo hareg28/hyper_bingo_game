@@ -62,6 +62,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     toggleSpecialCardRegistration,
   } = useBingo();
 
+  // Ref that tracks whether the app is currently hidden (backgrounded).
+  // All interval callbacks check this ref first — prevents state-update storms when the
+  // user switches away to another app and comes back inside Telegram Mini App.
+  const isHiddenRef = React.useRef(typeof document !== 'undefined' && document.hidden);
+
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
   const [specialToast, setSpecialToast] = useState<string | null>(null);
@@ -144,6 +149,28 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     },
     []
   );
+
+  // ─── Central Visibility Manager ──────────────────────────────────────────
+  // One listener for the whole component. On hide: stops audio, suspends AudioContext.
+  // On show: resumes AudioContext. All setInterval callbacks use isHiddenRef.current.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVisibilityChange = () => {
+      const hidden = document.hidden;
+      isHiddenRef.current = hidden;
+      if (hidden) {
+        audioManager.pause(); // stops audio + suspends AudioContext
+        // Also cancel any stacked SpeechSynthesis utterances
+        try { window.speechSynthesis?.cancel(); } catch {}
+      } else {
+        audioManager.resume(); // wakes AudioContext back up
+      }
+    };
+    // Sync immediately in case page loads hidden
+    isHiddenRef.current = document.hidden;
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
 
   // Preload SpeechSynthesis voices via onvoiceschanged ASAP & after first sound toggle
   useEffect(() => {
@@ -241,7 +268,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // Live clock for header — skip update when page is hidden to save CPU
   useEffect(() => {
     const updateTime = () => {
-      if (typeof document !== 'undefined' && document.hidden) return;
+      if (isHiddenRef.current) return;
       const now = new Date();
       const h = now.getHours().toString().padStart(2, '0');
       const m = now.getMinutes().toString().padStart(2, '0');
@@ -271,7 +298,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   useEffect(() => {
     const timer = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
+      if (isHiddenRef.current) return;
       setSecondsRemaining(prev => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(timer);
@@ -325,7 +352,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     setIsAutoDrawing(false);
 
     const timer = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
+      if (isHiddenRef.current) return;
       setAnnouncementSecondsLeft((prev) => {
         if (prev <= 1) {
           // Exactly 10 seconds finished! Redirect to card buy board
@@ -365,7 +392,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     if (!isSpecialGame || !specialIsIntermission) return;
 
     const timer = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
+      if (isHiddenRef.current) return;
       setSpecialSecondsLeft((prev) => {
         if (prev <= 1) {
           // 5-min intermission finished -> automatically start drawing for the new round!
@@ -386,7 +413,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
     const timer = setInterval(() => {
       // Skip update when app is backgrounded (prevents stacking on mobile)
-      if (typeof document !== 'undefined' && document.hidden) return;
+      if (isHiddenRef.current) return;
       if (fetanIsIntermission) {
         // Intermission countdown: card picking
         setFetanSecondsLeft((prev) => {
@@ -871,7 +898,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     if (canAutoDraw) {
       interval = setInterval(() => {
         // Skip tick if app is backgrounded — prevents stacking/freezing on mobile
-        if (typeof document !== 'undefined' && document.hidden) return;
+        if (isHiddenRef.current) return;
         const next = drawNextBall(currentGame.id);
         if (!next) {
           setIsAutoDrawing(false);
@@ -881,7 +908,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       }, Math.max(2500, (currentGame.drawInterval || 3) * 1000));
     }
     return () => clearInterval(interval);
-  }, [isAutoDrawing, currentGame, drawNextBall, soundEnabled, fetanIsIntermission, specialIsIntermission, isSpecialGame, isWeekendGame, isWeekendLive]);
+  // Use stable primitives (id, status, drawnNumbers.length) instead of the whole currentGame
+  // object so the interval is NOT recreated on every single ball draw — major perf fix.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAutoDrawing, currentGame.id, currentGame.status, currentGame.drawnNumbers.length, drawNextBall, soundEnabled, fetanIsIntermission, specialIsIntermission, isSpecialGame, isWeekendGame, isWeekendLive]);
 
   // Automatically trigger Winner Celebration Modal when game ends or a winner is registered
   useEffect(() => {
