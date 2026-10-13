@@ -27,6 +27,11 @@ export default function GlobalError({
             A temporary issue occurred while loading this section.
           </span>
         </p>
+        {error?.message && (
+          <div className="text-[10px] text-rose-400/90 bg-rose-950/40 border border-rose-800/40 rounded-xl p-2.5 font-mono text-left max-h-24 overflow-y-auto break-all">
+            {error.message}
+          </div>
+        )}
         <div className="flex flex-col gap-2 pt-2">
           <button
             type="button"
