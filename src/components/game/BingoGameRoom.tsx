@@ -882,8 +882,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   // Auto Draw interval timer simulation — calls balls automatically without requiring player action
   // Pauses when the page/app is hidden (backgrounded) to prevent phone freezing/stacking
+  useEffect(() => {
+    let interval: NodeJS.Timeout | undefined;
     const isSpecialIntermissionNow = isSpecialGame && (
-      specialIsIntermission || (currentGame.nextRoundStartsAt ? Date.now() < currentGame.nextRoundStartsAt : false)
+      specialIsIntermission || (currentGame?.nextRoundStartsAt ? Date.now() < currentGame.nextRoundStartsAt : false)
     );
 
     const canAutoDraw = isAutoDrawing && 
@@ -907,11 +909,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         }
       }, Math.max(2500, (currentGame.drawInterval || 3) * 1000));
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   // Use stable primitives (id, status, drawnNumbers.length) instead of the whole currentGame
   // object so the interval is NOT recreated on every single ball draw — major perf fix.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAutoDrawing, currentGame.id, currentGame.status, currentGame.drawnNumbers.length, drawNextBall, soundEnabled, fetanIsIntermission, specialIsIntermission, isSpecialGame, isWeekendGame, isWeekendLive]);
+  }, [isAutoDrawing, currentGame?.id, currentGame?.status, currentGame?.drawnNumbers?.length, drawNextBall, soundEnabled, fetanIsIntermission, specialIsIntermission, isSpecialGame, isWeekendGame, isWeekendLive]);
 
   // Automatically trigger Winner Celebration Modal when game ends or a winner is registered
   useEffect(() => {
