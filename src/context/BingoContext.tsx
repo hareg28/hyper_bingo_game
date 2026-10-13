@@ -82,6 +82,7 @@ interface BingoContextType {
   claimBingo: (cardId: string) => { success: boolean; message: string; prize?: number };
   blockCard: (gameId: string, cardNumber: string) => void;
   resetGameRound: (gameId: string) => void;
+  startSpecialRound: (gameId: string) => void;
   clearConsumedCards: (gameId: string) => void;
   drawNextBall: (gameId: string) => number | null;
   dismissNotification: (id: string) => void;
@@ -1314,7 +1315,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       );
     }
 
-    addNotification('🗑️ Card Removed', `Card #${card.cardNumber} removed and ${refundAmount} ETB refunded.`, 'info');
+    // If Hyper Special, do not show card removal notification per requirement
+    const isSpecial = game?.category === 'HYPER_SPECIAL' || game?.gameType === 'HYPER_SPECIAL';
+    if (!isSpecial) {
+      addNotification('🗑️ Card Removed', `Card #${card.cardNumber} removed and ${refundAmount} ETB refunded.`, 'info');
+    }
   };
 
   // Add multiple cards for Hyper Special (options: 1, 2, 3, 5, 10 up to max 30)
@@ -1564,6 +1569,27 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }).catch(() => {});
   };
 
+  // 8d. START SPECIAL GAME ROUND — ends 5-min intermission & starts live drawing
+  const startSpecialRound = (gameId: string) => {
+    setGames((prev) =>
+      prev.map((g) => {
+        if (g.id !== gameId) return g;
+        return {
+          ...g,
+          status: 'RUNNING',
+          nextRoundStartsAt: undefined,
+        };
+      })
+    );
+
+    // Update DB to clear next_round_starts_at
+    fetch('/api/games/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gameId }),
+    }).catch(() => {});
+  };
+
   // Explicitly clear consumed cards from a finished game
   const clearConsumedCards = (gameId: string) => {
     setUserCards((prev) => prev.filter((card) => card.gameId !== gameId));
@@ -1642,12 +1668,20 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
 
     // ---- PRIZE LOGIC: 80% to winners (Derash) & 20% to owner ----
-    const soldCount = Math.max(
-      game.currentPlayers || 0,
-      (lotterySoldMap[game.id]?.size || 0),
-      userCards.filter(c => c.gameId === game.id).length,
-      1
-    );
+    const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL';
+    const specialRegisteredCards = userCards.filter(c => c.gameId === game.id && c.isRegistered);
+    const soldCount = isSpecial
+      ? Math.max(
+          lotterySoldMap[game.id]?.size || 0,
+          specialRegisteredCards.length,
+          1
+        )
+      : Math.max(
+          game.currentPlayers || 0,
+          (lotterySoldMap[game.id]?.size || 0),
+          userCards.filter(c => c.gameId === game.id).length,
+          1
+        );
     const totalCollected = Math.max(0, (game.entryPrice || 10) * soldCount);
     const ownerCut = Math.round(totalCollected * OWNER_CUT_PCT); // 20% owner
     const totalPrizePoolForWinners = isWeekend
@@ -2185,6 +2219,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         claimBingo,
         blockCard,
         resetGameRound,
+        startSpecialRound,
         clearConsumedCards,
         drawNextBall,
         dismissNotification,

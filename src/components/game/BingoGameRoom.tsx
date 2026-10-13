@@ -60,6 +60,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     getLotterySoldNumbers,
     addSpecialCards,
     toggleSpecialCardRegistration,
+    startSpecialRound,
   } = useBingo();
 
   // Ref that tracks whether the app is currently hidden (backgrounded).
@@ -233,6 +234,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     if (isWeekendGame) return computeIsWeekendLive(currentGame);
     const isSpecial = currentGame.category === 'HYPER_SPECIAL' || currentGame.gameType === 'HYPER_SPECIAL';
     if (isSpecial) {
+      if (currentGame.status === 'RUNNING' || currentGame.drawnNumbers.length > 0) return true;
       if (currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) return false;
       if (currentGame.drawnNumbers.length === 0 && (!currentGame.winners || currentGame.winners.length === 0)) return false;
     }
@@ -325,6 +327,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   });
   const [specialIsIntermission, setSpecialIsIntermission] = useState<boolean>(() => {
     if (!isSpecialGame) return false;
+    if (currentGame.status === 'RUNNING' || currentGame.drawnNumbers.length > 0) return false;
     if (currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) return true;
     if (currentGame.drawnNumbers.length === 0 && (!currentGame.winners || currentGame.winners.length === 0)) return true;
     return false;
@@ -334,13 +337,17 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // Sync specialIsIntermission if currentGame.nextRoundStartsAt updates
   useEffect(() => {
     if (!isSpecialGame) return;
+    if (currentGame.status === 'RUNNING' || currentGame.drawnNumbers.length > 0) {
+      setSpecialIsIntermission(false);
+      return;
+    }
     if (currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) {
       const remaining = Math.max(0, Math.ceil((currentGame.nextRoundStartsAt - Date.now()) / 1000));
       setSpecialSecondsLeft(remaining);
       setSpecialIsIntermission(true);
       setIsAutoDrawing(false);
     }
-  }, [isSpecialGame, currentGame.nextRoundStartsAt]);
+  }, [isSpecialGame, currentGame.nextRoundStartsAt, currentGame.status, currentGame.drawnNumbers.length]);
 
   // Unified 10-second winner announcement countdown for ALL games (redirects to card buy board or 5-min special gap)
   const [announcementSecondsLeft, setAnnouncementSecondsLeft] = useState<number>(10);
@@ -395,17 +402,24 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       if (isHiddenRef.current) return;
       setSpecialSecondsLeft((prev) => {
         if (prev <= 1) {
-          // 5-min intermission finished -> automatically start drawing for the new round!
+          // 5-min intermission finished -> automatically start the game!
+          clearInterval(timer);
           setSpecialIsIntermission(false);
           setIsAutoDrawing(true);
-          return 300;
+          startSpecialRound(currentGame.id);
+          // Draw first ball immediately to kick off the live game
+          setTimeout(() => {
+            const first = drawNextBall(currentGame.id);
+            if (first) announceBall(first);
+          }, 350);
+          return 0;
         }
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isSpecialGame, specialIsIntermission]);
+  }, [isSpecialGame, specialIsIntermission, currentGame.id, startSpecialRound, drawNextBall, announceBall]);
 
   // Fetan 1-second countdown ticker
   useEffect(() => {
@@ -885,7 +899,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   useEffect(() => {
     let interval: NodeJS.Timeout | undefined;
     const isSpecialIntermissionNow = isSpecialGame && (
-      specialIsIntermission || (currentGame?.nextRoundStartsAt ? Date.now() < currentGame.nextRoundStartsAt : false)
+      specialIsIntermission || (currentGame?.status !== 'RUNNING' && currentGame?.nextRoundStartsAt ? Date.now() < currentGame.nextRoundStartsAt : false)
     );
 
     const canAutoDraw = isAutoDrawing && 
@@ -1327,11 +1341,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   const gameShortId = (currentGame.id || 'game').slice(0, 8);
   const soldNumbers = getLotterySoldNumbers(currentGame.id);
-  const totalCardsSold = Math.max(
-    currentGame.currentPlayers || 0,
-    soldNumbers?.size || 0,
-    activeGameCards.length
-  );
+  const registeredCardsCount = activeGameCards.filter((c) => c.isRegistered).length;
+  const totalCardsSold = isSpecialGame
+    ? Math.max(soldNumbers?.size || 0, registeredCardsCount)
+    : Math.max(
+        currentGame.currentPlayers || 0,
+        soldNumbers?.size || 0,
+        activeGameCards.length
+      );
   const totalGrossMoney = (currentGame.entryPrice || 10) * totalCardsSold;
   const gamePrizeDisplay = (currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY')
     ? (currentGame.prizePool || 0)
@@ -1535,14 +1552,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               }) : null}
             </div>
 
-            {/* Intermission timer */}
-            {isSpecialGame && specialIsIntermission && (
-              <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
-                <span>⏳</span>
-                <span>{language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards'}:</span>
-                <span className="font-mono text-sm">{formatTimeRemaining(specialSecondsLeft)}</span>
-              </div>
-            )}
+            {/* Intermission timer for Fetan */}
             {isFetanGame && fetanIsIntermission && (
               <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
                 <span>⏳</span>
@@ -2064,9 +2074,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                         <button
                           type="button"
                           onClick={() => {
-                            const res = toggleSpecialCardRegistration(card.id);
-                            setSpecialToast(res.message);
-                            setTimeout(() => setSpecialToast(null), 3000);
+                            toggleSpecialCardRegistration(card.id);
+                            // Notification removed per requirement
                           }}
                           className={`w-full py-1 px-1 rounded-md font-bold text-[10px] sm:text-[11px] transition cursor-pointer shadow-2xs active:scale-95 ${
                             isRegistered
@@ -3057,10 +3066,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   key={qty}
                   type="button"
                   onClick={() => {
-                    const res = addSpecialCards(currentGame.id, qty);
-                    setSpecialToast(res.message);
+                    addSpecialCards(currentGame.id, qty);
                     setFabOpen(false);
-                    setTimeout(() => setSpecialToast(null), 3000);
+                    // Notification removed per requirement
                   }}
                   className="w-8 h-8 rounded-full bg-[#ef4444] hover:bg-[#dc2626] text-white font-bold text-xs flex items-center justify-center shadow-md active:scale-95 transition cursor-pointer"
                   title={`Add ${qty} cards`}

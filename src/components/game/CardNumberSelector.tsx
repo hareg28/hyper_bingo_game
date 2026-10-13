@@ -112,6 +112,7 @@ export default function CardNumberSelector({
   const playableBalance = wallet.availableBalance + wallet.bonusBalance;
 
   const showMessage = (msg: string) => {
+    if (isSpecial) return;
     setPurchaseMsg(msg);
     setTimeout(() => setPurchaseMsg(null), 2800);
   };
