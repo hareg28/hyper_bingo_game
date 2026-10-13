@@ -86,12 +86,13 @@ export async function POST(req: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           commands: [
-            { command: 'start',  description: '🎮 Start / ጀምር' },
-            { command: 'games',  description: '📋 Game list / ጨዋታዎች' },
-            { command: 'play',   description: '⚡ Play now / አሁን ጫወት' },
-            { command: 'wallet', description: '💳 Wallet / ሒሳብ' },
-            { command: 'admin',  description: '🛡️ Admin panel' },
-            { command: 'help',   description: '❓ Help / እርዳታ' },
+            { command: 'start',   description: '🎮 Start / ጀምር' },
+            { command: 'games',   description: '📋 Game list / ጨዋታዎች' },
+            { command: 'play',    description: '⚡ Play now / አሁን ጫወት' },
+            { command: 'lottery', description: '🌟 Weekend Lottery / ልዩ ሎተሪ' },
+            { command: 'wallet',  description: '💳 Wallet / ሒሳብ' },
+            { command: 'admin',   description: '🛡️ Admin panel' },
+            { command: 'help',    description: '❓ Help / እርዳታ' },
           ],
         }),
       }

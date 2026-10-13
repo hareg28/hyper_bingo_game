@@ -68,6 +68,7 @@ export default function MiniAppShell({
     t,
     openAuthModal,
     toggleUserRole,
+    userCards,
     getLotterySoldNumbers,
     purchaseLotteryNumbers,
     refundLotteryNumber,
@@ -75,9 +76,9 @@ export default function MiniAppShell({
 
   const [activeTab, setActiveTab] = useState<'lobby' | 'game' | 'wallet' | 'profile' | 'admin' | 'lottery'>(initialTab);
   const [copiedRef, setCopiedRef] = useState(false);
-  const [categoryTab, setCategoryTab] = useState<'FETAN' | 'SPECIAL' | 'WEEKEND'>('FETAN');
+  const [categoryTab, setCategoryTab] = useState<'FETAN' | 'SPECIAL' | 'WEEKEND'>(initialTab === 'lottery' ? 'WEEKEND' : 'FETAN');
   const [selectedWeekendDay, setSelectedWeekendDay] = useState<'FRI' | 'SAT' | 'SUN'>('FRI');
-  const [lotteryMode, setLotteryMode] = useState<'FETAN' | 'SPECIAL' | 'WEEKEND'>('FETAN');
+  const [lotteryMode, setLotteryMode] = useState<'FETAN' | 'SPECIAL' | 'WEEKEND'>(initialTab === 'lottery' ? 'WEEKEND' : 'FETAN');
   const [showLuckyWheel, setShowLuckyWheel] = useState(false);
   const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
 
@@ -120,19 +121,20 @@ export default function MiniAppShell({
       }
       const gParam = gameParam || (tgStart && tgStart.startsWith('gm_') ? tgStart : null);
       const catParam = urlParams.get('cat');
+      const tabParam = urlParams.get('tab');
       if (gParam) {
         setActiveGameId(gParam);
         setActiveTab('game');
       } else if (catParam === 'FETAN' || catParam === 'SPECIAL') {
         setCategoryTab(catParam);
         setActiveTab('lobby');
-      } else if (catParam === 'WEEKEND') {
+      } else if (catParam === 'WEEKEND' || tabParam === 'lottery' || initialTab === 'lottery') {
         setCategoryTab('WEEKEND');
         setLotteryMode('WEEKEND');
         setActiveTab('lottery');
       }
     }
-  }, [setActiveGameId]);
+  }, [setActiveGameId, initialTab, user, openAuthModal]);
 
   const isUserAdmin = Boolean(
     user && 
@@ -622,6 +624,7 @@ export default function MiniAppShell({
             games={games}
             user={user}
             wallet={wallet}
+            userCards={userCards}
             language={language}
             openAuthModal={openAuthModal}
             getLotterySoldNumbers={getLotterySoldNumbers}
@@ -958,6 +961,7 @@ function WeekendLotteryNumberPicker({
   games,
   user,
   wallet,
+  userCards = [],
   language,
   openAuthModal,
   getLotterySoldNumbers,
@@ -975,6 +979,7 @@ function WeekendLotteryNumberPicker({
   games: ReturnType<typeof useBingo>['games'];
   user: ReturnType<typeof useBingo>['user'];
   wallet: ReturnType<typeof useBingo>['wallet'];
+  userCards?: ReturnType<typeof useBingo>['userCards'];
   language: string;
   openAuthModal: (mode?: 'register' | 'login') => void;
   getLotterySoldNumbers: ReturnType<typeof useBingo>['getLotterySoldNumbers'];
@@ -1108,14 +1113,14 @@ function WeekendLotteryNumberPicker({
   const activeSlotSet = new Set(slotNumbers.filter((n): n is number => n !== null));
   const slotCountFilled = slotNumbers.filter((n) => n !== null).length;
   const totalCost = slotCountFilled * entryPrice;
-  const playableBalance = wallet.availableBalance + wallet.bonusBalance;
+  const playableBalance = (wallet?.availableBalance ?? 0) + (wallet?.bonusBalance ?? 0);
   const canAfford = playableBalance >= totalCost;
   const firstEmptySlotIdx = slotNumbers.findIndex((n) => n === null);
 
   const userPurchasedNumbers = React.useMemo(() => {
     if (!selectedGame) return new Set<number>();
     const set = new Set<number>();
-    userCards.filter((c) => c.gameId === selectedGame.id).forEach((c) => {
+    (userCards || []).filter((c) => c.gameId === selectedGame.id).forEach((c) => {
       const n = parseInt(c.cardNumber, 10);
       if (!Number.isNaN(n)) set.add(n);
     });
@@ -1372,7 +1377,7 @@ function WeekendLotteryNumberPicker({
             {isAm ? 'ቀሪ' : 'Balance'}
           </span>
           <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-emerald-800">
-            {wallet.availableBalance} ETB
+            {wallet?.availableBalance ?? 0} ETB
           </span>
         </div>
       </div>

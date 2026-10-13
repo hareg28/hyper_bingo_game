@@ -24,9 +24,13 @@ export default function PublicWebsitePage() {
       const tg = window.Telegram?.WebApp;
       const requestedGame = urlParams.get('game') || (tg?.initDataUnsafe as any)?.start_param;
 
+      const requestedCat = urlParams.get('cat');
+
       if (requestedGame) {
         setInitialGameId(requestedGame);
         setMiniAppTab('game');
+      } else if (requestedCat === 'WEEKEND') {
+        setMiniAppTab('lottery');
       } else if (
         requestedTab === 'admin' ||
         requestedTab === 'game' ||

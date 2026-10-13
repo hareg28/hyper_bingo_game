@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
         [
           { text: '⚡ Hyper Fetan', web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` } },
           { text: '🎲 Hyper Special', web_app: { url: `${appUrl}?tab=lobby&cat=SPECIAL` } },
-          { text: '🌟 Hyper Weekend', web_app: { url: `${appUrl}?tab=lottery` } },
+          { text: '🌟 Hyper Weekend', web_app: { url: `${appUrl}?tab=lottery&cat=WEEKEND` } },
         ],
         // Row 2 — Play + Wallet (+ Admin if applicable)
         admin
@@ -619,7 +619,16 @@ export async function POST(req: NextRequest) {
       }
 
       // ── /weekend, /lottery — Weekend lottery schedule & rules ───────────────────
-      if (text && (text.startsWith('/weekend') || text.startsWith('/lottery'))) {
+      const lowerText = text ? text.toLowerCase().trim() : '';
+      if (
+        text &&
+        (text.startsWith('/weekend') ||
+          text.startsWith('/lottery') ||
+          lowerText === 'lottery' ||
+          lowerText === 'weekend' ||
+          lowerText.includes('hyper weekend') ||
+          lowerText.includes('ሎተሪ'))
+      ) {
         await sendMessage({
           chat_id: chatId,
           parse_mode: 'HTML',
@@ -635,7 +644,7 @@ export async function POST(req: NextRequest) {
             `👉 @HyperBingoSupport`,
           reply_markup: {
             inline_keyboard: [[
-              { text: '🌟 Open Weekend Lottery (ካርድ ይግዙ)', web_app: { url: `${appUrl}?tab=lottery` } },
+              { text: '🌟 Open Weekend Lottery (ካርድ ይግዙ)', web_app: { url: `${appUrl}?tab=lottery&cat=WEEKEND` } },
             ]],
           },
         });

@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
             { text: '⚡ Hyper Fetan', web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` } },
           ],
           [
-            { text: '🌟 Hyper Weekend', web_app: { url: `${appUrl}?tab=lottery` } },
+            { text: '🌟 Hyper Weekend', web_app: { url: `${appUrl}?tab=lottery&cat=WEEKEND` } },
           ],
         ],
       };
