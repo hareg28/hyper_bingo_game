@@ -507,11 +507,8 @@ export default function MiniAppShell({
                         </span>
 
 
-                        {categoryTab === 'WEEKEND' && (
-                          <span className="text-purple-800 font-bold text-[10px]">
-                            🏆 {language === 'am' ? '30k+ ብር ጃክፖት' : '30k+ ETB Jackpot'}
-                          </span>
-                        )}
+
+
                         {g.blockedCards && g.blockedCards.length > 0 && (
                           <span className="text-rose-600 font-bold flex items-center gap-0.5 text-[10px]">
                             🚫 {g.blockedCards.length} {language === 'am' ? 'የታገዱ' : 'Blocked'}
