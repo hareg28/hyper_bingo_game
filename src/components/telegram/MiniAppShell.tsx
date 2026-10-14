@@ -1071,6 +1071,17 @@ function WeekendLotteryNumberPicker({
   const [fetanSeconds, setFetanSeconds] = React.useState(60);
   const [fetanIsIntermission, setFetanIsIntermission] = React.useState(false);
 
+  const isHiddenRef = React.useRef(typeof document !== 'undefined' && document.hidden);
+  React.useEffect(() => {
+    const handleVisibility = () => {
+      isHiddenRef.current = typeof document !== 'undefined' && document.hidden;
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibility);
+      return () => document.removeEventListener('visibilitychange', handleVisibility);
+    }
+  }, []);
+
   // Synchronized clocks: 60s active / 30s pick loop for Fetan; 2pm/5pm/7pm countdown for Weekend
   React.useEffect(() => {
     if (mode === 'FETAN') {

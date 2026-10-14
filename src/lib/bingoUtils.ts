@@ -809,6 +809,9 @@ export function detectWinningRules(
   ruleType?: 'ONE_LINE_OR_CORNERS' | 'STANDARD' | 'FULL_HOUSE_ONLY' | string,
   specialRuleIndex: number = 0
 ): WinningRuleMatch[] {
+  if (!marked || !Array.isArray(marked) || marked.length < 5) {
+    return [];
+  }
   // CATEGORY 1: HYPER FETAN
   // - 1 Horizontal Row
   // - 1 Vertical Column ("add vertical")
@@ -875,6 +878,9 @@ export function checkOneAwayStatus(
   ruleType?: 'ONE_LINE_OR_CORNERS' | 'STANDARD' | 'FULL_HOUSE_ONLY' | string,
   specialRuleIndex: number = 0
 ): OneAwayStatus {
+  if (!marked || !Array.isArray(marked) || marked.length < 5 || !numbers || !Array.isArray(numbers) || numbers.length < 5) {
+    return { isOneAway: false, neededNumber: null, neededCell: null, ruleLabel: '', ruleLabelAm: '' };
+  }
   // If already won a pattern according to this game's rule, not 1-away
   if (getBestWinningRule(marked, ruleType, specialRuleIndex)) {
     return { isOneAway: false, neededNumber: null, neededCell: null, ruleLabel: '', ruleLabelAm: '' };
@@ -1003,6 +1009,9 @@ export function getGameHitRequirement(
   language: string = 'en',
   specialRuleIndex: number = 0
 ): { isHit: boolean; hitTitle: string; hitDetail: string; neededNumber: number | null; progressText: string } {
+  if (!marked || !Array.isArray(marked) || marked.length < 5 || !numbers || !Array.isArray(numbers) || numbers.length < 5) {
+    return { isHit: false, hitTitle: '', hitDetail: '', neededNumber: null, progressText: '' };
+  }
   const isAm = language === 'am';
   const bestWin = getBestWinningRule(marked, ruleType, specialRuleIndex);
   if (bestWin) {
