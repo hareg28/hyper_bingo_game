@@ -595,12 +595,12 @@ export default function MiniAppShell({
                     </a>
                   </div>
                   <a
-                    href="https://t.me/HyperBingoSupport"
+                    href="https://t.me/HyperBingoETH"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[10px] text-slate-300 hover:text-amber-300 transition block leading-tight mt-1"
                   >
-                    @HyperBingoSupport
+                    @HyperBingoETH
                   </a>
                 </div>
                 <div className="text-right shrink-0">
@@ -863,8 +863,8 @@ export default function MiniAppShell({
                     </div>
                     <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
                       <span className="text-slate-400 text-[11px] font-medium">ቴሌግራም (Telegram):</span>
-                      <a href="https://t.me/HyperBingoSupport" target="_blank" rel="noopener noreferrer" className="font-bold text-amber-300 hover:underline">
-                        @HyperBingoSupport
+                      <a href="https://t.me/HyperBingoETH" target="_blank" rel="noopener noreferrer" className="font-bold text-amber-300 hover:underline">
+                        @HyperBingoETH
                       </a>
                     </div>
                     <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">

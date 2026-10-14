@@ -641,7 +641,7 @@ export async function POST(req: NextRequest) {
             `🎫 <i>ካርቴላ ሳያልቅ ቀድመው ይያዙ!</i>\n\n` +
             `❓ <b>ማንኛውም ጥያቄ ካለ:</b>\n` +
             `📞 0912738543\n` +
-            `👉 @HyperBingoSupport`,
+            `👉 @HyperBingoETH`,
           reply_markup: {
             inline_keyboard: [[
               { text: '🌟 Open Weekend Lottery (ካርድ ይግዙ)', web_app: { url: `${appUrl}?tab=lottery&cat=WEEKEND` } },

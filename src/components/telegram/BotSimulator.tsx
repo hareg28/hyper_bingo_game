@@ -51,7 +51,7 @@ export default function BotSimulator({
 
 ❓ ማንኛውም ጥያቄ ካለ
 📞 0912738543
-👉 @HyperBingoSupport`,
+👉 @HyperBingoETH`,
       buttons: [
         { 
           label: '🌟 ዓርብ፣ ቅዳሜ፣ እሑድ ሎተሪ (ካርድ ይግዙ)', 
@@ -299,7 +299,7 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
 
 ❓ ማንኛውም ጥያቄ ካለ
 📞 0912738543
-👉 @HyperBingoSupport`;
+👉 @HyperBingoETH`;
       buttons = [
         { 
           label: '🌟 ዓርብ፣ ቅዳሜ፣ እሑድ ሎተሪ (ካርድ ይግዙ)', 
@@ -356,8 +356,8 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
       }
     } else if (lowerCmd === '/help' || lowerCmd.includes('help') || lowerCmd.includes('እርዳታ')) {
       botResponseText = isAm 
-        ? `❓ **እርዳታ እና ድጋፍ**\n\n• እንዴት መጫወት ይቻላል: ትኬት ይግዙ፣ የወጡ ቁጥሮችን ምልክት ያድርጉ (daub)። መስመር ወይም ሙሉ ካርድ በመሙላት ያሸንፉ!\n• የደንበኞች ድጋፍ: @HyperBingoSupport\n• ስልክ: 0912738543`
-        : `❓ **Help & Support**\n\n• How to play: Purchase a ticket, daub numbers as drawn. Form a line or full house!\n• Support: @HyperBingoSupport\n• Phone: 0912738543`;
+        ? `❓ **እርዳታ እና ድጋፍ**\n\n• እንዴት መጫወት ይቻላል: ትኬት ይግዙ፣ የወጡ ቁጥሮችን ምልክት ያድርጉ (daub)። መስመር ወይም ሙሉ ካርድ በመሙላት ያሸንፉ!\n• የደንበኞች ድጋፍ: @HyperBingoETH\n• ስልክ: 0912738543`
+        : `❓ **Help & Support**\n\n• How to play: Purchase a ticket, daub numbers as drawn. Form a line or full house!\n• Support: @HyperBingoETH\n• Phone: 0912738543`;
       buttons = [
         { label: isAm ? '🎮 ቢንጎ ይጫወቱ (Mini App)' : '🎮 Play Mini App', action: () => onOpenMiniApp('lobby'), isPrimary: true },
       ];
