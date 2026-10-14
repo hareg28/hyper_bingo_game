@@ -729,6 +729,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     return () => clearInterval(timer);
   }, [isFetanGame, fetanIsIntermission, currentGame.id, resetGameRound]);
 
+  // drawnSet must be defined before the topHitRequirement useMemo that references it
+  const drawnSet = new Set(currentGame.drawnNumbers || []);
+  const cardDrawnSet = drawnSet;
+
   // Dynamic Hit Requirement calculation for active cards
   const topHitRequirement = React.useMemo(() => {
     const isAm = language === 'am';
@@ -795,7 +799,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       );
       return getGameHitRequirement(firstCardEffectiveMarked, firstCard.numbers || [], effectiveRuleType, language, currentGame.activeSpecialRuleIndex);
     }
-  }, [activeGameCards, currentGame.winningRule, currentGame.activeSpecialRuleIndex, currentGame.category, language, cardDrawnSet]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGameCards, currentGame.winningRule, currentGame.activeSpecialRuleIndex, currentGame.category, language, currentGame.drawnNumbers]);
 
   const formatTimeRemaining = (totalSec: number): string => {
     const m = Math.floor(totalSec / 60);
@@ -1216,8 +1221,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   };
 
   // 75-Ball rows for master board (always visible inline, not a modal)
-  const drawnSet = new Set(currentGame.drawnNumbers || []);
-  const cardDrawnSet = drawnSet;
+  // drawnSet / cardDrawnSet already declared above the topHitRequirement useMemo
   const drawnNumbersArr = currentGame.drawnNumbers || [];
   const currentBallNum = drawnNumbersArr.length > 0 ? drawnNumbersArr[drawnNumbersArr.length - 1] : null;
   const previousBalls = drawnNumbersArr.length > 1 ? drawnNumbersArr.slice(Math.max(0, drawnNumbersArr.length - 4), drawnNumbersArr.length - 1) : [];
