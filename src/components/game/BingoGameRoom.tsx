@@ -567,14 +567,15 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   const isFetanGame = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.winningRule === 'ONE_LINE_OR_CORNERS';
   const isSpecialGame = currentGame.category === 'HYPER_SPECIAL' || currentGame.gameType === 'HYPER_SPECIAL';
+  // Keep a ref to nextRoundStartsAt so the interval tick always has the latest server value
+  const nextRoundStartsAtRef = React.useRef<number | undefined>(currentGame.nextRoundStartsAt);
+  useEffect(() => {
+    nextRoundStartsAtRef.current = currentGame.nextRoundStartsAt;
+  }, [currentGame.nextRoundStartsAt]);
+
   const [specialSecondsLeft, setSpecialSecondsLeft] = useState<number>(() => {
-    if (isSpecialGame) {
-      if (currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) {
-        return Math.max(0, Math.ceil((currentGame.nextRoundStartsAt - Date.now()) / 1000));
-      }
-      if (currentGame.drawnNumbers.length === 0 && (!currentGame.winners || currentGame.winners.length === 0)) {
-        return 300;
-      }
+    if (isSpecialGame && currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) {
+      return Math.max(0, Math.ceil((currentGame.nextRoundStartsAt - Date.now()) / 1000));
     }
     return 300;
   });
@@ -582,23 +583,30 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     if (!isSpecialGame) return false;
     if (currentGame.status === 'RUNNING' || currentGame.drawnNumbers.length > 0) return false;
     if (currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) return true;
-    if (currentGame.drawnNumbers.length === 0 && (!currentGame.winners || currentGame.winners.length === 0)) return true;
+    // If status is OPEN with no drawn numbers and no nextRoundStartsAt yet, start intermission
+    if (currentGame.status === 'OPEN' && currentGame.drawnNumbers.length === 0 && (!currentGame.winners || currentGame.winners.length === 0)) return true;
     return false;
   });
   const hasGameWinner = Boolean((currentGame.winners && currentGame.winners.length > 0) || currentGame.status === 'COMPLETED');
 
-  // Sync specialIsIntermission if currentGame.nextRoundStartsAt updates
+  // Sync specialIsIntermission whenever the server's nextRoundStartsAt or game status changes
   useEffect(() => {
     if (!isSpecialGame) return;
     if (currentGame.status === 'RUNNING' || currentGame.drawnNumbers.length > 0) {
       setSpecialIsIntermission(false);
       return;
     }
-    if (currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) {
+    if (currentGame.nextRoundStartsAt) {
       const remaining = Math.max(0, Math.ceil((currentGame.nextRoundStartsAt - Date.now()) / 1000));
-      setSpecialSecondsLeft(remaining);
-      setSpecialIsIntermission(true);
-      setIsAutoDrawing(false);
+      if (remaining > 0) {
+        // Server has a valid intermission window — sync the countdown to server time
+        setSpecialSecondsLeft(remaining);
+        setSpecialIsIntermission(true);
+        setIsAutoDrawing(false);
+      } else {
+        // nextRoundStartsAt is in the past — intermission should have ended already
+        setSpecialIsIntermission(false);
+      }
     }
   }, [isSpecialGame, currentGame.nextRoundStartsAt, currentGame.status, currentGame.drawnNumbers.length]);
 
@@ -620,10 +628,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           setShowWinnerModal(false);
           resetGameRound(currentGame.id);
           if (isSpecialGame) {
-            // For Hyper Special: enter 5-minute intermission between rounds!
+            // For Hyper Special: enter 5-minute intermission between rounds.
+            // The actual countdown is driven by the server's nextRoundStartsAt (set during reset).
+            // We enter intermission mode here; the server poll + sync effect will set the real seconds.
             setSpecialIsIntermission(true);
-            setSpecialSecondsLeft(300);
             setIsAutoDrawing(false);
+            // Set a provisional 300s — the server sync will correct it within ~3s
+            setSpecialSecondsLeft(300);
           } else if (onOpenLotteryTab) {
             onOpenLotteryTab();
           } else {
@@ -653,22 +664,28 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
     const timer = setInterval(() => {
       if (isHiddenRef.current) return;
-      setSpecialSecondsLeft((prev) => {
-        if (prev <= 1) {
-          // 5-min intermission finished -> automatically start the game!
-          clearInterval(timer);
-          setSpecialIsIntermission(false);
-          setIsAutoDrawing(true);
-          startSpecialRound(currentGame.id);
-          // Draw first ball immediately to kick off the live game
-          setTimeout(() => {
-            const first = drawNextBall(currentGame.id);
-            if (first) announceBallRef.current(first);
-          }, 350);
-          return 0;
-        }
-        return prev - 1;
-      });
+
+      // Always derive remaining time from server's nextRoundStartsAt so all clients stay in sync.
+      // This means a player who joins 3 min into the intermission sees exactly 2 min left.
+      const serverDeadline = nextRoundStartsAtRef.current;
+      const remaining = serverDeadline
+        ? Math.max(0, Math.ceil((serverDeadline - Date.now()) / 1000))
+        : 0;
+
+      setSpecialSecondsLeft(remaining);
+
+      if (remaining <= 0) {
+        // Intermission finished — start the live round!
+        clearInterval(timer);
+        setSpecialIsIntermission(false);
+        setIsAutoDrawing(true);
+        startSpecialRound(currentGame.id);
+        // Draw first ball immediately to kick off the live game
+        setTimeout(() => {
+          const first = drawNextBall(currentGame.id);
+          if (first) announceBallRef.current(first);
+        }, 350);
+      }
     }, 1000);
 
     return () => clearInterval(timer);
