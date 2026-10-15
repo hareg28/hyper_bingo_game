@@ -693,44 +693,24 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     return () => clearInterval(timer);
   }, [isSpecialGame, specialIsIntermission, currentGame.id, startSpecialRound, drawNextBall]);
 
-  // Fetan 1-second countdown ticker
+  // Fetan uses one shared 60s live / 30s card-picking clock on every client.
   useEffect(() => {
     if (!isFetanGame) return;
 
-    const timer = setInterval(() => {
-      // Skip update when app is backgrounded (prevents stacking on mobile)
+    const syncFetanClock = () => {
       if (isHiddenRef.current) return;
-      if (fetanIsIntermission) {
-        // Intermission countdown: card picking
-        setFetanSecondsLeft((prev) => {
-          if (prev <= 1) {
-            // Intermission ended -> start next round fresh! Redirect to live game
-            resetGameRound(currentGame.id);
-            setFetanIsIntermission(false);
-            setFetanOvertime(false);
-            setIsSelectorOpen(false);
-            setIsAutoDrawing(true);
-            return 60;
-          }
-          return prev - 1;
-        });
-      } else {
-        // Active round countdown
-        setFetanSecondsLeft((prev) => {
-          if (prev > 0) {
-            return prev - 1;
-          }
-          // Reached 0 seconds! BUT NO WINNER YET:
-          // Keep drawing until the winner comes!
-          setFetanOvertime(true);
-          return 0;
-        });
-      }
-    }, 1000);
+      const cycleSecond = Math.floor(Date.now() / 1000) % 90;
+      const pickingCards = cycleSecond >= 60;
+      setFetanSecondsLeft(pickingCards ? 90 - cycleSecond : 60 - cycleSecond);
+      setFetanIsIntermission(pickingCards);
+      setFetanOvertime(false);
+      setIsAutoDrawing(!pickingCards);
+    };
 
+    syncFetanClock();
+    const timer = setInterval(syncFetanClock, 1000);
     return () => clearInterval(timer);
-  }, [isFetanGame, fetanIsIntermission, currentGame.id, resetGameRound]);
-
+  }, [isFetanGame]);
   // drawnSet must be defined before the topHitRequirement useMemo that references it
   const drawnSet = new Set(currentGame.drawnNumbers || []);
   const cardDrawnSet = drawnSet;
@@ -2987,12 +2967,17 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         </div>
       )}
       {/* One tap adds one Hyper Special card. */}
-      {isSpecialGame && specialIsIntermission && (
+      {isSpecialGame && (
         <div className="fixed bottom-20 right-4 z-40 flex flex-col items-center gap-2">
           <button
             type="button"
             onClick={() => addSpecialCards(currentGame.id, 1)}
-            className="w-10 h-10 rounded-full bg-[#ef4444] hover:bg-[#dc2626] text-white text-xl font-bold flex items-center justify-center shadow-lg active:scale-95 transition cursor-pointer"
+            disabled={!specialIsIntermission || specialSecondsLeft <= 0}
+            className={`w-10 h-10 rounded-full text-white text-xl font-bold flex items-center justify-center shadow-lg transition ${
+              specialIsIntermission && specialSecondsLeft > 0
+                ? 'bg-[#ef4444] hover:bg-[#dc2626] active:scale-95 cursor-pointer'
+                : 'bg-slate-400 cursor-not-allowed'
+            }`}
             title="Add one card"
           >
             +

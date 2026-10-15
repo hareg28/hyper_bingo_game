@@ -35,11 +35,21 @@ export async function POST(req: NextRequest) {
 
     // Fetch current game state
     const [game] = await sql`
-      SELECT id, status, drawn_numbers, winners, next_round_starts_at, draw_interval, last_ball_drawn_at
+      SELECT id, category, game_type, status, drawn_numbers, winners, next_round_starts_at, draw_interval, last_ball_drawn_at
       FROM games WHERE id = ${gameId}
     `;
     if (!game) {
       return NextResponse.json({ success: false, error: 'Game not found' }, { status: 404 });
+    }
+
+    const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN';
+    const fetanCycleSecond = Math.floor(Date.now() / 1000) % 90;
+    if (isFetan && fetanCycleSecond >= 60) {
+      return NextResponse.json({
+        success: false,
+        error: 'Fetan is in its shared 30-second card-picking window.',
+        nextRoundStartsAt: (Math.floor(Date.now() / 90000) + 1) * 90000,
+      }, { status: 425 });
     }
 
     // Validate game can draw

@@ -15,6 +15,41 @@ export async function GET(_req: NextRequest) {
   }
 
   try {
+    // Fetan uses a shared 90-second server cycle (60s live, 30s pick).
+    // Clear the previous round once when the pick window opens so all clients
+    // see the same fresh board, while purchases made during this window remain
+    // reserved for the next live round. next_round_starts_at is otherwise only
+    // used by Hyper Special and serves as the idempotent Fetan cycle marker.
+    await sql`
+      WITH clock AS (
+        SELECT
+          FLOOR(EXTRACT(EPOCH FROM clock_timestamp()) / 90)::bigint AS cycle_id,
+          MOD(FLOOR(EXTRACT(EPOCH FROM clock_timestamp()))::bigint, 90) AS cycle_second
+      ), reset_fetan AS (
+        UPDATE games AS g
+        SET
+          drawn_numbers = '{}',
+          current_ball = NULL,
+          last_ball_drawn_at = NULL,
+          current_players = 0,
+          winners = '[]'::jsonb,
+          blocked_cards = '{}',
+          status = 'OPEN',
+          next_round_starts_at = clock.cycle_id,
+          updated_at = NOW()
+        FROM clock
+        WHERE (g.category = 'HYPER_FETAN' OR g.game_type = 'HYPER_FETAN')
+          AND clock.cycle_second >= 60
+          AND g.next_round_starts_at IS DISTINCT FROM clock.cycle_id
+        RETURNING g.id
+      ), deleted_cards AS (
+        DELETE FROM game_cards
+        WHERE game_id IN (SELECT id FROM reset_fetan)
+        RETURNING id
+      )
+      SELECT id FROM reset_fetan
+    `;
+
     // A brand-new Hyper Special round always has the same shared five-minute
     // registration window. The NULL guard makes initialization safe under load.
     await sql`

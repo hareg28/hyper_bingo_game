@@ -393,6 +393,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   // numbers, player count, winners, and game status in near-real-time.
   const pollActiveRef = React.useRef(true);
   const lastServerDrawCountsRef = React.useRef<Record<string, number>>({});
+  const lastFetanCycleMarkersRef = React.useRef<Record<string, number>>({});
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
     let cancelled = false;
@@ -413,10 +414,19 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           const resetGameIds = json.data
-            .filter((serverGame: any) =>
-              (lastServerDrawCountsRef.current[serverGame.id] ?? 0) > 0 &&
-              Array.isArray(serverGame.drawnNumbers) && serverGame.drawnNumbers.length === 0
-            )
+            .filter((serverGame: any) => {
+              const drawReset = (lastServerDrawCountsRef.current[serverGame.id] ?? 0) > 0 &&
+                Array.isArray(serverGame.drawnNumbers) && serverGame.drawnNumbers.length === 0;
+              const isFetan = String(serverGame.id).includes('fetan');
+              const cycleMarker = Number(serverGame.nextRoundStartsAt);
+              const previousCycleMarker = lastFetanCycleMarkersRef.current[serverGame.id];
+              const cycleReset = isFetan && Number.isFinite(cycleMarker) && cycleMarker > 0 &&
+                previousCycleMarker !== undefined && previousCycleMarker !== cycleMarker;
+              if (isFetan && Number.isFinite(cycleMarker) && cycleMarker > 0) {
+                lastFetanCycleMarkersRef.current[serverGame.id] = cycleMarker;
+              }
+              return drawReset || cycleReset;
+            })
             .map((serverGame: any) => serverGame.id as string);
           json.data.forEach((serverGame: any) => {
             lastServerDrawCountsRef.current[serverGame.id] = Array.isArray(serverGame.drawnNumbers)

@@ -27,10 +27,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
     }
 
-    // 1. Fetch game to validate it's still OPEN
-    const [game] = await sql`SELECT id, status, entry_price FROM games WHERE id = ${gameId}`;
+    // 1. Load the game and synchronize Fetan round rollover before accepting
+    // any purchase. This closes the race where a buy reaches the server before
+    // the state poll that opens the pick window.
+    let [game] = await sql`SELECT id, status, entry_price, category, game_type FROM games WHERE id = ${gameId}`;
     if (!game) {
       return NextResponse.json({ success: false, error: 'Game not found' }, { status: 404 });
+    }
+    const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN';
+    if (isFetan) {
+      const [clock] = await sql`
+        SELECT
+          FLOOR(EXTRACT(EPOCH FROM clock_timestamp()) / 90)::bigint AS cycle_id,
+          MOD(FLOOR(EXTRACT(EPOCH FROM clock_timestamp()))::bigint, 90) AS cycle_second
+      `;
+      const cycleSecond = parseInt(clock?.cycle_second ?? '0', 10);
+      if (cycleSecond < 60) {
+        return NextResponse.json({ success: false, error: 'Fetan card picking is closed for this round.' }, { status: 409 });
+      }
+      const cycleId = parseInt(clock.cycle_id, 10);
+      await sql`
+        WITH reset_fetan AS (
+          UPDATE games
+          SET
+            drawn_numbers = '{}',
+            current_ball = NULL,
+            last_ball_drawn_at = NULL,
+            current_players = 0,
+            winners = '[]'::jsonb,
+            blocked_cards = '{}',
+            status = 'OPEN',
+            next_round_starts_at = ${cycleId},
+            updated_at = NOW()
+          WHERE id = ${gameId}
+            AND next_round_starts_at IS DISTINCT FROM ${cycleId}
+          RETURNING id
+        ), deleted_cards AS (
+          DELETE FROM game_cards
+          WHERE game_id IN (SELECT id FROM reset_fetan)
+          RETURNING id
+        )
+        SELECT id FROM reset_fetan
+      `;
+      [game] = await sql`SELECT id, status, entry_price FROM games WHERE id = ${gameId}`;
     }
     if (game.status === 'COMPLETED' || game.status === 'CANCELLED') {
       return NextResponse.json({ success: false, error: 'Game is no longer open for card purchases' }, { status: 409 });

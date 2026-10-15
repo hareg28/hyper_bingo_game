@@ -1108,6 +1108,16 @@ function WeekendLotteryNumberPicker({
   const [drawCountdown, setDrawCountdown] = React.useState('00:00:00');
   const [fetanSeconds, setFetanSeconds] = React.useState(60);
   const [fetanIsIntermission, setFetanIsIntermission] = React.useState(false);
+  const fetanCycleMarkerRef = React.useRef(selectedGame?.nextRoundStartsAt);
+
+  React.useEffect(() => {
+    const marker = selectedGame?.nextRoundStartsAt;
+    if (mode === 'FETAN' && marker && fetanCycleMarkerRef.current !== undefined && fetanCycleMarkerRef.current !== marker) {
+      setSlotNumbers(Array.from({ length: NUM_SLOTS }, () => null));
+      setPurchaseFeedback(null);
+    }
+    fetanCycleMarkerRef.current = marker;
+  }, [mode, selectedGame?.id, selectedGame?.nextRoundStartsAt, NUM_SLOTS]);
 
   const isHiddenRef = React.useRef(typeof document !== 'undefined' && document.hidden);
   React.useEffect(() => {
@@ -1199,6 +1209,14 @@ function WeekendLotteryNumberPicker({
   const handlePickNumber = (num: number) => {
     if (!user) { openAuthModal('register'); return; }
     if (!selectedGame) return;
+
+    if (mode === 'FETAN' && !fetanIsIntermission) {
+      setPurchaseFeedback(isAm
+        ? `ካርድ ለመግዛት የሚቀጥለውን የ30 ሰከንድ ጊዜ ይጠብቁ (${fetanSeconds}s)`
+        : `Card picking opens in ${fetanSeconds}s. Please wait for the 30-second window.`);
+      setTimeout(() => setPurchaseFeedback(null), 2500);
+      return;
+    }
 
     // Toggle: if already selected/purchased by this user, unselect (refund)!
     const isAlreadyPicked = activeSlotSet.has(num) || userPurchasedNumbers.has(num);
@@ -1579,7 +1597,7 @@ function WeekendLotteryNumberPicker({
                   key={num}
                   type="button"
                   onClick={() => handlePickNumber(num)}
-                  disabled={isSold && !inSlot}
+                  disabled={(isSold && !inSlot) || (mode === 'FETAN' && !fetanIsIntermission)}
                   className={`py-3 px-2 rounded-xl text-center font-mono font-black text-xs transition border-2 flex flex-col items-center justify-center gap-0.5 cursor-pointer shadow-xs ${
                     inSlot
                       ? 'bg-amber-400 border-amber-500 text-slate-950 shadow-md scale-102 ring-2 ring-amber-400'
