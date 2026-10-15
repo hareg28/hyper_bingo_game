@@ -392,6 +392,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   // game list. This makes all 1,000 concurrent players see the same drawn
   // numbers, player count, winners, and game status in near-real-time.
   const pollActiveRef = React.useRef(true);
+  const lastServerDrawCountsRef = React.useRef<Record<string, number>>({});
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
     let cancelled = false;
@@ -411,20 +412,55 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         if (!res.ok) throw new Error('state fetch failed');
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
+          const resetGameIds = json.data
+            .filter((serverGame: any) =>
+              (lastServerDrawCountsRef.current[serverGame.id] ?? 0) > 0 &&
+              Array.isArray(serverGame.drawnNumbers) && serverGame.drawnNumbers.length === 0
+            )
+            .map((serverGame: any) => serverGame.id as string);
+          json.data.forEach((serverGame: any) => {
+            lastServerDrawCountsRef.current[serverGame.id] = Array.isArray(serverGame.drawnNumbers)
+              ? serverGame.drawnNumbers.length
+              : 0;
+          });
+          if (resetGameIds.length > 0) {
+            const resetIds = new Set(resetGameIds);
+            setUserCards((prev) => prev.filter((card) => !resetIds.has(card.gameId)));
+          }
+
           setGames((prev) =>
             prev.map((localGame) => {
               const server = json.data.find((g: any) => g.id === localGame.id);
               if (!server) return localGame;
+              const serverWinners = Array.isArray(server.winners) ? server.winners : [];
+              const serverDrawnNumbers = Array.isArray(server.drawnNumbers) ? server.drawnNumbers : [];
+              const serverBlockedCards = Array.isArray(server.blockedCards) ? server.blockedCards : [];
+              const sameValues = (left: unknown[], right: unknown[]) =>
+                left.length === right.length && left.every((value, index) => value === right[index]);
+              const sameWinners = JSON.stringify(localGame.winners) === JSON.stringify(serverWinners);
+              if (
+                localGame.status === server.status &&
+                sameValues(localGame.drawnNumbers, serverDrawnNumbers) &&
+                localGame.currentBall === server.currentBall &&
+                localGame.currentPlayers === server.currentPlayers &&
+                sameWinners &&
+                sameValues(localGame.blockedCards || [], serverBlockedCards) &&
+                localGame.activeSpecialRuleIndex === server.activeSpecialRuleIndex &&
+                localGame.nextRoundStartsAt === server.nextRoundStartsAt &&
+                localGame.entryPrice === server.entryPrice &&
+                localGame.prizePool === server.prizePool &&
+                localGame.drawInterval === server.drawInterval
+              ) return localGame;
               // Only overwrite fields that come from the server;
               // keep local-only fields like name, gameType, category etc.
               return {
                 ...localGame,
                 status: server.status,
-                drawnNumbers: server.drawnNumbers,
-                currentBall: server.currentBall ?? localGame.currentBall,
+                drawnNumbers: serverDrawnNumbers,
+                currentBall: server.currentBall,
                 currentPlayers: server.currentPlayers,
-                winners: server.winners.length > 0 ? server.winners : localGame.winners,
-                blockedCards: server.blockedCards,
+                winners: serverWinners,
+                blockedCards: serverBlockedCards,
                 activeSpecialRuleIndex: server.activeSpecialRuleIndex,
                 nextRoundStartsAt: server.nextRoundStartsAt,
                 entryPrice: server.entryPrice,

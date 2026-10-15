@@ -668,6 +668,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       // Always derive remaining time from server's nextRoundStartsAt so all clients stay in sync.
       // This means a player who joins 3 min into the intermission sees exactly 2 min left.
       const serverDeadline = nextRoundStartsAtRef.current;
+      if (!serverDeadline) return;
       const remaining = serverDeadline
         ? Math.max(0, Math.ceil((serverDeadline - Date.now()) / 1000))
         : 0;
@@ -678,6 +679,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         // Intermission finished — start the live round!
         clearInterval(timer);
         setSpecialIsIntermission(false);
+        setIsSelectorOpen(false);
         setIsAutoDrawing(true);
         startSpecialRound(currentGame.id);
         // Draw first ball immediately to kick off the live game

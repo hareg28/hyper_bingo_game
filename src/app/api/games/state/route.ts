@@ -15,6 +15,17 @@ export async function GET(_req: NextRequest) {
   }
 
   try {
+    // A brand-new Hyper Special round always has the same shared five-minute
+    // registration window. The NULL guard makes initialization safe under load.
+    await sql`
+      UPDATE games
+      SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + 300000
+      WHERE (category = 'HYPER_SPECIAL' OR game_type = 'HYPER_SPECIAL')
+        AND status = 'OPEN'
+        AND drawn_numbers = '{}'
+        AND next_round_starts_at IS NULL
+    `;
+
     let rows = await sql`
       SELECT
         id,

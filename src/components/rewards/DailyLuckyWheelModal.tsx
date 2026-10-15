@@ -43,6 +43,8 @@ export default function DailyLuckyWheelModal({ isOpen, onClose }: DailyLuckyWhee
 
   // Check 24h spin status
   useEffect(() => {
+    if (!isOpen) return;
+
     const checkSpinAvailability = () => {
       if (typeof window === 'undefined') return;
       const lastSpinTime = localStorage.getItem('hyper_bingo_last_spin');
@@ -69,7 +71,7 @@ export default function DailyLuckyWheelModal({ isOpen, onClose }: DailyLuckyWhee
     checkSpinAvailability();
     const interval = setInterval(checkSpinAvailability, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
