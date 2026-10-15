@@ -1290,18 +1290,23 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    // Refund entry price
-    let newAvail = wallet.availableBalance + refundAmount;
-    setWallet((prev) => {
-      newAvail = prev.availableBalance + refundAmount;
-      const updated = { ...prev, availableBalance: newAvail };
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated));
-        } catch {}
-      }
-      return updated;
-    });
+    // If Hyper Special, do not return card price after registration or draft deletion
+    const isSpecial = game?.category === 'HYPER_SPECIAL' || game?.gameType === 'HYPER_SPECIAL';
+
+    // Refund entry price only for non-special games
+    if (!isSpecial) {
+      let newAvail = wallet.availableBalance + refundAmount;
+      setWallet((prev) => {
+        newAvail = prev.availableBalance + refundAmount;
+        const updated = { ...prev, availableBalance: newAvail };
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated));
+          } catch {}
+        }
+        return updated;
+      });
+    }
 
     // If user has no more cards in this game, decrement player count
     const remaining = userCards.filter(
@@ -1315,8 +1320,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       );
     }
 
-    // If Hyper Special, do not show card removal notification per requirement
-    const isSpecial = game?.category === 'HYPER_SPECIAL' || game?.gameType === 'HYPER_SPECIAL';
+    // If not Hyper Special, show card removal notification with refund amount
     if (!isSpecial) {
       addNotification('🗑️ Card Removed', `Card #${card.cardNumber} removed and ${refundAmount} ETB refunded.`, 'info');
     }
@@ -1369,15 +1373,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       if (game && game.drawnNumbers.length > 0) {
         return { success: false, message: 'ጨዋታው ስለተጀመረ መሰረዝ አይቻልም (Game already started)' };
       }
-      // Refund entry price
-      let newAvail = wallet.availableBalance + entryPrice;
-      setWallet((prev) => {
-        newAvail = prev.availableBalance + entryPrice;
-        const updated = { ...prev, availableBalance: newAvail };
-        try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
-
+      // Do NOT refund entry price per requirement: card price is not returned after registration in Hyper Special
       setUserCards((prev) =>
         prev.map((c) => (c.id === cardId ? { ...c, isRegistered: false } : c))
       );
@@ -1391,7 +1387,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      return { success: true, message: `ካርድ #${card.cardNumber} ተሰርዟል (${entryPrice} ETB ተመልሷል)`, isRegistered: false };
+      return { success: true, message: `ካርድ #${card.cardNumber} ከምዝገባ ተሰርዟል (Card #${card.cardNumber} unregistered)`, isRegistered: false };
     } else {
       // Register card
       const registeredInGame = userCards.filter((c) => c.gameId === card.gameId && c.isRegistered).length;
@@ -2129,51 +2125,45 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       prev.filter((c) => !(c.gameId === gameId && (c.cardNumber === label || parseInt(c.cardNumber, 10) === numInt)))
     );
 
-    // Refund entry price
-    const refundAmount = game.entryPrice || 10;
-    let newAvail = wallet.availableBalance + refundAmount;
-    setWallet((prev) => {
-      newAvail = prev.availableBalance + refundAmount;
-      const updated = {
-        ...prev,
-        availableBalance: newAvail,
-      };
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated));
-        } catch {}
-      }
-      return updated;
-    });
+    const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL';
 
-    // Decrement player count if user has no more cards in this game
-    const remainingCardsForGame = userCards.filter(
-      (c) => c.gameId === gameId && c.cardNumber !== label && parseInt(c.cardNumber, 10) !== numInt && c.userId === user.id
-    );
-    if (remainingCardsForGame.length === 0) {
-      setGames((prev) =>
-        prev.map((g) =>
-          g.id === gameId ? { ...g, currentPlayers: Math.max(0, (g.currentPlayers || 1) - 1) } : g
-        )
-      );
+    // Refund entry price only if not Hyper Special
+    if (!isSpecial) {
+      const refundAmount = game.entryPrice || 10;
+      let newAvail = wallet.availableBalance + refundAmount;
+      setWallet((prev) => {
+        newAvail = prev.availableBalance + refundAmount;
+        const updated = {
+          ...prev,
+          availableBalance: newAvail,
+        };
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated));
+          } catch {}
+        }
+        return updated;
+      });
+
+      // Record refund transaction
+      const tx: Transaction = {
+        id: `TX_REFUND_${Date.now().toString().slice(-5)}`,
+        userId: user.id,
+        username: user.username,
+        type: 'GAME_ENTRY',
+        amount: refundAmount,
+        balanceAfter: newAvail,
+        reference: `REFUND-${gameId}`,
+        status: 'COMPLETED',
+        description: `Refund for unselected lottery card #${label} in ${game.name}`,
+        createdAt: new Date().toISOString(),
+      };
+      setTransactions((prev) => [tx, ...prev]);
+
+      return { success: true, message: `Refunded ${refundAmount} ETB for card #${label}` };
     }
 
-    // Record refund transaction
-    const tx: Transaction = {
-      id: `TX_REFUND_${Date.now().toString().slice(-5)}`,
-      userId: user.id,
-      username: user.username,
-      type: 'GAME_ENTRY',
-      amount: refundAmount,
-      balanceAfter: newAvail,
-      reference: `REFUND-${gameId}`,
-      status: 'COMPLETED',
-      description: `Refund for unselected lottery card #${label} in ${game.name}`,
-      createdAt: new Date().toISOString(),
-    };
-    setTransactions((prev) => [tx, ...prev]);
-
-    return { success: true, message: `Refunded ${refundAmount} ETB for card #${label}` };
+    return { success: true, message: `ካርድ #${label} ተሰርዟል (Card #${label} removed)` };
   };
 
   const updateGameEntryPrice = (gameId: string, newPrice: number) => {

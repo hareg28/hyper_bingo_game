@@ -2037,19 +2037,29 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                           )}
                         </div>
 
-                        {/* Claim Bingo */}
-                        {isRegistered && cardIsWin && (
+                        {/* BINGO Button on Registered Card */}
+                        {isRegistered && (
                           <button
                             type="button"
+                            disabled={cardIsBlocked}
                             onClick={() => {
-                              const res = claimBingo(card.id);
-                              if (res.message) setSpecialToast(res.message);
-                              setTimeout(() => setSpecialToast(null), 3500);
+                              if (cardIsBlocked) return;
+                              handleClaimBingo(card.id);
                             }}
-                            className="w-full py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black text-[10px] uppercase shadow-md animate-bounce cursor-pointer flex items-center justify-center gap-1"
+                            className={`w-full py-1.5 px-2 rounded-lg font-black italic tracking-wider transition-all relative flex items-center justify-center cursor-pointer shadow-xs ${
+                              cardIsBlocked
+                                ? 'bg-rose-900 text-rose-300 cursor-not-allowed text-[10px]'
+                                : cardIsWin
+                                ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse shadow-amber-300 text-xs sm:text-sm font-black'
+                                : 'bg-[#2563eb] hover:bg-blue-700 text-white active:scale-[0.99] text-xs sm:text-sm'
+                            }`}
                           >
-                            <span>🎉</span>
-                            <span>BINGO! (#{card.cardNumber})</span>
+                            <span className="tracking-widest">
+                              {cardIsBlocked ? '🚫 BLOCKED' : cardIsWin ? '🎉 BINGO!' : 'BINGO!'}
+                            </span>
+                            <span className="absolute right-1.5 bottom-0.5 text-[8px] font-mono font-bold text-blue-200">
+                              #{card.cardNumber}
+                            </span>
                           </button>
                         )}
                       </div>
