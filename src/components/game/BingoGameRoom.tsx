@@ -563,6 +563,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // RULE: If within 1 minute there is NO winner, game MUST continue drawing balls until a winner arrives!
   const [fetanSecondsLeft, setFetanSecondsLeft] = useState<number>(60);
   const [fetanIsIntermission, setFetanIsIntermission] = useState<boolean>(false);
+  const fetanTimerTextRef = React.useRef<HTMLSpanElement>(null);
+  const specialTimerTextRef = React.useRef<HTMLSpanElement>(null);
+  const lastSpecialTimerDeadlineRef = React.useRef<number | undefined>(undefined);
   const [fetanOvertime, setFetanOvertime] = useState<boolean>(false);
 
   const isFetanGame = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.winningRule === 'ONE_LINE_OR_CORNERS';
@@ -690,11 +693,18 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         ? Math.max(0, Math.ceil((serverDeadline - Date.now()) / 1000))
         : 0;
 
-      setSpecialSecondsLeft(remaining);
+      if (specialTimerTextRef.current) {
+        specialTimerTextRef.current.textContent = formatTimeRemaining(remaining);
+      }
+      if (lastSpecialTimerDeadlineRef.current !== serverDeadline) {
+        lastSpecialTimerDeadlineRef.current = serverDeadline;
+        setSpecialSecondsLeft(remaining);
+      }
 
       if (remaining <= 0) {
         // Intermission finished — start the live round!
         clearInterval(timer);
+        setSpecialSecondsLeft(0);
         setSpecialIsIntermission(false);
         setIsSelectorOpen(false);
         setIsAutoDrawing(true);
@@ -718,16 +728,19 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       if (isHiddenRef.current) return;
       const cycleSecond = Math.floor(Date.now() / 1000) % 90;
       const pickingCards = cycleSecond >= 60;
-      setFetanSecondsLeft(pickingCards ? 90 - cycleSecond : 60 - cycleSecond);
-      setFetanIsIntermission(pickingCards);
-      setFetanOvertime(false);
-      setIsAutoDrawing(!pickingCards);
+      const secondsLeft = pickingCards ? 90 - cycleSecond : 60 - cycleSecond;
+      if (fetanTimerTextRef.current) fetanTimerTextRef.current.textContent = `${secondsLeft}s`;
+      setFetanIsIntermission((current) => current === pickingCards ? current : pickingCards);
+      // Only rerender the room at phase boundaries; update the countdown text directly between them.
+      setFetanSecondsLeft((current) => current === secondsLeft ? current : (fetanIsIntermission !== pickingCards ? secondsLeft : current));
+      setFetanOvertime((current) => current ? false : current);
+      setIsAutoDrawing((current) => current === !pickingCards ? current : !pickingCards);
     };
 
     syncFetanClock();
     const timer = setInterval(syncFetanClock, 1000);
     return () => clearInterval(timer);
-  }, [isFetanGame]);
+  }, [isFetanGame, fetanIsIntermission]);
   // drawnSet must be defined before the topHitRequirement useMemo that references it
   const drawnSet = new Set(currentGame.drawnNumbers || []);
   const cardDrawnSet = drawnSet;
@@ -1469,7 +1482,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
                 <span>⏳</span>
                 <span>{language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards'}:</span>
-                <span className="font-mono text-sm">{fetanSecondsLeft}s</span>
+                <span ref={fetanTimerTextRef} className="font-mono text-sm">{fetanSecondsLeft}s</span>
               </div>
             )}
           </div>
@@ -2954,7 +2967,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         <div className="fixed bottom-20 right-4 z-40 flex flex-col items-center gap-2">
           {specialIsIntermission && (
             <div className="rounded-xl border border-amber-300 bg-amber-400 px-3 py-1.5 text-slate-950 font-mono font-black text-sm shadow-lg animate-pulse">
-              ⏳ {formatTimeRemaining(specialSecondsLeft)}
+              ⏳ <span ref={specialTimerTextRef}>{formatTimeRemaining(specialSecondsLeft)}</span>
             </div>
           )}
           {fabOpen && specialIsIntermission && specialSecondsLeft > 0 && (

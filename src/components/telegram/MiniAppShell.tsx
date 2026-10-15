@@ -1107,6 +1107,8 @@ function WeekendLotteryNumberPicker({
   const [purchaseFeedback, setPurchaseFeedback] = React.useState<string | null>(null);
   const [drawCountdown, setDrawCountdown] = React.useState('00:00:00');
   const [fetanSeconds, setFetanSeconds] = React.useState(60);
+  const fetanSecondsRef = React.useRef(60);
+  const fetanTimerTextRef = React.useRef<HTMLSpanElement>(null);
   const [fetanIsIntermission, setFetanIsIntermission] = React.useState(false);
   const fetanCycleMarkerRef = React.useRef(selectedGame?.nextRoundStartsAt);
 
@@ -1149,13 +1151,13 @@ function WeekendLotteryNumberPicker({
         if (isHiddenRef.current) return;
         const nowSec = Math.floor(Date.now() / 1000);
         const cycle = nowSec % 90; // 60s live + 30s card pick
-        if (cycle < 60) {
-          setFetanIsIntermission(false);
-          setFetanSeconds(60 - cycle);
-        } else {
-          setFetanIsIntermission(true);
-          setFetanSeconds(90 - cycle);
-        }
+        const pickingCards = cycle >= 60;
+        const secondsLeft = pickingCards ? 90 - cycle : 60 - cycle;
+        fetanSecondsRef.current = secondsLeft;
+        if (fetanTimerTextRef.current) fetanTimerTextRef.current.textContent = `${secondsLeft}s`;
+        setFetanIsIntermission((current) => current === pickingCards ? current : pickingCards);
+        // Keep the 500-card board from reconciling every second just to update its clock.
+        setFetanSeconds((current) => current === secondsLeft ? current : (pickingCards !== fetanIsIntermission ? secondsLeft : current));
       };
       updateFetanClock();
       const interval = setInterval(updateFetanClock, 1000);
@@ -1193,7 +1195,7 @@ function WeekendLotteryNumberPicker({
       const interval = setInterval(updateCountdown, 1000);
       return () => clearInterval(interval);
     }
-  }, [mode]);
+  }, [mode, fetanIsIntermission]);
 
   const soldSet = React.useMemo(() => {
     if (!selectedGame) return new Set<number>();
@@ -1237,7 +1239,7 @@ function WeekendLotteryNumberPicker({
     if (mode === 'FETAN' && !fetanIsIntermission) {
       setPurchaseFeedback(isAm
         ? `ካርድ ለመግዛት የሚቀጥለውን የ30 ሰከንድ ጊዜ ይጠብቁ (${fetanSeconds}s)`
-        : `Card picking opens in ${fetanSeconds}s. Please wait for the 30-second window.`);
+        : `Card picking opens in ${fetanSecondsRef.current}s. Please wait for the 30-second window.`);
       setTimeout(() => setPurchaseFeedback(null), 2500);
       return;
     }
@@ -1376,7 +1378,7 @@ function WeekendLotteryNumberPicker({
           <span>{fetanIsIntermission
             ? (isAm ? 'የካርድ ምርጫ ጊዜ' : 'Pick cards now')
             : (isAm ? 'ቀጣዩ የካርድ ምርጫ' : 'Next card-pick window')}</span>
-          <span className="font-mono text-sm">{fetanSeconds}s</span>
+          <span ref={fetanTimerTextRef} className="font-mono text-sm">{fetanSeconds}s</span>
         </div>
       )}
 
@@ -1671,7 +1673,7 @@ function WeekendLotteryNumberPicker({
                   key={num}
                   type="button"
                   onClick={() => handlePickNumber(num)}
-                  disabled={(sold && !inSlot) || (mode === 'FETAN' && !fetanIsIntermission)}
+                  disabled={!inSlot && (sold || (mode === 'FETAN' && !fetanIsIntermission))}
                   className={`h-8 sm:h-9 rounded-lg text-xs font-black tabular-nums transition-all border select-none flex items-center justify-center ${
                     inSlot
                       ? 'bg-amber-400 border-amber-500 text-slate-950 shadow shadow-amber-300 scale-105 ring-2 ring-amber-500 z-10 cursor-pointer'
