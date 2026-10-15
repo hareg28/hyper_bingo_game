@@ -144,13 +144,8 @@ export default function CardNumberSelector({
           setTimeout(() => setErrorMsg(''), 3000);
           return false;
         }
-        showMessage(refundRes.message);
       } else {
-        showMessage(
-          isAm
-            ? `ካርድ #${label} ተወግዷል (Unselected)`
-            : `Card #${label} unselected`
-        );
+        // Selection state is shown on the card itself; keep successful unselects quiet.
       }
       setPurchasedNumbers((prev) => prev.filter((n) => n !== label && parseInt(n, 10) !== num));
       return true;
@@ -188,14 +183,12 @@ export default function CardNumberSelector({
     if (!gameId) {
       const label = String(num);
       setPurchasedNumbers((prev) => (prev.length >= MAX_CARDS ? prev : [...prev, label]));
-      showMessage(isAm ? `ካርድ #${label} ተመርጧል` : `Card #${label} added`);
       return true;
     }
 
     const result = purchaseLotteryNumbers(gameId, [num]);
     if (result.success && result.purchased && result.purchased.length > 0) {
       setPurchasedNumbers((prev) => (prev.length >= MAX_CARDS ? prev : [...prev, result.purchased![0]]));
-      showMessage(result.message);
       return true;
     }
     if (!result.success) {
@@ -362,7 +355,12 @@ export default function CardNumberSelector({
                         const label = String(num);
                         const n = parseInt(label, 10);
                         if (gameId && !Number.isNaN(n)) {
-                          refundLotteryNumber(gameId, n);
+                          const refundRes = refundLotteryNumber(gameId, n);
+                          if (!refundRes.success) {
+                            setErrorMsg(refundRes.message);
+                            setTimeout(() => setErrorMsg(''), 3000);
+                            return;
+                          }
                         }
                         setPurchasedNumbers((prev) => prev.filter((x) => x !== label));
                       }}

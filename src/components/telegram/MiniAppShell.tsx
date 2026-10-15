@@ -1286,9 +1286,10 @@ function WeekendLotteryNumberPicker({
       const refundRes = refundLotteryNumber(selectedGame.id, num);
       if (refundRes.success) {
         setSlotNumbers((prev) => prev.map((n) => (n === num ? null : n)));
+      } else {
+        setPurchaseFeedback(refundRes.message);
+        setTimeout(() => setPurchaseFeedback(null), 2500);
       }
-      setPurchaseFeedback(refundRes.message);
-      setTimeout(() => setPurchaseFeedback(null), 2500);
       return;
     }
 
@@ -1334,8 +1335,10 @@ function WeekendLotteryNumberPicker({
 
     // Direct 1-tap instant purchase: clicking the card number immediately buys it
     const result = purchaseLotteryNumbers(selectedGame.id, [num]);
-    setPurchaseFeedback(result.message);
-    setTimeout(() => setPurchaseFeedback(null), 3000);
+    if (!result.success) {
+      setPurchaseFeedback(result.message);
+      setTimeout(() => setPurchaseFeedback(null), 3000);
+    }
 
     if (result.success) {
       const next = [...slotNumbers];
@@ -1621,9 +1624,12 @@ function WeekendLotteryNumberPicker({
                     onClick={() => {
                       if (!selectedGame) return;
                       const refundRes = refundLotteryNumber(selectedGame.id, num!);
-                      setSlotNumbers((prev) => prev.map((n) => (n === num ? null : n)));
-                      setPurchaseFeedback(refundRes.message || (isAm ? `ካርድ #${num} ተወግዷል` : `Card #${num} removed`));
-                      setTimeout(() => setPurchaseFeedback(null), 2500);
+                      if (refundRes.success) {
+                        setSlotNumbers((prev) => prev.map((n) => (n === num ? null : n)));
+                      } else {
+                        setPurchaseFeedback(refundRes.message);
+                        setTimeout(() => setPurchaseFeedback(null), 2500);
+                      }
                     }}
                     className="text-[9px] font-black text-rose-700 bg-rose-100 hover:bg-rose-200 px-1.5 py-0.5 rounded-full border border-rose-300 flex items-center gap-0.5 cursor-pointer shrink-0 transition"
                     title={isAm ? 'ካርድ አውጣ (Unselect)' : 'Unselect card'}

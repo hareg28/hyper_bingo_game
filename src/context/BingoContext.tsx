@@ -1424,10 +1424,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       );
     }
 
-    // If not Hyper Special, show card removal notification with refund amount
-    if (!isSpecial) {
-      addNotification('🗑️ Card Removed', `Card #${card.cardNumber} removed and ${refundAmount} ETB refunded.`, 'info');
-    }
   };
 
   // Add multiple cards for Hyper Special (options: 1, 2, 3, 5, 10 up to max 30)
