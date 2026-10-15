@@ -1095,6 +1095,9 @@ function WeekendLotteryNumberPicker({
 
   const selectedGame = targetGames[selectedGameIdx] || targetGames[0];
   const entryPrice = selectedGame?.entryPrice || (mode === 'FETAN' ? 10 : mode === 'SPECIAL' ? 20 : 50);
+  const selectedSpecialRule = mode === 'SPECIAL'
+    ? HYPER_SPECIAL_RULES[Math.abs(selectedGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length]
+    : undefined;
 
   const TOTAL_NUMBERS = mode === 'FETAN' ? 500 : mode === 'SPECIAL' ? 75 : 1500;
   const NUM_SLOTS = LOTTERY_MAX_SLOTS;
@@ -1392,7 +1395,9 @@ function WeekendLotteryNumberPicker({
                 {mode === 'FETAN' 
                   ? (isAm ? '30 ሰከንድ ካርድ መምረጫ · 500 ካርዶች' : '30s Card Pick · 500 Cards')
                   : mode === 'SPECIAL'
-                  ? (isAm ? `${entryPrice} ብር · ልዩ የማሸነፊያ ሕግ` : `${entryPrice} ETB · Rotating Special Law`)
+                  ? (isAm
+                      ? `${entryPrice} ብር · ሕግ #${(Math.abs(selectedGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} · ${selectedSpecialRule?.nameAm || 'ልዩ የማሸነፊያ ሕግ'}`
+                      : `${entryPrice} ETB · Law #${(Math.abs(selectedGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} · ${selectedSpecialRule?.nameEn || 'Special Law'}`)
                   : (isAm ? '50 ብር · 2:00 እና 6:00 PM · ሙሉ ቤት ብቻ (24/24)' : '50 ETB · 2:00 PM & 6:00 PM · Full House Only')}
               </span>
             </div>

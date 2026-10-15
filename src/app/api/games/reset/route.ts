@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
 import { isAdminTelegramId } from '@/lib/authUtils';
-import { HYPER_SPECIAL_RULES } from '@/lib/bingoUtils';
+import { HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES } from '@/lib/bingoUtils';
 import { INITIAL_GAMES } from '@/lib/store';
-
-const SPECIAL_PRICE_CYCLE = [10, 20, 25];
 
 /**
  * POST /api/games/reset
@@ -23,11 +21,9 @@ export async function POST(req: NextRequest) {
   try {
     await ensureGameDrawTimestampColumn(sql);
     const body = await req.json();
-    const { gameId, telegramId, nextSpecialIndex: reqNextIndex, nextPrice: reqNextPrice } = body as {
+    const { gameId, telegramId } = body as {
       gameId: string;
       telegramId?: string;
-      nextSpecialIndex?: number;
-      nextPrice?: number;
     };
 
     if (!gameId) {
@@ -75,12 +71,15 @@ export async function POST(req: NextRequest) {
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL' || gameId === 'gm_special';
     const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN' || gameId.includes('fetan');
     const currentRuleIndex = parseInt(game.active_special_rule_index ?? '0', 10);
-    const nextSpecialIndex = typeof reqNextIndex === 'number'
-      ? reqNextIndex
-      : (isSpecial ? (currentRuleIndex + 1) % HYPER_SPECIAL_RULES.length : currentRuleIndex);
-    const nextPrice = typeof reqNextPrice === 'number'
-      ? reqNextPrice
-      : (isSpecial ? SPECIAL_PRICE_CYCLE[nextSpecialIndex % SPECIAL_PRICE_CYCLE.length] : parseFloat(game.entry_price || '10'));
+    // Advance rule and price together from the authoritative DB value. Ignore
+    // client-supplied rotation values so stale clients cannot pick the wrong
+    // rule or price for the next shared round.
+    const nextSpecialIndex = isSpecial
+      ? (currentRuleIndex + 1) % HYPER_SPECIAL_RULES.length
+      : currentRuleIndex;
+    const nextPrice = isSpecial
+      ? HYPER_SPECIAL_PRICE_CYCLE[nextSpecialIndex % HYPER_SPECIAL_PRICE_CYCLE.length]
+      : parseFloat(game.entry_price || '10');
     const nextRoundStartsAt = isSpecial
       ? Date.now() + 5 * 60 * 1000
       : isFetan

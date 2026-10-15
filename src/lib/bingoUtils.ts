@@ -1345,6 +1345,7 @@ export function getLotteryGameLabel(
 
 export const FETAN_PICK_SECONDS = 30;
 export const SPECIAL_PICK_SECONDS = 5 * 60;
+export const HYPER_SPECIAL_PRICE_CYCLE = [10, 20, 25] as const;
 
 export function formatCountdownClock(totalSec: number): string {
   const clamped = Math.max(0, Math.floor(totalSec));

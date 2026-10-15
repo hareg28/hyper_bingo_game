@@ -19,6 +19,7 @@ import {
   getBestWinningRule,
   WinningRuleMatch,
   HYPER_SPECIAL_RULES,
+  HYPER_SPECIAL_PRICE_CYCLE,
   calcLotteryTotalCost,
   formatLotteryCardNumber,
   LOTTERY_NUMBERS_TOTAL,
@@ -1684,12 +1685,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (!game) return;
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL' || gameId === 'gm_special';
     const isFetan = game.category === 'HYPER_FETAN' || game.gameType === 'HYPER_FETAN' || gameId.includes('fetan');
-    const SPECIAL_PRICE_CYCLE = [10, 20, 25];
     const nextSpecialIndex = isSpecial
       ? ((game.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length
       : (game.activeSpecialRuleIndex ?? 0);
     const nextPrice = isSpecial
-      ? SPECIAL_PRICE_CYCLE[nextSpecialIndex % SPECIAL_PRICE_CYCLE.length]
+      ? HYPER_SPECIAL_PRICE_CYCLE[nextSpecialIndex % HYPER_SPECIAL_PRICE_CYCLE.length]
       : game.entryPrice;
     const nextRoundStartsAt = isSpecial
       ? Date.now() + 5 * 60 * 1000
@@ -1731,7 +1731,29 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     fetch('/api/games/reset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gameId, nextSpecialIndex, nextPrice }),
+      body: JSON.stringify({ gameId }),
+    }).then(async (res) => {
+      if (!res.ok) return;
+      const result = await res.json();
+      if (!result.success || !result.data) return;
+      const reset = result.data;
+      const serverRuleIndex = Number(reset.nextSpecialIndex);
+      const serverPrice = Number(reset.nextPrice);
+      const serverDeadline = reset.nextRoundStartsAt == null ? undefined : Number(reset.nextRoundStartsAt);
+      setGames((prev) => prev.map((g) => g.id !== gameId ? g : {
+        ...g,
+        activeSpecialRuleIndex: Number.isFinite(serverRuleIndex) ? serverRuleIndex : g.activeSpecialRuleIndex,
+        entryPrice: Number.isFinite(serverPrice) ? serverPrice : g.entryPrice,
+        nextRoundStartsAt: serverDeadline,
+      }));
+      if (typeof window !== 'undefined' && reset.isSpecial) {
+        try {
+          localStorage.setItem('hyper_bingo_special_rotation', JSON.stringify({
+            activeSpecialRuleIndex: serverRuleIndex,
+            entryPrice: serverPrice,
+          }));
+        } catch {}
+      }
     }).catch(() => {});
   };
 

@@ -1648,7 +1648,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   <span className="text-[10px] font-bold uppercase text-slate-500">
                     {language === 'am' ? 'ዋጋ' : 'Price'}
                   </span>
-                  <span className="text-sm sm:text-base font-black text-emerald-600">{formatETB(currentGame.entryPrice || 10)}</span>
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-sm sm:text-base font-black text-emerald-600">{formatETB(currentGame.entryPrice || 10)}</span>
+                    {isSpecialGame && (() => {
+                      const ruleIndex = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
+                      const activeRule = HYPER_SPECIAL_RULES[ruleIndex];
+                      return <span className="max-w-36 truncate text-[9px] font-bold text-indigo-700">{language === 'am' ? `ሕግ #${ruleIndex + 1} · ${activeRule.nameAm}` : `Law #${ruleIndex + 1} · ${activeRule.nameEn}`}</span>;
+                    })()}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-4 h-4 rounded-md bg-blue-100 flex items-center justify-center">

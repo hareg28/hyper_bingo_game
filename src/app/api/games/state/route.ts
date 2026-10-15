@@ -77,6 +77,22 @@ export async function GET(_req: NextRequest) {
         AND drawn_numbers = '{}'
         AND next_round_starts_at IS NULL
     `;
+    // Keep the Special entry price tied to the active rule, including rows
+    // that existed before the 10 / 20 / 25 ETB rotation was introduced.
+    await sql`
+      UPDATE games
+      SET entry_price = CASE MOD(MOD(active_special_rule_index, 3) + 3, 3)
+        WHEN 0 THEN 10
+        WHEN 1 THEN 20
+        ELSE 25
+      END
+      WHERE (category = 'HYPER_SPECIAL' OR game_type = 'HYPER_SPECIAL')
+        AND entry_price <> CASE MOD(MOD(active_special_rule_index, 3) + 3, 3)
+          WHEN 0 THEN 10
+          WHEN 1 THEN 20
+          ELSE 25
+        END
+    `;
 
     let rows = await sql`
       SELECT
@@ -190,7 +206,7 @@ export async function GET(_req: NextRequest) {
       status: r.status,
       drawnNumbers: parseIntegerArray(r.drawn_numbers),
       currentBall: r.current_ball == null ? null : Number(r.current_ball),
-      currentPlayers: playerIdsByGame[r.id]?.size ?? parseInt(r.current_players ?? '0', 10),
+      currentPlayers: playerIdsByGame[r.id]?.size ?? 0,
       winners: Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : []),
       blockedCards: Array.isArray(r.blocked_cards) ? r.blocked_cards : [],
       activeSpecialRuleIndex: parseInt(r.active_special_rule_index ?? '0', 10),
