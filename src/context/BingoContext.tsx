@@ -2151,9 +2151,13 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     );
 
     // Create corresponding bingo cards for purchased numbers (so game room shows them)
-    const newCards = numbers.map((n) =>
-      createNewBingoCard(gameId, user.id, formatLotteryCardNumber(n))
-    );
+    const newCards = numbers.map((n) => {
+      const card = createNewBingoCard(gameId, user.id, formatLotteryCardNumber(n));
+      if (isSpecialGame) {
+        card.isRegistered = false;
+      }
+      return card;
+    });
     setUserCards((prev) => [
       ...prev.filter((c) => c.gameId !== gameId || !numbers.map((n) => formatLotteryCardNumber(n)).includes(c.cardNumber)),
       ...newCards,

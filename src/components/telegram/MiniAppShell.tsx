@@ -98,21 +98,25 @@ export default function MiniAppShell({
   const [categoryTab, setCategoryTab] = useState<'FETAN' | 'SPECIAL' | 'WEEKEND'>(initialTab === 'lottery' ? 'WEEKEND' : 'FETAN');
   const [selectedWeekendDay, setSelectedWeekendDay] = useState<'FRI' | 'SAT' | 'SUN'>('FRI');
   const [lotteryMode, setLotteryMode] = useState<'FETAN' | 'SPECIAL' | 'WEEKEND'>(initialTab === 'lottery' ? 'WEEKEND' : 'FETAN');
+  const [localGameId, setLocalGameId] = useState<string | null>(initialGameId || activeGameId || null);
   const [showLuckyWheel, setShowLuckyWheel] = useState(false);
   const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (activeGameId) {
+      setLocalGameId(activeGameId);
+    }
+  }, [activeGameId]);
 
   const handleSelectGameToPickCards = (gameId: string, cat: 'FETAN' | 'SPECIAL' | 'WEEKEND') => {
     const targetGame = games.find((g) => g.id === gameId);
     if (targetGame && targetGame.status === 'COMPLETED') {
       resetGameRound(gameId);
     }
+    setLocalGameId(gameId);
     setActiveGameId(gameId);
-    if (cat === 'SPECIAL') {
-      setActiveTab('game');
-    } else {
-      setLotteryMode(cat);
-      setActiveTab('lottery');
-    }
+    setLotteryMode(cat);
+    setActiveTab('lottery');
   };
 
   useEffect(() => {
@@ -616,10 +620,10 @@ export default function MiniAppShell({
         {/* GAME ROOM TAB */}
         {activeTab === 'game' && (
           <BingoGameRoom
-            gameId={activeGameId || games[0].id}
+            gameId={localGameId || activeGameId || games[0].id}
             onBack={() => setActiveTab('lobby')}
             onOpenLotteryTab={() => {
-              const curGame = games.find((g) => g.id === (activeGameId || games[0].id));
+              const curGame = games.find((g) => g.id === (localGameId || activeGameId || games[0].id));
               if (curGame?.category === 'HYPER_SPECIAL' || curGame?.gameType === 'HYPER_SPECIAL') {
                 setLotteryMode('SPECIAL');
               } else if (curGame?.category === 'HYPER_WEEKEND' || curGame?.gameType === 'WEEKEND_LOTTERY' || curGame?.isWeekendSpecial) {
@@ -646,13 +650,17 @@ export default function MiniAppShell({
             getLotterySoldNumbers={getLotterySoldNumbers}
             purchaseLotteryNumbers={purchaseLotteryNumbers}
             refundLotteryNumber={refundLotteryNumber}
-            activeGameId={activeGameId || undefined}
-            onChangeGameId={(newId) => setActiveGameId(newId)}
+            activeGameId={localGameId || activeGameId || undefined}
+            onChangeGameId={(newId) => {
+              setLocalGameId(newId);
+              setActiveGameId(newId);
+            }}
             onPickCards={(gameId, cardNumbers) => {
               if (!user) { openAuthModal('register'); return; }
               if (cardNumbers.length > 0) {
                 joinGame(gameId, cardNumbers);
               }
+              setLocalGameId(gameId);
               setActiveGameId(gameId);
               setActiveTab('game');
             }}
@@ -903,7 +911,22 @@ export default function MiniAppShell({
         </button>
 
         <button
-          onClick={() => setActiveTab('game')}
+          onClick={() => {
+            if (categoryTab === 'SPECIAL') {
+              const specGame = games.find((g) => g.category === 'HYPER_SPECIAL' || g.id.includes('special'));
+              if (specGame) {
+                setLocalGameId(specGame.id);
+                setActiveGameId(specGame.id);
+              }
+            } else if (categoryTab === 'FETAN') {
+              const fetanGame = games.find((g) => (g.category === 'HYPER_FETAN' || g.name?.includes('Fetan')) && g.category !== 'HYPER_SPECIAL' && !g.id.includes('special'));
+              if (fetanGame) {
+                setLocalGameId(fetanGame.id);
+                setActiveGameId(fetanGame.id);
+              }
+            }
+            setActiveTab('game');
+          }}
           className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-2 py-1 rounded-xl ${
             activeTab === 'game' ? 'text-amber-600 font-black bg-amber-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
           }`}
@@ -914,6 +937,13 @@ export default function MiniAppShell({
 
         <button
           onClick={() => {
+            if (categoryTab === 'SPECIAL') {
+              const specGame = games.find((g) => g.category === 'HYPER_SPECIAL' || g.id.includes('special'));
+              if (specGame) {
+                setLocalGameId(specGame.id);
+                setActiveGameId(specGame.id);
+              }
+            }
             setLotteryMode(categoryTab);
             setActiveTab('lottery');
           }}
