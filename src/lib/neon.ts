@@ -136,6 +136,7 @@ export async function initDatabaseSchema() {
         active_special_rule_index INTEGER DEFAULT 0,
         next_round_starts_at BIGINT,
         draw_interval INTEGER DEFAULT 3,
+        last_ball_drawn_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -150,6 +151,7 @@ export async function initDatabaseSchema() {
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS active_special_rule_index INTEGER DEFAULT 0`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS next_round_starts_at BIGINT`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS draw_interval INTEGER DEFAULT 3`;
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS last_ball_drawn_at TIMESTAMPTZ`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`;
     } catch {}
 

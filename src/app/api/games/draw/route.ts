@@ -18,7 +18,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { gameId, telegramId } = body as { gameId: string; telegramId?: string };
+    const { gameId, telegramId, expectedDrawnCount } = body as {
+      gameId: string;
+      telegramId?: string;
+      expectedDrawnCount?: number;
+    };
 
     if (!gameId) {
       return NextResponse.json({ success: false, error: 'gameId required' }, { status: 400 });
@@ -31,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch current game state
     const [game] = await sql`
-      SELECT id, status, drawn_numbers, winners, next_round_starts_at
+      SELECT id, status, drawn_numbers, winners, next_round_starts_at, draw_interval, last_ball_drawn_at
       FROM games WHERE id = ${gameId}
     `;
     if (!game) {
@@ -55,6 +59,20 @@ export async function POST(req: NextRequest) {
     }
 
     const drawn: number[] = Array.isArray(game.drawn_numbers) ? game.drawn_numbers : [];
+    const drawIntervalMs = Math.max(1, parseInt(game.draw_interval ?? '3', 10)) * 1000;
+    if (game.last_ball_drawn_at) {
+      const nextAllowedAt = new Date(game.last_ball_drawn_at).getTime() + drawIntervalMs;
+      if (Date.now() < nextAllowedAt) {
+        return NextResponse.json({ success: false, error: 'The next ball is not due yet.', nextAllowedAt }, { status: 425 });
+      }
+    }
+    if (typeof expectedDrawnCount === 'number' && drawn.length !== expectedDrawnCount) {
+      return NextResponse.json({
+        success: false,
+        error: 'Game state changed; sync before drawing again.',
+        data: { drawnNumbers: drawn, currentBall: game.current_ball ?? null },
+      }, { status: 409 });
+    }
     if (drawn.length >= 75) {
       return NextResponse.json({ success: false, error: 'All 75 balls already drawn' }, { status: 409 });
     }
@@ -70,15 +88,24 @@ export async function POST(req: NextRequest) {
     const isCompleted = updatedDrawn.length >= 75;
 
     // Write to DB
-    await sql`
+    const updatedRows = await sql`
       UPDATE games
       SET
-        drawn_numbers = ${sql.array(updatedDrawn, 'int4')},
+        drawn_numbers = ${`{${updatedDrawn.join(',')}}`}::int4[],
         current_ball = ${nextBall},
+        last_ball_drawn_at = NOW(),
         status = ${isCompleted ? 'COMPLETED' : 'RUNNING'},
         updated_at = NOW()
       WHERE id = ${gameId}
+        AND drawn_numbers = ${`{${drawn.join(',')}}`}::int4[]
+      RETURNING id
     `;
+
+    // The row may have advanced after our initial read. Never return an
+    // uncommitted draw in that case; let polling deliver the winning update.
+    if (updatedRows.length === 0) {
+      return NextResponse.json({ success: false, error: 'Game state changed; sync before drawing again.' }, { status: 409 });
+    }
 
     return NextResponse.json({
       success: true,

@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch current game info
     let [game] = await sql`
-      SELECT id, game_type, category, active_special_rule_index, entry_price
+      SELECT id, game_type, category, active_special_rule_index, entry_price, status, drawn_numbers
       FROM games WHERE id = ${gameId}
     `;
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
           ON CONFLICT (id) DO NOTHING
         `;
         [game] = await sql`
-          SELECT id, game_type, category, active_special_rule_index, entry_price
+          SELECT id, game_type, category, active_special_rule_index, entry_price, status, drawn_numbers
           FROM games WHERE id = ${gameId}
         `;
       }
@@ -82,11 +82,12 @@ export async function POST(req: NextRequest) {
     const nextRoundStartsAt = isSpecial ? Date.now() + 5 * 60 * 1000 : null;
 
     // Reset the game row
-    await sql`
+    const resetRows = await sql`
       UPDATE games
       SET
         drawn_numbers = '{}',
         current_ball = NULL,
+        last_ball_drawn_at = NULL,
         current_players = 0,
         winners = '[]'::jsonb,
         blocked_cards = '{}',
@@ -96,7 +97,15 @@ export async function POST(req: NextRequest) {
         next_round_starts_at = ${nextRoundStartsAt},
         updated_at = NOW()
       WHERE id = ${gameId}
+        AND (status = 'COMPLETED' OR drawn_numbers <> '{}')
+      RETURNING id
     `;
+
+    // Multiple players can reach the end of a round together. Only the first
+    // reset clears that round; later requests must not rotate rules or prices.
+    if (resetRows.length === 0) {
+      return NextResponse.json({ success: false, error: 'Round has already been reset.' }, { status: 409 });
+    }
 
     // Delete all game_cards for this game (1-round card rule)
     await sql`DELETE FROM game_cards WHERE game_id = ${gameId}`;

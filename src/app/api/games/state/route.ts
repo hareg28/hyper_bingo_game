@@ -70,6 +70,25 @@ export async function GET(_req: NextRequest) {
       `;
     }
 
+    // Fetch sold cards by game so clients can show live sold cards & left cards on the board
+    const soldCardsByGame: Record<string, number[]> = {};
+    try {
+      const soldRows = await sql`
+        SELECT game_id, card_number FROM game_cards
+      `;
+      for (const row of soldRows) {
+        if (!soldCardsByGame[row.game_id]) {
+          soldCardsByGame[row.game_id] = [];
+        }
+        const num = parseInt(row.card_number, 10);
+        if (!Number.isNaN(num)) {
+          soldCardsByGame[row.game_id].push(num);
+        }
+      }
+    } catch {
+      // Gracefully ignore if table empty or not yet migrated
+    }
+
     const games = rows.map((r: any) => ({
       id: r.id,
       status: r.status,
@@ -83,13 +102,13 @@ export async function GET(_req: NextRequest) {
       entryPrice: parseFloat(r.entry_price),
       prizePool: parseFloat(r.prize_pool),
       drawInterval: parseInt(r.draw_interval ?? '3', 10),
+      soldCards: soldCardsByGame[r.id] || [],
       updatedAt: r.updated_at,
     }));
 
     return NextResponse.json({ success: true, data: games }, {
       headers: {
-        // Allow browsers/CDN to cache for 1s, revalidate immediately
-        'Cache-Control': 'public, max-age=1, stale-while-revalidate=2',
+        'Cache-Control': 'public, s-maxage=1, stale-while-revalidate=2',
       },
     });
   } catch (err: any) {

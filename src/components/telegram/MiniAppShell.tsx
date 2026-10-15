@@ -661,8 +661,13 @@ export default function MiniAppShell({
             }}
             onPickCards={(gameId, cardNumbers) => {
               if (!user) { openAuthModal('register'); return; }
-              if (cardNumbers.length > 0) {
-                joinGame(gameId, cardNumbers);
+              // The lottery picker purchases cards as they are selected and
+              // creates their local game cards. Only buy numbers that are not
+              // already owned when handing off to the live room.
+              const owned = new Set(userCards.filter((card) => card.gameId === gameId).map((card) => card.cardNumber));
+              const unpurchased = cardNumbers.filter((number) => !owned.has(number));
+              if (unpurchased.length > 0) {
+                joinGame(gameId, unpurchased);
               }
               setLocalGameId(gameId);
               setActiveGameId(gameId);

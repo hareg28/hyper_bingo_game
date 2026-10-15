@@ -55,6 +55,10 @@ export async function POST(req: NextRequest) {
     // 3. Fetch user info for logging
     const [userRow] = await sql`SELECT username FROM users WHERE id = ${userId}`;
     const username = userRow?.username || userId;
+    const [existingPlayer] = await sql`
+      SELECT COUNT(*) AS cnt FROM game_cards WHERE game_id = ${gameId} AND user_id = ${userId}
+    `;
+    const isNewPlayer = parseInt(existingPlayer?.cnt ?? '0', 10) === 0;
 
     // 4. Try inserting each card — ON CONFLICT DO NOTHING means already-sold cards are skipped
     const purchased: string[] = [];
@@ -103,13 +107,7 @@ export async function POST(req: NextRequest) {
       WHERE user_id = ${userId}
     `;
 
-    // 6. Increment player count only if this is a new player (not already in game_cards for this game)
-    const existingCards = await sql`
-      SELECT COUNT(*) as cnt FROM game_cards
-      WHERE game_id = ${gameId} AND user_id = ${userId} AND card_number NOT IN (${sql(purchased)})
-    `;
-    const isNewPlayer = parseInt(existingCards[0]?.cnt ?? '0', 10) === 0;
-
+    // 6. Increment player count only if this is a new player.
     if (isNewPlayer) {
       await sql`
         UPDATE games
@@ -175,6 +173,53 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: { allSold, myCards } });
   } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+/** DELETE /api/games/buy-card — release a card that its owner unselected. */
+export async function DELETE(req: NextRequest) {
+  const sql = getNeonSql();
+  if (!sql) return NextResponse.json({ success: false, error: 'DB not configured' }, { status: 503 });
+
+  try {
+    const { gameId, userId, cardNumber } = await req.json() as {
+      gameId: string;
+      userId: string;
+      cardNumber: string;
+    };
+    if (!gameId || !userId || !cardNumber) {
+      return NextResponse.json({ success: false, error: 'gameId, userId and cardNumber required' }, { status: 400 });
+    }
+
+    const [ownedCard] = await sql`
+      SELECT gc.cost, g.category, g.game_type
+      FROM game_cards gc
+      JOIN games g ON g.id = gc.game_id
+      WHERE gc.game_id = ${gameId} AND gc.card_number = ${cardNumber} AND gc.user_id = ${userId}
+    `;
+    if (!ownedCard) return NextResponse.json({ success: false, error: 'Owned card not found' }, { status: 404 });
+
+    await sql`DELETE FROM game_cards WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND user_id = ${userId}`;
+
+    const isSpecial = ownedCard.category === 'HYPER_SPECIAL' || ownedCard.game_type === 'HYPER_SPECIAL';
+    let walletAfter;
+    if (!isSpecial) {
+      const refund = parseFloat(ownedCard.cost ?? '0');
+      const [wallet] = await sql`SELECT available_balance, bonus_balance FROM wallets WHERE user_id = ${userId}`;
+      if (wallet) {
+        const availableBalance = parseFloat(wallet.available_balance) + refund;
+        await sql`
+          UPDATE wallets SET available_balance = ${availableBalance}, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `;
+        walletAfter = { availableBalance, bonusBalance: parseFloat(wallet.bonus_balance) };
+      }
+    }
+
+    return NextResponse.json({ success: true, data: { walletAfter } });
+  } catch (err: any) {
+    console.error('[buy-card DELETE]', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

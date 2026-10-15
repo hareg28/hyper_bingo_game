@@ -830,9 +830,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         // Skip tick if app is backgrounded — prevents stacking/freezing on mobile
         if (isHiddenRef.current) return;
         const next = drawNextBall(currentGame.id);
-        if (!next) {
-          setIsAutoDrawing(false);
-        } else {
+        if (next) {
           announceBall(next);
         }
       }, Math.max(2500, (currentGame.drawInterval || 3) * 1000));
