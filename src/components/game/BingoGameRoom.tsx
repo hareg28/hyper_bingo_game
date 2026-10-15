@@ -1986,8 +1986,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
             {/* When entering to choose cards: NO BINGO BOX initially until user chooses cards via the (+) button */}
             {activeGameCards.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-14 px-4 text-center space-y-3 bg-white rounded-2xl border border-dashed border-slate-300 mx-1 shadow-2xs">
-                <div className="w-10 h-10 rounded-full bg-red-50 text-[#ef4444] flex items-center justify-center text-xl font-black shadow-xs">
+              <div 
+                onClick={() => setFabOpen(true)}
+                className="flex flex-col items-center justify-center py-10 px-4 text-center space-y-3 bg-white rounded-2xl border border-dashed border-slate-300 mx-1 shadow-2xs cursor-pointer hover:border-red-400 transition"
+              >
+                <div className="w-12 h-12 rounded-full bg-red-50 text-[#ef4444] flex items-center justify-center text-2xl font-black shadow-xs">
                   +
                 </div>
                 <div className="space-y-1">
@@ -1996,9 +1999,21 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   </h3>
                   <p className="text-xs text-slate-500 max-w-xs mx-auto">
                     {language === 'am'
-                      ? 'የካርድ ቁጥር ለመምረጥና ለመመዝገብ ከታች በቀኝ በኩል ያለውን (+) ቁልፍ ይጫኑ (1፣ 2፣ 5 ወይም 10 ካርዶች)'
-                      : 'Tap the (+) button on the bottom right to choose card numbers to register (1, 2, 5, or 10 cards).'}
+                      ? 'የካርድ ቁጥር ለመምረጥና ለመመዝገብ ከታች ካሉት ቁልፎች ይምረጡ (1፣ 2፣ 5 ወይም 10 ካርዶች)'
+                      : 'Choose card numbers to register (1, 2, 5, or 10 cards):'}
                   </p>
+                </div>
+                <div className="flex items-center gap-2 pt-1 flex-wrap justify-center" onClick={(e) => e.stopPropagation()}>
+                  {[1, 2, 5, 10].map((qty) => (
+                    <button
+                      key={qty}
+                      type="button"
+                      onClick={() => addSpecialCards(currentGame.id, qty)}
+                      className="px-3 py-1.5 rounded-xl bg-[#ef4444] hover:bg-[#dc2626] text-white font-black text-xs shadow-xs transition active:scale-95 cursor-pointer"
+                    >
+                      +{qty} {language === 'am' ? 'ካርድ' : 'Card' + (qty > 1 ? 's' : '')}
+                    </button>
+                  ))}
                 </div>
                 <span className="text-[11px] font-semibold text-slate-400">
                   {language === 'am' ? 'እስከ 30 ካርዶች መምረጥ እና 5 ካርዶች መመዝገብ ይችላሉ' : 'Select up to 30 cards, register up to 5'}
