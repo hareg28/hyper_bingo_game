@@ -84,7 +84,7 @@ interface BingoContextType {
   claimBingo: (cardId: string) => { success: boolean; message: string; prize?: number };
   blockCard: (gameId: string, cardNumber: string) => void;
   resetGameRound: (gameId: string) => void;
-  startSpecialRound: (gameId: string) => void;
+  startSpecialRound: (gameId: string) => Promise<boolean>;
   clearConsumedCards: (gameId: string) => void;
   drawNextBall: (gameId: string) => number | null;
   dismissNotification: (id: string) => void;
@@ -1708,7 +1708,19 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   };
 
   // 8d. START SPECIAL GAME ROUND — ends 5-min intermission & starts live drawing
-  const startSpecialRound = (gameId: string) => {
+  const startSpecialRound = async (gameId: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/games/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) return false;
+    } catch {
+      return false;
+    }
+
     setGames((prev) =>
       prev.map((g) => {
         if (g.id !== gameId) return g;
@@ -1719,13 +1731,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         };
       })
     );
-
-    // Update DB to clear next_round_starts_at
-    fetch('/api/games/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gameId }),
-    }).catch(() => {});
+    return true;
   };
 
   // Explicitly clear consumed cards from a finished game

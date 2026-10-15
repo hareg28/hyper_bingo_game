@@ -26,7 +26,16 @@ export default function SharedCountdownText(props: SharedCountdownTextProps) {
     const update = () => setSeconds(getRemainingSeconds({ mode, deadline, status, drawnCount }));
     update();
     const timer = window.setInterval(update, 1000);
-    return () => window.clearInterval(timer);
+    const resume = () => {
+      if (document.visibilityState === 'visible') update();
+    };
+    window.addEventListener('focus', resume);
+    document.addEventListener('visibilitychange', resume);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', resume);
+      document.removeEventListener('visibilitychange', resume);
+    };
   }, [mode, deadline, status, drawnCount]);
 
   return (

@@ -570,6 +570,20 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // Keep a ref to nextRoundStartsAt so the interval tick always has the latest server value
   const nextRoundStartsAtRef = React.useRef<number | undefined>(currentGame.nextRoundStartsAt);
   const startedSpecialDeadlineRef = React.useRef<number | undefined>(undefined);
+  const startExpiredSpecialRound = React.useCallback((deadline: number) => {
+    if (startedSpecialDeadlineRef.current === deadline) return;
+    startedSpecialDeadlineRef.current = deadline;
+    void startSpecialRound(currentGame.id).then((started) => {
+      if (!started) {
+        startedSpecialDeadlineRef.current = undefined;
+        return;
+      }
+      setSpecialIsIntermission(false);
+      setIsSelectorOpen(false);
+      setIsAutoDrawing(true);
+      window.setTimeout(() => drawNextBall(currentGame.id), 350);
+    });
+  }, [currentGame.id, startSpecialRound, drawNextBall]);
   useEffect(() => {
     nextRoundStartsAtRef.current = currentGame.nextRoundStartsAt;
   }, [currentGame.nextRoundStartsAt]);
@@ -606,23 +620,19 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         setSpecialIsIntermission(true);
         setIsAutoDrawing(false);
       } else {
-        // A player may open the room after the deadline. Start the same server
-        // round immediately instead of leaving this client waiting in OPEN.
-        setSpecialIsIntermission(false);
+        // Keep retrying the shared server transition until it succeeds. This
+        // also handles clients resuming from the background after the deadline.
+        setSpecialIsIntermission(true);
         setSpecialSecondsLeft(0);
         if (
           currentGame.nextRoundStartsAt &&
-          startedSpecialDeadlineRef.current !== currentGame.nextRoundStartsAt &&
           currentGame.drawnNumbers.length === 0
         ) {
-          startedSpecialDeadlineRef.current = currentGame.nextRoundStartsAt;
-          setIsAutoDrawing(true);
-          startSpecialRound(currentGame.id);
-          setTimeout(() => drawNextBall(currentGame.id), 350);
+          startExpiredSpecialRound(currentGame.nextRoundStartsAt);
         }
       }
     }
-  }, [isSpecialGame, currentGame.id, currentGame.nextRoundStartsAt, currentGame.status, currentGame.drawnNumbers.length, startSpecialRound, drawNextBall]);
+  }, [isSpecialGame, currentGame.id, currentGame.nextRoundStartsAt, currentGame.status, currentGame.drawnNumbers.length, startExpiredSpecialRound]);
 
   // Unified 10-second winner announcement countdown for ALL games (redirects to card buy board or 5-min special gap)
   const [announcementSecondsLeft, setAnnouncementSecondsLeft] = useState<number>(10);
@@ -693,20 +703,25 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       }
 
       if (remaining <= 0) {
-        // Intermission finished — start the live round!
-        clearInterval(timer);
+        // Intermission finished — start the live round on the server. Keep
+        // polling this transition if the request fails temporarily.
         setSpecialSecondsLeft(0);
-        setSpecialIsIntermission(false);
-        setIsSelectorOpen(false);
-        setIsAutoDrawing(true);
-        startSpecialRound(currentGame.id);
-        // Draw first ball immediately to kick off the live game
-        setTimeout(() => drawNextBall(currentGame.id), 350);
+        startExpiredSpecialRound(serverDeadline);
       }
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [isSpecialGame, specialIsIntermission, currentGame.id, startSpecialRound, drawNextBall]);
+    const resume = () => {
+      if (document.visibilityState === 'visible') {
+        const deadline = nextRoundStartsAtRef.current;
+        if (deadline && Date.now() >= deadline) startExpiredSpecialRound(deadline);
+      }
+    };
+    document.addEventListener('visibilitychange', resume);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', resume);
+    };
+  }, [isSpecialGame, specialIsIntermission, currentGame.id, startExpiredSpecialRound]);
 
   // Fetan uses one shared 60s live / 30s card-picking clock on every client.
   useEffect(() => {

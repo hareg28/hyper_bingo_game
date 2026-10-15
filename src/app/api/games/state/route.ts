@@ -58,6 +58,25 @@ export async function GET(_req: NextRequest) {
       SELECT id FROM reset_fetan
     `;
 
+    // Ensure Special exists even in databases that already contain some, but
+    // not all, of the built-in games.
+    const initialSpecial = INITIAL_GAMES.find((game) => game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL');
+    if (initialSpecial) {
+      await sql`
+        INSERT INTO games (
+          id, name, game_type, category, winning_rule, entry_price, prize_pool, status,
+          drawn_numbers, current_ball, current_players, winners, blocked_cards,
+          active_special_rule_index, draw_interval, created_at, updated_at
+        ) VALUES (
+          ${initialSpecial.id}, ${initialSpecial.name}, ${initialSpecial.gameType}, ${initialSpecial.category},
+          ${initialSpecial.winningRule}, ${initialSpecial.entryPrice}, ${initialSpecial.prizePool}, 'OPEN',
+          '{}', NULL, 0, '[]'::jsonb, '{}', ${initialSpecial.activeSpecialRuleIndex ?? 0},
+          ${initialSpecial.drawInterval ?? 3}, NOW(), NOW()
+        )
+        ON CONFLICT (id) DO NOTHING
+      `;
+    }
+
     // A brand-new Hyper Special round always has the same shared five-minute
     // registration window. The NULL guard makes initialization safe under load.
     await sql`
@@ -104,6 +123,36 @@ export async function GET(_req: NextRequest) {
           ON CONFLICT (id) DO NOTHING
         `;
       }
+      rows = await sql`
+        SELECT
+          id,
+          status,
+          drawn_numbers,
+          current_ball,
+          current_players,
+          winners,
+          blocked_cards,
+          active_special_rule_index,
+          next_round_starts_at,
+          entry_price,
+          prize_pool,
+          draw_interval,
+          updated_at
+        FROM games
+        ORDER BY created_at ASC
+      `;
+
+      // The rows above are inserted after the first deadline-initialization
+      // pass. Initialize Special's first shared pick window before returning
+      // this first snapshot as well.
+      await sql`
+        UPDATE games
+        SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + 300000
+        WHERE (category = 'HYPER_SPECIAL' OR game_type = 'HYPER_SPECIAL')
+          AND status = 'OPEN'
+          AND drawn_numbers = '{}'
+          AND next_round_starts_at IS NULL
+      `;
       rows = await sql`
         SELECT
           id,
