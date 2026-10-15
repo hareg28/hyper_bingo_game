@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getNeonSql } from '@/lib/neon';
+import { ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 
 function parseIntegerArray(value: unknown): number[] {
@@ -23,6 +23,7 @@ export async function GET(_req: NextRequest) {
   }
 
   try {
+    await ensureGameDrawTimestampColumn(sql);
     // Fetan uses a shared 90-second server cycle (60s live, 30s pick).
     // Clear the previous round once when the pick window opens so all clients
     // see the same fresh board, while purchases made during this window remain

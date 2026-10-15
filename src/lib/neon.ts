@@ -12,6 +12,23 @@ export function getNeonSql() {
   return neon(databaseUrl);
 }
 
+let gameDrawTimestampMigration: Promise<void> | null = null;
+
+/** Ensure this runtime column exists for databases created before timed draws. */
+export async function ensureGameDrawTimestampColumn(
+  sql: NonNullable<ReturnType<typeof getNeonSql>>
+): Promise<void> {
+  if (!gameDrawTimestampMigration) {
+    gameDrawTimestampMigration = sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS last_ball_drawn_at TIMESTAMPTZ`
+      .then(() => undefined)
+      .catch((error) => {
+        gameDrawTimestampMigration = null;
+        throw error;
+      });
+  }
+  await gameDrawTimestampMigration;
+}
+
 /**
  * Automatically initializes all required PostgreSQL tables in Neon
  */
@@ -154,6 +171,9 @@ export async function initDatabaseSchema() {
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS last_ball_drawn_at TIMESTAMPTZ`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`;
     } catch {}
+    // Keep this essential draw-timing column outside the best-effort block so
+    // failures are visible and older deployments are upgraded reliably.
+    await ensureGameDrawTimestampColumn(sql);
 
     // 6c. Seed INITIAL_GAMES if not already present
     try {

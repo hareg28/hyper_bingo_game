@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getNeonSql } from '@/lib/neon';
+import { ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
 
 /**
  * POST /api/games/buy-card
@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    await ensureGameDrawTimestampColumn(sql);
     const body = await req.json();
     const { gameId, cardNumbers, userId, cost } = body as {
       gameId: string;

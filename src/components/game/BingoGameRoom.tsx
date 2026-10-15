@@ -636,42 +636,53 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   // Unified 10-second winner announcement countdown for ALL games (redirects to card buy board or 5-min special gap)
   const [announcementSecondsLeft, setAnnouncementSecondsLeft] = useState<number>(10);
+  const resetGameRoundRef = React.useRef(resetGameRound);
+  const openLotteryTabRef = React.useRef(onOpenLotteryTab);
+  resetGameRoundRef.current = resetGameRound;
+  openLotteryTabRef.current = onOpenLotteryTab;
 
   useEffect(() => {
     if (!hasGameWinner) return;
 
-    setAnnouncementSecondsLeft(10);
+    const deadline = Date.now() + 10_000;
+    let completed = false;
+    const update = () => {
+      const secondsLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setAnnouncementSecondsLeft(secondsLeft);
+      if (secondsLeft > 0 || completed) return;
+
+      completed = true;
+      clearInterval(timer);
+      setShowWinnerModal(false);
+      resetGameRoundRef.current(currentGame.id);
+      if (isSpecialGame) {
+        // Special card purchases stay on the room's plus picker during its
+        // newly-created five-minute window.
+        setSpecialIsIntermission(true);
+        setIsAutoDrawing(false);
+        setSpecialSecondsLeft(300);
+      } else if (openLotteryTabRef.current) {
+        openLotteryTabRef.current();
+      } else {
+        setIsSelectorOpen(true);
+      }
+    };
+
     setIsAutoDrawing(false);
+    const timer = window.setInterval(update, 250);
+    const resume = () => {
+      if (document.visibilityState === 'visible') update();
+    };
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('focus', resume);
+    update();
 
-    const timer = setInterval(() => {
-      if (isHiddenRef.current) return;
-      setAnnouncementSecondsLeft((prev) => {
-        if (prev <= 1) {
-          // Exactly 10 seconds finished! Redirect to card buy board
-          clearInterval(timer);
-          setShowWinnerModal(false);
-          resetGameRound(currentGame.id);
-          if (isSpecialGame) {
-            // For Hyper Special: enter 5-minute intermission between rounds.
-            // The actual countdown is driven by the server's nextRoundStartsAt (set during reset).
-            // We enter intermission mode here; the server poll + sync effect will set the real seconds.
-            setSpecialIsIntermission(true);
-            setIsAutoDrawing(false);
-            // Set a provisional 300s — the server sync will correct it within ~3s
-            setSpecialSecondsLeft(300);
-          } else if (onOpenLotteryTab) {
-            onOpenLotteryTab();
-          } else {
-            setIsSelectorOpen(true);
-          }
-          return 10;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [hasGameWinner, currentGame.id, resetGameRound, onOpenLotteryTab, isSpecialGame]);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('focus', resume);
+    };
+  }, [hasGameWinner, currentGame.id, isSpecialGame]);
 
   // Auto-show winner announcement celebration modal to EVERYONE when a winner claims Bingo!
   const prevWinnersCountRef = React.useRef(currentGame.winners?.length || 0);

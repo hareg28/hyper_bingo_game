@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getNeonSql } from '@/lib/neon';
+import { ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
 import { isAdminTelegramId } from '@/lib/authUtils';
 
 function parseIntegerArray(value: unknown): number[] {
@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    await ensureGameDrawTimestampColumn(sql);
     const body = await req.json();
     const { gameId, telegramId, expectedDrawnCount } = body as {
       gameId: string;

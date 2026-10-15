@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getNeonSql } from '@/lib/neon';
+import { ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
 import { isAdminTelegramId } from '@/lib/authUtils';
 import { HYPER_SPECIAL_RULES } from '@/lib/bingoUtils';
 import { INITIAL_GAMES } from '@/lib/store';
@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    await ensureGameDrawTimestampColumn(sql);
     const body = await req.json();
     const { gameId, telegramId, nextSpecialIndex: reqNextIndex, nextPrice: reqNextPrice } = body as {
       gameId: string;
