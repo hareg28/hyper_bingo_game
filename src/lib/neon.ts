@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { INITIAL_GAMES } from '@/lib/store';
 
 /**
  * Neon Serverless PostgreSQL Database Client
@@ -150,6 +151,24 @@ export async function initDatabaseSchema() {
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS next_round_starts_at BIGINT`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS draw_interval INTEGER DEFAULT 3`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`;
+    } catch {}
+
+    // 6c. Seed INITIAL_GAMES if not already present
+    try {
+      for (const g of INITIAL_GAMES) {
+        await sql`
+          INSERT INTO games (
+            id, name, game_type, category, winning_rule, entry_price, prize_pool, status,
+            drawn_numbers, current_ball, current_players, winners, blocked_cards,
+            active_special_rule_index, draw_interval, created_at, updated_at
+          ) VALUES (
+            ${g.id}, ${g.name}, ${g.gameType}, ${g.category}, ${g.winningRule}, ${g.entryPrice},
+            ${g.prizePool}, 'OPEN', '{}', NULL, 0, '[]'::jsonb, '{}',
+            ${g.activeSpecialRuleIndex ?? 0}, ${g.drawInterval ?? 3}, NOW(), NOW()
+          )
+          ON CONFLICT (id) DO NOTHING
+        `;
+      }
     } catch {}
 
     // 8. Game Cards Table — server-side card ownership (prevents duplicate sales)

@@ -117,7 +117,27 @@ const BingoContext = createContext<BingoContextType | undefined>(undefined);
 export function BingoProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [wallet, setWallet] = useState<Wallet>(EMPTY_WALLET);
-  const [games, setGames] = useState<Game[]>(INITIAL_GAMES);
+  const [games, setGames] = useState<Game[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('hyper_bingo_special_rotation');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return INITIAL_GAMES.map((g) => {
+            if (g.id === 'gm_special' || g.category === 'HYPER_SPECIAL') {
+              return {
+                ...g,
+                activeSpecialRuleIndex: typeof parsed.activeSpecialRuleIndex === 'number' ? parsed.activeSpecialRuleIndex : g.activeSpecialRuleIndex,
+                entryPrice: typeof parsed.entryPrice === 'number' ? parsed.entryPrice : g.entryPrice,
+              };
+            }
+            return g;
+          });
+        }
+      } catch {}
+    }
+    return INITIAL_GAMES;
+  });
   const [activeGameId, setActiveGameId] = useState<string | null>('gm_fetan_10');
   const [userCards, setUserCards] = useState<BingoCard[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
@@ -409,6 +429,18 @@ export function BingoProvider({ children }: { children: ReactNode }) {
               };
             })
           );
+          // Also persist special rotation to localStorage if returned from server
+          if (typeof window !== 'undefined') {
+            const specialServer = json.data.find((g: any) => g.id === 'gm_special');
+            if (specialServer && typeof specialServer.activeSpecialRuleIndex === 'number') {
+              try {
+                localStorage.setItem('hyper_bingo_special_rotation', JSON.stringify({
+                  activeSpecialRuleIndex: specialServer.activeSpecialRuleIndex,
+                  entryPrice: specialServer.entryPrice,
+                }));
+              } catch {}
+            }
+          }
           // Also sync lotterySoldMap from server buy-card data for active game
         }
       } catch {
@@ -1526,7 +1558,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const resetGameRound = (gameId: string) => {
     const game = games.find((g) => g.id === gameId);
     if (!game) return;
-    const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL';
+    const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL' || gameId === 'gm_special';
     const SPECIAL_PRICE_CYCLE = [10, 20, 25];
     const nextSpecialIndex = isSpecial
       ? ((game.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length
@@ -1537,8 +1569,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const nextRoundStartsAt = isSpecial ? Date.now() + 5 * 60 * 1000 : undefined;
 
     // Optimistic local reset
-    setGames((prev) =>
-      prev.map((g) => {
+    setGames((prev) => {
+      const updated = prev.map((g) => {
         if (g.id !== gameId) return g;
         return {
           ...g,
@@ -1552,8 +1584,17 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           entryPrice: nextPrice,
           nextRoundStartsAt,
         };
-      })
-    );
+      });
+      if (typeof window !== 'undefined' && isSpecial) {
+        try {
+          localStorage.setItem('hyper_bingo_special_rotation', JSON.stringify({
+            activeSpecialRuleIndex: nextSpecialIndex,
+            entryPrice: nextPrice,
+          }));
+        } catch {}
+      }
+      return updated;
+    });
     setLotterySoldMap((prev) => ({ ...prev, [gameId]: new Set<number>() }));
     setUserCards((prev) => prev.filter((card) => card.gameId !== gameId));
 
@@ -1561,7 +1602,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     fetch('/api/games/reset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gameId }),
+      body: JSON.stringify({ gameId, nextSpecialIndex, nextPrice }),
     }).catch(() => {});
   };
 

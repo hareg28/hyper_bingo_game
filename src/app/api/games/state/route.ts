@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNeonSql } from '@/lib/neon';
+import { INITIAL_GAMES } from '@/lib/store';
 
 /**
  * GET /api/games/state
@@ -14,7 +15,7 @@ export async function GET(_req: NextRequest) {
   }
 
   try {
-    const rows = await sql`
+    let rows = await sql`
       SELECT
         id,
         status,
@@ -32,6 +33,42 @@ export async function GET(_req: NextRequest) {
       FROM games
       ORDER BY created_at ASC
     `;
+
+    if (!rows || rows.length === 0) {
+      // Auto-seed INITIAL_GAMES so DB is populated
+      for (const g of INITIAL_GAMES) {
+        await sql`
+          INSERT INTO games (
+            id, name, game_type, category, winning_rule, entry_price, prize_pool, status,
+            drawn_numbers, current_ball, current_players, winners, blocked_cards,
+            active_special_rule_index, draw_interval, created_at, updated_at
+          ) VALUES (
+            ${g.id}, ${g.name}, ${g.gameType}, ${g.category}, ${g.winningRule}, ${g.entryPrice},
+            ${g.prizePool}, 'OPEN', '{}', NULL, 0, '[]'::jsonb, '{}',
+            ${g.activeSpecialRuleIndex ?? 0}, ${g.drawInterval ?? 3}, NOW(), NOW()
+          )
+          ON CONFLICT (id) DO NOTHING
+        `;
+      }
+      rows = await sql`
+        SELECT
+          id,
+          status,
+          drawn_numbers,
+          current_ball,
+          current_players,
+          winners,
+          blocked_cards,
+          active_special_rule_index,
+          next_round_starts_at,
+          entry_price,
+          prize_pool,
+          draw_interval,
+          updated_at
+        FROM games
+        ORDER BY created_at ASC
+      `;
+    }
 
     const games = rows.map((r: any) => ({
       id: r.id,

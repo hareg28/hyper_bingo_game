@@ -1443,6 +1443,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             >
               {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-sky-600" /> : <VolumeX className="w-3.5 h-3.5" />}
             </button>
+            {isSpecialGame && (
+              <button
+                type="button"
+                onClick={() => resetGameRound(currentGame.id)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
+                title={language === 'am' ? 'አዲስ ዙር ጀምር (ሕግና ዋጋ ቀይር)' : 'New Game (Rotate Law & Price)'}
+              >
+                <span>🔄</span><span>{language === 'am' ? 'አዲስ ዙር' : 'New Round'}</span>
+              </button>
+            )}
           </div>
 
           {/* ── Middle Area: Previous balls + Intermission timer ── */}
@@ -1908,11 +1918,64 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     </span>
                   </div>
                 </div>
-                <div className="bg-slate-950 text-amber-300 font-mono font-black text-sm px-2.5 py-1 rounded-lg border border-amber-400 shrink-0 shadow-xs">
-                  {formatTimeRemaining(specialSecondsLeft)}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="bg-slate-950 text-amber-300 font-mono font-black text-sm px-2.5 py-1 rounded-lg border border-amber-400 shrink-0 shadow-xs">
+                    {formatTimeRemaining(specialSecondsLeft)}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSpecialIsIntermission(false);
+                      setIsAutoDrawing(true);
+                      startSpecialRound(currentGame.id);
+                      setTimeout(() => {
+                        const first = drawNextBall(currentGame.id);
+                        if (first) announceBallRef.current(first);
+                      }, 350);
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-2.5 py-1 rounded-lg shadow-sm cursor-pointer active:scale-95 transition"
+                  >
+                    {language === 'am' ? 'ጀምር' : 'Start'}
+                  </button>
                 </div>
               </div>
             )}
+
+            {/* Active Law & Price Banner for Hyper Special */}
+            {(() => {
+              const ruleIdx = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
+              const rule = HYPER_SPECIAL_RULES[ruleIdx];
+              return (
+                <div className="mx-1 p-2 rounded-xl bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 text-white border border-indigo-700/60 shadow-xs flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="px-2 py-0.5 rounded-lg bg-amber-400 text-slate-950 font-black text-[11px] shrink-0 font-mono shadow-2xs">
+                      {language === 'am' ? `ሕግ #${ruleIdx + 1}` : `Law #${ruleIdx + 1}`}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-xs font-black truncate text-amber-300">
+                        {language === 'am' ? rule.nameAm : rule.nameEn}
+                      </div>
+                      <div className="text-[10px] text-slate-300 truncate">
+                        {language === 'am' ? rule.subtitleAm : rule.subtitle}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="px-2 py-1 rounded-lg bg-emerald-600 text-white font-mono font-black text-xs shadow-2xs">
+                      {currentGame.entryPrice} ETB
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => resetGameRound(currentGame.id)}
+                      className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-[10px] font-bold cursor-pointer transition active:scale-95"
+                      title={language === 'am' ? 'ቀጣይ ሕግና ዋጋ' : 'Next Law & Price'}
+                    >
+                      🔄
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="flex items-center justify-between px-1.5 pt-0.5 text-xs">
               <span className="font-black text-slate-700">
