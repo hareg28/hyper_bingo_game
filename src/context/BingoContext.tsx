@@ -175,6 +175,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const [lotterySoldMap, setLotterySoldMap] = useState<Record<string, Set<number>>>(
     () => getInitialLotterySoldMap(INITIAL_GAMES)
   );
+  const pendingCardPurchasesRef = React.useRef<Record<string, Promise<boolean>>>({});
 
   const isLoggedIn = Boolean(user);
 
@@ -2194,7 +2195,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     const purchasedLabels = numbers.map((n) => formatLotteryCardNumber(n));
     const bonusSpent = Math.min(wallet.bonusBalance, totalCost);
-    fetch('/api/games/buy-card', {
+    const purchasePromise = fetch('/api/games/buy-card', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ gameId, cardNumbers: purchasedLabels, userId: user.id, cost: totalCost }),
@@ -2210,7 +2211,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
               return updated;
             });
           }
-          return;
+          return true;
         }
 
         setLotterySoldMap((prev) => {
@@ -2230,8 +2231,23 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           return updated;
         });
         addNotification('Card purchase failed', body.error || 'This card could not be reserved. Please try another number.', 'warning');
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('lottery-purchase-failed', { detail: { gameId, numbers } }));
+        }
+        return false;
       })
-      .catch(() => {});
+      .catch(() => false);
+    purchasedLabels.forEach((cardNumber) => {
+      pendingCardPurchasesRef.current[`${gameId}:${cardNumber}`] = purchasePromise;
+    });
+    void purchasePromise.finally(() => {
+      purchasedLabels.forEach((cardNumber) => {
+        const key = `${gameId}:${cardNumber}`;
+        if (pendingCardPurchasesRef.current[key] === purchasePromise) {
+          delete pendingCardPurchasesRef.current[key];
+        }
+      });
+    });
 
     return {
       success: true,
@@ -2248,6 +2264,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     const numInt = typeof number === 'number' ? number : parseInt(String(number), 10);
     const label = String(numInt);
+    const pendingPurchase = pendingCardPurchasesRef.current[`${gameId}:${label}`];
 
     // Check if card is owned by user in userCards OR marked in lotterySoldMap
     const userHasCard = userCards.some(
@@ -2275,13 +2292,15 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL';
 
-    fetch('/api/games/buy-card', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gameId, userId: user.id, cardNumber: label }),
-    })
-      .then((response) => response.json())
-      .then((result) => {
+    const releaseOwnedCard = async () => {
+      if (pendingPurchase && !(await pendingPurchase)) return;
+      try {
+        const response = await fetch('/api/games/buy-card', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gameId, userId: user.id, cardNumber: label }),
+        });
+        const result = await response.json();
         const walletAfter = result.data?.walletAfter;
         if (result.success && walletAfter) {
           setWallet((prev) => {
@@ -2290,11 +2309,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             return updated;
           });
         }
-      })
-      .catch(() => {});
+      } catch {}
+    };
+    void releaseOwnedCard();
 
     // Refund entry price only if not Hyper Special
-    if (!isSpecial) {
+    if (!isSpecial && !pendingPurchase) {
       const refundAmount = game.entryPrice || 10;
       let newAvail = wallet.availableBalance + refundAmount;
       setWallet((prev) => {

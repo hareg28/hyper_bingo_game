@@ -1119,6 +1119,18 @@ function WeekendLotteryNumberPicker({
     fetanCycleMarkerRef.current = marker;
   }, [mode, selectedGame?.id, selectedGame?.nextRoundStartsAt, NUM_SLOTS]);
 
+  React.useEffect(() => {
+    const handlePurchaseFailure = (event: Event) => {
+      const { gameId, numbers } = (event as CustomEvent<{ gameId: string; numbers: number[] }>).detail || {};
+      if (gameId !== selectedGame?.id || !Array.isArray(numbers)) return;
+      setSlotNumbers((prev) => prev.map((number) => number !== null && numbers.includes(number) ? null : number));
+      setPurchaseFeedback(isAm ? 'ግዢው አልተሳካም። ካርዱ ተመልሷል።' : 'Purchase failed. The card was unselected.');
+      setTimeout(() => setPurchaseFeedback(null), 3000);
+    };
+    window.addEventListener('lottery-purchase-failed', handlePurchaseFailure);
+    return () => window.removeEventListener('lottery-purchase-failed', handlePurchaseFailure);
+  }, [selectedGame?.id, isAm]);
+
   const isHiddenRef = React.useRef(typeof document !== 'undefined' && document.hidden);
   React.useEffect(() => {
     const handleVisibility = () => {
@@ -1210,14 +1222,6 @@ function WeekendLotteryNumberPicker({
     if (!user) { openAuthModal('register'); return; }
     if (!selectedGame) return;
 
-    if (mode === 'FETAN' && !fetanIsIntermission) {
-      setPurchaseFeedback(isAm
-        ? `ካርድ ለመግዛት የሚቀጥለውን የ30 ሰከንድ ጊዜ ይጠብቁ (${fetanSeconds}s)`
-        : `Card picking opens in ${fetanSeconds}s. Please wait for the 30-second window.`);
-      setTimeout(() => setPurchaseFeedback(null), 2500);
-      return;
-    }
-
     // Toggle: if already selected/purchased by this user, unselect (refund)!
     const isAlreadyPicked = activeSlotSet.has(num) || userPurchasedNumbers.has(num);
     if (isAlreadyPicked) {
@@ -1226,6 +1230,14 @@ function WeekendLotteryNumberPicker({
         setSlotNumbers((prev) => prev.map((n) => (n === num ? null : n)));
       }
       setPurchaseFeedback(refundRes.message);
+      setTimeout(() => setPurchaseFeedback(null), 2500);
+      return;
+    }
+
+    if (mode === 'FETAN' && !fetanIsIntermission) {
+      setPurchaseFeedback(isAm
+        ? `ካርድ ለመግዛት የሚቀጥለውን የ30 ሰከንድ ጊዜ ይጠብቁ (${fetanSeconds}s)`
+        : `Card picking opens in ${fetanSeconds}s. Please wait for the 30-second window.`);
       setTimeout(() => setPurchaseFeedback(null), 2500);
       return;
     }
@@ -1277,7 +1289,7 @@ function WeekendLotteryNumberPicker({
   const prevFetanIntermissionRef = React.useRef(fetanIsIntermission);
   React.useEffect(() => {
     if (mode === 'FETAN' && prevFetanIntermissionRef.current && !fetanIsIntermission) {
-      if (slotCountFilled > 0 && selectedGame) {
+      if (selectedGame) {
         handleGoToGameRoom();
       }
     }
@@ -1352,6 +1364,19 @@ function WeekendLotteryNumberPicker({
               <span>{regCode}</span>
             </div>
           </div>
+        </div>
+      )}
+
+      {mode === 'FETAN' && (
+        <div className={`mx-2 mt-2 rounded-xl px-3 py-2 flex items-center justify-between border font-black text-xs ${
+          fetanIsIntermission
+            ? 'bg-amber-100 border-amber-300 text-amber-950 animate-pulse'
+            : 'bg-white border-slate-200 text-slate-600'
+        }`}>
+          <span>{fetanIsIntermission
+            ? (isAm ? 'የካርድ ምርጫ ጊዜ' : 'Pick cards now')
+            : (isAm ? 'ቀጣዩ የካርድ ምርጫ' : 'Next card-pick window')}</span>
+          <span className="font-mono text-sm">{fetanSeconds}s</span>
         </div>
       )}
 
@@ -1597,7 +1622,7 @@ function WeekendLotteryNumberPicker({
                   key={num}
                   type="button"
                   onClick={() => handlePickNumber(num)}
-                  disabled={(isSold && !inSlot) || (mode === 'FETAN' && !fetanIsIntermission)}
+                  disabled={isSold && !inSlot}
                   className={`py-3 px-2 rounded-xl text-center font-mono font-black text-xs transition border-2 flex flex-col items-center justify-center gap-0.5 cursor-pointer shadow-xs ${
                     inSlot
                       ? 'bg-amber-400 border-amber-500 text-slate-950 shadow-md scale-102 ring-2 ring-amber-400'
@@ -1646,7 +1671,7 @@ function WeekendLotteryNumberPicker({
                   key={num}
                   type="button"
                   onClick={() => handlePickNumber(num)}
-                  disabled={sold && !inSlot}
+                  disabled={(sold && !inSlot) || (mode === 'FETAN' && !fetanIsIntermission)}
                   className={`h-8 sm:h-9 rounded-lg text-xs font-black tabular-nums transition-all border select-none flex items-center justify-center ${
                     inSlot
                       ? 'bg-amber-400 border-amber-500 text-slate-950 shadow shadow-amber-300 scale-105 ring-2 ring-amber-500 z-10 cursor-pointer'

@@ -569,6 +569,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const isSpecialGame = currentGame.category === 'HYPER_SPECIAL' || currentGame.gameType === 'HYPER_SPECIAL';
   // Keep a ref to nextRoundStartsAt so the interval tick always has the latest server value
   const nextRoundStartsAtRef = React.useRef<number | undefined>(currentGame.nextRoundStartsAt);
+  const startedSpecialDeadlineRef = React.useRef<number | undefined>(undefined);
   useEffect(() => {
     nextRoundStartsAtRef.current = currentGame.nextRoundStartsAt;
   }, [currentGame.nextRoundStartsAt]);
@@ -600,15 +601,31 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       const remaining = Math.max(0, Math.ceil((currentGame.nextRoundStartsAt - Date.now()) / 1000));
       if (remaining > 0) {
         // Server has a valid intermission window — sync the countdown to server time
+        startedSpecialDeadlineRef.current = undefined;
         setSpecialSecondsLeft(remaining);
         setSpecialIsIntermission(true);
         setIsAutoDrawing(false);
       } else {
-        // nextRoundStartsAt is in the past — intermission should have ended already
+        // A player may open the room after the deadline. Start the same server
+        // round immediately instead of leaving this client waiting in OPEN.
         setSpecialIsIntermission(false);
+        setSpecialSecondsLeft(0);
+        if (
+          currentGame.nextRoundStartsAt &&
+          startedSpecialDeadlineRef.current !== currentGame.nextRoundStartsAt &&
+          currentGame.drawnNumbers.length === 0
+        ) {
+          startedSpecialDeadlineRef.current = currentGame.nextRoundStartsAt;
+          setIsAutoDrawing(true);
+          startSpecialRound(currentGame.id);
+          setTimeout(() => {
+            const first = drawNextBall(currentGame.id);
+            if (first) announceBallRef.current(first);
+          }, 350);
+        }
       }
     }
-  }, [isSpecialGame, currentGame.nextRoundStartsAt, currentGame.status, currentGame.drawnNumbers.length]);
+  }, [isSpecialGame, currentGame.id, currentGame.nextRoundStartsAt, currentGame.status, currentGame.drawnNumbers.length, startSpecialRound, drawNextBall]);
 
   // Unified 10-second winner announcement countdown for ALL games (redirects to card buy board or 5-min special gap)
   const [announcementSecondsLeft, setAnnouncementSecondsLeft] = useState<number>(10);
@@ -1455,13 +1472,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 <span className="font-mono text-sm">{fetanSecondsLeft}s</span>
               </div>
             )}
-            {isSpecialGame && specialIsIntermission && (
-              <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
-                <span>⏳</span>
-                <span>{language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards'}:</span>
-                <span className="font-mono text-sm">{formatTimeRemaining(specialSecondsLeft)}</span>
-              </div>
-            )}
           </div>
 
           {/* Show Less / Show More toggle */}
@@ -1871,28 +1881,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         {isSpecialGame ? (
           /* ── Hyper Special: 2 Slots Per Screen with Rectangular Number Cells ── */
           <div className="space-y-2 pb-24">
-            {/* 5-minute Intermission Countdown Banner for Hyper Special */}
-            {specialIsIntermission && (
-              <div className="mx-1 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 p-2.5 rounded-xl border border-amber-500 shadow-xs flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">⏳</span>
-                  <div>
-                    <span className="text-xs font-black block leading-tight">
-                      {language === 'am' ? 'ካርድ ይምረጡ · ቀጣዩ ዙር ይጀምራል:' : 'Pick Cards · Next Round Starts In:'}
-                    </span>
-                    <span className="text-[10px] font-bold text-amber-950 block leading-tight">
-                      {language === 'am' ? 'ከታች (+) በመጫን ካርድ ይምረጡ (ከ1-5 ካርዶች)' : 'Tap (+) button to select & register cards'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <div className="bg-slate-950 text-amber-300 font-mono font-black text-sm px-2.5 py-1 rounded-lg border border-amber-400 shrink-0 shadow-xs">
-                    {formatTimeRemaining(specialSecondsLeft)}
-                  </div>
-                </div>
-              </div>
-            )}
-
             <div className="flex items-center justify-between px-1.5 pt-0.5 text-xs">
               <span className="font-black text-slate-700">
                 {language === 'am' ? 'የተመረጡ ካርዶች' : 'Selected Cards'}: {activeGameCards.length}/30
@@ -1948,11 +1936,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                         <div className="flex items-center gap-1 min-w-0">
                           <CreditCard className="w-3 h-3 shrink-0" />
                           <span className="truncate">{card.cardNumber}</span>
-                          {isRegistered && specialIsIntermission && specialSecondsLeft > 0 && (
-                            <span className="ml-1 font-mono text-[9px] bg-amber-400 text-slate-950 px-1 rounded font-black">
-                              ⏳{formatTimeRemaining(specialSecondsLeft)}
-                            </span>
-                          )}
                           {isRegistered && !specialIsIntermission && (
                             <span className="ml-1 text-[9px] bg-white/20 px-1 rounded font-bold">✓</span>
                           )}
@@ -2966,21 +2949,44 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </div>
         </div>
       )}
-      {/* One tap adds one Hyper Special card. */}
+      {/* Hyper Special card quantity picker and the single visible round timer. */}
       {isSpecialGame && (
         <div className="fixed bottom-20 right-4 z-40 flex flex-col items-center gap-2">
+          {specialIsIntermission && (
+            <div className="rounded-xl border border-amber-300 bg-amber-400 px-3 py-1.5 text-slate-950 font-mono font-black text-sm shadow-lg animate-pulse">
+              ⏳ {formatTimeRemaining(specialSecondsLeft)}
+            </div>
+          )}
+          {fabOpen && specialIsIntermission && specialSecondsLeft > 0 && (
+            <div className="flex flex-col items-center gap-1.5 rounded-2xl bg-white/95 p-2 shadow-xl border border-rose-100">
+              {[1, 2, 5, 10].map((qty) => (
+                <button
+                  key={qty}
+                  type="button"
+                  disabled={activeGameCards.length + qty > 30}
+                  onClick={() => {
+                    addSpecialCards(currentGame.id, qty);
+                    setFabOpen(false);
+                  }}
+                  className="min-w-16 rounded-xl bg-[#ef4444] px-3 py-1.5 text-white text-xs font-black shadow-sm transition active:scale-95 disabled:bg-slate-300 disabled:cursor-not-allowed"
+                >
+                  +{qty}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             type="button"
-            onClick={() => addSpecialCards(currentGame.id, 1)}
+            onClick={() => setFabOpen((open) => !open)}
             disabled={!specialIsIntermission || specialSecondsLeft <= 0}
             className={`w-10 h-10 rounded-full text-white text-xl font-bold flex items-center justify-center shadow-lg transition ${
               specialIsIntermission && specialSecondsLeft > 0
                 ? 'bg-[#ef4444] hover:bg-[#dc2626] active:scale-95 cursor-pointer'
                 : 'bg-slate-400 cursor-not-allowed'
             }`}
-            title="Add one card"
+            title="Choose how many cards to add"
           >
-            +
+            {fabOpen ? '×' : '+'}
           </button>
         </div>
       )}
