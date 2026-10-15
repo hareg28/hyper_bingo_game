@@ -562,6 +562,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // Hyper Fetan 1-minute round + 30-second card pick period live loop
   // RULE: If within 1 minute there is NO winner, game MUST continue drawing balls until a winner arrives!
   const [fetanIsIntermission, setFetanIsIntermission] = useState<boolean>(false);
+  const fetanDrawCycleRef = React.useRef<number | null>(null);
   const lastSpecialTimerDeadlineRef = React.useRef<number | undefined>(undefined);
   const [fetanOvertime, setFetanOvertime] = useState<boolean>(false);
 
@@ -744,12 +745,21 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       setFetanIsIntermission((current) => current === pickingCards ? current : pickingCards);
       setFetanOvertime((current) => current ? false : current);
       setIsAutoDrawing((current) => current === !pickingCards ? current : !pickingCards);
+      if (!pickingCards) {
+        const liveCycle = Math.floor(Date.now() / 90_000);
+        if (fetanDrawCycleRef.current !== liveCycle) {
+          fetanDrawCycleRef.current = liveCycle;
+          // Kick off the live round as soon as the shared 30-second pick
+          // window closes. Server clock guards keep boundary requests safe.
+          drawNextBall(currentGame.id);
+        }
+      }
     };
 
     syncFetanClock();
     const timer = setInterval(syncFetanClock, 1000);
     return () => clearInterval(timer);
-  }, [isFetanGame, fetanIsIntermission]);
+  }, [isFetanGame, currentGame.id, fetanIsIntermission, drawNextBall]);
   // drawnSet must be defined before the topHitRequirement useMemo that references it
   const drawnSet = new Set(currentGame.drawnNumbers || []);
   const cardDrawnSet = drawnSet;
@@ -1230,9 +1240,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // 75-Ball rows for master board (always visible inline, not a modal)
   // drawnSet / cardDrawnSet already declared above the topHitRequirement useMemo
   const drawnNumbersArr = currentGame.drawnNumbers || [];
-  const ballHistory = currentGame.currentBall != null && drawnNumbersArr[drawnNumbersArr.length - 1] !== currentGame.currentBall
-    ? [...drawnNumbersArr, currentGame.currentBall]
-    : drawnNumbersArr;
+  const ballHistory = currentGame.currentBall == null
+    ? drawnNumbersArr
+    : [...drawnNumbersArr.filter((ball) => ball !== currentGame.currentBall), currentGame.currentBall];
   const currentBallNum = ballHistory.length > 0 ? ballHistory[ballHistory.length - 1] : currentGame.currentBall ?? null;
   const previousBalls = ballHistory.slice(Math.max(0, ballHistory.length - 4), Math.max(0, ballHistory.length - 1));
   const rows = [
