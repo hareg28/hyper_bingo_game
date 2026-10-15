@@ -1443,16 +1443,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             >
               {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-sky-600" /> : <VolumeX className="w-3.5 h-3.5" />}
             </button>
-            {isSpecialGame && (
-              <button
-                type="button"
-                onClick={() => resetGameRound(currentGame.id)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
-                title={language === 'am' ? 'አዲስ ዙር ጀምር (ሕግና ዋጋ ቀይር)' : 'New Game (Rotate Law & Price)'}
-              >
-                <span>🔄</span><span>{language === 'am' ? 'አዲስ ዙር' : 'New Round'}</span>
-              </button>
-            )}
+
           </div>
 
           {/* ── Middle Area: Previous balls + Intermission timer ── */}
@@ -1476,12 +1467,19 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               }) : null}
             </div>
 
-            {/* Intermission timer for Fetan */}
+            {/* Intermission timer for Fetan or Hyper Special */}
             {isFetanGame && fetanIsIntermission && (
               <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
                 <span>⏳</span>
                 <span>{language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards'}:</span>
                 <span className="font-mono text-sm">{fetanSecondsLeft}s</span>
+              </div>
+            )}
+            {isSpecialGame && specialIsIntermission && (
+              <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
+                <span>⏳</span>
+                <span>{language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards'}:</span>
+                <span className="font-mono text-sm">{formatTimeRemaining(specialSecondsLeft)}</span>
               </div>
             )}
           </div>
@@ -2026,20 +2024,32 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                           : cardIsWin
                           ? 'border-amber-400 ring-2 ring-amber-300 shadow-md shadow-amber-200 animate-pulse'
                           : isRegistered
-                          ? 'border-blue-500 shadow-blue-100 ring-1 ring-blue-400'
+                          ? 'border-emerald-500 shadow-emerald-100 ring-1 ring-emerald-400'
                           : 'border-slate-300'
                       }`}
                     >
-                      {/* Blue Top Bar (Credit card icon, card number, X button) */}
-                      <div className="bg-[#2563eb] text-white px-2 py-1 flex items-center justify-between font-mono font-black text-[11px] shadow-2xs">
+                      {/* Top Bar: card number + intermission timer OR registered indicator + remove */}
+                      <div className={`px-2 py-1 flex items-center justify-between font-mono font-black text-[11px] shadow-2xs ${
+                        isRegistered ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-white'
+                      }`}>
                         <div className="flex items-center gap-1 min-w-0">
                           <CreditCard className="w-3 h-3 shrink-0" />
                           <span className="truncate">{card.cardNumber}</span>
+                          {isRegistered && specialIsIntermission && specialSecondsLeft > 0 && (
+                            <span className="ml-1 font-mono text-[9px] bg-amber-400 text-slate-950 px-1 rounded font-black">
+                              ⏳{formatTimeRemaining(specialSecondsLeft)}
+                            </span>
+                          )}
+                          {isRegistered && !specialIsIntermission && (
+                            <span className="ml-1 text-[9px] bg-white/20 px-1 rounded font-bold">✓</span>
+                          )}
                         </div>
                         <button
                           type="button"
                           onClick={() => removeCard(card.id)}
-                          className="text-white/80 hover:text-white hover:bg-blue-700 p-0.5 rounded cursor-pointer transition shrink-0"
+                          className={`hover:bg-black/20 p-0.5 rounded cursor-pointer transition shrink-0 ${
+                            isRegistered ? 'text-white/80 hover:text-white' : 'text-white/70 hover:text-white'
+                          }`}
                           title="Remove card"
                         >
                           <X className="w-3.5 h-3.5" />

@@ -284,11 +284,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         setUser(savedUser);
         if (savedWalletStr) {
           const parsedWallet: Wallet = JSON.parse(savedWalletStr);
-          // Purge stale 250 ETB / 50 bonus mock data if present in legacy storage
+          // Purge ONLY known legacy mock test data (250 ETB or 150 ETB winning balance)
+          // Do NOT reset wallets just because totalDeposited===0 — players can have real
+          // balance from bonus spending, admin credits, referrals, or winning prizes.
           if (
             parsedWallet.availableBalance === 250 || 
-            parsedWallet.winningBalance === 150 || 
-            (parsedWallet.totalDeposited === 0 && parsedWallet.availableBalance > 0)
+            parsedWallet.winningBalance === 150
           ) {
             parsedWallet.availableBalance = 0;
             parsedWallet.winningBalance = 0;
@@ -1432,7 +1433,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         return { success: false, message: `በቂ ሒሳብ የለዎትም! (${entryPrice} ETB ያስፈልጋል)` };
       }
 
-      // Deduct entry price from bonus first
+      // Optimistic local deduction — bonus first, then available
       let remCost = entryPrice;
       let newBonus = wallet.bonusBalance;
       let newAvailable = wallet.availableBalance;
@@ -1470,9 +1471,42 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         });
       }
 
+      // Persist deduction to server DB so balance doesn't restore on app reopen
+      if (user?.id) {
+        fetch('/api/games/buy-card', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gameId: card.gameId,
+            cardNumbers: [card.cardNumber],
+            userId: user.id,
+            cost: entryPrice,
+          }),
+        })
+          .then((r) => r.json())
+          .then((res) => {
+            if (res.success && res.data?.walletAfter) {
+              // Sync authoritative server wallet back to local state + localStorage
+              setWallet((prev) => {
+                const updated = {
+                  ...prev,
+                  availableBalance: res.data.walletAfter.availableBalance,
+                  bonusBalance: res.data.walletAfter.bonusBalance,
+                };
+                try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
+                return updated;
+              });
+            }
+          })
+          .catch(() => {
+            // Network error — optimistic state stands; will sync on next wallet poll
+          });
+      }
+
       return { success: true, message: `ካርድ #${card.cardNumber} ተመዝግቧል! (${entryPrice} ETB ተቀንሷል)`, isRegistered: true };
     }
   };
+
 
   // 6. CREATE GAME (ADMIN)
   //    · Weekend/Lottery games → use the prizePool passed in by admin (owner-set fixed prize)
