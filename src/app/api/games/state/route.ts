@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 
+function parseIntegerArray(value: unknown): number[] {
+  if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
+  if (typeof value !== 'string') return [];
+  const contents = value.trim().replace(/^\{|\}$/g, '');
+  if (!contents) return [];
+  return contents.split(',').map((part) => Number(part.trim())).filter(Number.isFinite);
+}
+
 /**
  * GET /api/games/state
  * Returns live game state for all games from the DB.
@@ -138,8 +146,8 @@ export async function GET(_req: NextRequest) {
     const games = rows.map((r: any) => ({
       id: r.id,
       status: r.status,
-      drawnNumbers: Array.isArray(r.drawn_numbers) ? r.drawn_numbers : [],
-      currentBall: r.current_ball ?? null,
+      drawnNumbers: parseIntegerArray(r.drawn_numbers),
+      currentBall: r.current_ball == null ? null : Number(r.current_ball),
       currentPlayers: parseInt(r.current_players ?? '0', 10),
       winners: Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : []),
       blockedCards: Array.isArray(r.blocked_cards) ? r.blocked_cards : [],

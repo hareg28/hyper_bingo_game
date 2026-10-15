@@ -22,8 +22,10 @@ import {
   checkOneAwayStatus,
   getGameHitRequirement,
   isWeekendSlotCurrentlyLive,
+  getFetanClock,
 } from '../../lib/bingoUtils';
 import confetti from 'canvas-confetti';
+import SharedCountdownText from './SharedCountdownText';
 import CardNumberSelector from './CardNumberSelector';
 import { isAdminTelegramId } from '../../lib/authUtils';
 import { getGameLivePrizePool } from '../../lib/store';
@@ -544,12 +546,22 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     announceBallRef.current = announceBall;
   }, [announceBall]);
 
+  const lastAnnouncedDrawRef = React.useRef(
+    `${currentGame.id}:${currentGame.nextRoundStartsAt ?? ''}:${currentGame.drawnNumbers.length}:${currentGame.currentBall ?? ''}`
+  );
+  useEffect(() => {
+    const drawn = currentGame.drawnNumbers || [];
+    const ball = currentGame.currentBall ?? drawn[drawn.length - 1] ?? null;
+    if (ball == null || drawn.length === 0) return;
+    const key = `${currentGame.id}:${currentGame.nextRoundStartsAt ?? ''}:${drawn.length}:${ball}`;
+    if (lastAnnouncedDrawRef.current === key) return;
+    lastAnnouncedDrawRef.current = key;
+    if (!isHiddenRef.current) announceBallRef.current(ball);
+  }, [currentGame.id, currentGame.nextRoundStartsAt, currentGame.drawnNumbers.length, currentGame.currentBall]);
+
   // Hyper Fetan 1-minute round + 30-second card pick period live loop
   // RULE: If within 1 minute there is NO winner, game MUST continue drawing balls until a winner arrives!
-  const [fetanSecondsLeft, setFetanSecondsLeft] = useState<number>(60);
   const [fetanIsIntermission, setFetanIsIntermission] = useState<boolean>(false);
-  const fetanTimerTextRef = React.useRef<HTMLSpanElement>(null);
-  const specialTimerTextRef = React.useRef<HTMLSpanElement>(null);
   const lastSpecialTimerDeadlineRef = React.useRef<number | undefined>(undefined);
   const [fetanOvertime, setFetanOvertime] = useState<boolean>(false);
 
@@ -606,10 +618,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           startedSpecialDeadlineRef.current = currentGame.nextRoundStartsAt;
           setIsAutoDrawing(true);
           startSpecialRound(currentGame.id);
-          setTimeout(() => {
-            const first = drawNextBall(currentGame.id);
-            if (first) announceBallRef.current(first);
-          }, 350);
+          setTimeout(() => drawNextBall(currentGame.id), 350);
         }
       }
     }
@@ -678,9 +687,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         ? Math.max(0, Math.ceil((serverDeadline - Date.now()) / 1000))
         : 0;
 
-      if (specialTimerTextRef.current) {
-        specialTimerTextRef.current.textContent = formatTimeRemaining(remaining);
-      }
       if (lastSpecialTimerDeadlineRef.current !== serverDeadline) {
         lastSpecialTimerDeadlineRef.current = serverDeadline;
         setSpecialSecondsLeft(remaining);
@@ -695,10 +701,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         setIsAutoDrawing(true);
         startSpecialRound(currentGame.id);
         // Draw first ball immediately to kick off the live game
-        setTimeout(() => {
-          const first = drawNextBall(currentGame.id);
-          if (first) announceBallRef.current(first);
-        }, 350);
+        setTimeout(() => drawNextBall(currentGame.id), 350);
       }
     }, 1000);
 
@@ -711,13 +714,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
     const syncFetanClock = () => {
       if (isHiddenRef.current) return;
-      const cycleSecond = Math.floor(Date.now() / 1000) % 90;
-      const pickingCards = cycleSecond >= 60;
-      const secondsLeft = pickingCards ? 90 - cycleSecond : 60 - cycleSecond;
-      if (fetanTimerTextRef.current) fetanTimerTextRef.current.textContent = `${secondsLeft}s`;
+      const { pickingCards } = getFetanClock();
       setFetanIsIntermission((current) => current === pickingCards ? current : pickingCards);
-      // Only rerender the room at phase boundaries; update the countdown text directly between them.
-      setFetanSecondsLeft((current) => current === secondsLeft ? current : (fetanIsIntermission !== pickingCards ? secondsLeft : current));
       setFetanOvertime((current) => current ? false : current);
       setIsAutoDrawing((current) => current === !pickingCards ? current : !pickingCards);
     };
@@ -799,12 +797,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeGameCards, currentGame.winningRule, currentGame.activeSpecialRuleIndex, currentGame.category, language, currentGame.drawnNumbers]);
 
-  const formatTimeRemaining = (totalSec: number): string => {
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
   // Auto Draw interval timer simulation — calls balls automatically without requiring player action
   // Pauses when the page/app is hidden (backgrounded) to prevent phone freezing/stacking
   useEffect(() => {
@@ -826,10 +818,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       interval = setInterval(() => {
         // Skip tick if app is backgrounded — prevents stacking/freezing on mobile
         if (isHiddenRef.current) return;
-        const next = drawNextBall(currentGame.id);
-        if (next) {
-          announceBall(next);
-        }
+        drawNextBall(currentGame.id);
       }, Math.max(2500, (currentGame.drawInterval || 3) * 1000));
     }
     return () => {
@@ -852,10 +841,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   const handleManualDraw = () => {
     if (!currentGame || currentGame.drawnNumbers.length >= 75 || currentGame.status === 'COMPLETED') return;
-    const next = drawNextBall(currentGame.id);
-    if (next) {
-      announceBall(next);
-    }
+    drawNextBall(currentGame.id);
   };
 
   // Auto-dismiss claim alerts after 4 seconds
@@ -1218,8 +1204,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // 75-Ball rows for master board (always visible inline, not a modal)
   // drawnSet / cardDrawnSet already declared above the topHitRequirement useMemo
   const drawnNumbersArr = currentGame.drawnNumbers || [];
-  const currentBallNum = drawnNumbersArr.length > 0 ? drawnNumbersArr[drawnNumbersArr.length - 1] : null;
-  const previousBalls = drawnNumbersArr.length > 1 ? drawnNumbersArr.slice(Math.max(0, drawnNumbersArr.length - 4), drawnNumbersArr.length - 1) : [];
+  const ballHistory = currentGame.currentBall != null && drawnNumbersArr[drawnNumbersArr.length - 1] !== currentGame.currentBall
+    ? [...drawnNumbersArr, currentGame.currentBall]
+    : drawnNumbersArr;
+  const currentBallNum = ballHistory.length > 0 ? ballHistory[ballHistory.length - 1] : currentGame.currentBall ?? null;
+  const previousBalls = ballHistory.slice(Math.max(0, ballHistory.length - 4), Math.max(0, ballHistory.length - 1));
   const rows = [
     { letter: 'B', range: Array.from({ length: 15 }, (_, i) => i + 1), color: 'bg-blue-600 text-white' },
     { letter: 'I', range: Array.from({ length: 15 }, (_, i) => i + 16), color: 'bg-rose-600 text-white' },
@@ -1458,7 +1447,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
                 <span>⏳</span>
                 <span>{language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards'}:</span>
-                <span ref={fetanTimerTextRef} className="font-mono text-sm">{fetanSecondsLeft}s</span>
+                <SharedCountdownText mode="FETAN" className="font-mono text-sm" />
               </div>
             )}
           </div>
@@ -2943,7 +2932,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         <div className="fixed bottom-20 right-4 z-40 flex flex-col items-center gap-2">
           {specialIsIntermission && (
             <div className="rounded-xl border border-amber-300 bg-amber-400 px-3 py-1.5 text-slate-950 font-mono font-black text-sm shadow-lg animate-pulse">
-              ⏳ <span ref={specialTimerTextRef}>{formatTimeRemaining(specialSecondsLeft)}</span>
+              ⏳ <SharedCountdownText mode="SPECIAL" deadline={currentGame.nextRoundStartsAt} status={currentGame.status} drawnCount={currentGame.drawnNumbers?.length || 0} />
             </div>
           )}
           {fabOpen && specialIsIntermission && specialSecondsLeft > 0 && (

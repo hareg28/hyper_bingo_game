@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getNeonSql } from '@/lib/neon';
 import { isAdminTelegramId } from '@/lib/authUtils';
 
+function parseIntegerArray(value: unknown): number[] {
+  if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
+  if (typeof value !== 'string') return [];
+  const contents = value.trim().replace(/^\{|\}$/g, '');
+  if (!contents) return [];
+  return contents.split(',').map((part) => Number(part.trim())).filter(Number.isFinite);
+}
+
 /**
  * POST /api/games/draw
  * Server-side ball draw. Only admin or the server may call this.
@@ -68,7 +76,7 @@ export async function POST(req: NextRequest) {
       }, { status: 425 });
     }
 
-    const drawn: number[] = Array.isArray(game.drawn_numbers) ? game.drawn_numbers : [];
+    const drawn = parseIntegerArray(game.drawn_numbers);
     const drawIntervalMs = Math.max(1, parseInt(game.draw_interval ?? '3', 10)) * 1000;
     if (game.last_ball_drawn_at) {
       const nextAllowedAt = new Date(game.last_ball_drawn_at).getTime() + drawIntervalMs;

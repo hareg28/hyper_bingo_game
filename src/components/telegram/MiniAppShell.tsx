@@ -10,6 +10,7 @@ import {
   Gamepad2, Zap, Eye, Menu
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
+import SharedCountdownText from '../game/SharedCountdownText';
 import WalletManager from '../wallet/WalletManager';
 import AdminPanel from '../admin/AdminPanel';
 import DailyLuckyWheelModal from '../rewards/DailyLuckyWheelModal';
@@ -1106,15 +1107,10 @@ function WeekendLotteryNumberPicker({
   onPickCardsRef.current = onPickCards;
   const [purchaseFeedback, setPurchaseFeedback] = React.useState<string | null>(null);
   const [drawCountdown, setDrawCountdown] = React.useState('00:00:00');
-  const [fetanSeconds, setFetanSeconds] = React.useState(60);
   const fetanSecondsRef = React.useRef(60);
-  const fetanTimerTextRef = React.useRef<HTMLSpanElement>(null);
   const [fetanIsIntermission, setFetanIsIntermission] = React.useState(false);
-  const [specialSeconds, setSpecialSeconds] = React.useState(300);
   const specialSecondsRef = React.useRef(300);
-  const specialTimerTextRef = React.useRef<HTMLSpanElement>(null);
   const specialPickingRef = React.useRef(false);
-  const specialTimerDeadlineRef = React.useRef<number | undefined>(undefined);
   const specialRedirectedGameRef = React.useRef<string | null>(null);
   const fetanCycleMarkerRef = React.useRef(selectedGame?.nextRoundStartsAt);
 
@@ -1168,10 +1164,7 @@ function WeekendLotteryNumberPicker({
         if (isHiddenRef.current) return;
         const { pickingCards, secondsLeft } = getFetanClock();
         fetanSecondsRef.current = secondsLeft;
-        if (fetanTimerTextRef.current) fetanTimerTextRef.current.textContent = `${secondsLeft}s`;
         setFetanIsIntermission((current) => current === pickingCards ? current : pickingCards);
-        // Keep the 500-card board from reconciling every second just to update its clock.
-        setFetanSeconds((current) => current === secondsLeft ? current : (pickingCards !== fetanIsIntermission ? secondsLeft : current));
       };
       updateFetanClock();
       const interval = setInterval(updateFetanClock, 1000);
@@ -1222,27 +1215,18 @@ function WeekendLotteryNumberPicker({
         selectedGame.drawnNumbers?.length || 0
       );
       specialSecondsRef.current = clock.secondsLeft;
-      if (specialTimerTextRef.current) {
-        specialTimerTextRef.current.textContent = formatCountdownClock(clock.secondsLeft);
-      }
-      const deadline = selectedGame.nextRoundStartsAt;
-      if (specialTimerDeadlineRef.current !== deadline) {
-        specialTimerDeadlineRef.current = deadline;
-        setSpecialSeconds(clock.secondsLeft);
-      }
 
       if (clock.pickingCards) {
-        if (!specialPickingRef.current) setSpecialSeconds(clock.secondsLeft);
         specialPickingRef.current = true;
         specialRedirectedGameRef.current = null;
         return;
       }
 
-      if (specialPickingRef.current) setSpecialSeconds(0);
-
+      const justFinishedPicking = specialPickingRef.current;
+      specialPickingRef.current = false;
       const deadlinePassed = Boolean(selectedGame.nextRoundStartsAt && Date.now() >= selectedGame.nextRoundStartsAt);
       const roundStarted = selectedGame.status === 'RUNNING' || (selectedGame.drawnNumbers?.length || 0) > 0;
-      if ((specialPickingRef.current || deadlinePassed || roundStarted) && specialRedirectedGameRef.current !== selectedGame.id) {
+      if ((justFinishedPicking || deadlinePassed || roundStarted) && specialRedirectedGameRef.current !== selectedGame.id) {
         specialPickingRef.current = false;
         specialRedirectedGameRef.current = selectedGame.id;
         onPickCardsRef.current(selectedGame.id, slotNumbersRef.current.filter((number): number is number => number !== null).map(String));
@@ -1448,8 +1432,8 @@ function WeekendLotteryNumberPicker({
             ? (isAm ? 'የካርድ ምርጫ ጊዜ' : 'Pick cards now')
             : (isAm ? 'ቀጣዩ የካርድ ምርጫ' : 'Next card-pick window')}</span>
           {mode === 'SPECIAL'
-            ? <span ref={specialTimerTextRef} className="font-mono text-sm">{formatCountdownClock(specialSeconds)}</span>
-            : <span ref={fetanTimerTextRef} className="font-mono text-sm">{fetanSeconds}s</span>}
+            ? <SharedCountdownText mode="SPECIAL" deadline={selectedGame?.nextRoundStartsAt} status={selectedGame?.status} drawnCount={selectedGame?.drawnNumbers?.length || 0} className="font-mono text-sm" />
+            : <SharedCountdownText mode="FETAN" className="font-mono text-sm" />}
         </div>
       )}
 
