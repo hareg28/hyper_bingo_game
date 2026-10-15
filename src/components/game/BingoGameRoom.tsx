@@ -378,6 +378,18 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     }
     return true;
   });
+  useEffect(() => {
+    if (!isWeekendGame) return;
+    const syncWeekendSchedule = () => {
+      const inSchedule = computeIsWeekendLive(currentGame);
+      const liveRoundReady = inSchedule && currentGame.status === 'RUNNING' &&
+        !(currentGame.winners?.length) && currentGame.drawnNumbers.length < 75;
+      setIsAutoDrawing((current) => current === liveRoundReady ? current : liveRoundReady);
+    };
+    syncWeekendSchedule();
+    const timer = window.setInterval(syncWeekendSchedule, 1000);
+    return () => window.clearInterval(timer);
+  }, [isWeekendGame, currentGame.id, currentGame.status, currentGame.winners?.length, currentGame.drawnNumbers.length]);
   const [claimStatus, setClaimStatus] = useState<{ success?: boolean; message?: string; prize?: number } | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);

@@ -8,7 +8,7 @@ import { INITIAL_GAMES } from '@/lib/store';
  * POST /api/games/reset
  * Resets a game round (clears drawn_numbers, winners, blocked_cards).
  * For Hyper Special: rotates the winning rule and sets a 5-minute intermission.
- * Deletes all game_cards for the game (1-round card rule).
+ * Deletes one-round game cards. Weekend ticket reservations are retained.
  * 
  * Body: { gameId, telegramId?, nextSpecialIndex?, nextPrice? }
  */
@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
 
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL' || gameId === 'gm_special';
     const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN' || gameId.includes('fetan');
+    const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY' || gameId.includes('weekend');
     const currentRuleIndex = parseInt(game.active_special_rule_index ?? '0', 10);
     // Advance rule and price together from the authoritative DB value. Ignore
     // client-supplied rotation values so stale clients cannot pick the wrong
@@ -95,7 +96,10 @@ export async function POST(req: NextRequest) {
           drawn_numbers = '{}',
           current_ball = NULL,
           last_ball_drawn_at = NULL,
-          current_players = 0,
+          current_players = CASE WHEN ${isWeekend}
+            THEN (SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${gameId})
+            ELSE 0
+          END,
           winners = '[]'::jsonb,
           blocked_cards = '{}',
           status = 'OPEN',
@@ -109,6 +113,7 @@ export async function POST(req: NextRequest) {
       ), deleted_cards AS (
         DELETE FROM game_cards
         WHERE game_id IN (SELECT id FROM reset_game)
+          AND ${!isWeekend}
         RETURNING id
       )
       SELECT id FROM reset_game
@@ -128,6 +133,7 @@ export async function POST(req: NextRequest) {
         nextRoundStartsAt,
         isSpecial,
         isFetan,
+        isWeekend,
       },
     });
   } catch (err: any) {

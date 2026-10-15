@@ -59,6 +59,7 @@ export interface Game {
   isWeekendSpecial?: boolean;
   weekendDay?: 'FRI' | 'SAT' | 'SUN';
   weekendSlot?: '2PM' | '6PM';
+  weekendRoundKey?: string; // The date/slot identifier of the last scheduled Weekend run
   roundDuration?: number;   // In seconds, e.g. 60 for Hyper Fetan
   pickDuration?: number;    // In seconds, e.g. 30 for Hyper Fetan intermission
   activeSpecialRuleIndex?: number; // 0..14 index for Hyper Special rotating rule

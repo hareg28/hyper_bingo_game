@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
+import { ensureBuiltinGameRows, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
+import { getWeekendRoundKey } from '@/lib/bingoUtils';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -24,40 +25,8 @@ export async function GET(_req: NextRequest) {
 
   try {
     await ensureGameDrawTimestampColumn(sql);
-    // Ensure Fetan and Special exist even in databases that already contain some, but
-    // not all, of the built-in games.
-    const initialFetan = INITIAL_GAMES.find((game) => game.category === 'HYPER_FETAN' || game.gameType === 'HYPER_FETAN');
-    if (initialFetan) {
-      await sql`
-        INSERT INTO games (
-          id, name, game_type, category, winning_rule, entry_price, prize_pool, status,
-          drawn_numbers, current_ball, current_players, winners, blocked_cards,
-          active_special_rule_index, draw_interval, created_at, updated_at
-        ) VALUES (
-          ${initialFetan.id}, ${initialFetan.name}, ${initialFetan.gameType}, ${initialFetan.category},
-          ${initialFetan.winningRule}, ${initialFetan.entryPrice}, ${initialFetan.prizePool}, 'OPEN',
-          '{}', NULL, 0, '[]'::jsonb, '{}', ${initialFetan.activeSpecialRuleIndex ?? 0},
-          ${initialFetan.drawInterval ?? 3}, NOW(), NOW()
-        )
-        ON CONFLICT (id) DO NOTHING
-      `;
-    }
-    const initialSpecial = INITIAL_GAMES.find((game) => game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL');
-    if (initialSpecial) {
-      await sql`
-        INSERT INTO games (
-          id, name, game_type, category, winning_rule, entry_price, prize_pool, status,
-          drawn_numbers, current_ball, current_players, winners, blocked_cards,
-          active_special_rule_index, draw_interval, created_at, updated_at
-        ) VALUES (
-          ${initialSpecial.id}, ${initialSpecial.name}, ${initialSpecial.gameType}, ${initialSpecial.category},
-          ${initialSpecial.winningRule}, ${initialSpecial.entryPrice}, ${initialSpecial.prizePool}, 'OPEN',
-          '{}', NULL, 0, '[]'::jsonb, '{}', ${initialSpecial.activeSpecialRuleIndex ?? 0},
-          ${initialSpecial.drawInterval ?? 3}, NOW(), NOW()
-        )
-        ON CONFLICT (id) DO NOTHING
-      `;
-    }
+    await ensureWeekendRoundKeyColumn(sql);
+    await ensureBuiltinGameRows(sql);
 
     // First Hyper rounds get a shared, server-timed card-pick window. Fetan
     // opens for 30 seconds after a winner; Special opens for five minutes.
@@ -94,6 +63,27 @@ export async function GET(_req: NextRequest) {
         END
     `;
 
+    // Start each scheduled Weekend slot once. Cards stay reserved across
+    // weekly runs; only the draw state is reset for the new occurrence.
+    for (const weekendGame of INITIAL_GAMES.filter((game) => game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY')) {
+      const weekendRoundKey = getWeekendRoundKey(weekendGame);
+      if (!weekendRoundKey) continue;
+      await sql`
+        UPDATE games
+        SET status = 'RUNNING',
+            drawn_numbers = '{}',
+            current_ball = NULL,
+            last_ball_drawn_at = NULL,
+            winners = '[]'::jsonb,
+            blocked_cards = '{}',
+            current_players = (SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${weekendGame.id}),
+            weekend_round_key = ${weekendRoundKey},
+            updated_at = NOW()
+        WHERE id = ${weekendGame.id}
+          AND weekend_round_key IS DISTINCT FROM ${weekendRoundKey}
+      `;
+    }
+
     let rows = await sql`
       SELECT
         id,
@@ -105,6 +95,7 @@ export async function GET(_req: NextRequest) {
         blocked_cards,
         active_special_rule_index,
         next_round_starts_at,
+        weekend_round_key,
         entry_price,
         prize_pool,
         draw_interval,
@@ -140,6 +131,7 @@ export async function GET(_req: NextRequest) {
           blocked_cards,
           active_special_rule_index,
           next_round_starts_at,
+          weekend_round_key,
           entry_price,
           prize_pool,
           draw_interval,
@@ -170,6 +162,7 @@ export async function GET(_req: NextRequest) {
           blocked_cards,
           active_special_rule_index,
           next_round_starts_at,
+          weekend_round_key,
           entry_price,
           prize_pool,
           draw_interval,
@@ -211,6 +204,7 @@ export async function GET(_req: NextRequest) {
       blockedCards: Array.isArray(r.blocked_cards) ? r.blocked_cards : [],
       activeSpecialRuleIndex: parseInt(r.active_special_rule_index ?? '0', 10),
       nextRoundStartsAt: r.next_round_starts_at ? Number(r.next_round_starts_at) : undefined,
+      weekendRoundKey: r.weekend_round_key || undefined,
       entryPrice: parseFloat(r.entry_price),
       prizePool: parseFloat(r.prize_pool),
       drawInterval: parseInt(r.draw_interval ?? '3', 10),

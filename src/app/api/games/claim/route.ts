@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getNeonSql } from '@/lib/neon';
+import { ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
+import { INITIAL_GAMES } from '@/lib/store';
+import { getWeekendRoundKey } from '@/lib/bingoUtils';
 
 /**
  * POST /api/games/claim
@@ -15,6 +17,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    await ensureWeekendRoundKeyColumn(sql);
     const body = await req.json();
     const { gameId, userId, username, cardNumber, pattern, prizeWon, winningBall } = body as {
       gameId: string;
@@ -32,11 +35,18 @@ export async function POST(req: NextRequest) {
 
     // 1. Fetch current game state
     const [game] = await sql`
-      SELECT id, status, winners, current_players, entry_price, prize_pool, blocked_cards
+      SELECT id, category, game_type, weekend_round_key, status, winners, current_players, entry_price, prize_pool, blocked_cards
       FROM games WHERE id = ${gameId}
     `;
     if (!game) {
       return NextResponse.json({ success: false, error: 'Game not found' }, { status: 404 });
+    }
+    if (game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY') {
+      const scheduledGame = INITIAL_GAMES.find((candidate) => candidate.id === gameId);
+      const activeScheduleKey = scheduledGame ? getWeekendRoundKey(scheduledGame) : null;
+      if (!activeScheduleKey || game.weekend_round_key !== activeScheduleKey || game.status !== 'RUNNING') {
+        return NextResponse.json({ success: false, error: 'Weekend winner claims are accepted only during the scheduled live draw.' }, { status: 409 });
+      }
     }
 
     // 2. Check if card is blocked

@@ -13,6 +13,8 @@ export function getNeonSql() {
 }
 
 let gameDrawTimestampMigration: Promise<void> | null = null;
+let weekendRoundKeyMigration: Promise<void> | null = null;
+let builtinGamesMigration: Promise<void> | null = null;
 
 /** Ensure this runtime column exists for databases created before timed draws. */
 export async function ensureGameDrawTimestampColumn(
@@ -27,6 +29,50 @@ export async function ensureGameDrawTimestampColumn(
       });
   }
   await gameDrawTimestampMigration;
+}
+
+/** Marker prevents a scheduled Weekend slot from being reset more than once. */
+export async function ensureWeekendRoundKeyColumn(
+  sql: NonNullable<ReturnType<typeof getNeonSql>>
+): Promise<void> {
+  if (!weekendRoundKeyMigration) {
+    weekendRoundKeyMigration = sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS weekend_round_key VARCHAR(32)`
+      .then(() => undefined)
+      .catch((error) => {
+        weekendRoundKeyMigration = null;
+        throw error;
+      });
+  }
+  await weekendRoundKeyMigration;
+}
+
+/** Seed any missing built-in game rows once per server runtime. */
+export async function ensureBuiltinGameRows(
+  sql: NonNullable<ReturnType<typeof getNeonSql>>
+): Promise<void> {
+  if (!builtinGamesMigration) {
+    builtinGamesMigration = Promise.all(INITIAL_GAMES.map((game) => {
+      const initialStatus = game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY'
+        ? 'SCHEDULED'
+        : 'OPEN';
+      return sql`
+        INSERT INTO games (
+          id, name, game_type, category, winning_rule, entry_price, prize_pool, status,
+          drawn_numbers, current_ball, current_players, winners, blocked_cards,
+          active_special_rule_index, draw_interval, created_at, updated_at
+        ) VALUES (
+          ${game.id}, ${game.name}, ${game.gameType}, ${game.category}, ${game.winningRule},
+          ${game.entryPrice}, ${game.prizePool}, ${initialStatus}, '{}', NULL, 0, '[]'::jsonb, '{}',
+          ${game.activeSpecialRuleIndex ?? 0}, ${game.drawInterval ?? 3}, NOW(), NOW()
+        )
+        ON CONFLICT (id) DO NOTHING
+      `;
+    })).then(() => undefined).catch((error) => {
+      builtinGamesMigration = null;
+      throw error;
+    });
+  }
+  await builtinGamesMigration;
 }
 
 /**
@@ -152,6 +198,7 @@ export async function initDatabaseSchema() {
         blocked_cards TEXT[] DEFAULT '{}',
         active_special_rule_index INTEGER DEFAULT 0,
         next_round_starts_at BIGINT,
+        weekend_round_key VARCHAR(32),
         draw_interval INTEGER DEFAULT 3,
         last_ball_drawn_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -167,6 +214,7 @@ export async function initDatabaseSchema() {
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS blocked_cards TEXT[] DEFAULT '{}'`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS active_special_rule_index INTEGER DEFAULT 0`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS next_round_starts_at BIGINT`;
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS weekend_round_key VARCHAR(32)`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS draw_interval INTEGER DEFAULT 3`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS last_ball_drawn_at TIMESTAMPTZ`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`;

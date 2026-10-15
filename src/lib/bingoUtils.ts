@@ -1240,6 +1240,42 @@ export function isWeekendSlotCurrentlyLive(game: {
   }
 }
 
+/** Returns a unique key for the currently active scheduled Weekend draw slot. */
+export function getWeekendRoundKey(game: {
+  gameType?: string;
+  category?: string;
+  isWeekendSpecial?: boolean;
+  weekendDay?: 'FRI' | 'SAT' | 'SUN' | string;
+  weekendSlot?: '2PM' | '6PM' | string;
+}, now = new Date()): string | null {
+  const isWeekend = game.gameType === 'WEEKEND_LOTTERY' || game.category === 'HYPER_WEEKEND' || game.isWeekendSpecial;
+  if (!isWeekend) return null;
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Africa/Addis_Ababa',
+      weekday: 'short',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: 'numeric',
+      hourCycle: 'h23',
+    }).formatToParts(now);
+    const part = (type: string) => parts.find((item) => item.type === type)?.value || '';
+    const weekday = part('weekday').toUpperCase();
+    const targetDay = game.weekendDay || 'FRI';
+    if ((targetDay === 'FRI' && !weekday.startsWith('FRI')) ||
+        (targetDay === 'SAT' && !weekday.startsWith('SAT')) ||
+        (targetDay === 'SUN' && !weekday.startsWith('SUN'))) return null;
+    const slot = game.weekendSlot || '2PM';
+    const hour = parseInt(part('hour'), 10);
+    const scheduledHour = slot === '2PM' ? 14 : 18;
+    if (hour !== scheduledHour) return null;
+    return `${part('year')}-${part('month')}-${part('day')}-${slot}`;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Synthesizes an energetic victory fanfare sound using Web Audio API when user calls BINGO!
  */

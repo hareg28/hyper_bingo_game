@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
+import { ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { isAdminTelegramId } from '@/lib/authUtils';
+import { INITIAL_GAMES } from '@/lib/store';
+import { getWeekendRoundKey } from '@/lib/bingoUtils';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -26,6 +28,7 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureGameDrawTimestampColumn(sql);
+    await ensureWeekendRoundKeyColumn(sql);
     const body = await req.json();
     const { gameId, telegramId, expectedDrawnCount } = body as {
       gameId: string;
@@ -44,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch current game state
     const [game] = await sql`
-      SELECT id, category, game_type, status, drawn_numbers, winners, next_round_starts_at, draw_interval, last_ball_drawn_at
+      SELECT id, category, game_type, status, drawn_numbers, winners, next_round_starts_at, weekend_round_key, draw_interval, last_ball_drawn_at
       FROM games WHERE id = ${gameId}
     `;
     if (!game) {
@@ -52,6 +55,14 @@ export async function POST(req: NextRequest) {
     }
 
     const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN' || gameId.includes('fetan');
+    const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY' || gameId.includes('weekend');
+    if (isWeekend) {
+      const scheduledGame = INITIAL_GAMES.find((candidate) => candidate.id === gameId);
+      const activeScheduleKey = scheduledGame ? getWeekendRoundKey(scheduledGame) : null;
+      if (!activeScheduleKey || game.weekend_round_key !== activeScheduleKey || game.status !== 'RUNNING') {
+        return NextResponse.json({ success: false, error: 'This Weekend draw is outside its scheduled live time.' }, { status: 425 });
+      }
+    }
 
     // Validate game can draw
     const winners = Array.isArray(game.winners) ? game.winners

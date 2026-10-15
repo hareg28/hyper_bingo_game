@@ -398,9 +398,46 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const pollActiveRef = React.useRef(true);
   const lastServerDrawCountsRef = React.useRef<Record<string, number>>({});
   const lastFetanCycleMarkersRef = React.useRef<Record<string, number>>({});
+  const lastWeekendRoundKeysRef = React.useRef<Record<string, string>>({});
   const announcedWinnerKeysRef = React.useRef<Set<string> | null>(null);
   const currentUserIdRef = React.useRef(user?.id);
   currentUserIdRef.current = user?.id;
+  React.useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    setUserCards([]);
+    fetch(`/api/games/buy-card?userId=${encodeURIComponent(user.id)}`, { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((result) => {
+        if (cancelled || !result.success || !Array.isArray(result.data?.myCards)) return;
+        const ownedRows = result.data.myCards as Array<{ gameId: string; cardNumber: string; isRegistered?: boolean }>;
+        setUserCards((prev) => {
+          const existing = new Map(prev.map((card) => [`${card.gameId}:${card.cardNumber}`, card]));
+          return ownedRows.map((row) => {
+            const key = `${row.gameId}:${row.cardNumber}`;
+            const inMemory = existing.get(key);
+            if (inMemory) return inMemory;
+            const card = createNewBingoCard(row.gameId, user.id, row.cardNumber);
+            card.id = `gc_${row.gameId}_${row.cardNumber}`;
+            card.isRegistered = Boolean(row.isRegistered);
+            return card;
+          });
+        });
+        setLotterySoldMap((prev) => {
+          const next = { ...prev };
+          for (const row of ownedRows) {
+            const number = Number(row.cardNumber);
+            if (!Number.isFinite(number)) continue;
+            const sold = new Set(next[row.gameId] || []);
+            sold.add(number);
+            next[row.gameId] = sold;
+          }
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?.id]);
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
     let cancelled = false;
@@ -452,7 +489,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
               if (isFetan && Number.isFinite(cycleMarker) && cycleMarker > 0) {
                 lastFetanCycleMarkersRef.current[serverGame.id] = cycleMarker;
               }
-              return drawReset || cycleReset;
+              const weekendRoundKey = typeof serverGame.weekendRoundKey === 'string' ? serverGame.weekendRoundKey : '';
+              const previousWeekendRoundKey = lastWeekendRoundKeysRef.current[serverGame.id];
+              const weekendRoundReset = Boolean(weekendRoundKey && previousWeekendRoundKey && previousWeekendRoundKey !== weekendRoundKey);
+              if (weekendRoundKey) lastWeekendRoundKeysRef.current[serverGame.id] = weekendRoundKey;
+              return drawReset || cycleReset || weekendRoundReset;
             })
             .map((serverGame: any) => serverGame.id as string);
           json.data.forEach((serverGame: any) => {
@@ -462,7 +503,16 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           });
           if (resetGameIds.length > 0) {
             const resetIds = new Set(resetGameIds);
-            setUserCards((prev) => prev.filter((card) => !resetIds.has(card.gameId)));
+            const weekendIds = new Set<string>(json.data
+              .filter((serverGame: any) => resetIds.has(serverGame.id) && String(serverGame.id).includes('weekend'))
+              .map((serverGame: any) => serverGame.id));
+            setUserCards((prev) => prev.flatMap((card) => {
+              if (!resetIds.has(card.gameId)) return [card];
+              if (!weekendIds.has(card.gameId)) return [];
+              const marked = Array.from({ length: 5 }, () => Array(5).fill(false));
+              marked[2][2] = true;
+              return [{ ...card, marked, hasWonLine: false, hasWonTwoLines: false, hasWonFullHouse: false, roundCompleted: false }];
+            }));
           }
 
           setGames((prev) =>
@@ -484,6 +534,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 sameValues(localGame.blockedCards || [], serverBlockedCards) &&
                 localGame.activeSpecialRuleIndex === server.activeSpecialRuleIndex &&
                 localGame.nextRoundStartsAt === server.nextRoundStartsAt &&
+                localGame.weekendRoundKey === server.weekendRoundKey &&
                 localGame.entryPrice === server.entryPrice &&
                 localGame.prizePool === server.prizePool &&
                 localGame.drawInterval === server.drawInterval
@@ -500,6 +551,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 blockedCards: serverBlockedCards,
                 activeSpecialRuleIndex: server.activeSpecialRuleIndex,
                 nextRoundStartsAt: server.nextRoundStartsAt,
+                weekendRoundKey: server.weekendRoundKey,
                 entryPrice: server.entryPrice,
                 prizePool: server.prizePool,
                 drawInterval: server.drawInterval,
@@ -1685,6 +1737,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (!game) return;
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL' || gameId === 'gm_special';
     const isFetan = game.category === 'HYPER_FETAN' || game.gameType === 'HYPER_FETAN' || gameId.includes('fetan');
+    const isWeekend = game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY' || gameId.includes('weekend');
     const nextSpecialIndex = isSpecial
       ? ((game.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length
       : (game.activeSpecialRuleIndex ?? 0);
@@ -1703,7 +1756,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         if (g.id !== gameId) return g;
         return {
           ...g,
-          currentPlayers: 0,
+          currentPlayers: isWeekend ? g.currentPlayers : 0,
           drawnNumbers: [],
           currentBall: undefined,
           blockedCards: [],
@@ -1724,8 +1777,15 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       }
       return updated;
     });
-    setLotterySoldMap((prev) => ({ ...prev, [gameId]: new Set<number>() }));
-    setUserCards((prev) => prev.filter((card) => card.gameId !== gameId));
+    if (!isWeekend) setLotterySoldMap((prev) => ({ ...prev, [gameId]: new Set<number>() }));
+    setUserCards((prev) => isWeekend
+      ? prev.map((card) => {
+          if (card.gameId !== gameId) return card;
+          const marked = Array.from({ length: 5 }, () => Array(5).fill(false));
+          marked[2][2] = true;
+          return { ...card, marked, hasWonLine: false, hasWonTwoLines: false, hasWonFullHouse: false, roundCompleted: false };
+        })
+      : prev.filter((card) => card.gameId !== gameId));
 
     // Persist to DB (fire-and-forget)
     fetch('/api/games/reset', {
@@ -2221,27 +2281,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       numbers.forEach((n) => current.add(n));
       return { ...prev, [gameId]: current };
     });
-
-    // Increment players counter only if user doesn't already have cards in this game
-    const userAlreadyInGame = userCards.some((c) => c.gameId === gameId && c.userId === user.id);
-    const isCompleted = game.status === 'COMPLETED' || (game.winners && game.winners.length > 0);
-    setGames((prev) =>
-      prev.map((g) => {
-        if (g.id !== gameId) return g;
-        if (isCompleted) {
-          return {
-            ...g,
-            currentPlayers: 1,
-            drawnNumbers: [],
-            currentBall: null,
-            winners: [],
-            blockedCards: [],
-            status: 'OPEN',
-          };
-        }
-        return { ...g, currentPlayers: userAlreadyInGame ? g.currentPlayers : (g.currentPlayers || 0) + 1 };
-      })
-    );
 
     // Create corresponding bingo cards for purchased numbers (so game room shows them)
     const newCards = numbers.map((n) => {

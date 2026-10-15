@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
     }
     const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN';
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL';
+    const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY' || gameId.includes('weekend');
     const gameDrawn = parseIntegerArray(game.drawn_numbers);
     let pickDeadline = Number(game.next_round_starts_at || 0);
     if ((isFetan || isSpecial) && game.status === 'OPEN' && gameDrawn.length === 0 && !pickDeadline) {
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
         }, { status: 409 });
       }
     }
-    if (game.status === 'COMPLETED' || game.status === 'CANCELLED') {
+    if (!isWeekend && (game.status === 'COMPLETED' || game.status === 'CANCELLED')) {
       return NextResponse.json({ success: false, error: 'Game is no longer open for card purchases' }, { status: 409 });
     }
 
@@ -173,7 +174,8 @@ export async function POST(req: NextRequest) {
 
 /**
  * GET /api/games/buy-card?gameId=...&userId=...
- * Returns all card numbers sold for a game (for the sold-map display).
+ * With gameId, returns a game's sold map. With userId only, restores the
+ * player's reserved cards across games after reopening the app.
  */
 export async function GET(req: NextRequest) {
   const sql = getNeonSql();
@@ -183,9 +185,27 @@ export async function GET(req: NextRequest) {
   const gameId = searchParams.get('gameId');
   const userId = searchParams.get('userId');
 
-  if (!gameId) return NextResponse.json({ success: false, error: 'gameId required' }, { status: 400 });
+  if (!gameId && !userId) return NextResponse.json({ success: false, error: 'gameId or userId required' }, { status: 400 });
 
   try {
+    if (!gameId && userId) {
+      const rows = await sql`
+        SELECT game_id, card_number, is_registered
+        FROM game_cards
+        WHERE user_id = ${userId}
+        ORDER BY created_at ASC
+      `;
+      return NextResponse.json({
+        success: true,
+        data: {
+          myCards: rows.map((row: any) => ({
+            gameId: row.game_id,
+            cardNumber: String(row.card_number),
+            isRegistered: Boolean(row.is_registered),
+          })),
+        },
+      });
+    }
     const rows = await sql`
       SELECT card_number, user_id, is_registered FROM game_cards WHERE game_id = ${gameId}
     `;
