@@ -1157,12 +1157,16 @@ function WeekendLotteryNumberPicker({
     }
   }, []);
 
-  // Synchronized clocks: 60s active / 30s pick loop for Fetan; 2pm/5pm/7pm countdown for Weekend
+  // Fetan's pick clock follows the shared server deadline; Weekend uses its scheduled draw slots.
   React.useEffect(() => {
     if (mode === 'FETAN') {
       const updateFetanClock = () => {
         if (isHiddenRef.current) return;
-        const { pickingCards, secondsLeft } = getFetanClock();
+        const { pickingCards, secondsLeft } = getFetanClock(
+          selectedGame?.nextRoundStartsAt,
+          selectedGame?.status,
+          selectedGame?.drawnNumbers?.length || 0
+        );
         fetanSecondsRef.current = secondsLeft;
         setFetanIsIntermission((current) => current === pickingCards ? current : pickingCards);
       };
@@ -1202,7 +1206,7 @@ function WeekendLotteryNumberPicker({
       const interval = setInterval(updateCountdown, 1000);
       return () => clearInterval(interval);
     }
-  }, [mode, fetanIsIntermission]);
+  }, [mode, fetanIsIntermission, selectedGame?.nextRoundStartsAt, selectedGame?.status, selectedGame?.drawnNumbers?.length]);
 
   // Hyper Special's five-minute card-pick window uses the server deadline shared by every player.
   React.useEffect(() => {
@@ -1340,14 +1344,19 @@ function WeekendLotteryNumberPicker({
 
   // Enter the live room when Fetan's 30-second shared card-pick window closes.
   const prevFetanIntermissionRef = React.useRef(fetanIsIntermission);
+  const fetanRedirectedGameRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (mode === 'FETAN' && prevFetanIntermissionRef.current && !fetanIsIntermission) {
-      if (selectedGame) {
+    if (mode === 'FETAN' && selectedGame) {
+      const roundStarted = selectedGame.status === 'RUNNING' || (selectedGame.drawnNumbers?.length || 0) > 0;
+      const pickWindowClosed = prevFetanIntermissionRef.current && !fetanIsIntermission;
+      if ((roundStarted || pickWindowClosed) && fetanRedirectedGameRef.current !== selectedGame.id) {
+        fetanRedirectedGameRef.current = selectedGame.id;
         onPickCardsRef.current(selectedGame.id, slotNumbersRef.current.filter((number): number is number => number !== null).map(String));
       }
+      if (fetanIsIntermission) fetanRedirectedGameRef.current = null;
     }
     prevFetanIntermissionRef.current = fetanIsIntermission;
-  }, [fetanIsIntermission, selectedGame?.id, mode]);
+  }, [fetanIsIntermission, selectedGame?.id, selectedGame?.status, selectedGame?.drawnNumbers?.length, mode]);
 
   const regCode = user ? user.referralCode?.toUpperCase() || '---' : '---';
 
@@ -1433,7 +1442,7 @@ function WeekendLotteryNumberPicker({
             : (isAm ? 'ቀጣዩ የካርድ ምርጫ' : 'Next card-pick window')}</span>
           {mode === 'SPECIAL'
             ? <SharedCountdownText mode="SPECIAL" deadline={selectedGame?.nextRoundStartsAt} status={selectedGame?.status} drawnCount={selectedGame?.drawnNumbers?.length || 0} className="font-mono text-sm" />
-            : <SharedCountdownText mode="FETAN" className="font-mono text-sm" />}
+            : <SharedCountdownText mode="FETAN" deadline={selectedGame?.nextRoundStartsAt} status={selectedGame?.status} drawnCount={selectedGame?.drawnNumbers?.length || 0} className="font-mono text-sm" />}
         </div>
       )}
 

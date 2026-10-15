@@ -397,6 +397,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const pollActiveRef = React.useRef(true);
   const lastServerDrawCountsRef = React.useRef<Record<string, number>>({});
   const lastFetanCycleMarkersRef = React.useRef<Record<string, number>>({});
+  const announcedWinnerKeysRef = React.useRef<Set<string> | null>(null);
+  const currentUserIdRef = React.useRef(user?.id);
+  currentUserIdRef.current = user?.id;
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
     let cancelled = false;
@@ -416,6 +419,26 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         if (!res.ok) throw new Error('state fetch failed');
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
+          const winnerKeys = new Set<string>();
+          json.data.forEach((serverGame: any) => {
+            const winners = Array.isArray(serverGame.winners) ? serverGame.winners : [];
+            winners.forEach((winner: any) => {
+              const key = `${serverGame.id}:${winner.userId}:${winner.cardNumber ?? ''}:${winner.claimedAt ?? ''}`;
+              winnerKeys.add(key);
+              if (
+                announcedWinnerKeysRef.current !== null &&
+                !announcedWinnerKeysRef.current.has(key) &&
+                winner.userId !== currentUserIdRef.current
+              ) {
+                addNotification(
+                  '🏆 BINGO WINNER!',
+                  `${winner.username || 'A player'} won${winner.cardNumber ? ` with Card #${winner.cardNumber}` : ''}.`,
+                  'win'
+                );
+              }
+            });
+          });
+          announcedWinnerKeysRef.current = winnerKeys;
           const resetGameIds = json.data
             .filter((serverGame: any) => {
               const drawReset = (lastServerDrawCountsRef.current[serverGame.id] ?? 0) > 0 &&
@@ -1660,6 +1683,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const game = games.find((g) => g.id === gameId);
     if (!game) return;
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL' || gameId === 'gm_special';
+    const isFetan = game.category === 'HYPER_FETAN' || game.gameType === 'HYPER_FETAN' || gameId.includes('fetan');
     const SPECIAL_PRICE_CYCLE = [10, 20, 25];
     const nextSpecialIndex = isSpecial
       ? ((game.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length
@@ -1667,7 +1691,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const nextPrice = isSpecial
       ? SPECIAL_PRICE_CYCLE[nextSpecialIndex % SPECIAL_PRICE_CYCLE.length]
       : game.entryPrice;
-    const nextRoundStartsAt = isSpecial ? Date.now() + 5 * 60 * 1000 : undefined;
+    const nextRoundStartsAt = isSpecial
+      ? Date.now() + 5 * 60 * 1000
+      : isFetan
+        ? Date.now() + 30 * 1000
+        : undefined;
 
     // Optimistic local reset
     setGames((prev) => {
@@ -2082,7 +2110,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const alreadySold: number[] = [];
     const isFetanGame = game.category === 'HYPER_FETAN' || game.name?.includes('Fetan') || game.id.includes('fetan');
     const isSpecialGame = game.category === 'HYPER_SPECIAL' || game.name?.includes('Special') || game.id.includes('special');
-    if (isFetanGame && !getFetanClock().pickingCards) {
+    if (isFetanGame && !getFetanClock(game.nextRoundStartsAt, game.status, game.drawnNumbers?.length || 0).pickingCards) {
       return { success: false, message: 'Card picking is closed. Wait for the 30-second select window.' };
     }
     if (isSpecialGame) {
@@ -2295,7 +2323,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     const isFetanGame = game.category === 'HYPER_FETAN' || game.name?.includes('Fetan') || game.id.includes('fetan');
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL';
-    if (isFetanGame && !getFetanClock().pickingCards) {
+    if (isFetanGame && !getFetanClock(game.nextRoundStartsAt, game.status, game.drawnNumbers?.length || 0).pickingCards) {
       return { success: false, message: 'Unselect is closed during the live round. Wait for the 30-second window.' };
     }
     if (isSpecial) {

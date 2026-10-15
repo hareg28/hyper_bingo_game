@@ -24,43 +24,24 @@ export async function GET(_req: NextRequest) {
 
   try {
     await ensureGameDrawTimestampColumn(sql);
-    // Fetan uses a shared 90-second server cycle (60s live, 30s pick).
-    // Clear the previous round once when the pick window opens so all clients
-    // see the same fresh board, while purchases made during this window remain
-    // reserved for the next live round. next_round_starts_at is otherwise only
-    // used by Hyper Special and serves as the idempotent Fetan cycle marker.
-    await sql`
-      WITH clock AS (
-        SELECT
-          FLOOR(EXTRACT(EPOCH FROM clock_timestamp()) / 90)::bigint AS cycle_id,
-          MOD(FLOOR(EXTRACT(EPOCH FROM clock_timestamp()))::bigint, 90) AS cycle_second
-      ), reset_fetan AS (
-        UPDATE games AS g
-        SET
-          drawn_numbers = '{}',
-          current_ball = NULL,
-          last_ball_drawn_at = NULL,
-          current_players = 0,
-          winners = '[]'::jsonb,
-          blocked_cards = '{}',
-          status = 'OPEN',
-          next_round_starts_at = clock.cycle_id,
-          updated_at = NOW()
-        FROM clock
-        WHERE (g.category = 'HYPER_FETAN' OR g.game_type = 'HYPER_FETAN')
-          AND clock.cycle_second >= 60
-          AND g.next_round_starts_at IS DISTINCT FROM clock.cycle_id
-        RETURNING g.id
-      ), deleted_cards AS (
-        DELETE FROM game_cards
-        WHERE game_id IN (SELECT id FROM reset_fetan)
-        RETURNING id
-      )
-      SELECT id FROM reset_fetan
-    `;
-
-    // Ensure Special exists even in databases that already contain some, but
+    // Ensure Fetan and Special exist even in databases that already contain some, but
     // not all, of the built-in games.
+    const initialFetan = INITIAL_GAMES.find((game) => game.category === 'HYPER_FETAN' || game.gameType === 'HYPER_FETAN');
+    if (initialFetan) {
+      await sql`
+        INSERT INTO games (
+          id, name, game_type, category, winning_rule, entry_price, prize_pool, status,
+          drawn_numbers, current_ball, current_players, winners, blocked_cards,
+          active_special_rule_index, draw_interval, created_at, updated_at
+        ) VALUES (
+          ${initialFetan.id}, ${initialFetan.name}, ${initialFetan.gameType}, ${initialFetan.category},
+          ${initialFetan.winningRule}, ${initialFetan.entryPrice}, ${initialFetan.prizePool}, 'OPEN',
+          '{}', NULL, 0, '[]'::jsonb, '{}', ${initialFetan.activeSpecialRuleIndex ?? 0},
+          ${initialFetan.drawInterval ?? 3}, NOW(), NOW()
+        )
+        ON CONFLICT (id) DO NOTHING
+      `;
+    }
     const initialSpecial = INITIAL_GAMES.find((game) => game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL');
     if (initialSpecial) {
       await sql`
@@ -78,8 +59,16 @@ export async function GET(_req: NextRequest) {
       `;
     }
 
-    // A brand-new Hyper Special round always has the same shared five-minute
-    // registration window. The NULL guard makes initialization safe under load.
+    // First Hyper rounds get a shared, server-timed card-pick window. Fetan
+    // opens for 30 seconds after a winner; Special opens for five minutes.
+    await sql`
+      UPDATE games
+      SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + 30000
+      WHERE (category = 'HYPER_FETAN' OR game_type = 'HYPER_FETAN')
+        AND status = 'OPEN'
+        AND drawn_numbers = '{}'
+        AND next_round_starts_at IS NULL
+    `;
     await sql`
       UPDATE games
       SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + 300000
@@ -176,14 +165,17 @@ export async function GET(_req: NextRequest) {
 
     // Fetch sold cards by game so clients can show live sold cards & left cards on the board
     const soldCardsByGame: Record<string, number[]> = {};
+    const playerIdsByGame: Record<string, Set<string>> = {};
     try {
       const soldRows = await sql`
-        SELECT game_id, card_number FROM game_cards
+        SELECT game_id, card_number, user_id FROM game_cards
       `;
       for (const row of soldRows) {
         if (!soldCardsByGame[row.game_id]) {
           soldCardsByGame[row.game_id] = [];
         }
+        if (!playerIdsByGame[row.game_id]) playerIdsByGame[row.game_id] = new Set<string>();
+        playerIdsByGame[row.game_id].add(String(row.user_id));
         const num = parseInt(row.card_number, 10);
         if (!Number.isNaN(num)) {
           soldCardsByGame[row.game_id].push(num);
@@ -198,7 +190,7 @@ export async function GET(_req: NextRequest) {
       status: r.status,
       drawnNumbers: parseIntegerArray(r.drawn_numbers),
       currentBall: r.current_ball == null ? null : Number(r.current_ball),
-      currentPlayers: parseInt(r.current_players ?? '0', 10),
+      currentPlayers: playerIdsByGame[r.id]?.size ?? parseInt(r.current_players ?? '0', 10),
       winners: Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : []),
       blockedCards: Array.isArray(r.blocked_cards) ? r.blocked_cards : [],
       activeSpecialRuleIndex: parseInt(r.active_special_rule_index ?? '0', 10),

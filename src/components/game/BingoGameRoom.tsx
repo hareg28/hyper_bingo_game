@@ -559,10 +559,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     if (!isHiddenRef.current) announceBallRef.current(ball);
   }, [currentGame.id, currentGame.nextRoundStartsAt, currentGame.drawnNumbers.length, currentGame.currentBall]);
 
-  // Hyper Fetan 1-minute round + 30-second card pick period live loop
-  // RULE: If within 1 minute there is NO winner, game MUST continue drawing balls until a winner arrives!
+  // Hyper Fetan draws continuously until the shared round has a winner.
   const [fetanIsIntermission, setFetanIsIntermission] = useState<boolean>(false);
-  const fetanDrawCycleRef = React.useRef<number | null>(null);
   const lastSpecialTimerDeadlineRef = React.useRef<number | undefined>(undefined);
   const [fetanOvertime, setFetanOvertime] = useState<boolean>(false);
 
@@ -645,7 +643,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   useEffect(() => {
     if (!hasGameWinner) return;
 
-    const deadline = Date.now() + 10_000;
+    const latestClaim = (currentGame.winners || [])
+      .map((winner) => Date.parse(winner.claimedAt || ''))
+      .filter(Number.isFinite)
+      .reduce((latest, claimedAt) => Math.max(latest, claimedAt), 0);
+    const deadline = latestClaim > 0 ? latestClaim + 10_000 : Date.now() + 10_000;
     let completed = false;
     const update = () => {
       const secondsLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
@@ -683,7 +685,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       document.removeEventListener('visibilitychange', resume);
       window.removeEventListener('focus', resume);
     };
-  }, [hasGameWinner, currentGame.id, isSpecialGame]);
+  }, [hasGameWinner, currentGame.id, currentGame.winners, isSpecialGame]);
 
   // Auto-show winner announcement celebration modal to EVERYONE when a winner claims Bingo!
   const prevWinnersCountRef = React.useRef(currentGame.winners?.length || 0);
@@ -735,31 +737,34 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     };
   }, [isSpecialGame, specialIsIntermission, currentGame.id, startExpiredSpecialRound]);
 
-  // Fetan uses one shared 60s live / 30s card-picking clock on every client.
+  // Fetan uses the shared server deadline for its 30-second pick window, then
+  // starts drawing continuously until a winner ends the round.
   useEffect(() => {
     if (!isFetanGame) return;
 
     const syncFetanClock = () => {
       if (isHiddenRef.current) return;
-      const { pickingCards } = getFetanClock();
+      const { pickingCards } = getFetanClock(
+        currentGame.nextRoundStartsAt,
+        currentGame.status,
+        currentGame.drawnNumbers.length
+      );
       setFetanIsIntermission((current) => current === pickingCards ? current : pickingCards);
-      setFetanOvertime((current) => current ? false : current);
-      setIsAutoDrawing((current) => current === !pickingCards ? current : !pickingCards);
-      if (!pickingCards) {
-        const liveCycle = Math.floor(Date.now() / 90_000);
-        if (fetanDrawCycleRef.current !== liveCycle) {
-          fetanDrawCycleRef.current = liveCycle;
-          // Kick off the live round as soon as the shared 30-second pick
-          // window closes. Server clock guards keep boundary requests safe.
-          drawNextBall(currentGame.id);
-        }
+      setFetanOvertime(false);
+      const shouldDraw = !pickingCards && currentGame.status === 'RUNNING';
+      setIsAutoDrawing((current) => current === shouldDraw ? current : shouldDraw);
+      if (
+        currentGame.status === 'OPEN' && currentGame.drawnNumbers.length === 0 &&
+        currentGame.nextRoundStartsAt && Date.now() >= currentGame.nextRoundStartsAt
+      ) {
+        startExpiredSpecialRound(currentGame.nextRoundStartsAt);
       }
     };
 
     syncFetanClock();
     const timer = setInterval(syncFetanClock, 1000);
     return () => clearInterval(timer);
-  }, [isFetanGame, currentGame.id, fetanIsIntermission, drawNextBall]);
+  }, [isFetanGame, currentGame.id, currentGame.nextRoundStartsAt, currentGame.status, currentGame.drawnNumbers.length, startExpiredSpecialRound]);
   // drawnSet must be defined before the topHitRequirement useMemo that references it
   const drawnSet = new Set(currentGame.drawnNumbers || []);
   const cardDrawnSet = drawnSet;
@@ -1413,7 +1418,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
               </div>
               <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
-                {Math.max(activeGameCards.length > 0 ? 1 : 0, currentGame.currentPlayers || 0)}
+                {currentGame.currentPlayers || 0}
               </div>
             </div>
 
@@ -1483,7 +1488,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
                 <span>⏳</span>
                 <span>{language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards'}:</span>
-                <SharedCountdownText mode="FETAN" className="font-mono text-sm" />
+                <SharedCountdownText mode="FETAN" deadline={currentGame.nextRoundStartsAt} status={currentGame.status} drawnCount={currentGame.drawnNumbers.length} className="font-mono text-sm" />
               </div>
             )}
           </div>
@@ -1920,7 +1925,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 </span>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 pb-6">
+              <div className="grid grid-cols-2 gap-1.5 pb-3 max-h-[42vh] overflow-y-auto pr-1">
                 {activeGameCards.map((card) => {
                   const cardDrawnSet = new Set(currentGame.drawnNumbers || []);
                   const isRegistered = Boolean(card.isRegistered);

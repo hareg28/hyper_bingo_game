@@ -13,7 +13,7 @@ type SharedCountdownTextProps = {
 
 function getRemainingSeconds({ mode, deadline, status, drawnCount = 0 }: SharedCountdownTextProps): number {
   return mode === 'FETAN'
-    ? getFetanClock().secondsLeft
+    ? getFetanClock(deadline, status, drawnCount).secondsLeft
     : getSpecialPickClock(deadline, status, drawnCount).secondsLeft;
 }
 

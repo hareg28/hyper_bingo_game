@@ -51,21 +51,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Game not found' }, { status: 404 });
     }
 
-    const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN';
-    const fetanCycleSecond = Math.floor(Date.now() / 1000) % 90;
-    if (isFetan && fetanCycleSecond >= 60) {
-      return NextResponse.json({
-        success: false,
-        error: 'Fetan is in its shared 30-second card-picking window.',
-        nextRoundStartsAt: (Math.floor(Date.now() / 90000) + 1) * 90000,
-      }, { status: 425 });
-    }
+    const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN' || gameId.includes('fetan');
 
     // Validate game can draw
     const winners = Array.isArray(game.winners) ? game.winners
       : (typeof game.winners === 'string' ? JSON.parse(game.winners || '[]') : []);
     if (game.status === 'COMPLETED' || winners.length > 0) {
       return NextResponse.json({ success: false, error: 'Game already completed' }, { status: 409 });
+    }
+
+    // Fetan draws only after the shared server-side pick deadline has elapsed
+    // and the round has been transitioned to RUNNING by /start.
+    if (isFetan && game.status !== 'RUNNING') {
+      const deadline = Number(game.next_round_starts_at || 0);
+      if (deadline && Date.now() < deadline) {
+        return NextResponse.json({ success: false, error: 'Fetan card-pick window is still open.', nextRoundStartsAt: deadline }, { status: 425 });
+      }
+      return NextResponse.json({ success: false, error: 'Fetan round has not started yet.' }, { status: 425 });
     }
 
     // Check intermission

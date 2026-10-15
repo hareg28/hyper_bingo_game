@@ -54,33 +54,41 @@ export async function POST(req: NextRequest) {
     }
 
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL';
+    const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN' || gameId.includes('fetan');
     const drawnNumbers = Array.isArray(game.drawn_numbers)
       ? game.drawn_numbers
       : typeof game.drawn_numbers === 'string'
         ? game.drawn_numbers.replace(/^\{|\}$/g, '').split(',').filter(Boolean)
         : [];
-    if (isSpecial && game.status !== 'RUNNING' && drawnNumbers.length === 0) {
+    if ((isSpecial || isFetan) && game.status !== 'RUNNING' && drawnNumbers.length === 0) {
       const deadline = Number(game.next_round_starts_at || 0);
       if (!deadline) {
-        return NextResponse.json({ success: false, error: 'Special pick-window deadline is not initialized.' }, { status: 425 });
+        return NextResponse.json({ success: false, error: 'Card-pick window deadline is not initialized.' }, { status: 425 });
       }
       if (Date.now() < deadline) {
         return NextResponse.json({
           success: false,
-          error: 'Special card-pick window is still open.',
+          error: `${isFetan ? 'Fetan' : 'Special'} card-pick window is still open.`,
           nextRoundStartsAt: deadline,
         }, { status: 425 });
       }
     }
 
-    await sql`
+    const started = await sql`
       UPDATE games
       SET
         status = 'RUNNING',
         next_round_starts_at = NULL,
         updated_at = NOW()
       WHERE id = ${gameId}
+        AND status <> 'COMPLETED'
+        AND (status = 'RUNNING' OR drawn_numbers <> '{}' OR next_round_starts_at IS NULL OR next_round_starts_at <= (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint)
+      RETURNING id
     `;
+
+    if (started.length === 0) {
+      return NextResponse.json({ success: false, error: 'Game is not ready to start.' }, { status: 409 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

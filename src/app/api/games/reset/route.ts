@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
     }
 
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL' || gameId === 'gm_special';
+    const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN' || gameId.includes('fetan');
     const currentRuleIndex = parseInt(game.active_special_rule_index ?? '0', 10);
     const nextSpecialIndex = typeof reqNextIndex === 'number'
       ? reqNextIndex
@@ -80,7 +81,11 @@ export async function POST(req: NextRequest) {
     const nextPrice = typeof reqNextPrice === 'number'
       ? reqNextPrice
       : (isSpecial ? SPECIAL_PRICE_CYCLE[nextSpecialIndex % SPECIAL_PRICE_CYCLE.length] : parseFloat(game.entry_price || '10'));
-    const nextRoundStartsAt = isSpecial ? Date.now() + 5 * 60 * 1000 : null;
+    const nextRoundStartsAt = isSpecial
+      ? Date.now() + 5 * 60 * 1000
+      : isFetan
+        ? Date.now() + 30 * 1000
+        : null;
 
     // Reset the game and clear its one-round cards atomically. This prevents
     // clients from seeing stale sold numbers between the round reset and delete.
@@ -123,6 +128,7 @@ export async function POST(req: NextRequest) {
         nextPrice,
         nextRoundStartsAt,
         isSpecial,
+        isFetan,
       },
     });
   } catch (err: any) {
