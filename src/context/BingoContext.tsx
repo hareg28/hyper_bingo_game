@@ -490,7 +490,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 if (Array.isArray(serverGame.soldCards)) {
                   const existing = nextMap[serverGame.id] || new Set<number>();
                   const authoritative = new Set<number>(serverGame.soldCards);
-                  if (authoritative.size !== existing.size || [...authoritative].some((num) => !existing.has(num))) {
+                  if (
+                    authoritative.size !== existing.size ||
+                    [...authoritative].some((num) => !existing.has(num)) ||
+                    [...existing].some((num) => !authoritative.has(num))
+                  ) {
                     nextMap[serverGame.id] = authoritative;
                     changed = true;
                   }

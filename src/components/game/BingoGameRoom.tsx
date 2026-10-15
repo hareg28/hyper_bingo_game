@@ -1870,31 +1870,20 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   </p>
                 </div>
               </div>
-              <button
+              {!isSpecialGame && <button
                 type="button"
                 onClick={() => {
                   resetGameRound(currentGame.id);
-                  if (isSpecialGame) {
-                    setSpecialIsIntermission(true);
-                    setSpecialSecondsLeft(300);
-                    setIsAutoDrawing(false);
-                    setIsSelectorOpen(true);
-                  } else if (onOpenLotteryTab) {
+                  if (onOpenLotteryTab) {
                     onOpenLotteryTab();
                   } else {
                     setIsSelectorOpen(true);
                   }
                 }}
-                className={`w-full sm:w-auto px-3.5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0 ${
-                  isSpecialGame
-                    ? 'bg-amber-400 hover:bg-amber-300 text-slate-950'
-                    : 'bg-slate-950 hover:bg-slate-900 text-amber-300'
-                }`}
+                className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-900 text-amber-300 font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
               >
-                <span>🎮 {isSpecialGame
-                  ? (language === 'am' ? 'ቀጣይ ዙር ጀምር (አዲስ ሕግና ዋጋ)' : 'Start Next Game (New Law & Price)')
-                  : (language === 'am' ? 'አዲስ ካርድ ይግዙና ይጫወቱ' : 'Purchase Cards to Play Again')}</span>
-              </button>
+                <span>🎮 {language === 'am' ? 'አዲስ ካርድ ይግዙና ይጫወቱ' : 'Purchase Cards to Play Again'}</span>
+              </button>}
             </div>
           );
         })()}
@@ -1920,60 +1909,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   <div className="bg-slate-950 text-amber-300 font-mono font-black text-sm px-2.5 py-1 rounded-lg border border-amber-400 shrink-0 shadow-xs">
                     {formatTimeRemaining(specialSecondsLeft)}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSpecialIsIntermission(false);
-                      setIsAutoDrawing(true);
-                      startSpecialRound(currentGame.id);
-                      setTimeout(() => {
-                        const first = drawNextBall(currentGame.id);
-                        if (first) announceBallRef.current(first);
-                      }, 350);
-                    }}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-2.5 py-1 rounded-lg shadow-sm cursor-pointer active:scale-95 transition"
-                  >
-                    {language === 'am' ? 'ጀምር' : 'Start'}
-                  </button>
                 </div>
               </div>
             )}
-
-            {/* Active Law & Price Banner for Hyper Special */}
-            {(() => {
-              const ruleIdx = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
-              const rule = HYPER_SPECIAL_RULES[ruleIdx];
-              return (
-                <div className="mx-1 p-2 rounded-xl bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 text-white border border-indigo-700/60 shadow-xs flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="px-2 py-0.5 rounded-lg bg-amber-400 text-slate-950 font-black text-[11px] shrink-0 font-mono shadow-2xs">
-                      {language === 'am' ? `ሕግ #${ruleIdx + 1}` : `Law #${ruleIdx + 1}`}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-xs font-black truncate text-amber-300">
-                        {language === 'am' ? rule.nameAm : rule.nameEn}
-                      </div>
-                      <div className="text-[10px] text-slate-300 truncate">
-                        {language === 'am' ? rule.subtitleAm : rule.subtitle}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="px-2 py-1 rounded-lg bg-emerald-600 text-white font-mono font-black text-xs shadow-2xs">
-                      {currentGame.entryPrice} ETB
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => resetGameRound(currentGame.id)}
-                      className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-[10px] font-bold cursor-pointer transition active:scale-95"
-                      title={language === 'am' ? 'ቀጣይ ሕግና ዋጋ' : 'Next Law & Price'}
-                    >
-                      🔄
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
 
             <div className="flex items-center justify-between px-1.5 pt-0.5 text-xs">
               <span className="font-black text-slate-700">
@@ -1986,34 +1924,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
             {/* When entering to choose cards: NO BINGO BOX initially until user chooses cards via the (+) button */}
             {activeGameCards.length === 0 ? (
-              <div 
-                onClick={() => setFabOpen(true)}
-                className="flex flex-col items-center justify-center py-10 px-4 text-center space-y-3 bg-white rounded-2xl border border-dashed border-slate-300 mx-1 shadow-2xs cursor-pointer hover:border-red-400 transition"
-              >
-                <div className="w-12 h-12 rounded-full bg-red-50 text-[#ef4444] flex items-center justify-center text-2xl font-black shadow-xs">
-                  +
-                </div>
+              <div className="flex flex-col items-center justify-center py-10 px-4 text-center space-y-3 bg-white rounded-2xl border border-dashed border-slate-300 mx-1 shadow-2xs">
                 <div className="space-y-1">
                   <h3 className="text-sm font-bold text-slate-800">
                     {language === 'am' ? 'ምንም የተመረጠ ካርድ የለም' : 'No Cards Selected Yet'}
                   </h3>
                   <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                    {language === 'am'
-                      ? 'የካርድ ቁጥር ለመምረጥና ለመመዝገብ ከታች ካሉት ቁልፎች ይምረጡ (1፣ 2፣ 5 ወይም 10 ካርዶች)'
-                      : 'Choose card numbers to register (1, 2, 5, or 10 cards):'}
+                    {language === 'am' ? 'አንድ ካርድ ለመጨመር በታች ያለውን + ይጫኑ' : 'Tap the + button below to add one card.'}
                   </p>
-                </div>
-                <div className="flex items-center gap-2 pt-1 flex-wrap justify-center" onClick={(e) => e.stopPropagation()}>
-                  {[1, 2, 5, 10].map((qty) => (
-                    <button
-                      key={qty}
-                      type="button"
-                      onClick={() => addSpecialCards(currentGame.id, qty)}
-                      className="px-3 py-1.5 rounded-xl bg-[#ef4444] hover:bg-[#dc2626] text-white font-black text-xs shadow-xs transition active:scale-95 cursor-pointer"
-                    >
-                      +{qty} {language === 'am' ? 'ካርድ' : 'Card' + (qty > 1 ? 's' : '')}
-                    </button>
-                  ))}
                 </div>
                 <span className="text-[11px] font-semibold text-slate-400">
                   {language === 'am' ? 'እስከ 30 ካርዶች መምረጥ እና 5 ካርዶች መመዝገብ ይችላሉ' : 'Select up to 30 cards, register up to 5'}
@@ -2415,7 +2333,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   </span>
                 </button>
               </div>
-            ) : (
+            ) : !isSpecialGame ? (
               <div className="flex flex-col sm:flex-row gap-2 px-4 w-full max-w-xs mx-auto">
                 <button
                   disabled={!hasSufficientBalance}
@@ -2446,7 +2364,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   </span>
                 </button>
               </div>
-            )}
+            ) : null}
           </div>
         )}
       </div>
@@ -2714,7 +2632,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
       {/* CARD SELECTOR MODAL */}
       <CardNumberSelector
-        isOpen={isSelectorOpen}
+        isOpen={isSelectorOpen && !isSpecialGame}
         onClose={() => setIsSelectorOpen(false)}
         onConfirm={handleConfirmCardNumbers}
         entryPrice={currentGame.entryPrice}
@@ -3068,36 +2986,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </div>
         </div>
       )}
-      {/* Floating Action Button for Hyper Special (Options: 10, 5, 2, 1) */}
-      {isSpecialGame && (
+      {/* One tap adds one Hyper Special card. */}
+      {isSpecialGame && specialIsIntermission && (
         <div className="fixed bottom-20 right-4 z-40 flex flex-col items-center gap-2">
-          {fabOpen && (
-            <div className="flex flex-col items-center gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
-              {[10, 5, 2, 1].map((qty) => (
-                <button
-                  key={qty}
-                  type="button"
-                  onClick={() => {
-                    addSpecialCards(currentGame.id, qty);
-                    setFabOpen(false);
-                    // Notification removed per requirement
-                  }}
-                  className="w-8 h-8 rounded-full bg-[#ef4444] hover:bg-[#dc2626] text-white font-bold text-xs flex items-center justify-center shadow-md active:scale-95 transition cursor-pointer"
-                  title={`Add ${qty} cards`}
-                >
-                  {qty}
-                </button>
-              ))}
-            </div>
-          )}
-
           <button
             type="button"
-            onClick={() => setFabOpen((prev) => !prev)}
+            onClick={() => addSpecialCards(currentGame.id, 1)}
             className="w-10 h-10 rounded-full bg-[#ef4444] hover:bg-[#dc2626] text-white text-xl font-bold flex items-center justify-center shadow-lg active:scale-95 transition cursor-pointer"
-            title="Add cards"
+            title="Add one card"
           >
-            {fabOpen ? '✕' : '+'}
+            +
           </button>
         </div>
       )}

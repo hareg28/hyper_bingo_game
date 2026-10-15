@@ -81,24 +81,32 @@ export async function POST(req: NextRequest) {
       : (isSpecial ? SPECIAL_PRICE_CYCLE[nextSpecialIndex % SPECIAL_PRICE_CYCLE.length] : parseFloat(game.entry_price || '10'));
     const nextRoundStartsAt = isSpecial ? Date.now() + 5 * 60 * 1000 : null;
 
-    // Reset the game row
+    // Reset the game and clear its one-round cards atomically. This prevents
+    // clients from seeing stale sold numbers between the round reset and delete.
     const resetRows = await sql`
-      UPDATE games
-      SET
-        drawn_numbers = '{}',
-        current_ball = NULL,
-        last_ball_drawn_at = NULL,
-        current_players = 0,
-        winners = '[]'::jsonb,
-        blocked_cards = '{}',
-        status = 'OPEN',
-        active_special_rule_index = ${nextSpecialIndex},
-        entry_price = ${nextPrice},
-        next_round_starts_at = ${nextRoundStartsAt},
-        updated_at = NOW()
-      WHERE id = ${gameId}
-        AND (status = 'COMPLETED' OR drawn_numbers <> '{}')
-      RETURNING id
+      WITH reset_game AS (
+        UPDATE games
+        SET
+          drawn_numbers = '{}',
+          current_ball = NULL,
+          last_ball_drawn_at = NULL,
+          current_players = 0,
+          winners = '[]'::jsonb,
+          blocked_cards = '{}',
+          status = 'OPEN',
+          active_special_rule_index = ${nextSpecialIndex},
+          entry_price = ${nextPrice},
+          next_round_starts_at = ${nextRoundStartsAt},
+          updated_at = NOW()
+        WHERE id = ${gameId}
+          AND (status = 'COMPLETED' OR drawn_numbers <> '{}')
+        RETURNING id
+      ), deleted_cards AS (
+        DELETE FROM game_cards
+        WHERE game_id IN (SELECT id FROM reset_game)
+        RETURNING id
+      )
+      SELECT id FROM reset_game
     `;
 
     // Multiple players can reach the end of a round together. Only the first
@@ -106,9 +114,6 @@ export async function POST(req: NextRequest) {
     if (resetRows.length === 0) {
       return NextResponse.json({ success: false, error: 'Round has already been reset.' }, { status: 409 });
     }
-
-    // Delete all game_cards for this game (1-round card rule)
-    await sql`DELETE FROM game_cards WHERE game_id = ${gameId}`;
 
     return NextResponse.json({
       success: true,
