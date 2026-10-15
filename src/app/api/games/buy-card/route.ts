@@ -30,11 +30,12 @@ export async function POST(req: NextRequest) {
     // 1. Load the game and synchronize Fetan round rollover before accepting
     // any purchase. This closes the race where a buy reaches the server before
     // the state poll that opens the pick window.
-    let [game] = await sql`SELECT id, status, entry_price, category, game_type FROM games WHERE id = ${gameId}`;
+    let [game] = await sql`SELECT id, status, entry_price, category, game_type, next_round_starts_at, drawn_numbers FROM games WHERE id = ${gameId}`;
     if (!game) {
       return NextResponse.json({ success: false, error: 'Game not found' }, { status: 404 });
     }
     const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN';
+    const isSpecial = game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL';
     if (isFetan) {
       const [clock] = await sql`
         SELECT
@@ -69,7 +70,14 @@ export async function POST(req: NextRequest) {
         )
         SELECT id FROM reset_fetan
       `;
-      [game] = await sql`SELECT id, status, entry_price FROM games WHERE id = ${gameId}`;
+      [game] = await sql`SELECT id, status, entry_price, category, game_type, next_round_starts_at, drawn_numbers FROM games WHERE id = ${gameId}`;
+    }
+    if (isSpecial) {
+      const deadline = game.next_round_starts_at ? Number(game.next_round_starts_at) : 0;
+      const drawn = Array.isArray(game.drawn_numbers) ? game.drawn_numbers : [];
+      if (game.status === 'RUNNING' || drawn.length > 0 || (deadline > 0 && Date.now() >= deadline)) {
+        return NextResponse.json({ success: false, error: 'Special card picking is closed for this round.' }, { status: 409 });
+      }
     }
     if (game.status === 'COMPLETED' || game.status === 'CANCELLED') {
       return NextResponse.json({ success: false, error: 'Game is no longer open for card purchases' }, { status: 409 });
@@ -232,12 +240,31 @@ export async function DELETE(req: NextRequest) {
     }
 
     const [ownedCard] = await sql`
-      SELECT gc.cost, g.category, g.game_type
+      SELECT gc.cost, g.category, g.game_type, g.status, g.next_round_starts_at, g.drawn_numbers
       FROM game_cards gc
       JOIN games g ON g.id = gc.game_id
       WHERE gc.game_id = ${gameId} AND gc.card_number = ${cardNumber} AND gc.user_id = ${userId}
     `;
     if (!ownedCard) return NextResponse.json({ success: false, error: 'Owned card not found' }, { status: 404 });
+
+    const isFetanUnselect = ownedCard.category === 'HYPER_FETAN' || ownedCard.game_type === 'HYPER_FETAN';
+    if (isFetanUnselect) {
+      const [clock] = await sql`
+        SELECT MOD(FLOOR(EXTRACT(EPOCH FROM clock_timestamp()))::bigint, 90) AS cycle_second
+      `;
+      const cycleSecond = parseInt(clock?.cycle_second ?? '0', 10);
+      if (cycleSecond < 60) {
+        return NextResponse.json({ success: false, error: 'Fetan card unselect is closed during the live round.' }, { status: 409 });
+      }
+    }
+    const isSpecialUnselect = ownedCard.category === 'HYPER_SPECIAL' || ownedCard.game_type === 'HYPER_SPECIAL';
+    if (isSpecialUnselect) {
+      const deadline = ownedCard.next_round_starts_at ? Number(ownedCard.next_round_starts_at) : 0;
+      const drawn = Array.isArray(ownedCard.drawn_numbers) ? ownedCard.drawn_numbers : [];
+      if (ownedCard.status === 'RUNNING' || drawn.length > 0 || (deadline > 0 && Date.now() >= deadline)) {
+        return NextResponse.json({ success: false, error: 'Special card unselect is closed for this round.' }, { status: 409 });
+      }
+    }
 
     await sql`DELETE FROM game_cards WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND user_id = ${userId}`;
 

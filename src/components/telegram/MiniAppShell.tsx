@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
-import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS, HYPER_SPECIAL_RULES, isWeekendSlotCurrentlyLive } from '../../lib/bingoUtils';
+import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS, HYPER_SPECIAL_RULES, isWeekendSlotCurrentlyLive, getFetanClock, getSpecialPickClock, formatCountdownClock } from '../../lib/bingoUtils';
 import { 
   Wallet, User as UserIcon, Shield, 
   Share2, Copy, Check, LogOut, Sparkles, 
@@ -116,6 +116,7 @@ export default function MiniAppShell({
     setLocalGameId(gameId);
     setActiveGameId(gameId);
     if (cat === 'SPECIAL') {
+      // Hyper Special uses the in-room plus picker; keep a single card-selection surface.
       setActiveTab('game');
     } else {
       setLotteryMode(cat);
@@ -629,7 +630,8 @@ export default function MiniAppShell({
             onOpenLotteryTab={() => {
               const curGame = games.find((g) => g.id === (localGameId || activeGameId || games[0].id));
               if (curGame?.category === 'HYPER_SPECIAL' || curGame?.gameType === 'HYPER_SPECIAL') {
-                setLotteryMode('SPECIAL');
+                // Special card selection lives only in the room's plus menu.
+                return;
               } else if (curGame?.category === 'HYPER_WEEKEND' || curGame?.gameType === 'WEEKEND_LOTTERY' || curGame?.isWeekendSpecial) {
                 setLotteryMode('WEEKEND');
               } else {
@@ -660,15 +662,9 @@ export default function MiniAppShell({
               setActiveGameId(newId);
             }}
             onPickCards={(gameId, cardNumbers) => {
-              if (!user) { openAuthModal('register'); return; }
-              // The lottery picker purchases cards as they are selected and
-              // creates their local game cards. Only buy numbers that are not
-              // already owned when handing off to the live room.
-              const owned = new Set(userCards.filter((card) => card.gameId === gameId).map((card) => card.cardNumber));
-              const unpurchased = cardNumbers.filter((number) => !owned.has(number));
-              if (unpurchased.length > 0) {
-                joinGame(gameId, unpurchased);
-              }
+              // Lottery cards are purchased at the picker tap. Do not run joinGame
+              // again here: a stale React snapshot can repurchase the same cards.
+              if (cardNumbers.length > 0 && !user) { openAuthModal('register'); return; }
               setLocalGameId(gameId);
               setActiveGameId(gameId);
               setActiveTab('game');
@@ -1104,12 +1100,22 @@ function WeekendLotteryNumberPicker({
   const [slotNumbers, setSlotNumbers] = React.useState<(number | null)[]>(
     Array.from({ length: NUM_SLOTS }, () => null)
   );
+  const slotNumbersRef = React.useRef(slotNumbers);
+  slotNumbersRef.current = slotNumbers;
+  const onPickCardsRef = React.useRef(onPickCards);
+  onPickCardsRef.current = onPickCards;
   const [purchaseFeedback, setPurchaseFeedback] = React.useState<string | null>(null);
   const [drawCountdown, setDrawCountdown] = React.useState('00:00:00');
   const [fetanSeconds, setFetanSeconds] = React.useState(60);
   const fetanSecondsRef = React.useRef(60);
   const fetanTimerTextRef = React.useRef<HTMLSpanElement>(null);
   const [fetanIsIntermission, setFetanIsIntermission] = React.useState(false);
+  const [specialSeconds, setSpecialSeconds] = React.useState(300);
+  const specialSecondsRef = React.useRef(300);
+  const specialTimerTextRef = React.useRef<HTMLSpanElement>(null);
+  const specialPickingRef = React.useRef(false);
+  const specialTimerDeadlineRef = React.useRef<number | undefined>(undefined);
+  const specialRedirectedGameRef = React.useRef<string | null>(null);
   const fetanCycleMarkerRef = React.useRef(selectedGame?.nextRoundStartsAt);
 
   React.useEffect(() => {
@@ -1133,6 +1139,17 @@ function WeekendLotteryNumberPicker({
     return () => window.removeEventListener('lottery-purchase-failed', handlePurchaseFailure);
   }, [selectedGame?.id, isAm]);
 
+  React.useEffect(() => {
+    const handleRefundFailure = (event: Event) => {
+      const detail = (event as CustomEvent<{ gameId: string; message?: string }>).detail;
+      if (detail?.gameId !== selectedGame?.id) return;
+      setPurchaseFeedback(detail.message || (isAm ? 'ካርዱ አልተለቀቀም። ካርዱ አሁንም የእርስዎ ነው።' : 'Card could not be released. It is still yours.'));
+      setTimeout(() => setPurchaseFeedback(null), 3000);
+    };
+    window.addEventListener('lottery-refund-failed', handleRefundFailure);
+    return () => window.removeEventListener('lottery-refund-failed', handleRefundFailure);
+  }, [selectedGame?.id, isAm]);
+
   const isHiddenRef = React.useRef(typeof document !== 'undefined' && document.hidden);
   React.useEffect(() => {
     const handleVisibility = () => {
@@ -1149,10 +1166,7 @@ function WeekendLotteryNumberPicker({
     if (mode === 'FETAN') {
       const updateFetanClock = () => {
         if (isHiddenRef.current) return;
-        const nowSec = Math.floor(Date.now() / 1000);
-        const cycle = nowSec % 90; // 60s live + 30s card pick
-        const pickingCards = cycle >= 60;
-        const secondsLeft = pickingCards ? 90 - cycle : 60 - cycle;
+        const { pickingCards, secondsLeft } = getFetanClock();
         fetanSecondsRef.current = secondsLeft;
         if (fetanTimerTextRef.current) fetanTimerTextRef.current.textContent = `${secondsLeft}s`;
         setFetanIsIntermission((current) => current === pickingCards ? current : pickingCards);
@@ -1197,6 +1211,48 @@ function WeekendLotteryNumberPicker({
     }
   }, [mode, fetanIsIntermission]);
 
+  // Hyper Special's five-minute card-pick window uses the server deadline shared by every player.
+  React.useEffect(() => {
+    if (mode !== 'SPECIAL' || !selectedGame) return;
+    const updateSpecialClock = () => {
+      if (isHiddenRef.current) return;
+      const clock = getSpecialPickClock(
+        selectedGame.nextRoundStartsAt,
+        selectedGame.status,
+        selectedGame.drawnNumbers?.length || 0
+      );
+      specialSecondsRef.current = clock.secondsLeft;
+      if (specialTimerTextRef.current) {
+        specialTimerTextRef.current.textContent = formatCountdownClock(clock.secondsLeft);
+      }
+      const deadline = selectedGame.nextRoundStartsAt;
+      if (specialTimerDeadlineRef.current !== deadline) {
+        specialTimerDeadlineRef.current = deadline;
+        setSpecialSeconds(clock.secondsLeft);
+      }
+
+      if (clock.pickingCards) {
+        if (!specialPickingRef.current) setSpecialSeconds(clock.secondsLeft);
+        specialPickingRef.current = true;
+        specialRedirectedGameRef.current = null;
+        return;
+      }
+
+      if (specialPickingRef.current) setSpecialSeconds(0);
+
+      const deadlinePassed = Boolean(selectedGame.nextRoundStartsAt && Date.now() >= selectedGame.nextRoundStartsAt);
+      const roundStarted = selectedGame.status === 'RUNNING' || (selectedGame.drawnNumbers?.length || 0) > 0;
+      if ((specialPickingRef.current || deadlinePassed || roundStarted) && specialRedirectedGameRef.current !== selectedGame.id) {
+        specialPickingRef.current = false;
+        specialRedirectedGameRef.current = selectedGame.id;
+        onPickCardsRef.current(selectedGame.id, slotNumbersRef.current.filter((number): number is number => number !== null).map(String));
+      }
+    };
+    updateSpecialClock();
+    const interval = setInterval(updateSpecialClock, 1000);
+    return () => clearInterval(interval);
+  }, [mode, selectedGame?.id, selectedGame?.nextRoundStartsAt, selectedGame?.status, selectedGame?.drawnNumbers?.length]);
+
   const soldSet = React.useMemo(() => {
     if (!selectedGame) return new Set<number>();
     return getLotterySoldNumbers(selectedGame.id);
@@ -1238,8 +1294,16 @@ function WeekendLotteryNumberPicker({
 
     if (mode === 'FETAN' && !fetanIsIntermission) {
       setPurchaseFeedback(isAm
-        ? `ካርድ ለመግዛት የሚቀጥለውን የ30 ሰከንድ ጊዜ ይጠብቁ (${fetanSeconds}s)`
+        ? `ካርድ ለመግዛት የሚቀጥለውን የ30 ሰከንድ ጊዜ ይጠብቁ (${fetanSecondsRef.current}s)`
         : `Card picking opens in ${fetanSecondsRef.current}s. Please wait for the 30-second window.`);
+      setTimeout(() => setPurchaseFeedback(null), 2500);
+      return;
+    }
+
+    if (mode === 'SPECIAL' && !getSpecialPickClock(selectedGame.nextRoundStartsAt, selectedGame.status, selectedGame.drawnNumbers?.length || 0).pickingCards) {
+      setPurchaseFeedback(isAm
+        ? `የስፔሻል ካርድ ምርጫ ጊዜ አልቋል። የሚቀጥለውን ዙር ይጠብቁ (${formatCountdownClock(specialSecondsRef.current)})`
+        : `Special card picking is closed. Watch this game or wait for the next round (${formatCountdownClock(specialSecondsRef.current)}).`);
       setTimeout(() => setPurchaseFeedback(null), 2500);
       return;
     }
@@ -1287,16 +1351,16 @@ function WeekendLotteryNumberPicker({
     onPickCards(selectedGame.id, cardStrs);
   };
 
-  // Auto-redirect to live game room after 30s card-picking intermission if user bought cards
+  // Enter the live room when Fetan's 30-second shared card-pick window closes.
   const prevFetanIntermissionRef = React.useRef(fetanIsIntermission);
   React.useEffect(() => {
     if (mode === 'FETAN' && prevFetanIntermissionRef.current && !fetanIsIntermission) {
       if (selectedGame) {
-        handleGoToGameRoom();
+        onPickCardsRef.current(selectedGame.id, slotNumbersRef.current.filter((number): number is number => number !== null).map(String));
       }
     }
     prevFetanIntermissionRef.current = fetanIsIntermission;
-  }, [fetanIsIntermission, slotCountFilled, selectedGame, mode]);
+  }, [fetanIsIntermission, selectedGame?.id, mode]);
 
   const regCode = user ? user.referralCode?.toUpperCase() || '---' : '---';
 
@@ -1369,16 +1433,20 @@ function WeekendLotteryNumberPicker({
         </div>
       )}
 
-      {mode === 'FETAN' && (
+      {(mode === 'FETAN' || mode === 'SPECIAL') && (
         <div className={`mx-2 mt-2 rounded-xl px-3 py-2 flex items-center justify-between border font-black text-xs ${
-          fetanIsIntermission
+          (mode === 'FETAN' && fetanIsIntermission) || (mode === 'SPECIAL' && getSpecialPickClock(selectedGame?.nextRoundStartsAt, selectedGame?.status, selectedGame?.drawnNumbers?.length || 0).pickingCards)
             ? 'bg-amber-100 border-amber-300 text-amber-950 animate-pulse'
             : 'bg-white border-slate-200 text-slate-600'
         }`}>
-          <span>{fetanIsIntermission
+          <span>{mode === 'SPECIAL'
+            ? (isAm ? 'የስፔሻል ካርድ ምርጫ ጊዜ' : 'Special card-pick time')
+            : fetanIsIntermission
             ? (isAm ? 'የካርድ ምርጫ ጊዜ' : 'Pick cards now')
             : (isAm ? 'ቀጣዩ የካርድ ምርጫ' : 'Next card-pick window')}</span>
-          <span ref={fetanTimerTextRef} className="font-mono text-sm">{fetanSeconds}s</span>
+          {mode === 'SPECIAL'
+            ? <span ref={specialTimerTextRef} className="font-mono text-sm">{formatCountdownClock(specialSeconds)}</span>
+            : <span ref={fetanTimerTextRef} className="font-mono text-sm">{fetanSeconds}s</span>}
         </div>
       )}
 

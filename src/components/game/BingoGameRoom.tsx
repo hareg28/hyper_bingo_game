@@ -298,6 +298,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         // Also cancel any stacked SpeechSynthesis utterances
         try { window.speechSynthesis?.cancel(); } catch {}
       } else {
+        const now = new Date();
+        setCurrentTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`);
         audioManager.resume(); // wakes AudioContext back up
       }
     };
@@ -411,7 +413,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       setCurrentTime(`${h}:${m}`);
     };
     updateTime();
-    const interval = setInterval(updateTime, 1000);
+    // The header displays only hours/minutes. Updating once a second rerendered
+    // every bingo card on low-memory phones despite the displayed value not changing.
+    const interval = setInterval(updateTime, 60_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -539,25 +543,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   useEffect(() => {
     announceBallRef.current = announceBall;
   }, [announceBall]);
-
-  // Live Countdown Timer
-  const [secondsRemaining, setSecondsRemaining] = useState<number>(() => {
-    const ballsLeft = Math.max(0, 75 - (currentGame?.drawnNumbers?.length || 0));
-    return ballsLeft * (currentGame?.drawInterval || 3);
-  });
-
-  useEffect(() => {
-    const ballsLeft = Math.max(0, 75 - (currentGame?.drawnNumbers?.length || 0));
-    setSecondsRemaining(ballsLeft * (currentGame?.drawInterval || 3));
-  }, [currentGame?.drawnNumbers?.length, currentGame?.drawInterval]);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (isHiddenRef.current) return;
-      setSecondsRemaining(prev => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Hyper Fetan 1-minute round + 30-second card pick period live loop
   // RULE: If within 1 minute there is NO winner, game MUST continue drawing balls until a winner arrives!
@@ -1279,15 +1264,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     : Math.round(totalGrossMoney * 0.80);
   const playableBalance = (wallet?.availableBalance || 0) + (wallet?.bonusBalance || 0);
   const hasSufficientBalance = playableBalance >= (currentGame?.entryPrice || 0);
-
-  const displaySeconds = isFetanGame
-    ? fetanSecondsLeft
-    : isSpecialGame && specialIsIntermission
-    ? specialSecondsLeft
-    : secondsRemaining;
-  const timerMinutes = Math.floor(displaySeconds / 60);
-  const timerSecs = displaySeconds % 60;
-  const formattedTimerLeft = `${timerMinutes.toString().padStart(2, '0')}:${timerSecs.toString().padStart(2, '0')}`;
 
   // =========================================================================
   // 🔽 SINGLE UNIFIED RENDER (used for both weekend & regular games)

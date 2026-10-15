@@ -1342,3 +1342,54 @@ export function getLotteryGameLabel(
 ): string {
   return lang === 'am' ? `ሙሉ ዝግጅት ${entryPrice}` : `Weekend Mega ${entryPrice}`;
 }
+
+export const FETAN_LIVE_SECONDS = 60;
+export const FETAN_PICK_SECONDS = 30;
+export const FETAN_CYCLE_SECONDS = FETAN_LIVE_SECONDS + FETAN_PICK_SECONDS;
+export const SPECIAL_PICK_SECONDS = 5 * 60;
+
+export function formatCountdownClock(totalSec: number): string {
+  const clamped = Math.max(0, Math.floor(totalSec));
+  const m = Math.floor(clamped / 60);
+  const s = clamped % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+/** Shared Hyper Fetan clock: 60s live drawing, then 30s select/unselect. */
+export function getFetanClock(nowMs: number = Date.now()): {
+  pickingCards: boolean;
+  secondsLeft: number;
+  cycleSecond: number;
+} {
+  const cycleSecond = Math.floor(nowMs / 1000) % FETAN_CYCLE_SECONDS;
+  const pickingCards = cycleSecond >= FETAN_LIVE_SECONDS;
+  const secondsLeft = pickingCards
+    ? FETAN_CYCLE_SECONDS - cycleSecond
+    : FETAN_LIVE_SECONDS - cycleSecond;
+  return { pickingCards, secondsLeft, cycleSecond };
+}
+
+/** Hyper Special 5-minute select window, synced to nextRoundStartsAt. */
+export function getSpecialPickClock(
+  nextRoundStartsAt?: number | null,
+  status?: string,
+  drawnCount: number = 0,
+  nowMs: number = Date.now()
+): { pickingCards: boolean; secondsLeft: number } {
+  if (status === 'RUNNING' || drawnCount > 0) {
+    return { pickingCards: false, secondsLeft: 0 };
+  }
+  if (nextRoundStartsAt && nextRoundStartsAt > nowMs) {
+    return {
+      pickingCards: true,
+      secondsLeft: Math.max(0, Math.ceil((nextRoundStartsAt - nowMs) / 1000)),
+    };
+  }
+  if (status === 'OPEN' && drawnCount === 0) {
+    if (!nextRoundStartsAt) {
+      return { pickingCards: true, secondsLeft: SPECIAL_PICK_SECONDS };
+    }
+    return { pickingCards: false, secondsLeft: 0 };
+  }
+  return { pickingCards: false, secondsLeft: 0 };
+}

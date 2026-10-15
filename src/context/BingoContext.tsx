@@ -23,6 +23,8 @@ import {
   formatLotteryCardNumber,
   LOTTERY_NUMBERS_TOTAL,
   isWeekendSlotCurrentlyLive,
+  getFetanClock,
+  getSpecialPickClock,
 } from '../lib/bingoUtils';
 import { isAdminTelegramId } from '../lib/authUtils';
 
@@ -2078,6 +2080,15 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const alreadySold: number[] = [];
     const isFetanGame = game.category === 'HYPER_FETAN' || game.name?.includes('Fetan') || game.id.includes('fetan');
     const isSpecialGame = game.category === 'HYPER_SPECIAL' || game.name?.includes('Special') || game.id.includes('special');
+    if (isFetanGame && !getFetanClock().pickingCards) {
+      return { success: false, message: 'Card picking is closed. Wait for the 30-second select window.' };
+    }
+    if (isSpecialGame) {
+      const specialClock = getSpecialPickClock(game.nextRoundStartsAt, game.status, game.drawnNumbers?.length || 0);
+      if (!specialClock.pickingCards) {
+        return { success: false, message: 'Special card picking is closed. Watch the live game or wait for the next 5-minute window.' };
+      }
+    }
     const maxNumbersForGame = isFetanGame ? 500 : isSpecialGame ? 99999 : LOTTERY_NUMBERS_TOTAL;
     numbers.forEach((n) => {
       if (n < 1 || n > maxNumbersForGame || !Number.isInteger(n)) invalidNums.push(n);
@@ -2270,11 +2281,26 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const userHasCard = userCards.some(
       (c) => c.gameId === gameId && (c.cardNumber === label || parseInt(c.cardNumber, 10) === numInt)
     );
+    const ownedCard = userCards.find(
+      (c) => c.gameId === gameId && (c.cardNumber === label || parseInt(c.cardNumber, 10) === numInt)
+    );
     const soldSet = lotterySoldMap[gameId];
     const isMarkedSold = soldSet && (soldSet.has(numInt) || (soldSet as any).has(label));
 
     if (!userHasCard && !isMarkedSold) {
       return { success: false, message: 'Card not found in your cards.' };
+    }
+
+    const isFetanGame = game.category === 'HYPER_FETAN' || game.name?.includes('Fetan') || game.id.includes('fetan');
+    const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL';
+    if (isFetanGame && !getFetanClock().pickingCards) {
+      return { success: false, message: 'Unselect is closed during the live round. Wait for the 30-second window.' };
+    }
+    if (isSpecial) {
+      const specialClock = getSpecialPickClock(game.nextRoundStartsAt, game.status, game.drawnNumbers?.length || 0);
+      if (!specialClock.pickingCards) {
+        return { success: false, message: 'Unselect is closed. Watch the live game or wait for the next round.' };
+      }
     }
 
     // Remove from sold set
@@ -2290,7 +2316,32 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       prev.filter((c) => !(c.gameId === gameId && (c.cardNumber === label || parseInt(c.cardNumber, 10) === numInt)))
     );
 
-    const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL';
+    let optimisticRefundTxId: string | undefined;
+    const restoreCardAfterFailedRelease = (message: string) => {
+      setLotterySoldMap((prev) => {
+        const current = new Set(prev[gameId] || []);
+        current.add(numInt);
+        return { ...prev, [gameId]: current };
+      });
+      if (ownedCard) {
+        setUserCards((prev) => prev.some((card) => card.id === ownedCard.id) ? prev : [...prev, ownedCard]);
+      }
+      if (!isSpecial && !pendingPurchase) {
+        setWallet((prev) => {
+          const updated = { ...prev, availableBalance: Math.max(0, prev.availableBalance - (game.entryPrice || 10)) };
+          try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
+          return updated;
+        });
+      }
+      if (optimisticRefundTxId) {
+        setTransactions((prev) => prev.filter((transaction) => transaction.id !== optimisticRefundTxId));
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('lottery-refund-failed', {
+          detail: { gameId, number: numInt, message },
+        }));
+      }
+    };
 
     const releaseOwnedCard = async () => {
       if (pendingPurchase && !(await pendingPurchase)) return;
@@ -2302,6 +2353,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         });
         const result = await response.json();
         const walletAfter = result.data?.walletAfter;
+        if (!response.ok || !result.success) {
+          restoreCardAfterFailedRelease(result.error || 'Card release failed. The card remains yours.');
+          return;
+        }
         if (result.success && walletAfter) {
           setWallet((prev) => {
             const updated = { ...prev, availableBalance: walletAfter.availableBalance, bonusBalance: walletAfter.bonusBalance };
@@ -2344,6 +2399,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         description: `Refund for unselected lottery card #${label} in ${game.name}`,
         createdAt: new Date().toISOString(),
       };
+      optimisticRefundTxId = tx.id;
       setTransactions((prev) => [tx, ...prev]);
 
       return { success: true, message: `Refunded ${refundAmount} ETB for card #${label}` };
