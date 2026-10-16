@@ -26,9 +26,10 @@ export async function GET(req: NextRequest) {
     if (pending.status !== 'PENDING') return walletRedirect('failed');
 
     const verified = await queryTelebirrOrder(merchantOrderId);
+    const isPaid = ['PAY_SUCCESS', 'SUCCESS', 'TRADE_SUCCESS'].includes(verified.status);
     if (
       verified.merchantOrderId !== merchantOrderId ||
-      verified.status !== 'PAY_SUCCESS' ||
+      !isPaid ||
       verified.currency !== 'ETB' ||
       Math.abs(verified.amount - pending.amount) > 0.001
     ) return walletRedirect('pending');

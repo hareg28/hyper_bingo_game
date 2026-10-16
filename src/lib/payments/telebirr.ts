@@ -1,4 +1,8 @@
 import { createSign, randomBytes } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import https from 'node:https';
+import http from 'node:http';
 
 type TelebirrEnvironment = 'sandbox' | 'production';
 
@@ -16,7 +20,9 @@ type TelebirrCredentials = {
 type TelebirrApiResponse = {
   result?: string;
   code?: string;
+  errorCode?: string;
   msg?: string;
+  errorMsg?: string;
   message?: string;
   token?: string;
   biz_content?: Record<string, unknown>;
@@ -40,7 +46,23 @@ function requiredEnv(name: string): string {
 }
 
 function normalizePem(value: string): string {
-  return value.replace(/\\n/g, '\n').trim();
+  let cleaned = value.replace(/\\n/g, '\n').trim();
+  if (!cleaned.includes('-----BEGIN')) {
+    cleaned = `-----BEGIN PRIVATE KEY-----\n${cleaned}\n-----END PRIVATE KEY-----`;
+  }
+  return cleaned;
+}
+
+function resolvePrivateKey(): string {
+  const fromEnv = process.env.PRIVATE_KEY?.trim();
+  if (fromEnv) return normalizePem(fromEnv);
+  try {
+    const pemPath = path.resolve(process.cwd(), 'private_key.pem');
+    if (fs.existsSync(pemPath)) {
+      return normalizePem(fs.readFileSync(pemPath, 'utf8'));
+    }
+  } catch {}
+  throw new Error('Missing Telebirr configuration: PRIVATE_KEY');
 }
 
 export function getTelebirrCredentials(): TelebirrCredentials {
@@ -55,7 +77,7 @@ export function getTelebirrCredentials(): TelebirrCredentials {
     fabricAppSecret: requiredEnv('FABRIC_APP_SECRET'),
     merchantAppId: requiredEnv('MERCHANT_APP_ID'),
     merchantCode: requiredEnv('MERCHANT_CODE'),
-    privateKey: normalizePem(requiredEnv('PRIVATE_KEY')),
+    privateKey: resolvePrivateKey(),
     notifyUrl: requiredEnv('TELEBIRR_NOTIFY_URL'),
     redirectUrl: requiredEnv('TELEBIRR_REDIRECT_URL'),
   };
@@ -87,37 +109,67 @@ function sign(input: Record<string, unknown>, privateKey: string): string {
 
 async function telebirrRequest(
   url: string,
-  init: RequestInit,
+  init: { method?: string; headers?: Record<string, string>; body?: string },
+  environment: TelebirrEnvironment = 'sandbox',
 ): Promise<TelebirrApiResponse> {
-  const response = await fetch(url, {
-    ...init,
-    signal: AbortSignal.timeout(20_000),
-    cache: 'no-store',
+  const isSandbox = environment === 'sandbox';
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const client = parsedUrl.protocol === 'http:' ? http : https;
+    const req = client.request(
+      parsedUrl,
+      {
+        method: init.method || 'GET',
+        headers: init.headers,
+        rejectUnauthorized: !isSandbox,
+        timeout: 20_000,
+      },
+      (res) => {
+        let raw = '';
+        res.on('data', (chunk) => {
+          raw += chunk;
+        });
+        res.on('end', () => {
+          let body: TelebirrApiResponse;
+          try {
+            body = JSON.parse(raw) as TelebirrApiResponse;
+          } catch {
+            return reject(new Error(`Telebirr returned a non-JSON response (HTTP ${res.statusCode ?? 'unknown'})`));
+          }
+          if (res.statusCode && res.statusCode >= 400) {
+            return reject(
+              new Error(`Telebirr request failed (HTTP ${res.statusCode}, code ${body.code ?? body.errorCode ?? 'unknown'})`),
+            );
+          }
+          resolve(body);
+        });
+      },
+    );
+    req.on('error', (err) => reject(new Error(`Telebirr request failed: ${err.message}`)));
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Telebirr request timed out after 20 seconds'));
+    });
+    if (init.body) req.write(init.body);
+    req.end();
   });
-  const raw = await response.text();
-  let body: TelebirrApiResponse;
-  try {
-    body = JSON.parse(raw) as TelebirrApiResponse;
-  } catch {
-    throw new Error(`Telebirr returned a non-JSON response (HTTP ${response.status})`);
-  }
-  if (!response.ok) {
-    throw new Error(`Telebirr request failed (HTTP ${response.status}, code ${body.code ?? 'unknown'})`);
-  }
-  return body;
 }
 
 async function getFabricToken(credentials: TelebirrCredentials): Promise<string> {
   const { apiBase } = TELEBIRR_ENDPOINTS[credentials.environment];
-  const response = await telebirrRequest(`${apiBase}/payment/v1/token`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-APP-Key': credentials.fabricAppId,
+  const response = await telebirrRequest(
+    `${apiBase}/payment/v1/token`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-APP-Key': credentials.fabricAppId,
+      },
+      body: JSON.stringify({ appSecret: credentials.fabricAppSecret }),
     },
-    body: JSON.stringify({ appSecret: credentials.fabricAppSecret }),
-  });
-  if (!response.token) throw new Error(`Telebirr token request failed (code ${response.code ?? 'unknown'})`);
+    credentials.environment,
+  );
+  if (!response.token) throw new Error(`Telebirr token request failed (code ${response.code ?? response.errorCode ?? 'unknown'})`);
   return response.token;
 }
 
@@ -142,21 +194,17 @@ function makeSignedOrder(input: {
     method: 'payment.preorder',
     version: '1.0',
     biz_content: {
-      notify_url: credentials.notifyUrl,
       appid: credentials.merchantAppId,
+      business_type: 'BuyGoods',
       merch_code: credentials.merchantCode,
       merch_order_id: merchantOrderId,
-      trade_type: 'Checkout',
+      notify_url: credentials.notifyUrl,
+      redirect_url: credentials.redirectUrl,
+      timeout_express: '120m',
       title,
       total_amount: amount,
+      trade_type: 'Checkout',
       trans_currency: 'ETB',
-      timeout_express: '120m',
-      business_type: 'BuyGoods',
-      payee_type: '3000',
-      payee_identifier: credentials.merchantCode,
-      payee_identifier_type: '04',
-      redirect_url: credentials.redirectUrl,
-      callback_info: 'Hyper Bingo deposit',
     },
   };
   return { ...order, sign: sign(order, credentials.privateKey), sign_type: 'SHA256WithRSA' };
@@ -175,18 +223,22 @@ export async function createTelebirrCheckout(input: {
     amount: input.amount.toFixed(2),
     title: 'Hyper Bingo wallet deposit',
   });
-  const preOrder = await telebirrRequest(`${endpoints.apiBase}/payment/v1/merchant/preOrder`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-APP-Key': credentials.fabricAppId,
-      Authorization: authorizationHeader(token),
+  const preOrder = await telebirrRequest(
+    `${endpoints.apiBase}/payment/v1/merchant/preOrder`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-APP-Key': credentials.fabricAppId,
+        Authorization: authorizationHeader(token),
+      },
+      body: JSON.stringify(order),
     },
-    body: JSON.stringify(order),
-  });
+    credentials.environment,
+  );
   const prepayId = preOrder.biz_content?.prepay_id;
   if (preOrder.result !== 'SUCCESS' || typeof prepayId !== 'string' || !prepayId) {
-    throw new Error(`Telebirr order creation failed (code ${preOrder.code ?? 'unknown'})`);
+    throw new Error(`Telebirr order creation failed (code ${preOrder.code ?? preOrder.errorCode ?? 'unknown'})`);
   }
 
   const checkoutFields = {
@@ -221,18 +273,22 @@ export async function queryTelebirrOrder(merchantOrderId: string) {
       merch_order_id: merchantOrderId,
     },
   };
-  const response = await telebirrRequest(`${endpoints.apiBase}/payment/v1/merchant/queryOrder`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-APP-Key': credentials.fabricAppId,
-      Authorization: authorizationHeader(token),
+  const response = await telebirrRequest(
+    `${endpoints.apiBase}/payment/v1/merchant/queryOrder`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-APP-Key': credentials.fabricAppId,
+        Authorization: authorizationHeader(token),
+      },
+      body: JSON.stringify({ ...query, sign: sign(query, credentials.privateKey), sign_type: 'SHA256WithRSA' }),
     },
-    body: JSON.stringify({ ...query, sign: sign(query, credentials.privateKey), sign_type: 'SHA256WithRSA' }),
-  });
+    credentials.environment,
+  );
   const content = response.biz_content;
   if (response.result !== 'SUCCESS' || !content) {
-    throw new Error(`Telebirr status query failed (code ${response.code ?? 'unknown'})`);
+    throw new Error(`Telebirr status query failed (code ${response.code ?? response.errorCode ?? 'unknown'})`);
   }
   return {
     merchantOrderId: String(content.merch_order_id ?? ''),

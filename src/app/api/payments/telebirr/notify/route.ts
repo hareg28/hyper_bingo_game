@@ -38,9 +38,10 @@ export async function POST(req: NextRequest) {
 
     // The callback is only a signal. Confirm the order with Telebirr's API before crediting.
     const verified = await queryTelebirrOrder(merchantOrderId);
+    const isPaid = ['PAY_SUCCESS', 'SUCCESS', 'TRADE_SUCCESS'].includes(verified.status);
     if (
       verified.merchantOrderId !== merchantOrderId ||
-      verified.status !== 'PAY_SUCCESS' ||
+      !isPaid ||
       verified.currency !== 'ETB' ||
       !Number.isFinite(verified.amount) ||
       Math.abs(verified.amount - pending.amount) > 0.001
