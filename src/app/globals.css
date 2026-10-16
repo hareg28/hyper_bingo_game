@@ -105,6 +105,17 @@
   animation: ballPulse 1.2s infinite ease-out;
 }
 
+/* Avoid continuous GPU animations in mobile Telegram WebViews. The called
+   number remains highlighted; animation is decorative and can keep older
+   phones busy while a room stays open. */
+@media (max-width: 640px) {
+  .tg-container .ball-active-anim,
+  .tg-container .animate-pulse,
+  .tg-container .animate-bounce {
+    animation: none !important;
+  }
+}
+
 /* Telegram Mini App Container styling */
 .tg-container {
   max-width: 440px;

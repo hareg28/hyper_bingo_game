@@ -441,17 +441,19 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
     let cancelled = false;
-    const scheduleNextPoll = () => {
-      if (!cancelled) timeoutId = setTimeout(poll, 2500 + Math.random() * 1500);
+    let polling = false;
+    const scheduleNextPoll = (delay = 2500 + Math.random() * 1500) => {
+      if (!cancelled) timeoutId = setTimeout(poll, delay);
     };
 
     const poll = async () => {
-      if (cancelled) return;
-      // Skip polling while app is hidden to save battery/data
+      if (cancelled || polling) return;
+      // Back off while the app is backgrounded instead of waking the phone every few seconds.
       if (typeof document !== 'undefined' && document.hidden) {
-        scheduleNextPoll();
+        scheduleNextPoll(30_000);
         return;
       }
+      polling = true;
       try {
         const res = await fetch('/api/games/state', { cache: 'no-cache' });
         if (!res.ok) throw new Error('state fetch failed');
@@ -596,13 +598,21 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       } catch {
         // Silently ignore network errors — keeps playing from last known state
       }
+      polling = false;
       scheduleNextPoll();
     };
 
+    const resumePolling = () => {
+      if (document.visibilityState !== 'visible' || cancelled) return;
+      clearTimeout(timeoutId);
+      void poll();
+    };
+    document.addEventListener('visibilitychange', resumePolling);
     poll();
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);
+      document.removeEventListener('visibilitychange', resumePolling);
     };
   }, []);
 
