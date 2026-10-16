@@ -244,6 +244,14 @@ export default function WalletManager() {
         throw new Error(result.error || 'Could not start Telebirr checkout.');
       }
       const checkoutUrl = result.data.checkoutUrl;
+      if (new URL(checkoutUrl).hostname === 'developerportal.ethiotelebirr.et') {
+        const continueToSandbox = window.confirm(
+          isAm
+            ? 'ይህ የቴሌብር ሙከራ (Sandbox) አካባቢ ነው። መደበኛ የቴሌብር ስልክ ቁጥሮች እዚህ አይሰሩም፤ ከEthio telecom የDeveloper Portal የሙከራ ተጠቃሚ ይጠቀሙ። ወደ ክፍያው ይቀጥሉ?'
+            : 'This is Telebirr sandbox checkout. Regular Telebirr phone numbers are not registered here and will show “Failed to query the consumer.” Use a test consumer provided in the Ethio telecom Developer Portal. Continue to checkout?'
+        );
+        if (!continueToSandbox) return;
+      }
       const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
       if (tg?.openLink) {
         tg.openLink(checkoutUrl);
