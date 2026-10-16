@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
       success: true,
       data: { checkoutUrl, merchantOrderId, amount: parsedAmount },
     });
+  } catch (error) {
     const msg = error instanceof Error ? error.message : 'Could not start Telebirr checkout. Check the Telebirr credentials and try again.';
     console.error('[Telebirr initiate] Checkout setup failed:', msg);
     return NextResponse.json({
