@@ -34,8 +34,8 @@ const TELEBIRR_ENDPOINTS: Record<TelebirrEnvironment, { apiBase: string; webBase
     webBase: 'https://developerportal.ethiotelebirr.et:38443/payment/web/paygate',
   },
   production: {
-    apiBase: 'https://superapp.ethiomobilemoney.et:38443/apiaccess/payment/gateway',
-    webBase: 'https://superapp.ethiomobilemoney.et:38443/payment/web/paygate',
+    apiBase: 'https://telebirrappcube.ethiomobilemoney.et:38443/apiaccess/payment/gateway',
+    webBase: 'https://telebirrappcube.ethiomobilemoney.et:38443/payment/web/paygate',
   },
 };
 
