@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ensureBuiltinGameRows, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
+import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 import { getWeekendRoundKey } from '@/lib/bingoUtils';
 
@@ -26,6 +26,7 @@ export async function GET(_req: NextRequest) {
   try {
     await ensureGameDrawTimestampColumn(sql);
     await ensureWeekendRoundKeyColumn(sql);
+    await ensureBlockedPlayersColumn(sql);
     await ensureBuiltinGameRows(sql);
 
     // First Hyper rounds get a shared, server-timed card-pick window. Fetan
@@ -76,6 +77,7 @@ export async function GET(_req: NextRequest) {
             last_ball_drawn_at = NULL,
             winners = '[]'::jsonb,
             blocked_cards = '{}',
+            blocked_players = '{}',
             current_players = (SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${weekendGame.id}),
             weekend_round_key = ${weekendRoundKey},
             updated_at = NOW()
@@ -93,6 +95,7 @@ export async function GET(_req: NextRequest) {
         current_players,
         winners,
         blocked_cards,
+        blocked_players,
         active_special_rule_index,
         next_round_starts_at,
         weekend_round_key,
@@ -129,6 +132,7 @@ export async function GET(_req: NextRequest) {
           current_players,
           winners,
           blocked_cards,
+          blocked_players,
           active_special_rule_index,
           next_round_starts_at,
           weekend_round_key,
@@ -160,6 +164,7 @@ export async function GET(_req: NextRequest) {
           current_players,
           winners,
           blocked_cards,
+          blocked_players,
           active_special_rule_index,
           next_round_starts_at,
           weekend_round_key,
@@ -202,6 +207,7 @@ export async function GET(_req: NextRequest) {
       currentPlayers: playerIdsByGame[r.id]?.size ?? 0,
       winners: Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : []),
       blockedCards: Array.isArray(r.blocked_cards) ? r.blocked_cards : [],
+      blockedPlayers: Array.isArray(r.blocked_players) ? r.blocked_players : [],
       activeSpecialRuleIndex: parseInt(r.active_special_rule_index ?? '0', 10),
       nextRoundStartsAt: r.next_round_starts_at ? Number(r.next_round_starts_at) : undefined,
       weekendRoundKey: r.weekend_round_key || undefined,

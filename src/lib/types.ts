@@ -56,6 +56,7 @@ export interface Game {
   currentBall?: number;     // Active ball
   winners: WinnerRecord[];
   blockedCards?: string[];  // Array of blocked card numbers e.g. ['200']
+  blockedPlayers?: string[]; // Player ids blocked for the rest of this round after a false Bingo claim
   isWeekendSpecial?: boolean;
   weekendDay?: 'FRI' | 'SAT' | 'SUN';
   weekendSlot?: '2PM' | '6PM';

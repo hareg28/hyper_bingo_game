@@ -14,6 +14,7 @@ export function getNeonSql() {
 
 let gameDrawTimestampMigration: Promise<void> | null = null;
 let weekendRoundKeyMigration: Promise<void> | null = null;
+let blockedPlayersMigration: Promise<void> | null = null;
 let builtinGamesMigration: Promise<void> | null = null;
 
 /** Ensure this runtime column exists for databases created before timed draws. */
@@ -44,6 +45,21 @@ export async function ensureWeekendRoundKeyColumn(
       });
   }
   await weekendRoundKeyMigration;
+}
+
+/** Persist false-claim penalties per player for the lifetime of a game round. */
+export async function ensureBlockedPlayersColumn(
+  sql: NonNullable<ReturnType<typeof getNeonSql>>
+): Promise<void> {
+  if (!blockedPlayersMigration) {
+    blockedPlayersMigration = sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS blocked_players TEXT[] DEFAULT '{}'`
+      .then(() => undefined)
+      .catch((error) => {
+        blockedPlayersMigration = null;
+        throw error;
+      });
+  }
+  await blockedPlayersMigration;
 }
 
 /** Seed any missing built-in game rows once per server runtime. */
@@ -212,6 +228,7 @@ export async function initDatabaseSchema() {
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS current_players INTEGER DEFAULT 0`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS winners JSONB DEFAULT '[]'`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS blocked_cards TEXT[] DEFAULT '{}'`;
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS blocked_players TEXT[] DEFAULT '{}'`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS active_special_rule_index INTEGER DEFAULT 0`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS next_round_starts_at BIGINT`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS weekend_round_key VARCHAR(32)`;

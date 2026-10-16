@@ -524,6 +524,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
               const serverWinners = Array.isArray(server.winners) ? server.winners : [];
               const serverDrawnNumbers = Array.isArray(server.drawnNumbers) ? server.drawnNumbers : [];
               const serverBlockedCards = Array.isArray(server.blockedCards) ? server.blockedCards : [];
+              const serverBlockedPlayers = Array.isArray(server.blockedPlayers) ? server.blockedPlayers : [];
               const sameValues = (left: unknown[], right: unknown[]) =>
                 left.length === right.length && left.every((value, index) => value === right[index]);
               const sameWinners = JSON.stringify(localGame.winners) === JSON.stringify(serverWinners);
@@ -534,6 +535,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 localGame.currentPlayers === server.currentPlayers &&
                 sameWinners &&
                 sameValues(localGame.blockedCards || [], serverBlockedCards) &&
+                sameValues(localGame.blockedPlayers || [], serverBlockedPlayers) &&
                 localGame.activeSpecialRuleIndex === server.activeSpecialRuleIndex &&
                 localGame.nextRoundStartsAt === server.nextRoundStartsAt &&
                 localGame.weekendRoundKey === server.weekendRoundKey &&
@@ -551,6 +553,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 currentPlayers: server.currentPlayers,
                 winners: serverWinners,
                 blockedCards: serverBlockedCards,
+                blockedPlayers: serverBlockedPlayers,
                 activeSpecialRuleIndex: server.activeSpecialRuleIndex,
                 nextRoundStartsAt: server.nextRoundStartsAt,
                 weekendRoundKey: server.weekendRoundKey,
@@ -1727,17 +1730,39 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
   // 8b. BLOCK CARD (Penalty for false bingo claims)
   const blockCard = (gameId: string, cardNumber: string) => {
+    const blockedPlayerId = user?.id;
     setGames((prev) =>
       prev.map((g) => {
         if (g.id !== gameId) return g;
         const currentBlocked = g.blockedCards || [];
-        if (currentBlocked.includes(cardNumber)) return g;
+        const currentBlockedPlayers = g.blockedPlayers || [];
+        const alreadyBlockedCard = currentBlocked.includes(cardNumber);
+        const alreadyBlockedPlayer = !blockedPlayerId || currentBlockedPlayers.includes(blockedPlayerId);
+        if (alreadyBlockedCard && alreadyBlockedPlayer) return g;
         return {
           ...g,
-          blockedCards: [...currentBlocked, cardNumber],
+          blockedCards: alreadyBlockedCard ? currentBlocked : [...currentBlocked, cardNumber],
+          blockedPlayers: blockedPlayerId && !(g.blockedPlayers || []).includes(blockedPlayerId)
+            ? [...(g.blockedPlayers || []), blockedPlayerId]
+            : (g.blockedPlayers || []),
         };
       })
     );
+    if (blockedPlayerId) {
+      void fetch('/api/games/block', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId, cardNumber, userId: blockedPlayerId }),
+      }).then(async (response) => {
+        const result = await response.json();
+        if (!response.ok || !result.success || !result.data) return;
+        setGames((prev) => prev.map((game) => game.id !== gameId ? game : {
+          ...game,
+          blockedCards: result.data.blockedCards,
+          blockedPlayers: result.data.blockedPlayers,
+        }));
+      }).catch(() => {});
+    }
   };
 
   // 8c. RESET GAME ROUND — persists to DB via /api/games/reset
@@ -1871,6 +1896,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     const game = games.find((g) => g.id === card.gameId);
     if (!game) return { success: false, message: 'Game not found' };
+
+    if (game.blockedPlayers?.includes(user.id)) {
+      return { success: false, message: '🚫 You are blocked from this game until the current round ends.' };
+    }
 
     // Check if card is already blocked
     if (game.blockedCards?.includes(card.cardNumber)) {

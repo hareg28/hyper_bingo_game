@@ -416,6 +416,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const isUserAdmin = Boolean(
     user && (user.role === 'admin' || isAdminTelegramId(user.telegramId) || isAdminTelegramId(user.username))
   );
+  const isPlayerBlocked = Boolean(user && currentGame.blockedPlayers?.includes(user.id));
 
   // Live clock for header — skip update when page is hidden to save CPU
   useEffect(() => {
@@ -1137,6 +1138,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   // Claim Bingo
   const handleClaimBingo = (cardId?: string) => {
+    if (isPlayerBlocked) {
+      playErrorBuzzer();
+      setClaimStatus({
+        success: false,
+        message: language === 'am'
+          ? '🚫 በዚህ ዙር የተሳሳተ ቢንጎ ስላስገቡ ጨዋታው እስኪያልቅ ድረስ ታግደዋል።'
+          : '🚫 You are blocked from playing until this game round ends.',
+      });
+      return;
+    }
     if (activeGameCards.length === 0) {
       setClaimStatus({
         success: false,
@@ -1153,7 +1164,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     if (!targetCard) return;
 
     // Check if card is already blocked
-    if (currentGame.blockedCards?.includes(targetCard.cardNumber)) {
+    if (isPlayerBlocked || currentGame.blockedCards?.includes(targetCard.cardNumber)) {
       playErrorBuzzer();
       setClaimStatus({
         success: false,
@@ -1952,7 +1963,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     (row || []).map((val, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]) || cardDrawnSet.has(val))
                   );
                   const cardIsWin = Boolean(getBestWinningRule(effectiveCardMarked, currentGame.winningRule, currentGame.activeSpecialRuleIndex));
-                  const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
+                  const cardIsBlocked = isPlayerBlocked || currentGame.blockedCards?.includes(card.cardNumber);
 
                   return (
                     <div
@@ -2099,7 +2110,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                         (row || []).map((val, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]) || cardDrawnSet.has(val))
                       );
                       const cardIsWin = Boolean(getBestWinningRule(effectiveCardMarked, effectiveRuleType, currentGame.activeSpecialRuleIndex));
-                      const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
+                      const cardIsBlocked = isPlayerBlocked || currentGame.blockedCards?.includes(card.cardNumber);
                       const cardIsHint = hintCardId === card.id;
                       const oneAway = checkOneAwayStatus(effectiveCardMarked, card.numbers || [], effectiveRuleType, currentGame.activeSpecialRuleIndex);
 
@@ -2380,7 +2391,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         const fsCard =
           activeGameCards.find((c) => c.id === selectedCardId) || activeGameCards[0];
         if (!fsCard) return null;
-        const fsBlocked = currentGame.blockedCards?.includes(fsCard.cardNumber);
+        const fsBlocked = isPlayerBlocked || currentGame.blockedCards?.includes(fsCard.cardNumber);
         const isFetan = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.id.includes('fetan') || isFetanGame;
         const isWeekend = !!currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.category === 'HYPER_WEEKEND' || isWeekendGame;
         const effectiveRuleType = isFetan
@@ -2401,7 +2412,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0">
                 {activeGameCards.map((c) => {
                   const isActive = c.id === fsCard.id;
-                  const isBlk = currentGame.blockedCards?.includes(c.cardNumber);
+                  const isBlk = isPlayerBlocked || currentGame.blockedCards?.includes(c.cardNumber);
                   return (
                     <button
                       key={c.id}

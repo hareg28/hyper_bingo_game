@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
+import { ensureBlockedPlayersColumn, ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
 import { isAdminTelegramId } from '@/lib/authUtils';
 import { HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES } from '@/lib/bingoUtils';
 import { INITIAL_GAMES } from '@/lib/store';
@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureGameDrawTimestampColumn(sql);
+    await ensureBlockedPlayersColumn(sql);
     const body = await req.json();
     const { gameId, telegramId } = body as {
       gameId: string;
@@ -102,6 +103,7 @@ export async function POST(req: NextRequest) {
           END,
           winners = '[]'::jsonb,
           blocked_cards = '{}',
+          blocked_players = '{}',
           status = 'OPEN',
           active_special_rule_index = ${nextSpecialIndex},
           entry_price = ${nextPrice},
