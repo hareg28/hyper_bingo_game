@@ -232,6 +232,7 @@ export default function WalletManager() {
     }
 
     setIsProcessing(true);
+    setDepositError(null);
     try {
       const response = await fetch('/api/payments/telebirr/initiate', {
         method: 'POST',
@@ -242,9 +243,18 @@ export default function WalletManager() {
       if (!response.ok || !result.success || typeof result.data?.checkoutUrl !== 'string') {
         throw new Error(result.error || 'Could not start Telebirr checkout.');
       }
-      window.location.assign(result.data.checkoutUrl);
+      const checkoutUrl = result.data.checkoutUrl;
+      const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
+      if (tg?.openLink) {
+        tg.openLink(checkoutUrl);
+      } else {
+        window.location.assign(checkoutUrl);
+      }
     } catch (error) {
-      showStatus('error', error instanceof Error ? error.message : 'Could not start Telebirr checkout.');
+      const errText = error instanceof Error ? error.message : 'Could not start Telebirr checkout.';
+      setDepositError(errText);
+      showStatus('error', errText);
+    } finally {
       setIsProcessing(false);
     }
   };
@@ -863,6 +873,13 @@ export default function WalletManager() {
                   ? 'ከታች የቴሌብር ቼክአውት ይክፈቱ፤ ክፍያው በቴሌብር ሲረጋገጥ ሂሳብዎ በራስ-ሰር ይሞላል።'
                   : 'Start the Telebirr checkout below. Your wallet is credited automatically after Telebirr confirms payment.'}
               </p>
+
+              {depositError && (
+                <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl text-rose-800 text-xs font-bold flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{depositError}</span>
+                </div>
+              )}
 
               <button type="button" disabled={isProcessing} onClick={handleTelebirrCheckout} className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer">
                 {isProcessing ? (isAm ? 'በመክፈት ላይ…' : 'Starting Telebirr…') : (isAm ? 'በቴሌብር ክፈል' : 'Pay with Telebirr')} →

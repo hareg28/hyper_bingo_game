@@ -39,11 +39,11 @@ export async function POST(req: NextRequest) {
       success: true,
       data: { checkoutUrl, merchantOrderId, amount: parsedAmount },
     });
-  } catch (error) {
-    console.error('[Telebirr initiate] Checkout setup failed:', error instanceof Error ? error.message : 'unknown error');
+    const msg = error instanceof Error ? error.message : 'Could not start Telebirr checkout. Check the Telebirr credentials and try again.';
+    console.error('[Telebirr initiate] Checkout setup failed:', msg);
     return NextResponse.json({
       success: false,
-      error: 'Could not start Telebirr checkout. Check the Telebirr credentials and try again.',
+      error: msg,
     }, { status: 503 });
   }
 }
