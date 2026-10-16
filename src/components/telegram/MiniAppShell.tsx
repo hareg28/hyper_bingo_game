@@ -1124,10 +1124,10 @@ function WeekendLotteryNumberPicker({
 
   React.useEffect(() => {
     const handlePurchaseFailure = (event: Event) => {
-      const { gameId, numbers } = (event as CustomEvent<{ gameId: string; numbers: number[] }>).detail || {};
+      const { gameId, numbers, message } = (event as CustomEvent<{ gameId: string; numbers: number[]; message?: string }>).detail || {};
       if (gameId !== selectedGame?.id || !Array.isArray(numbers)) return;
       setSlotNumbers((prev) => prev.map((number) => number !== null && numbers.includes(number) ? null : number));
-      setPurchaseFeedback(isAm ? 'ግዢው አልተሳካም። ካርዱ ተመልሷል።' : 'Purchase failed. The card was unselected.');
+      setPurchaseFeedback(message || (isAm ? 'ግዢው አልተሳካም። ካርዱ ተመልሷል።' : 'Purchase failed. The card was unselected.'));
       setTimeout(() => setPurchaseFeedback(null), 3000);
     };
     window.addEventListener('lottery-purchase-failed', handlePurchaseFailure);
@@ -1313,8 +1313,8 @@ function WeekendLotteryNumberPicker({
     if (playableBalance < entryPrice) {
       setPurchaseFeedback(
         isAm 
-          ? `በቂ ሒሳብ የለዎትም! (${entryPrice} ETB ያስፈልጋል፣ ያለዎት ${Math.floor(playableBalance)} ETB)` 
-          : `Insufficient balance! (Need ${entryPrice} ETB, have ${Math.floor(playableBalance)} ETB)`
+          ? `ካርዱን ለመግዛት በቂ ሂሳብ የለዎትም። (${entryPrice} ETB ያስፈልጋል፣ ያለዎት ${Math.floor(playableBalance)} ETB)`
+          : `You don't have enough balance to buy this card. Need ${entryPrice} ETB; you have ${Math.floor(playableBalance)} ETB.`
       );
       setTimeout(() => setPurchaseFeedback(null), 3500);
       return;

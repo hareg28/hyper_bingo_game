@@ -1295,7 +1295,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (playableBalance < totalCost) {
       addNotification(
         '⚠️ Insufficient Balance',
-        `Required ${totalCost} ETB. Playable balance: ${playableBalance.toFixed(0)} ETB (inc. bonus).`,
+        `You don't have enough balance to buy this card. Need ${totalCost} ETB; you have ${playableBalance.toFixed(0)} ETB.`,
         'warning'
       );
       return false;
@@ -2224,10 +2224,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (playable < totalCost) {
       addNotification(
         '⚠️ Insufficient Balance',
-        `Need ${totalCost} ETB for ${numbers.length} ticket(s). Playable balance: ${playable.toFixed(0)} ETB.`,
+        `You don't have enough balance to buy this card. Need ${totalCost} ETB; you have ${playable.toFixed(0)} ETB.`,
         'warning'
       );
-      return { success: false, message: `Insufficient balance. Need ${totalCost} ETB.` };
+      return { success: false, message: `You don't have enough balance to buy this card. Need ${totalCost} ETB; you have ${playable.toFixed(0)} ETB.` };
     }
 
     // Deduct from wallet: bonus first, then available
@@ -2332,9 +2332,13 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
           return updated;
         });
-        addNotification('Card purchase failed', body.error || 'This card could not be reserved. Please try another number.', 'warning');
+        const isInsufficientBalance = /insufficient balance/i.test(String(body.error || ''));
+        const failureMessage = isInsufficientBalance
+          ? "You don't have enough balance to buy this card."
+          : (body.error || 'This card could not be reserved. Please try another number.');
+        addNotification(isInsufficientBalance ? '⚠️ Insufficient Balance' : 'Card purchase failed', failureMessage, 'warning');
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('lottery-purchase-failed', { detail: { gameId, numbers } }));
+          window.dispatchEvent(new CustomEvent('lottery-purchase-failed', { detail: { gameId, numbers, message: failureMessage } }));
         }
         return false;
       })
