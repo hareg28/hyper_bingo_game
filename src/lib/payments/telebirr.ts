@@ -45,12 +45,50 @@ function requiredEnv(name: string): string {
   return value;
 }
 
-function normalizePem(value: string): string {
-  let cleaned = value.replace(/\\n/g, '\n').trim();
-  if (!cleaned.includes('-----BEGIN')) {
-    cleaned = `-----BEGIN PRIVATE KEY-----\n${cleaned}\n-----END PRIVATE KEY-----`;
+function normalizePem(raw: string): string {
+  let str = raw.trim();
+
+  // Strip leading and trailing quotes (single, double, or backticks) that Vercel or .env may add
+  while (
+    (str.startsWith('"') && str.endsWith('"')) ||
+    (str.startsWith("'") && str.endsWith("'")) ||
+    (str.startsWith('`') && str.endsWith('`'))
+  ) {
+    str = str.slice(1, -1).trim();
   }
-  return cleaned;
+
+  // Replace literal \r\n, \\n, and \n
+  str = str
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\r/g, '')
+    .replace(/\\\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .trim();
+
+  // If surrounding quotes were inside after unescaping, strip again
+  while ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+    str = str.slice(1, -1).trim();
+  }
+
+  // If already a PEM block
+  if (str.includes('-----BEGIN')) {
+    const match = str.match(/-----BEGIN[^-]+-----(.+?)-----END[^-]+-----/s);
+    if (match) {
+      const headerMatch = str.match(/(-----BEGIN[^-]+-----)/);
+      const footerMatch = str.match(/(-----END[^-]+-----)/);
+      const header = headerMatch ? headerMatch[1] : '-----BEGIN PRIVATE KEY-----';
+      const footer = footerMatch ? footerMatch[1] : '-----END PRIVATE KEY-----';
+      const body = match[1].replace(/\s+/g, '');
+      const chunks = body.match(/.{1,64}/g)?.join('\n') ?? body;
+      return `${header}\n${chunks}\n${footer}`;
+    }
+    return str;
+  }
+
+  // Raw base64: wrap in standard PKCS#8 PEM
+  const cleanBase64 = str.replace(/\s+/g, '');
+  const chunks = cleanBase64.match(/.{1,64}/g)?.join('\n') ?? cleanBase64;
+  return `-----BEGIN PRIVATE KEY-----\n${chunks}\n-----END PRIVATE KEY-----`;
 }
 
 function resolvePrivateKey(): string {
