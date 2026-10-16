@@ -659,6 +659,135 @@ const db = {
   },
 
   /**
+   * Create a Telebirr order record only in the persistent store. Payment callbacks
+   * can arrive on another serverless instance, so an in-memory fallback is unsafe.
+   */
+  async createTelebirrPendingDeposit(params: {
+    userId: string;
+    amount: number;
+    reference: string;
+  }): Promise<Transaction | null> {
+    const sql = getNeonSql();
+    if (!sql) return null;
+    try {
+      const user = await this.getUserById(params.userId);
+      if (!user) return null;
+      const wallet = await sql`
+        INSERT INTO wallets (user_id, available_balance, bonus_balance, winning_balance, total_deposited, total_withdrawn)
+        VALUES (${params.userId}, 0.00, 20.00, 0.00, 0.00, 0.00)
+        ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+        RETURNING available_balance
+      `;
+      if (wallet.length === 0) return null;
+      const txRows = await sql`
+        INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
+        VALUES (
+          ${generateId('tx')}, ${params.userId}, ${user.username}, 'DEPOSIT', ${params.amount},
+          ${parseFloat(wallet[0].available_balance)}, 'Telebirr', 'PENDING', ${params.reference},
+          'Telebirr C2B checkout — awaiting payment confirmation'
+        )
+        RETURNING *
+      `;
+      return txRows.length > 0 ? rowToTransaction(txRows[0]) : null;
+    } catch (e) {
+      console.error('Neon createTelebirrPendingDeposit error:', e);
+      return null;
+    }
+  },
+
+  /**
+   * Atomically settle one Telebirr pending deposit after a server-side status check.
+   * Only the request that changes PENDING to COMPLETED updates the wallet.
+   */
+  async completeTelebirrDeposit(reference: string, expectedAmount: number): Promise<Transaction | null> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          SELECT * FROM transactions
+          WHERE reference = ${reference} AND type = 'DEPOSIT' AND provider = 'Telebirr'
+          LIMIT 1
+        `;
+        if (rows.length === 0) return null;
+        const current = rowToTransaction(rows[0]);
+        if (Math.abs(current.amount - expectedAmount) > 0.001) return null;
+        if (current.status === 'COMPLETED') return current;
+        if (current.status !== 'PENDING') return null;
+
+        const ensuredWallet = await sql`
+          INSERT INTO wallets (user_id, available_balance, bonus_balance, winning_balance, total_deposited, total_withdrawn)
+          VALUES (${current.userId}, 0.00, 20.00, 0.00, 0.00, 0.00)
+          ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+          RETURNING user_id
+        `;
+        if (ensuredWallet.length === 0) return null;
+
+        const settled = await sql`
+          WITH claimed AS (
+            UPDATE transactions
+            SET status = 'COMPLETED', description = 'Telebirr deposit — verified with Telebirr'
+            WHERE reference = ${reference}
+              AND type = 'DEPOSIT'
+              AND provider = 'Telebirr'
+              AND status = 'PENDING'
+              AND amount = ${expectedAmount}
+            RETURNING id, user_id, amount
+          ), wallet_update AS (
+            UPDATE wallets
+            SET available_balance = wallets.available_balance + claimed.amount,
+                total_deposited = wallets.total_deposited + claimed.amount,
+                updated_at = NOW()
+            FROM claimed
+            WHERE wallets.user_id = claimed.user_id
+            RETURNING wallets.user_id, wallets.available_balance
+          ), final_update AS (
+            UPDATE transactions
+            SET balance_after = wallet_update.available_balance
+            FROM claimed
+            JOIN wallet_update ON wallet_update.user_id = claimed.user_id
+            WHERE transactions.id = claimed.id
+            RETURNING transactions.*
+          )
+          SELECT * FROM final_update
+        `;
+        if (settled.length > 0) return rowToTransaction(settled[0]);
+
+        // A concurrent duplicate notification may have completed the same order first.
+        const afterRace = await sql`
+          SELECT * FROM transactions
+          WHERE reference = ${reference} AND type = 'DEPOSIT' AND provider = 'Telebirr'
+          LIMIT 1
+        `;
+        if (afterRace.length > 0) {
+          const tx = rowToTransaction(afterRace[0]);
+          return tx.status === 'COMPLETED' && Math.abs(tx.amount - expectedAmount) <= 0.001 ? tx : null;
+        }
+        return null;
+      } catch (e) {
+        console.error('Neon completeTelebirrDeposit error:', e);
+        return null;
+      }
+    }
+
+    const tx = [...transactionsMap.values()].find(
+      (candidate) => candidate.type === 'DEPOSIT' && candidate.reference === reference && candidate.paymentProvider === 'Telebirr'
+    );
+    if (!tx || Math.abs(tx.amount - expectedAmount) > 0.001) return null;
+    if (tx.status === 'COMPLETED') return tx;
+    if (tx.status !== 'PENDING') return null;
+
+    const wallet = await this.getOrCreateWallet(tx.userId);
+    wallet.availableBalance += tx.amount;
+    wallet.totalDeposited += tx.amount;
+    walletsMap.set(tx.userId, wallet);
+    tx.status = 'COMPLETED';
+    tx.balanceAfter = wallet.availableBalance;
+    tx.description = 'Telebirr deposit — verified with Telebirr';
+    transactionsMap.set(tx.id, tx);
+    return tx;
+  },
+
+  /**
    * Get count of pending deposits for a user (used to stop spamming multiple fake requests).
    */
   async getPendingDepositsCountForUser(userId: string): Promise<number> {

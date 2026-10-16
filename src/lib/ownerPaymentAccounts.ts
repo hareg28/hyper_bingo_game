@@ -32,6 +32,7 @@ function maskAccount(acct: string): string {
 
 function readOwnerConfig() {
   const telebirrPhone =
+    process.env.OWNER_TELEBIRR_MERCHANT_ID ??
     process.env.OWNER_TELEBIRR_PHONE ??
     process.env.NEXT_PUBLIC_OWNER_TELEBIRR_PHONE ??
     '0938922481';

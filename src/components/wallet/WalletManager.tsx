@@ -88,6 +88,7 @@ export default function WalletManager() {
   const [fullPaymentText, setFullPaymentText] = useState<string>('');
   const [destinationNumber, setDestinationNumber] = useState<string>('');
   const [ownerAccounts, setOwnerAccounts] = useState<OwnerPaymentAccount[]>([]);
+  const telebirrMerchant = ownerAccounts.find((account) => account.method === 'TELEBIRR');
 
   useEffect(() => {
     fetch('/api/payments/owner-accounts')
@@ -198,6 +199,54 @@ export default function WalletManager() {
   const showStatus = (type: 'success' | 'error', text: string) => {
     setStatusMsg({ type, text });
     setTimeout(() => setStatusMsg(null), 4000);
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('payment');
+    if (!result) return;
+    setActiveTab('history');
+    if (result === 'success') {
+      showStatus('success', isAm ? 'የቴሌብር ክፍያ ተረጋግጧል።' : 'Telebirr payment confirmed. Your wallet has been credited.');
+    } else if (result === 'pending') {
+      showStatus('success', isAm ? 'ክፍያው እየተረጋገጠ ነው፤ ትንሽ ቆይተው ታሪክን ያድሱ።' : 'Payment is still being confirmed. Refresh history in a moment.');
+    } else {
+      showStatus('error', isAm ? 'ክፍያው አልተረጋገጠም።' : 'Telebirr could not confirm this payment.');
+    }
+    params.delete('payment');
+    const query = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+  // Read the one-time return status when this component first mounts.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleTelebirrCheckout = async () => {
+    if (!user) {
+      openAuthModal('register');
+      return;
+    }
+    const depositAmount = Number(amount);
+    if (!Number.isFinite(depositAmount) || depositAmount < 10) {
+      showStatus('error', isAm ? 'ቢያንስ 10 ETB ያስገቡ።' : 'Enter a deposit amount of at least 10 ETB.');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const response = await fetch('/api/payments/telebirr/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, amount: depositAmount }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success || typeof result.data?.checkoutUrl !== 'string') {
+        throw new Error(result.error || 'Could not start Telebirr checkout.');
+      }
+      window.location.assign(result.data.checkoutUrl);
+    } catch (error) {
+      showStatus('error', error instanceof Error ? error.message : 'Could not start Telebirr checkout.');
+      setIsProcessing(false);
+    }
   };
 
   // ── Deposit (manual: screenshot/code — goes to admin review) ───────────────
@@ -668,68 +717,25 @@ export default function WalletManager() {
         </div>
       </div>
 
-      {/* ── DIRECT DEPOSIT ACCOUNT INFO CARD ─────────────────────────────── */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-4 text-white shadow-xl space-y-3 relative overflow-hidden border border-amber-500/30">
-        <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-amber-500/10 blur-2xl" />
+      {/* ── TELEBIRR MERCHANT ACCOUNT ─────────────────────────────────────── */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-4 text-white shadow-xl space-y-3 border border-blue-500/30">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-xl shrink-0">
-            🏦
-          </div>
+          <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-xl">📱</div>
           <div>
-            <div className="text-xs font-black text-amber-300 flex items-center gap-1.5">
-              {isAm ? 'ቀጥታ ወደ ሂሳባችን ያስተላልፉ' : 'Send Directly to Our Accounts'}
-              <span className="text-[9px] bg-amber-500 text-slate-950 font-black px-1.5 py-0.5 rounded-md">REAL</span>
-            </div>
-            <div className="text-[10px] text-slate-300 font-medium">
-              {isAm ? 'ቴሌብር • M-Pesa • CBE Birr • ባንክ ቀጥታ' : 'Telebirr • M-Pesa • CBE Birr • Bank Transfer'}
-            </div>
+            <div className="text-xs font-black text-blue-200">{isAm ? 'የቴሌብር ነጋዴ መለያ' : 'Telebirr Merchant ID'}</div>
+            <div className="text-[10px] text-slate-300">{isAm ? 'በቴሌብር ብቻ ይክፈሉ' : 'Pay to this merchant account using Telebirr'}</div>
           </div>
         </div>
-
-        <div className="grid grid-cols-1 gap-2 text-xs">
-          {/* Telebirr row */}
-          <div className="flex items-center justify-between bg-blue-500/10 border border-blue-400/25 rounded-xl px-3 py-2">
-            <div className="flex items-center gap-2">
-              <span className="text-base">📱</span>
-              <div>
-                <div className="font-black text-blue-200 text-[11px]">Telebirr (Ethio Telecom 09...)</div>
-                <div className="font-mono font-bold text-white text-sm tracking-wide">0938922481</div>
-              </div>
-            </div>
-            <button type="button" onClick={() => handleCopyRef('0938922481')} className="px-2 py-1 bg-blue-500/30 hover:bg-blue-500/50 border border-blue-400/40 text-blue-200 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition">
-              <Copy className="w-3 h-3" /> Copy
-            </button>
+        <div className="flex items-center justify-between bg-blue-500/10 border border-blue-400/25 rounded-xl px-3 py-2">
+          <div>
+            <div className="font-mono font-bold text-white text-sm tracking-wide">{telebirrMerchant?.accountNumber || 'Loading merchant ID…'}</div>
+            <div className="text-[10px] text-slate-300">{telebirrMerchant?.accountName || ''}</div>
           </div>
-          {/* M-Pesa row */}
-          <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-400/25 rounded-xl px-3 py-2">
-            <div className="flex items-center gap-2">
-              <span className="text-base">🟢</span>
-              <div>
-                <div className="font-black text-emerald-200 text-[11px]">M-Pesa (Safaricom 07...)</div>
-                <div className="font-mono font-bold text-white text-sm tracking-wide">0710798482</div>
-              </div>
-            </div>
-            <button type="button" onClick={() => handleCopyRef('0710798482')} className="px-2 py-1 bg-emerald-500/30 hover:bg-emerald-500/50 border border-emerald-400/40 text-emerald-200 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition">
-              <Copy className="w-3 h-3" /> Copy
-            </button>
-          </div>
-          {/* CBE row */}
-          <div className="flex items-center justify-between bg-purple-500/10 border border-purple-400/25 rounded-xl px-3 py-2">
-            <div className="flex items-center gap-2">
-              <span className="text-base">🏦</span>
-              <div>
-                <div className="font-black text-purple-200 text-[11px]">CBE Birr / CBE Account</div>
-                <div className="font-mono font-bold text-white text-sm tracking-wide">1000540829954</div>
-              </div>
-            </div>
-            <button type="button" onClick={() => handleCopyRef('1000540829954')} className="px-2 py-1 bg-purple-500/30 hover:bg-purple-500/50 border border-purple-400/40 text-purple-200 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition">
-              <Copy className="w-3 h-3" /> Copy
-            </button>
-          </div>
+          <button type="button" disabled={!telebirrMerchant?.accountNumber} onClick={() => telebirrMerchant && handleCopyRef(telebirrMerchant.accountNumber)} className="px-2 py-1 bg-blue-500/30 hover:bg-blue-500/50 border border-blue-400/40 text-blue-200 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition">
+            <Copy className="w-3 h-3" /> {isAm ? 'ቅዳ' : 'Copy'}
+          </button>
         </div>
-        <p className="text-[10px] text-amber-300/70 font-bold text-center leading-snug">
-          👤 {isAm ? 'ባለቤት: Yohannes Tsehaye Bayleyegn' : 'Account Holder: Yohannes Tsehaye Bayleyegn'}
-        </p>
+        <p className="text-[10px] text-amber-300/80 font-bold text-center">{isAm ? 'ክፍያው በአስተዳዳሪ ሲረጋገጥ ሂሳብዎ ይሞላል።' : 'Your wallet is credited after the Telebirr transaction is verified.'}</p>
       </div>
 
       {/* Tab Navigation */}
@@ -776,12 +782,7 @@ export default function WalletManager() {
                   {isAm ? 'የክፍያ ዘዴ ምረጡ (Manual Transfer)' : 'Choose Payment Method'}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {([
-                    { name: 'Telebirr', icon: Smartphone, color: 'text-blue-600', desc: t('telecomDesc') },
-                    { name: 'M-Pesa', icon: Smartphone, color: 'text-emerald-600', desc: t('mpesaDesc') },
-                    { name: 'CBE Birr', icon: Landmark, color: 'text-purple-600', desc: t('cbeDesc') },
-                    { name: 'Bank Transfer', icon: Landmark, color: 'text-amber-600', desc: t('bankDesc') },
-                  ] as const).map((p) => {
+                  {([{ name: 'Telebirr', icon: Smartphone, color: 'text-blue-600', desc: t('telecomDesc') }] as const).map((p) => {
                     const Icon = p.icon;
                     return (
                       <button
@@ -859,12 +860,15 @@ export default function WalletManager() {
 
               <p className="text-[11px] text-slate-600 font-medium bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                 {isAm
-                  ? 'በ Telebirr ወይም CBE ገንዘብ ይላኩ፣ የክፍያ መለያ ቁጥር ያስገቡ። ሂሳብዎ ከአስተዳዳሪ ማረጋገጫ በኋላ ይሞላል።'
-                  : 'Send money in Telebirr or CBE, then enter the transaction ID. Your wallet is credited only after admin verification.'}
+                  ? 'ከታች የቴሌብር ቼክአውት ይክፈቱ፤ ክፍያው በቴሌብር ሲረጋገጥ ሂሳብዎ በራስ-ሰር ይሞላል።'
+                  : 'Start the Telebirr checkout below. Your wallet is credited automatically after Telebirr confirms payment.'}
               </p>
 
-              <button type="submit" className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer">
-                {t('proceedToCheckout')} ({provider.toUpperCase()}) →
+              <button type="button" disabled={isProcessing} onClick={handleTelebirrCheckout} className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer">
+                {isProcessing ? (isAm ? 'በመክፈት ላይ…' : 'Starting Telebirr…') : (isAm ? 'በቴሌብር ክፈል' : 'Pay with Telebirr')} →
+              </button>
+              <button type="submit" className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold text-[11px] transition cursor-pointer">
+                {isAm ? 'በእጅ ማስተላለፍ ይጠቀሙ' : 'Use manual transfer instead'}
               </button>
 
             </>
@@ -898,19 +902,18 @@ export default function WalletManager() {
                     <div className="flex items-center justify-between bg-emerald-50 p-2 rounded-xl border border-emerald-300">
                       <div>
                         <span className="text-[10px] font-bold text-emerald-800 uppercase block">{isAm ? 'የቴሌብር ነጋዴ መለያ (Merchant / Till):' : 'Telebirr Merchant / Till ID:'}</span>
-                        <strong className="text-slate-950 font-mono font-black text-sm">0938922481</strong>
+                        <strong className="text-slate-950 font-mono font-black text-sm">{telebirrMerchant?.accountNumber || 'Not configured'}</strong>
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleCopyRef('0938922481')}
+                        onClick={() => telebirrMerchant?.accountNumber && handleCopyRef(telebirrMerchant.accountNumber)}
                         className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer transition shadow-xs"
                       >
                         <Copy className="w-3 h-3" />
                         <span>{isAm ? 'ቅዳ' : 'Copy'}</span>
                       </button>
                     </div>
-                    <p>• {isAm ? 'የተቀባይ ስም:' : 'Merchant Name:'} <strong className="text-amber-800 font-black">Yohannes Tsehaye Bayleyegn</strong></p>
-                    <p>• {isAm ? 'የነጋዴ ኮድ (Till):' : 'Merchant Code:'} <strong className="text-slate-900 font-mono font-black">938922 / 0938922481</strong></p>
+                    <p>• {isAm ? 'የተቀባይ ስም:' : 'Merchant Name:'} <strong className="text-amber-800 font-black">{telebirrMerchant?.accountName || ''}</strong></p>
                     <div className="flex items-center justify-between bg-amber-50 p-1.5 rounded-lg border border-amber-200 text-[10px]">
                       <span>Remark Reference: <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">{depositReference}</code></span>
                       <button
@@ -929,11 +932,11 @@ export default function WalletManager() {
                     <div className="flex items-center justify-between bg-purple-50 p-2 rounded-xl border border-purple-300">
                       <div>
                         <span className="text-[10px] font-bold text-purple-800 uppercase block">{isAm ? 'CBE Birr ነጋዴ / ስልክ:' : 'CBE Birr Merchant / Phone:'}</span>
-                        <strong className="text-slate-950 font-mono font-black text-sm">0938922481</strong>
+                        <strong className="text-slate-950 font-mono font-black text-sm">{telebirrMerchant?.accountNumber || 'Not configured'}</strong>
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleCopyRef('0938922481')}
+                        onClick={() => telebirrMerchant?.accountNumber && handleCopyRef(telebirrMerchant.accountNumber)}
                         className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer transition shadow-xs"
                       >
                         <Copy className="w-3 h-3" />

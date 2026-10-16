@@ -100,6 +100,13 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
+    if (provider && provider !== 'Telebirr') {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Only Telebirr merchant deposits are accepted.',
+      }, { status: 400 });
+    }
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://localhost:3000';
 
     if (mode === 'arifpay' || mode === 'online') {
