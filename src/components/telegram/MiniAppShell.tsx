@@ -110,10 +110,6 @@ export default function MiniAppShell({
   }, [activeGameId]);
 
   const handleSelectGameToPickCards = (gameId: string, cat: 'FETAN' | 'SPECIAL' | 'WEEKEND') => {
-    const targetGame = games.find((g) => g.id === gameId);
-    if (targetGame && targetGame.status === 'COMPLETED') {
-      resetGameRound(gameId);
-    }
     setLocalGameId(gameId);
     setActiveGameId(gameId);
     if (cat === 'SPECIAL') {
