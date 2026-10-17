@@ -64,12 +64,24 @@ export async function GET(_req: NextRequest) {
         END
     `;
 
-    // Start each scheduled Weekend slot once. Cards stay reserved across
-    // weekly runs; only the draw state is reset for the new occurrence.
+    // Start each scheduled Weekend slot once. Reservations belong to one
+    // occurrence only, so expire the previous occurrence's cards when the
+    // next scheduled slot starts.
     for (const weekendGame of INITIAL_GAMES.filter((game) => game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY')) {
       const weekendRoundKey = getWeekendRoundKey(weekendGame);
       if (!weekendRoundKey) continue;
       await sql`
+        WITH expired_cards AS (
+          DELETE FROM game_cards
+          WHERE game_id = ${weekendGame.id}
+            AND EXISTS (
+              SELECT 1 FROM games
+              WHERE id = ${weekendGame.id}
+                AND weekend_round_key IS NOT NULL
+                AND weekend_round_key IS DISTINCT FROM ${weekendRoundKey}
+            )
+          RETURNING id
+        )
         UPDATE games
         SET status = 'RUNNING',
             drawn_numbers = '{}',

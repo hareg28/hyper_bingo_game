@@ -8,7 +8,8 @@ import { INITIAL_GAMES } from '@/lib/store';
  * POST /api/games/reset
  * Resets a game round (clears drawn_numbers, winners, blocked_cards).
  * For Hyper Special: rotates the winning rule and sets a 5-minute intermission.
- * Deletes one-round game cards. Weekend ticket reservations are retained.
+ * Deletes one-round game cards. Weekend reservations remain available through
+ * their scheduled occurrence and expire when the next occurrence starts.
  * 
  * Body: { gameId, telegramId?, nextSpecialIndex?, nextPrice? }
  */

@@ -1,4 +1,4 @@
-import { createSign, randomBytes } from 'node:crypto';
+import { createPrivateKey, createSign, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import https from 'node:https';
@@ -72,7 +72,7 @@ function normalizePem(raw: string): string {
 
   // If already a PEM block
   if (str.includes('-----BEGIN')) {
-    const match = str.match(/-----BEGIN[^-]+-----(.+?)-----END[^-]+-----/s);
+    const match = str.match(/-----BEGIN[^-]+-----([\s\S]+?)-----END[^-]+-----/);
     if (match) {
       const headerMatch = str.match(/(-----BEGIN[^-]+-----)/);
       const footerMatch = str.match(/(-----END[^-]+-----)/);
@@ -87,20 +87,44 @@ function normalizePem(raw: string): string {
 
   // Raw base64: wrap in standard PKCS#8 PEM
   const cleanBase64 = str.replace(/\s+/g, '');
+  // Some deployment dashboards store the entire PEM as one base64 value.
+  // Decode that form before treating the value as base64-encoded DER.
+  try {
+    const decoded = Buffer.from(cleanBase64, 'base64').toString('utf8').trim();
+    if (/^-----BEGIN (?:RSA )?PRIVATE KEY-----/.test(decoded)) {
+      return normalizePem(decoded);
+    }
+  } catch {
+    // Fall through and let createPrivateKey report an invalid DER value.
+  }
   const chunks = cleanBase64.match(/.{1,64}/g)?.join('\n') ?? cleanBase64;
   return `-----BEGIN PRIVATE KEY-----\n${chunks}\n-----END PRIVATE KEY-----`;
 }
 
 function resolvePrivateKey(): string {
   const fromEnv = process.env.PRIVATE_KEY?.trim();
-  if (fromEnv) return normalizePem(fromEnv);
+  if (fromEnv) return validatePrivateKey(normalizePem(fromEnv));
   try {
     const pemPath = path.resolve(process.cwd(), 'private_key.pem');
     if (fs.existsSync(pemPath)) {
-      return normalizePem(fs.readFileSync(pemPath, 'utf8'));
+      return validatePrivateKey(normalizePem(fs.readFileSync(pemPath, 'utf8')));
     }
   } catch {}
   throw new Error('Missing Telebirr configuration: PRIVATE_KEY');
+}
+
+function validatePrivateKey(pem: string): string {
+  try {
+    const key = createPrivateKey(pem);
+    if (key.asymmetricKeyType !== 'rsa' && key.asymmetricKeyType !== 'rsa-pss') {
+      throw new Error(`Unsupported key type: ${key.asymmetricKeyType ?? 'unknown'}`);
+    }
+    return pem;
+  } catch {
+    throw new Error(
+      'Invalid Telebirr PRIVATE_KEY. Set it to the RSA private key PEM from the Telebirr portal, preserving BEGIN/END lines and newlines. If stored as base64, base64-encode the complete PEM or the DER bytes, not a public key.',
+    );
+  }
 }
 
 export function getTelebirrCredentials(): TelebirrCredentials {

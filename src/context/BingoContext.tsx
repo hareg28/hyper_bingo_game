@@ -505,16 +505,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           });
           if (resetGameIds.length > 0) {
             const resetIds = new Set(resetGameIds);
-            const weekendIds = new Set<string>(json.data
-              .filter((serverGame: any) => resetIds.has(serverGame.id) && String(serverGame.id).includes('weekend'))
-              .map((serverGame: any) => serverGame.id));
-            setUserCards((prev) => prev.flatMap((card) => {
-              if (!resetIds.has(card.gameId)) return [card];
-              if (!weekendIds.has(card.gameId)) return [];
-              const marked = Array.from({ length: 5 }, () => Array(5).fill(false));
-              marked[2][2] = true;
-              return [{ ...card, marked, hasWonLine: false, hasWonTwoLines: false, hasWonFullHouse: false, roundCompleted: false }];
-            }));
+            setUserCards((prev) => prev.filter((card) => !resetIds.has(card.gameId)));
           }
 
           setGames((prev) =>

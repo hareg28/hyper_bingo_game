@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { createTelebirrCheckout } from '@/lib/payments/telebirr';
 
 export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {

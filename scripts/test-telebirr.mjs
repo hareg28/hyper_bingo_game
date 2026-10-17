@@ -3,8 +3,6 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import https from 'node:https';
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
 // Load .env.local
 const envFile = fs.readFileSync(path.resolve(process.cwd(), '.env.local'), 'utf8');
 for (const line of envFile.split('\n')) {
@@ -32,11 +30,15 @@ const FABRIC_APP_SECRET = process.env.FABRIC_APP_SECRET;
 const MERCHANT_APP_ID = process.env.MERCHANT_APP_ID;
 const MERCHANT_CODE = process.env.MERCHANT_CODE;
 const PRIVATE_KEY_RAW = process.env.PRIVATE_KEY;
+const NOTIFY_URL = process.env.TELEBIRR_NOTIFY_URL;
+const REDIRECT_URL = process.env.TELEBIRR_REDIRECT_URL;
 
-console.log('FABRIC_APP_ID:', FABRIC_APP_ID);
-console.log('MERCHANT_APP_ID:', MERCHANT_APP_ID);
-console.log('MERCHANT_CODE:', MERCHANT_CODE);
-console.log('PRIVATE_KEY starts with:', PRIVATE_KEY_RAW?.slice(0, 30));
+if ((process.env.TELEBIRR_ENVIRONMENT || 'sandbox').toLowerCase() !== 'sandbox') {
+  throw new Error('This script only runs against Telebirr sandbox. Set TELEBIRR_ENVIRONMENT=sandbox.');
+}
+for (const [name, value] of Object.entries({ FABRIC_APP_ID, FABRIC_APP_SECRET, MERCHANT_APP_ID, MERCHANT_CODE, PRIVATE_KEY_RAW, NOTIFY_URL, REDIRECT_URL })) {
+  if (!value || value.startsWith('your_')) throw new Error(`Missing Telebirr sandbox configuration: ${name}`);
+}
 
 // Normalize PEM
 function normalizePem(raw) {
@@ -64,7 +66,6 @@ function normalizePem(raw) {
 }
 
 const privateKey = normalizePem(PRIVATE_KEY_RAW);
-console.log('\nNormalized PEM (first line):', privateKey.split('\n')[0]);
 
 function makeRequest(url, options, body) {
   return new Promise((resolve, reject) => {
@@ -72,7 +73,7 @@ function makeRequest(url, options, body) {
     const req = https.request(parsedUrl, {
       method: options.method || 'GET',
       headers: options.headers,
-      rejectUnauthorized: false,
+      rejectUnauthorized: true,
       timeout: 20000,
     }, (res) => {
       let raw = '';
@@ -107,7 +108,6 @@ function flattenForSignature(input) {
 function sign(input, privateKey) {
   const flattened = flattenForSignature(input);
   const str = Object.keys(flattened).sort().map(k => `${k}=${flattened[k]}`).join('&');
-  console.log('Signing string:', str.slice(0, 100) + '...');
   return crypto.createSign('RSA-SHA256').update(str, 'utf8').sign(privateKey, 'base64');
 }
 
@@ -121,8 +121,8 @@ async function main() {
     { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-APP-Key': FABRIC_APP_ID } },
     JSON.stringify({ appSecret: FABRIC_APP_SECRET })
   );
-  console.log('Token response:', JSON.stringify(tokenRes).slice(0, 200));
   if (!tokenRes.token) throw new Error('No token received');
+  console.log('Fabric token acquired.');
   const token = tokenRes.token;
 
   // Step 2: PreOrder
@@ -138,8 +138,8 @@ async function main() {
       business_type: 'BuyGoods',
       merch_code: MERCHANT_CODE,
       merch_order_id: merchantOrderId,
-      notify_url: 'https://bingo-game-rho-five.vercel.app/api/payments/telebirr/notify',
-      redirect_url: 'https://bingo-game-rho-five.vercel.app/api/payments/telebirr/return',
+      notify_url: NOTIFY_URL,
+      redirect_url: REDIRECT_URL,
       timeout_express: '120m',
       title: 'Hyper Bingo wallet deposit',
       total_amount: '50.00',
@@ -156,10 +156,8 @@ async function main() {
     },
     JSON.stringify(orderWithSign)
   );
-  console.log('PreOrder response:', JSON.stringify(preOrderRes).slice(0, 500));
-
   if (preOrderRes.result === 'SUCCESS' && preOrderRes.biz_content?.prepay_id) {
-    console.log('\n✅ PreOrder SUCCESS! prepay_id:', preOrderRes.biz_content.prepay_id);
+    console.log('\nPreOrder succeeded; checkout URL generated.');
     const WEB_BASE = 'https://developerportal.ethiotelebirr.et:38443/payment/web/paygate';
     const checkoutFields = {
       appid: MERCHANT_APP_ID,
@@ -177,7 +175,7 @@ async function main() {
     url.searchParams.set('trade_type', 'Checkout');
     console.log('\n🔗 Checkout URL:\n', url.toString());
   } else {
-    console.log('\n❌ PreOrder failed:', JSON.stringify(preOrderRes));
+    throw new Error(`PreOrder failed (code ${preOrderRes.code ?? preOrderRes.errorCode ?? 'unknown'}).`);
   }
 }
 
