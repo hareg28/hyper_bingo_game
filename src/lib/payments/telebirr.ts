@@ -30,12 +30,12 @@ type TelebirrApiResponse = {
 
 const TELEBIRR_ENDPOINTS: Record<TelebirrEnvironment, { apiBase: string; webBase: string }> = {
   sandbox: {
-    apiBase: 'https://developerportal.ethiotelebirr.et:38443/apiaccess/payment/gateway',
-    webBase: 'https://developerportal.ethiotelebirr.et:38443/payment/web/paygate',
+    apiBase: process.env.TELEBIRR_API_BASE || 'https://developerportal.ethiotelebirr.et:38443/apiaccess/payment/gateway',
+    webBase: process.env.TELEBIRR_WEB_BASE || 'https://developerportal.ethiotelebirr.et:38443/payment/web/paygate',
   },
   production: {
-    apiBase: 'https://telebirrappcube.ethiomobilemoney.et:38443/apiaccess/payment/gateway',
-    webBase: 'https://telebirrappcube.ethiomobilemoney.et:38443/payment/web/paygate',
+    apiBase: process.env.TELEBIRR_API_BASE || 'https://telebirrappcube.ethiomobilemoney.et:38443/apiaccess/payment/gateway',
+    webBase: process.env.TELEBIRR_WEB_BASE || 'https://telebirrappcube.ethiomobilemoney.et:38443/payment/web/paygate',
   },
 };
 
