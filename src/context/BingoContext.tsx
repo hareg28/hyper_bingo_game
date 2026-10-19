@@ -493,8 +493,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
               }
               const weekendRoundKey = typeof serverGame.weekendRoundKey === 'string' ? serverGame.weekendRoundKey : '';
               const previousWeekendRoundKey = lastWeekendRoundKeysRef.current[serverGame.id];
-              const weekendRoundReset = Boolean(weekendRoundKey && previousWeekendRoundKey && previousWeekendRoundKey !== weekendRoundKey);
+              const weekendRoundReset = Boolean(previousWeekendRoundKey && previousWeekendRoundKey !== weekendRoundKey);
               if (weekendRoundKey) lastWeekendRoundKeysRef.current[serverGame.id] = weekendRoundKey;
+              else delete lastWeekendRoundKeysRef.current[serverGame.id];
               return drawReset || cycleReset || weekendRoundReset;
             })
             .map((serverGame: any) => serverGame.id as string);

@@ -12,9 +12,11 @@ export async function register() {
   // Skip in local dev unless you explicitly set REGISTER_WEBHOOK=true
   if (process.env.NODE_ENV !== 'production' && process.env.REGISTER_WEBHOOK !== 'true') return;
 
-  const BOT_TOKEN =
-    process.env.TELEGRAM_BOT_TOKEN ||
-    '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
+  const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+  if (!BOT_TOKEN) {
+    console.warn('[Telegram] TELEGRAM_BOT_TOKEN is not defined in environment variables');
+    return;
+  }
 
   const APP_URL =
     process.env.NEXT_PUBLIC_APP_URL ||

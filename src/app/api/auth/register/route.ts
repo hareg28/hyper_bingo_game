@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 
-const DEFAULT_BOT_TOKEN = '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -52,7 +50,7 @@ export async function POST(req: NextRequest) {
     const linkedAccounts = await db.getLinkedAccounts(user.id);
 
     // ── NOTIFICATIONS ON REGISTRATION (Telegram & SMS) ──
-    const botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
     let telegramNotified = false;
 
     // 1. Telegram Welcome Notification (if user has telegramId) - Non-blocking

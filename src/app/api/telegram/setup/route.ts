@@ -12,9 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // Exported so Vercel keeps this as a long-running function (up to 60 s)
 export const maxDuration = 30;
 
-const BOT_TOKEN =
-  process.env.TELEGRAM_BOT_TOKEN ||
-  '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||

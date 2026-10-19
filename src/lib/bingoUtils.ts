@@ -1276,6 +1276,36 @@ export function getWeekendRoundKey(game: {
   }
 }
 
+/** Returns this slot's occurrence key once its scheduled one-hour window has ended. */
+export function getExpiredWeekendRoundKey(game: {
+  gameType?: string;
+  category?: string;
+  isWeekendSpecial?: boolean;
+  weekendDay?: 'FRI' | 'SAT' | 'SUN' | string;
+  weekendSlot?: '2PM' | '6PM' | string;
+}, now = new Date()): string | null {
+  const isWeekend = game.gameType === 'WEEKEND_LOTTERY' || game.category === 'HYPER_WEEKEND' || game.isWeekendSpecial;
+  if (!isWeekend) return null;
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Africa/Addis_Ababa', weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit', hour: 'numeric', hourCycle: 'h23',
+    }).formatToParts(now);
+    const part = (type: string) => parts.find((item) => item.type === type)?.value || '';
+    const weekday = part('weekday').toUpperCase();
+    const targetDay = game.weekendDay || 'FRI';
+    if ((targetDay === 'FRI' && !weekday.startsWith('FRI')) ||
+        (targetDay === 'SAT' && !weekday.startsWith('SAT')) ||
+        (targetDay === 'SUN' && !weekday.startsWith('SUN'))) return null;
+    const slot = game.weekendSlot || '2PM';
+    const hour = parseInt(part('hour'), 10);
+    const endHour = slot === '2PM' ? 15 : 19;
+    if (hour < endHour) return null;
+    return `${part('year')}-${part('month')}-${part('day')}-${slot}`;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Synthesizes an energetic victory fanfare sound using Web Audio API when user calls BINGO!
  */

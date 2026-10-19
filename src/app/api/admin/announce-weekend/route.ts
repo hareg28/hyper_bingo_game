@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAdminTelegramId } from '@/lib/authUtils';
 import { db } from '@/lib/db';
 
-const DEFAULT_BOT_TOKEN = '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
-
 function safeTgHtml(str: string): string {
   if (!str) return '';
   // Escape bare & not already part of an HTML entity
@@ -11,7 +9,7 @@ function safeTgHtml(str: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN;
+  const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'BingoBirrBot';
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bingo-game-rho-five.vercel.app';
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
-import { getWeekendRoundKey } from '@/lib/bingoUtils';
+import { getExpiredWeekendRoundKey, getWeekendRoundKey } from '@/lib/bingoUtils';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -68,6 +68,26 @@ export async function GET(_req: NextRequest) {
     // occurrence only, so expire the previous occurrence's cards when the
     // next scheduled slot starts.
     for (const weekendGame of INITIAL_GAMES.filter((game) => game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY')) {
+      const expiredRoundKey = getExpiredWeekendRoundKey(weekendGame);
+      if (expiredRoundKey) {
+        await sql`
+          WITH expired_cards AS (
+            DELETE FROM game_cards
+            WHERE game_id = ${weekendGame.id}
+              AND EXISTS (
+                SELECT 1 FROM games
+                WHERE id = ${weekendGame.id} AND weekend_round_key = ${expiredRoundKey}
+              )
+            RETURNING id
+          )
+          UPDATE games
+          SET status = 'OPEN', drawn_numbers = '{}', current_ball = NULL,
+              last_ball_drawn_at = NULL, winners = '[]'::jsonb,
+              blocked_cards = '{}', blocked_players = '{}', current_players = 0,
+              weekend_round_key = NULL, updated_at = NOW()
+          WHERE id = ${weekendGame.id} AND weekend_round_key = ${expiredRoundKey}
+        `;
+      }
       const weekendRoundKey = getWeekendRoundKey(weekendGame);
       if (!weekendRoundKey) continue;
       await sql`

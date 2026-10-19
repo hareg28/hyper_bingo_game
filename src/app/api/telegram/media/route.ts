@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const DEFAULT_BOT_TOKEN = '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
-
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN;
+  const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
   const { searchParams } = new URL(req.url);
   const fileId = searchParams.get('file_id') || searchParams.get('fileId');
   let filePath = searchParams.get('path');

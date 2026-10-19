@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-const DEFAULT_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 
 function htmlPage(title: string, icon: string, header: string, message: string, detailsHtml: string, isSuccess: boolean): string {
   return `<!DOCTYPE html>
@@ -116,8 +116,8 @@ export async function GET(req: NextRequest) {
       // Notify player on Telegram if their ID is known
       try {
         const player = await db.getUserById(approvedTx.userId);
-        if (player?.telegramId && !player.telegramId.startsWith('web_')) {
-          await fetch(`https://api.telegram.org/bot${DEFAULT_BOT_TOKEN}/sendMessage`, {
+        if (player?.telegramId && !player.telegramId.startsWith('web_') && BOT_TOKEN) {
+          await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

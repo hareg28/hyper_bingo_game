@@ -11,8 +11,6 @@ import { db } from '@/lib/db';
 import { ApiResponse, PaymentProvider } from '@/lib/types';
 import { getAdminWhitelist } from '@/lib/authUtils';
 
-const DEFAULT_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
-
 /** Format a date in Ethiopian local time (UTC+3) */
 function formatEthTime(date: Date): string {
   return date.toLocaleString('en-ET', {
@@ -209,7 +207,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Notify admins via Telegram (non-blocking) ────────────────────────────
-    const botToken     = DEFAULT_BOT_TOKEN;
+    const botToken     = process.env.TELEGRAM_BOT_TOKEN || '';
     const adminIds     = getAdminWhitelist();
     const targetAdmins = adminIds.length > 0 ? adminIds : ['570615212', '7829104'];
 

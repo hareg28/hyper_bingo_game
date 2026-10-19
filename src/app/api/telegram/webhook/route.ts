@@ -3,8 +3,6 @@ import { isAdminTelegramId } from '@/lib/authUtils';
 import { db } from '@/lib/db';
 import { getNeonSql } from '@/lib/neon';
 
-const DEFAULT_BOT_TOKEN = '8695197731:AAFGJVsWLVxAmzHqd8Sb8TOLRKt-DyUTcUw';
-
 function safeTgHtml(str: string): string {
   if (!str) return '';
   return str.replace(/&(?!amp;|lt;|gt;|quot;|#\d+;)/g, '&amp;');
@@ -14,7 +12,7 @@ function safeTgHtml(str: string): string {
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN;
+  const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot';
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bingo-game-rho-five.vercel.app';
 
@@ -712,7 +710,7 @@ export async function POST(req: NextRequest) {
 
 // ── GET — check or register webhook ────────────────────────────────────────────
 export async function GET(req: NextRequest) {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN;
+  const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
   const { searchParams } = new URL(req.url);
   const action = searchParams.get('action');
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bingo-game-rho-five.vercel.app';
