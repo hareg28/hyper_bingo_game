@@ -8,8 +8,8 @@ import { INITIAL_GAMES } from '@/lib/store';
  * POST /api/games/reset
  * Resets a game round (clears drawn_numbers, winners, blocked_cards).
  * For Hyper Special: rotates the winning rule and sets a 5-minute intermission.
- * Deletes one-round game cards. Weekend reservations remain available through
- * their scheduled occurrence and expire when the next occurrence starts.
+ * Deletes one-round game cards, including Weekend reservations when that
+ * scheduled game ends, so the master board is available for its next sale.
  * 
  * Body: { gameId, telegramId?, nextSpecialIndex?, nextPrice? }
  */
@@ -98,10 +98,7 @@ export async function POST(req: NextRequest) {
           drawn_numbers = '{}',
           current_ball = NULL,
           last_ball_drawn_at = NULL,
-          current_players = CASE WHEN ${isWeekend}
-            THEN (SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${gameId})
-            ELSE 0
-          END,
+          current_players = 0,
           winners = '[]'::jsonb,
           blocked_cards = '{}',
           blocked_players = '{}',
@@ -116,7 +113,6 @@ export async function POST(req: NextRequest) {
       ), deleted_cards AS (
         DELETE FROM game_cards
         WHERE game_id IN (SELECT id FROM reset_game)
-          AND ${!isWeekend}
         RETURNING id
       )
       SELECT id FROM reset_game

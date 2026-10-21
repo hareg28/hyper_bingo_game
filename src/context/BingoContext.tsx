@@ -1765,7 +1765,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (!game) return;
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL' || gameId === 'gm_special';
     const isFetan = game.category === 'HYPER_FETAN' || game.gameType === 'HYPER_FETAN' || gameId.includes('fetan');
-    const isWeekend = game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY' || gameId.includes('weekend');
     const nextSpecialIndex = isSpecial
       ? ((game.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length
       : (game.activeSpecialRuleIndex ?? 0);
@@ -1784,7 +1783,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         if (g.id !== gameId) return g;
         return {
           ...g,
-          currentPlayers: isWeekend ? g.currentPlayers : 0,
+          currentPlayers: 0,
           drawnNumbers: [],
           currentBall: undefined,
           blockedCards: [],
@@ -1805,15 +1804,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       }
       return updated;
     });
-    if (!isWeekend) setLotterySoldMap((prev) => ({ ...prev, [gameId]: new Set<number>() }));
-    setUserCards((prev) => isWeekend
-      ? prev.map((card) => {
-          if (card.gameId !== gameId) return card;
-          const marked = Array.from({ length: 5 }, () => Array(5).fill(false));
-          marked[2][2] = true;
-          return { ...card, marked, hasWonLine: false, hasWonTwoLines: false, hasWonFullHouse: false, roundCompleted: false };
-        })
-      : prev.filter((card) => card.gameId !== gameId));
+    setLotterySoldMap((prev) => ({ ...prev, [gameId]: new Set<number>() }));
+    setUserCards((prev) => prev.filter((card) => card.gameId !== gameId));
 
     // Persist to DB (fire-and-forget)
     fetch('/api/games/reset', {

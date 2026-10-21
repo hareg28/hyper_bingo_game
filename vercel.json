@@ -4,6 +4,54 @@
     {
       "path": "/api/telegram/keepalive",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "0 11 * * 5"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "0 15 * * 5"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "0 12 * * 5"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "0 16 * * 5"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "0 11 * * 6"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "0 15 * * 6"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "0 12 * * 6"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "0 16 * * 6"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "0 11 * * 0"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "0 15 * * 0"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "0 12 * * 0"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "0 16 * * 0"
     }
   ]
 }
