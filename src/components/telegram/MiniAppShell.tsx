@@ -1112,6 +1112,8 @@ function WeekendLotteryNumberPicker({
   const specialPickingRef = React.useRef(false);
   const specialRedirectedGameRef = React.useRef<string | null>(null);
   const fetanCycleMarkerRef = React.useRef(selectedGame?.nextRoundStartsAt);
+  const prevFetanIntermissionRef = React.useRef(fetanIsIntermission);
+  const fetanRedirectedGameRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     const marker = selectedGame?.nextRoundStartsAt;
@@ -1168,6 +1170,15 @@ function WeekendLotteryNumberPicker({
         );
         fetanSecondsRef.current = secondsLeft;
         setFetanIsIntermission((current) => current === pickingCards ? current : pickingCards);
+        if (pickingCards) {
+          fetanRedirectedGameRef.current = null;
+        } else if (
+          selectedGame?.nextRoundStartsAt && Date.now() >= selectedGame.nextRoundStartsAt &&
+          fetanRedirectedGameRef.current !== selectedGame.id
+        ) {
+          fetanRedirectedGameRef.current = selectedGame.id;
+          onPickCardsRef.current(selectedGame.id, slotNumbersRef.current.filter((number): number is number => number !== null).map(String));
+        }
       };
       updateFetanClock();
       const interval = setInterval(updateFetanClock, 1000);
@@ -1342,13 +1353,12 @@ function WeekendLotteryNumberPicker({
   };
 
   // Enter the live room when Fetan's 30-second shared card-pick window closes.
-  const prevFetanIntermissionRef = React.useRef(fetanIsIntermission);
-  const fetanRedirectedGameRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     if (mode === 'FETAN' && selectedGame) {
       const roundStarted = selectedGame.status === 'RUNNING' || (selectedGame.drawnNumbers?.length || 0) > 0;
       const pickWindowClosed = prevFetanIntermissionRef.current && !fetanIsIntermission;
-      if ((roundStarted || pickWindowClosed) && fetanRedirectedGameRef.current !== selectedGame.id) {
+      const deadlinePassed = Boolean(selectedGame.nextRoundStartsAt && Date.now() >= selectedGame.nextRoundStartsAt);
+      if ((roundStarted || pickWindowClosed || deadlinePassed) && fetanRedirectedGameRef.current !== selectedGame.id) {
         fetanRedirectedGameRef.current = selectedGame.id;
         onPickCardsRef.current(selectedGame.id, slotNumbersRef.current.filter((number): number is number => number !== null).map(String));
       }

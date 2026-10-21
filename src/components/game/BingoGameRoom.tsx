@@ -198,6 +198,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     toggleSpecialCardRegistration,
     startSpecialRound,
   } = useBingo();
+  const hasUserCardsForGame = userCards.some((card) => card.gameId === gameId);
 
   // Ref that tracks whether the app is currently hidden (backgrounded).
   // All interval callbacks check this ref first — prevents state-update storms when the
@@ -352,6 +353,23 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     } catch {}
   }, [soundEnabled, recheckVoiceHealth]);
   const currentGame = games.find((g) => g.id === gameId) || games[0];
+  useEffect(() => {
+    if (!user?.id || user.id === 'usr_guest' || !currentGame?.id || !hasUserCardsForGame) return;
+    const heartbeat = () => {
+      void fetch('/api/games/presence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId: currentGame.id, userId: user.id }),
+      }).catch(() => {});
+    };
+    heartbeat();
+    const timer = window.setInterval(heartbeat, 15_000);
+    document.addEventListener('visibilitychange', heartbeat);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', heartbeat);
+    };
+  }, [currentGame?.id, user?.id, hasUserCardsForGame]);
   const activeGameCards = userCards.filter((c) => c.gameId === currentGame.id);
   const initialCardNumbers = React.useMemo(
     () => activeGameCards.map((c) => c.cardNumber),

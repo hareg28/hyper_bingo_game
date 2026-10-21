@@ -448,9 +448,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     const poll = async () => {
       if (cancelled || polling) return;
-      // Back off while the app is backgrounded instead of waking the phone every few seconds.
+      // Keep the shared game-state driver alive outside the game room. Use a
+      // lighter background cadence so Fetan/Special continue without the room UI.
       if (typeof document !== 'undefined' && document.hidden) {
-        scheduleNextPoll(30_000);
+        scheduleNextPoll(10_000);
         return;
       }
       polling = true;
