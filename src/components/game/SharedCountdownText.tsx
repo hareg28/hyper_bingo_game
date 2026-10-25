@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { formatCountdownClock, getFetanClock, getSpecialPickClock } from '../../lib/bingoUtils';
+import { isMiniAppActive, subscribeToMiniAppActivity } from '../../lib/miniAppActivity';
 
 type SharedCountdownTextProps = {
   mode: 'FETAN' | 'SPECIAL';
@@ -23,18 +24,19 @@ export default function SharedCountdownText(props: SharedCountdownTextProps) {
   const [seconds, setSeconds] = React.useState(() => getRemainingSeconds({ mode, deadline, status, drawnCount }));
 
   React.useEffect(() => {
-    const update = () => setSeconds(getRemainingSeconds({ mode, deadline, status, drawnCount }));
+    const update = () => {
+      if (!isMiniAppActive()) return;
+      setSeconds(getRemainingSeconds({ mode, deadline, status, drawnCount }));
+    };
     update();
     const timer = window.setInterval(update, 1000);
-    const resume = () => {
-      if (document.visibilityState === 'visible') update();
-    };
+    const unsubscribe = subscribeToMiniAppActivity(update);
+    const resume = () => update();
     window.addEventListener('focus', resume);
-    document.addEventListener('visibilitychange', resume);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener('focus', resume);
-      document.removeEventListener('visibilitychange', resume);
+      unsubscribe();
     };
   }, [mode, deadline, status, drawnCount]);
 

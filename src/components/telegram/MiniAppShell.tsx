@@ -16,6 +16,7 @@ import AdminPanel from '../admin/AdminPanel';
 import DailyLuckyWheelModal from '../rewards/DailyLuckyWheelModal';
 import { isAdminTelegramId } from '../../lib/authUtils';
 import { getGameLivePrizePool } from '../../lib/store';
+import { subscribeToMiniAppActivity } from '../../lib/miniAppActivity';
 
 const SUPPORT_PHONE_1 = process.env.NEXT_PUBLIC_SUPPORT_PHONE_1 || '0912738543';
 const SUPPORT_PHONE_2 = process.env.NEXT_PUBLIC_SUPPORT_PHONE_2 || '0912738543';
@@ -1130,13 +1131,9 @@ function WeekendLotteryNumberPicker({
 
   const isHiddenRef = React.useRef(typeof document !== 'undefined' && document.hidden);
   React.useEffect(() => {
-    const handleVisibility = () => {
-      isHiddenRef.current = typeof document !== 'undefined' && document.hidden;
-    };
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', handleVisibility);
-      return () => document.removeEventListener('visibilitychange', handleVisibility);
-    }
+    return subscribeToMiniAppActivity((active) => {
+      isHiddenRef.current = !active;
+    });
   }, []);
 
   // Fetan's pick clock follows the shared server deadline; Weekend uses its scheduled draw slots.

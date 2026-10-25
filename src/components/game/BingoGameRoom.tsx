@@ -30,6 +30,7 @@ import CardNumberSelector from './CardNumberSelector';
 import { isAdminTelegramId } from '../../lib/authUtils';
 import { getGameLivePrizePool } from '../../lib/store';
 import { audioManager } from '../../lib/audioManager';
+import { isMiniAppActive, subscribeToMiniAppActivity } from '../../lib/miniAppActivity';
 
 const amharicNumbers = [
   '', 'አንድ', 'ሁለት', 'ሶስት', 'አራት', 'አምስት', 'ስድስት', 'ሰባት', 'ስምንት', 'ዘጠኝ', 'አሰር',
@@ -293,8 +294,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // On show: resumes AudioContext. All setInterval callbacks use isHiddenRef.current.
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    const onVisibilityChange = () => {
-      const hidden = document.hidden;
+    const updateActivity = (active: boolean) => {
+      const hidden = !active;
       isHiddenRef.current = hidden;
       if (hidden) {
         audioManager.pause(); // stops audio + suspends AudioContext
@@ -306,10 +307,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         audioManager.resume(); // wakes AudioContext back up
       }
     };
-    // Sync immediately in case page loads hidden
-    isHiddenRef.current = document.hidden;
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+    // Sync immediately in case Telegram restored this Mini App in the background.
+    return subscribeToMiniAppActivity(updateActivity);
   }, []);
 
   // Preload SpeechSynthesis voices via onvoiceschanged ASAP & after first sound toggle
@@ -356,18 +355,20 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   useEffect(() => {
     if (!user?.id || user.id === 'usr_guest' || !currentGame?.id || !hasUserCardsForGame) return;
     const heartbeat = () => {
+      if (!isMiniAppActive()) return;
       void fetch('/api/games/presence', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gameId: currentGame.id, userId: user.id }),
       }).catch(() => {});
     };
-    heartbeat();
+    const unsubscribe = subscribeToMiniAppActivity((active) => {
+      if (active) heartbeat();
+    });
     const timer = window.setInterval(heartbeat, 15_000);
-    document.addEventListener('visibilitychange', heartbeat);
     return () => {
       window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', heartbeat);
+      unsubscribe();
     };
   }, [currentGame?.id, user?.id, hasUserCardsForGame]);
   const activeGameCards = userCards.filter((c) => c.gameId === currentGame.id);
@@ -399,6 +400,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   useEffect(() => {
     if (!isWeekendGame) return;
     const syncWeekendSchedule = () => {
+      if (isHiddenRef.current) return;
       const inSchedule = computeIsWeekendLive(currentGame);
       const liveRoundReady = inSchedule && currentGame.status === 'RUNNING' &&
         !(currentGame.winners?.length) && currentGame.drawnNumbers.length < 75;
@@ -681,6 +683,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     const deadline = latestClaim > 0 ? latestClaim + 10_000 : Date.now() + 10_000;
     let completed = false;
     const update = () => {
+      if (isHiddenRef.current) return;
       const secondsLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       setAnnouncementSecondsLeft(secondsLeft);
       if (secondsLeft > 0 || completed) return;
@@ -704,16 +707,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
     setIsAutoDrawing(false);
     const timer = window.setInterval(update, 250);
-    const resume = () => {
-      if (document.visibilityState === 'visible') update();
-    };
-    document.addEventListener('visibilitychange', resume);
+    const unsubscribe = subscribeToMiniAppActivity((active) => {
+      if (active) update();
+    });
+    const resume = () => update();
     window.addEventListener('focus', resume);
     update();
 
     return () => {
       clearInterval(timer);
-      document.removeEventListener('visibilitychange', resume);
+      unsubscribe();
       window.removeEventListener('focus', resume);
     };
   }, [hasGameWinner, currentGame.id, currentGame.winners, isSpecialGame]);

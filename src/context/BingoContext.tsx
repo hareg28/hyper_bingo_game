@@ -32,6 +32,7 @@ import { isAdminTelegramId } from '../lib/authUtils';
 import { Language, translations } from '../lib/translations';
 import { getInitialLotterySoldMap } from '../lib/store';
 import { audioManager } from '../lib/audioManager';
+import { isMiniAppActive, subscribeToMiniAppActivity } from '../lib/miniAppActivity';
 
 interface NotificationMessage {
   id: string;
@@ -442,22 +443,22 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     let polling = false;
     const scheduleNextPoll = (delay = 2500 + Math.random() * 1500) => {
-      if (!cancelled) timeoutId = setTimeout(poll, delay);
+      if (!cancelled && isMiniAppActive()) timeoutId = setTimeout(poll, delay);
     };
 
     const poll = async () => {
       if (cancelled || polling) return;
-      // Keep the shared game-state driver alive outside the game room. Use a
-      // lighter background cadence so Fetan/Special continue without the room UI.
-      if (typeof document !== 'undefined' && document.hidden) {
-        scheduleNextPoll(10_000);
-        return;
-      }
+      // Telegram can minimize its Mini App without setting document.hidden.
+      if (!isMiniAppActive()) return;
       polling = true;
       try {
         const res = await fetch('/api/games/state', { cache: 'no-cache' });
         if (!res.ok) throw new Error('state fetch failed');
         const json = await res.json();
+        if (!isMiniAppActive()) {
+          polling = false;
+          return;
+        }
         if (json.success && Array.isArray(json.data)) {
           const winnerKeys = new Set<string>();
           json.data.forEach((serverGame: any) => {
@@ -597,17 +598,18 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       scheduleNextPoll();
     };
 
-    const resumePolling = () => {
-      if (document.visibilityState !== 'visible' || cancelled) return;
+    const unsubscribe = subscribeToMiniAppActivity((active) => {
+      if (!active) {
+        clearTimeout(timeoutId);
+        return;
+      }
       clearTimeout(timeoutId);
       void poll();
-    };
-    document.addEventListener('visibilitychange', resumePolling);
-    poll();
+    });
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);
-      document.removeEventListener('visibilitychange', resumePolling);
+      unsubscribe();
     };
   }, []);
 
