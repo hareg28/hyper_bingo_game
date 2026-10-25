@@ -330,11 +330,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const syncTelegramUser = () => {
       const tg = (window as any).Telegram?.WebApp;
       if (tg) {
-        try {
-          tg.ready();
-          tg.expand();
-        } catch (e) {}
-
         const tgUser = tg.initDataUnsafe?.user;
         if (tgUser && tgUser.id) {
           const isAdm = isAdminTelegramId(tgUser.id) || (tgUser.username && isAdminTelegramId(tgUser.username));
@@ -382,12 +377,16 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       return false;
     };
 
-    syncTelegramUser();
-    const interval = setInterval(syncTelegramUser, 400);
-    const timer = setTimeout(() => clearInterval(interval), 4000);
+    // Telegram's init data can arrive just after hydration. Retry briefly, but
+    // stop as soon as it is available so admin verification only runs once.
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts += 1;
+      if (syncTelegramUser() || attempts >= 10) clearInterval(interval);
+    }, 400);
+    if (syncTelegramUser()) clearInterval(interval);
     return () => {
       clearInterval(interval);
-      clearTimeout(timer);
     };
   }, []);
 
