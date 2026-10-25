@@ -45,7 +45,6 @@ export default function PublicWebsitePage() {
       if (tg) {
         try {
           tg.ready();
-          tg.expand();
         } catch (e) {
           console.error('Telegram WebApp init error:', e);
         }

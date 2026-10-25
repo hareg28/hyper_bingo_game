@@ -16,7 +16,6 @@ export default function DedicatedMiniAppPage() {
     if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
       try {
         window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
       } catch (e) {
         console.error('Telegram WebApp init error:', e);
       }
