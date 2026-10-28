@@ -124,20 +124,24 @@ export async function POST(req: NextRequest) {
       }, { status: 503 });
     }
 
-    // ── Anti-Spam: Limit maximum pending deposits per user ──────────────────
-    const pendingCount = await db.getPendingDepositsCountForUser(userId);
-    if (pendingCount >= 2) {
-      return NextResponse.json<ApiResponse>({
-        success: false,
-        error: 'You already have pending deposit requests under admin review. Please wait for them to be verified before submitting another.',
-      }, { status: 429 });
-    }
-
     // ── Manual Telebirr / CBE deposit (admin-reviewed) ───────────────────────
     const rawCode       = (transactionCode ?? '').trim();
     const cleanCode     = rawCode.toUpperCase().replace(/[\s-_]/g, '');
     const hasCode       = cleanCode.length >= 3;
     const hasScreenshot = Boolean(screenshot && screenshot.trim().length > 0);
+
+    // Bonno-eligible requests should reach the verifier even when older deposits
+    // are awaiting admin review. Keep the pending limit for manual-only requests.
+    const canVerifyWithBonno = hasCode && Boolean(process.env.BONNO_API_KEY) && verifiedSubmittingUser;
+    if (!canVerifyWithBonno) {
+      const pendingCount = await db.getPendingDepositsCountForUser(userId);
+      if (pendingCount >= 2) {
+        return NextResponse.json<ApiResponse>({
+          success: false,
+          error: 'You have deposits awaiting manual review. Bonno verification is not available for this request yet.',
+        }, { status: 429 });
+      }
+    }
 
     if (!hasCode && !hasScreenshot) {
       return NextResponse.json<ApiResponse>({
