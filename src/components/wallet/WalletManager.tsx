@@ -34,7 +34,6 @@ export default function WalletManager() {
   const [directPayError, setDirectPayError] = useState('');
   const [directPaySuccess, setDirectPaySuccess] = useState('');
   const [directPayCountdown, setDirectPayCountdown] = useState<number>(60);
-  const [depositMode, setDepositMode] = useState<'direct' | 'manual'>('direct');
   const [simulatedIncomingSms, setSimulatedIncomingSms] = useState<{
     provider: string;
     code: string;
@@ -219,45 +218,6 @@ export default function WalletManager() {
   // Read the one-time return status when this component first mounts.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleTelebirrCheckout = async () => {
-    if (!user) {
-      openAuthModal('register');
-      return;
-    }
-    const depositAmount = Number(amount);
-    if (!Number.isFinite(depositAmount) || depositAmount < 10) {
-      showStatus('error', isAm ? 'ቢያንስ 10 ETB ያስገቡ።' : 'Enter a deposit amount of at least 10 ETB.');
-      return;
-    }
-
-    setIsProcessing(true);
-    setDepositError(null);
-    try {
-      const response = await fetch('/api/payments/telebirr/initiate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, amount: depositAmount }),
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success || typeof result.data?.checkoutUrl !== 'string') {
-        throw new Error(result.error || 'Could not start Telebirr checkout.');
-      }
-      const checkoutUrl = result.data.checkoutUrl;
-      const tg = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
-      if (tg?.openLink) {
-        tg.openLink(checkoutUrl);
-      } else {
-        window.location.assign(checkoutUrl);
-      }
-    } catch (error) {
-      const errText = error instanceof Error ? error.message : 'Could not start Telebirr checkout.';
-      setDepositError(errText);
-      showStatus('error', errText);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   // ── Deposit (manual: screenshot/code — goes to admin review) ───────────────
   const handleDepositSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
@@ -748,7 +708,7 @@ export default function WalletManager() {
             <Copy className="w-3 h-3" /> {isAm ? 'ቅዳ' : 'Copy'}
           </button>
         </div>
-        <p className="text-[10px] text-amber-300/80 font-bold text-center">{isAm ? 'ክፍያው በአስተዳዳሪ ሲረጋገጥ ሂሳብዎ ይሞላል።' : 'Your wallet is credited after the Telebirr transaction is verified.'}</p>
+        <p className="text-[10px] text-amber-300/80 font-bold text-center">{isAm ? 'ክፍያው በቦኖ ወይም በአስተዳዳሪ ከተረጋገጠ በኋላ ሂሳብዎ ይሞላል።' : 'Your wallet is credited after Bonno or an administrator verifies the transfer.'}</p>
       </div>
 
       {/* Tab Navigation */}
@@ -876,8 +836,8 @@ export default function WalletManager() {
 
               <p className="text-[11px] text-slate-600 font-medium bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                 {isAm
-                  ? 'ከታች የቴሌብር ቼክአውት ይክፈቱ፤ ክፍያው በቴሌብር ሲረጋገጥ ሂሳብዎ በራስ-ሰር ይሞላል።'
-                  : 'Start the Telebirr checkout below. Your wallet is credited automatically after Telebirr confirms payment.'}
+                  ? 'ወደ ቀጣዩ ደረጃ ይሂዱ፣ ገንዘቡን ያስተላልፉ እና የግብይት መለያ ቁጥሩን ያስገቡ። ቦኖ ካረጋገጠው በኋላ ቦርሳዎ ይሞላል።'
+                  : 'Continue to the transfer details, pay from your Telebirr or CBE app, then enter the transaction ID. The app will send it to Bonno for verification; if verification is unavailable, it will be held for admin review.'}
               </p>
 
               {depositError && (
@@ -887,11 +847,8 @@ export default function WalletManager() {
                 </div>
               )}
 
-              <button type="button" disabled={isProcessing} onClick={handleTelebirrCheckout} className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer">
-                {isProcessing ? (isAm ? 'በመክፈት ላይ…' : 'Starting Telebirr…') : (isAm ? 'በቴሌብር ክፈል' : 'Pay with Telebirr')} →
-              </button>
-              <button type="submit" className="w-full py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold text-[11px] transition cursor-pointer">
-                {isAm ? 'በእጅ ማስተላለፍ ይጠቀሙ' : 'Use manual transfer instead'}
+              <button type="submit" className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer">
+                {isAm ? 'የማስተላለፊያ ዝርዝር ቀጥል' : 'Continue to transfer details'} →
               </button>
 
             </>
@@ -1177,13 +1134,13 @@ export default function WalletManager() {
                     : (isAm ? '💡 የCBE ማስተላለፊያ ቁጥር በ FT ይጀምራል (ምሳሌ: FT24281XXXXX)' : '💡 CBE reference begins with FT (e.g. FT24281XXXXX)')}
                 </p>
 
-                {/* Admin review notice */}
+                {/* Verification notice */}
                 <div className="bg-amber-50/80 rounded-xl p-2.5 border border-amber-300 flex items-start gap-2">
                   <span className="text-base shrink-0 mt-0.5">⏳</span>
                   <p className="text-[10px] text-amber-900 font-bold leading-relaxed">
                     {isAm
-                      ? 'ክፍያዎ ለአስተዳዳሪ ይላካል። Transaction ID / FT ቁጥሩ ከተረጋገጠ በኋላ ሂሳብዎ ይሞላል — ብዙ ጊዜ ከጥቂት ሰዓታት ይበልጥ አይፈጅም።'
-                      : 'Your deposit goes to admin review. Once your Transaction ID / FT is verified, your balance will be credited — usually within a few hours.'}
+                      ? 'የግብይት መለያዎ በቦኖ ይረጋገጣል። ቦኖ ማረጋገጥ ካልቻለ ለአስተዳዳሪ ይላካል፤ እስኪረጋገጥ ድረስ ቦርሳዎ አይሞላም።'
+                      : 'Your transaction ID is sent to Bonno for verification. If Bonno cannot verify it, it goes to admin review. Your wallet is credited only after verification.'}
                   </p>
                 </div>
               </div>
@@ -1283,7 +1240,7 @@ export default function WalletManager() {
                   {isProcessing ? (
                     <><span className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin"></span> {isAm ? 'በመላክ ላይ...' : 'Submitting...'}</>
                   ) : (
-                    <><CheckCircle className="w-3.5 h-3.5" /> {isAm ? `ለአስተዳዳሪ ላክ (${amount} ETB)` : `Submit for Admin Review (${amount} ETB)`}</>
+                    <><CheckCircle className="w-3.5 h-3.5" /> {isAm ? `ለማረጋገጥ ላክ (${amount} ETB)` : `Verify Transaction (${amount} ETB)`}</>
                   )}
                 </button>
               </div>
