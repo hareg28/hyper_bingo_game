@@ -132,14 +132,23 @@ export async function POST(req: NextRequest) {
 
     // Bonno-eligible requests should reach the verifier even when older deposits
     // are awaiting admin review. Keep the pending limit for manual-only requests.
-    const canVerifyWithBonno = hasCode && Boolean(process.env.BONNO_API_KEY) && verifiedSubmittingUser;
+    const bonnoApiKeyConfigured = Boolean(process.env.BONNO_API_KEY);
+    const canVerifyWithBonno = hasCode && bonnoApiKeyConfigured && verifiedSubmittingUser;
     if (!canVerifyWithBonno) {
       const pendingCount = await db.getPendingDepositsCountForUser(userId);
       if (pendingCount >= 2) {
+        const error = !hasCode
+          ? 'You have deposits awaiting manual review. Submit a transaction ID to request Bonno verification.'
+          : !bonnoApiKeyConfigured
+            ? 'Bonno verification is not configured on this server. Add BONNO_API_KEY to the deployed server environment and redeploy.'
+            : !verifiedSubmittingUser
+              ? 'Telegram could not verify this session for your account. Reopen Hyper Bingo from Telegram and try again.'
+              : 'You have deposits awaiting manual review. Please wait for an update.';
+        const status = hasCode && !bonnoApiKeyConfigured ? 503 : hasCode && !verifiedSubmittingUser ? 401 : 429;
         return NextResponse.json<ApiResponse>({
           success: false,
-          error: 'You have deposits awaiting manual review. Bonno verification is not available for this request yet.',
-        }, { status: 429 });
+          error,
+        }, { status });
       }
     }
 
