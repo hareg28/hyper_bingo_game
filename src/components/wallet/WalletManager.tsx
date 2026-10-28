@@ -4,12 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
 import { PaymentProvider, LinkedPaymentAccount, LinkedAccountType } from '../../lib/types';
 import { formatETB } from '../../lib/bingoUtils';
-import { getOwnerDestinationForProvider, type OwnerPaymentAccount } from '../../lib/ownerPaymentAccounts';
+import { type OwnerPaymentAccount } from '../../lib/ownerPaymentAccounts';
 import {
   Wallet, ArrowDownRight, ArrowUpRight, ShieldCheck,
   Smartphone, Landmark, History, Plus, Trash2,
-  CheckCircle, Clock, XCircle, Star, ChevronRight, ExternalLink,
-  Upload, Camera, QrCode, Copy, Check, X, Lock, Phone, Zap, AlertCircle,
+  CheckCircle, Clock, XCircle, Star, ChevronRight,
+  Copy, Check,
 } from 'lucide-react';
 
 declare global {
@@ -79,13 +79,7 @@ export default function WalletManager() {
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [depositError, setDepositError] = useState<string | null>(null);
 
-  // QR Code State — generated IMMEDIATELY when entering deposit step 2 (no manual click needed)
-  const [showQrModal, setShowQrModal] = useState<boolean>(false);
   const [copiedRef, setCopiedRef] = useState<boolean>(false);
-  const [copiedPaymentText, setCopiedPaymentText] = useState<boolean>(false);
-  const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [fullPaymentText, setFullPaymentText] = useState<string>('');
-  const [destinationNumber, setDestinationNumber] = useState<string>('');
   const [ownerAccounts, setOwnerAccounts] = useState<OwnerPaymentAccount[]>([]);
   const telebirrMerchant = ownerAccounts.find((account) => account.method === 'TELEBIRR');
 
@@ -96,86 +90,12 @@ export default function WalletManager() {
       .catch(() => {});
   }, []);
 
-  // Auto-generate QR code + payment text the moment user enters step 2 with amount + reference set
-  useEffect(() => {
-    if (depositStep !== 2) return;
-    if (!depositReference) return;
-    if (!amount || (typeof amount === 'number' && amount <= 0)) return;
-
-    const tele = ownerAccounts.find((a) => a.method === 'TELEBIRR');
-    const cbe = ownerAccounts.find((a) => a.method === 'CBE');
-    let dest = getOwnerDestinationForProvider(provider);
-    if (provider === 'Telebirr' && tele) {
-      dest = `Telebirr: ${tele.accountNumber} (${tele.accountName})`;
-    } else if ((provider === 'CBE Birr' || provider === 'Bank Transfer') && cbe) {
-      dest = `CBE: ${cbe.accountNumber} (${cbe.accountName})`;
-    }
-
-    setDestinationNumber(dest);
-
-    // One-line exact payment text so user cannot mismatch the amount
-    const payText = `Pay ${amount} ETB via ${provider}. Destination: ${dest}. Remark/Reference: ${depositReference}. Name: ${user?.name || 'Player'} (${user?.username || user?.id || '—'}).`;
-    setFullPaymentText(payText);
-
-    // Generate QR using a public QR image service (no install needed) — encodes the exact amount + provider + reference
-    const qrPayload = `HYPERBINGO_DEPOSIT\nProvider: ${provider}\nAmount: ${amount} ETB\nReference: ${depositReference}\nDestination: ${dest}\nPlayer: ${user?.username || user?.id || user?.name || 'guest'}`;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=6&data=${encodeURIComponent(qrPayload)}`;
-    setQrDataUrl(qrUrl);
-  }, [depositStep, depositReference, amount, provider, user?.id, user?.username, user?.name, ownerAccounts]);
-
   const handleCopyRef = (textToCopy: string) => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(textToCopy);
       setCopiedRef(true);
       setTimeout(() => setCopiedRef(false), 2000);
     }
-  };
-
-  const handleCopyFullPayment = () => {
-    if (!fullPaymentText) return;
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(fullPaymentText);
-      setCopiedPaymentText(true);
-      setTimeout(() => setCopiedPaymentText(false), 2500);
-    }
-  };
-
-  // Payment screenshot state (REQUIRED by owner)
-  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
-  const [screenshotBase64, setScreenshotBase64] = useState<string | null>(null);
-  const [screenshotFileName, setScreenshotFileName] = useState<string | null>(null);
-  const [screenshotError, setScreenshotError] = useState<string | null>(null);
-
-  const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    setScreenshotError(null);
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setScreenshotError('Please upload an image file (PNG, JPG, JPEG).');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setScreenshotError('Image size exceeds 5MB limit. Please upload a smaller image.');
-      return;
-    }
-
-    setScreenshotFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setScreenshotPreview(result);
-      setScreenshotBase64(result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemoveScreenshot = () => {
-    setScreenshotPreview(null);
-    setScreenshotBase64(null);
-    setScreenshotFileName(null);
-    setScreenshotError(null);
   };
 
   // Linked Accounts state
@@ -219,13 +139,12 @@ export default function WalletManager() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Deposit (manual: screenshot/code — goes to admin review) ───────────────
+  // ── Deposit: submit transaction reference for Bonno verification ───────────
   const handleDepositSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
     if (e && 'preventDefault' in e) {
       e.preventDefault();
     }
     setDepositError(null);
-    setScreenshotError(null);
 
     if (!user || user.id === 'usr_guest') {
       openAuthModal('register');
@@ -260,12 +179,11 @@ export default function WalletManager() {
     };
 
     const cleanCode = extractCleanCode(transactionCode);
-    if (!cleanCode && !screenshotBase64) {
+    if (!cleanCode) {
       const err = isAm
-        ? 'እባክዎ የባንክ/ቴሌብር የክፍያ መለያ ቁጥር (Transaction ID / FT) ያስገቡ ወይም ደረሰኝ ያያይዙ።'
-        : 'Please enter your Transaction Reference Code / FT number or attach a payment receipt.';
+        ? 'እባክዎ የግብይት መለያ ቁጥር ያስገቡ።'
+        : 'Enter the transaction ID to verify your deposit.';
       setDepositError(err);
-      setScreenshotError(err);
       showStatus('error', err);
       return;
     }
@@ -276,7 +194,6 @@ export default function WalletManager() {
           ? 'ትክክለኛ ያልሆነ የመለያ ቁጥር። እባክዎ ከባንኩ ወይም ቴሌብር የተላከውን ትክክለኛ ቁጥር ያስገቡ።'
           : 'Invalid transaction code. Please enter the real transaction code from Telebirr or CBE.';
         setDepositError(err);
-        setScreenshotError(err);
         showStatus('error', err);
         return;
       }
@@ -285,7 +202,6 @@ export default function WalletManager() {
           ? 'የቴሌብር መለያ ቁጥር ቢያንስ 6 ፊደላት/ቁጥሮች መሆን አለበት (ለምሳሌ፡ DJ74JCZJNJ)።'
           : 'Telebirr transaction codes must be at least 6 characters (e.g. DJ74JCZJNJ).';
         setDepositError(err);
-        setScreenshotError(err);
         showStatus('error', err);
         return;
       }
@@ -294,7 +210,6 @@ export default function WalletManager() {
           ? 'የCBE ማስተላለፊያ ቁጥር በ FT መጀመር ወይም የCBE Birr ቁጥር መሆን አለበት (ለምሳሌ፡ FT24281XXXXX)።'
           : 'CBE transfer reference must start with FT (e.g. FT24281XXXXX) or be a CBE Birr reference.';
         setDepositError(err);
-        setScreenshotError(err);
         showStatus('error', err);
         return;
       }
@@ -319,7 +234,6 @@ export default function WalletManager() {
           provider,
           depositReference,
           transactionCode: cleanCode,
-          screenshot:      screenshotBase64,
           senderPhone:     user.phone || phoneOrAccount,
         }),
         signal: controller.signal,
@@ -337,7 +251,6 @@ export default function WalletManager() {
         setDepositStep(1);
         setTransactionCode('');
         setDepositError(null);
-        handleRemoveScreenshot();
       } else {
         const errMsg = data.error ?? (isAm ? 'ተቀማጩ አልተሳካም። እባክዎ ደጋፊ ያነጋግሩ።' : 'Deposit failed. Please contact support with your receipt.');
         setDepositError(errMsg);
@@ -836,8 +749,8 @@ export default function WalletManager() {
 
               <p className="text-[11px] text-slate-600 font-medium bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                 {isAm
-                  ? 'ወደ ቀጣዩ ደረጃ ይሂዱ፣ ገንዘቡን ያስተላልፉ እና የግብይት መለያ ቁጥሩን ያስገቡ። ቦኖ ካረጋገጠው በኋላ ቦርሳዎ ይሞላል።'
-                  : 'Continue to the transfer details, pay from your Telebirr or CBE app, then enter the transaction ID. The app will send it to Bonno for verification; if verification is unavailable, it will be held for admin review.'}
+                  ? 'ገንዘቡን ካስተላለፉ በኋላ የግብይት መለያ ቁጥሩን ያስገቡ። ቦኖ ከማረጋገጡ በኋላ ቦርሳዎ ይሞላል።'
+                  : 'Enter the transaction ID after you transfer. Bonno verifies it before your wallet is credited.'}
               </p>
 
               {depositError && (
@@ -854,249 +767,47 @@ export default function WalletManager() {
             </>
           ) : (
             <div className="space-y-3">
-              {/* Deposit Details Summary */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5 text-xs">
-                <div className="flex justify-between text-slate-700 font-semibold">
-                  <span>{t('gateway')}:</span>
-                  <span className="font-black text-emerald-800">{provider}</span>
-                </div>
-                <div className="flex justify-between text-slate-700 font-semibold">
-                  <span>{t('amountETB')}:</span>
-                  <span className="font-black text-slate-950">{amount} ETB</span>
-                </div>
-                <div className="flex justify-between text-slate-700 font-semibold">
-                  <span>{t('depositReference')}:</span>
-                  <span className="font-mono font-bold text-amber-800 text-[11px] truncate max-w-[150px]">{depositReference}</span>
-                </div>
-              </div>
-
-              {/* Account Destination Details for Payment + INLINE QR (generated immediately — no modal/click needed) */}
-              <div className="bg-slate-50 border border-emerald-300 p-3 rounded-xl space-y-3 text-xs">
-                <div className="text-[11px] font-black text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Landmark className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Transfer Destination (ክፍያ የሚፈፀምበት)</span>
-                </div>
-
-                {provider === 'Telebirr' ? (
-                  <div className="space-y-1.5 text-slate-800 font-medium">
-                    <div className="flex items-center justify-between bg-emerald-50 p-2 rounded-xl border border-emerald-300">
-                      <div>
-                        <span className="text-[10px] font-bold text-emerald-800 uppercase block">{isAm ? 'የቴሌብር ነጋዴ መለያ (Merchant / Till):' : 'Telebirr Merchant / Till ID:'}</span>
-                        <strong className="text-slate-950 font-mono font-black text-sm">{telebirrMerchant?.accountNumber || 'Not configured'}</strong>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => telebirrMerchant?.accountNumber && handleCopyRef(telebirrMerchant.accountNumber)}
-                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer transition shadow-xs"
-                      >
-                        <Copy className="w-3 h-3" />
-                        <span>{isAm ? 'ቅዳ' : 'Copy'}</span>
-                      </button>
-                    </div>
-                    <p>• {isAm ? 'የተቀባይ ስም:' : 'Merchant Name:'} <strong className="text-amber-800 font-black">{telebirrMerchant?.accountName || ''}</strong></p>
-                    <div className="flex items-center justify-between bg-amber-50 p-1.5 rounded-lg border border-amber-200 text-[10px]">
-                      <span>Remark Reference: <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">{depositReference}</code></span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyRef(depositReference)}
-                        className="p-1 text-amber-800 hover:text-amber-950 font-bold flex items-center gap-0.5 cursor-pointer"
-                        title="Copy Reference"
-                      >
-                        {copiedRef ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedRef ? 'Copied' : 'Copy'}</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : provider === 'CBE Birr' ? (
-                  <div className="space-y-1.5 text-slate-800 font-medium">
-                    <div className="flex items-center justify-between bg-purple-50 p-2 rounded-xl border border-purple-300">
-                      <div>
-                        <span className="text-[10px] font-bold text-purple-800 uppercase block">{isAm ? 'CBE Birr ነጋዴ / ስልክ:' : 'CBE Birr Merchant / Phone:'}</span>
-                        <strong className="text-slate-950 font-mono font-black text-sm">{telebirrMerchant?.accountNumber || 'Not configured'}</strong>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => telebirrMerchant?.accountNumber && handleCopyRef(telebirrMerchant.accountNumber)}
-                        className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer transition shadow-xs"
-                      >
-                        <Copy className="w-3 h-3" />
-                        <span>{isAm ? 'ቅዳ' : 'Copy'}</span>
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between bg-purple-50 p-2 rounded-xl border border-purple-300">
-                      <div>
-                        <span className="text-[10px] font-bold text-purple-800 uppercase block">{isAm ? 'CBE የሂሳብ ቁጥር:' : 'CBE Account Number:'}</span>
-                        <strong className="text-slate-950 font-mono font-black text-sm">1000540829954</strong>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyRef('1000540829954')}
-                        className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer transition shadow-xs"
-                      >
-                        <Copy className="w-3 h-3" />
-                        <span>{isAm ? 'ቅዳ' : 'Copy'}</span>
-                      </button>
-                    </div>
-                    <p>• {isAm ? 'ስም:' : 'Name:'} <strong className="text-amber-800 font-black">Yohannes Tsehaye Bayleyegn</strong></p>
-                    <div className="flex items-center justify-between bg-purple-50 p-1.5 rounded-lg border border-purple-200 text-[10px]">
-                      <span>Remark Reference: <code className="bg-purple-100 px-1 py-0.5 rounded text-purple-900 font-bold">{depositReference}</code></span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyRef(depositReference)}
-                        className="p-1 text-purple-800 hover:text-purple-950 font-bold flex items-center gap-0.5 cursor-pointer"
-                        title="Copy Reference"
-                      >
-                        {copiedRef ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedRef ? 'Copied' : 'Copy'}</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : provider === 'M-Pesa' ? (
-                  <div className="space-y-1.5 text-slate-800 font-medium">
-                    <div className="flex items-center justify-between bg-emerald-50 p-2 rounded-xl border border-emerald-300">
-                      <div>
-                        <span className="text-[10px] font-bold text-emerald-800 uppercase block">{isAm ? 'M-Pesa (Safaricom 07...) ቁጥር:' : 'M-Pesa (Safaricom 07...) Number:'}</span>
-                        <strong className="text-slate-950 font-mono font-black text-sm">0710798482</strong>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyRef('0710798482')}
-                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer transition shadow-xs"
-                      >
-                        <Copy className="w-3 h-3" />
-                        <span>{isAm ? 'ቅዳ' : 'Copy'}</span>
-                      </button>
-                    </div>
-                    <p>• {isAm ? 'ስም:' : 'Name:'} <strong className="text-amber-800 font-black">Yohannes Tsehaye Bayleyegn</strong></p>
-                    <div className="flex items-center justify-between bg-amber-50 p-1.5 rounded-lg border border-amber-200 text-[10px]">
-                      <span>Remark Reference: <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-bold">{depositReference}</code></span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyRef(depositReference)}
-                        className="p-1 text-amber-800 hover:text-amber-950 font-bold flex items-center gap-0.5 cursor-pointer"
-                        title="Copy Reference"
-                      >
-                        {copiedRef ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedRef ? 'Copied' : 'Copy'}</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5 text-slate-800 font-medium">
-                    <div className="flex items-center justify-between bg-emerald-50 p-2 rounded-xl border border-emerald-300">
-                      <div>
-                        <span className="text-[10px] font-bold text-emerald-800 uppercase block">CBE Account:</span>
-                        <strong className="text-slate-950 font-mono font-black text-sm">1000540829954</strong>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyRef('1000540829954')}
-                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black flex items-center gap-1 cursor-pointer transition shadow-xs"
-                      >
-                        <Copy className="w-3 h-3" />
-                        <span>{isAm ? 'ቅዳ' : 'Copy'}</span>
-                      </button>
-                    </div>
-                    <p>• Account Name: <strong className="text-amber-800 font-black">Yohannes Tsehaye Bayleyegn</strong></p>
-                  </div>
-                )}
-
-                {/* INLINE QR CODE — generated IMMEDIATELY when step 2 loads (not on button click) */}
-                <div className="bg-white border-2 border-blue-300 rounded-2xl p-3 space-y-2 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <QrCode className="w-3.5 h-3.5 text-blue-700" />
-                      <span className="text-[11px] font-black text-blue-900 uppercase tracking-wider">
-                        {provider} Deposit QR — Ready Now
-                      </span>
-                    </div>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                      ✓ Auto-Generated
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+                <div className="flex justify-between"><span className="text-slate-600">Amount</span><strong>{amount} ETB</strong></div>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs text-slate-600">Send via {provider} to</div>
+                    <strong className="block break-all font-mono text-slate-950">
+                      {provider === 'Telebirr'
+                        ? (ownerAccounts.find((account) => account.method === 'TELEBIRR')?.accountNumber || 'Loading account…')
+                        : (ownerAccounts.find((account) => account.method === 'CBE')?.accountNumber || 'Loading account…')}
+                    </strong>
+                    <span className="text-xs text-slate-600">
+                      {provider === 'Telebirr'
+                        ? ownerAccounts.find((account) => account.method === 'TELEBIRR')?.accountName
+                        : ownerAccounts.find((account) => account.method === 'CBE')?.accountName}
                     </span>
                   </div>
-                  <div className="flex items-center justify-center">
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-xl border border-blue-200 shadow-inner">
-                      {qrDataUrl ? (
-                        <img
-                          src={qrDataUrl}
-                          alt={`${provider} Deposit QR for ${amount} ETB`}
-                          width={220}
-                          height={220}
-                          className="w-44 h-44 object-contain rounded-lg bg-white p-2 shadow-2xs"
-                        />
-                      ) : (
-                        <div className="w-44 h-44 flex items-center justify-center text-slate-400 text-[10px] font-bold text-center bg-white rounded-lg p-2">
-                          ⏳ QR loading...
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-[10px] text-slate-600 text-center font-semibold leading-snug px-1">
-                    ⚠️ <strong className="text-rose-700">Pay EXACTLY:</strong> <span className="text-rose-900 font-black text-sm bg-rose-50 px-2 py-0.5 rounded">{amount} ETB</span><br />
-                    {destinationNumber && (<span className="text-slate-800">To: <strong>{destinationNumber}</strong></span>)}<br />
-                    <span className="text-amber-800">Ref: <strong className="font-mono">{depositReference}</strong></span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <a
-                      href={qrDataUrl || '#'}
-                      download={`hyperbingo_deposit_${depositReference || 'qr'}.png`}
-                      className="py-1.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-900 border border-sky-300 text-[10px] font-black flex items-center justify-center gap-1 transition cursor-pointer shadow-xs"
-                      onClick={(e) => { if (!qrDataUrl) e.preventDefault(); }}
-                    >
-                      💾 Save QR
-                    </a>
-                    <button
-                      type="button"
-                      onClick={handleCopyFullPayment}
-                      className={`py-1.5 rounded-lg border text-[10px] font-black flex items-center justify-center gap-1 transition cursor-pointer shadow-xs ${
-                        copiedPaymentText
-                          ? 'bg-emerald-100 border-emerald-400 text-emerald-900'
-                          : 'bg-indigo-100 hover:bg-indigo-200 border-indigo-300 text-indigo-900'
-                      }`}
-                    >
-                      {copiedPaymentText ? (<>✓ Copied!</>) : (<><Copy className="w-3 h-3" /> Copy Full Info</>)}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const account = provider === 'Telebirr'
+                        ? ownerAccounts.find((item) => item.method === 'TELEBIRR')
+                        : ownerAccounts.find((item) => item.method === 'CBE');
+                      if (account) handleCopyRef(account.accountNumber);
+                    }}
+                    className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"
+                  >
+                    <Copy className="mr-1 inline h-3 w-3" />{copiedRef ? 'Copied' : 'Copy'}
+                  </button>
                 </div>
-
-                {/* Exact Copyable Payment Line — so users don't type the wrong amount */}
-                {fullPaymentText && (
-                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-2 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-800">
-                        ✅ Paste this as your Remark/Message (Exact Amount)
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleCopyFullPayment}
-                        className="p-1 rounded text-amber-800 hover:bg-amber-200 cursor-pointer"
-                        title="Copy exact payment text"
-                      >
-                        {copiedPaymentText ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-slate-800 font-mono font-bold leading-snug break-all bg-white rounded border border-amber-200 p-1.5 select-all">
-                      {fullPaymentText}
-                    </p>
-                  </div>
-                )}
+                <p className="mt-2 text-xs text-slate-600">Pay {amount} ETB in your {provider} app, then enter the transaction ID.</p>
               </div>
-
-              {/* 🔢 TRANSACTION CODE / FT NUMBER / SMS INPUT (CBE SAFE) */}
-              <div className="space-y-2 bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 p-3.5 rounded-2xl border-2 border-emerald-400 shadow-xs">
+              <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-black text-emerald-950 flex items-center gap-1.5">
-                    <span className="text-sm">🔑</span>
+                  <label className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                     <span>
                       {provider === 'CBE Birr' || provider === 'Bank Transfer'
-                        ? (isAm ? 'የ CBE የክፍያ መለያ / FT ቁጥር (Transaction ID)' : 'CBE Merchant Transaction ID / FT Number')
-                        : (isAm ? 'የቴሌብር የክፍያ መለያ ቁጥር (Merchant Transaction ID)' : 'Telebirr Merchant Transaction ID / Reference')}
+                        ? (isAm ? 'የCBE ግብይት መለያ ቁጥር' : 'CBE transaction ID')
+                        : (isAm ? 'የቴሌብር ግብይት መለያ ቁጥር' : 'Telebirr transaction ID')}
                     </span>
                     <span className="text-rose-600 font-black">*</span>
                   </label>
-                  <span className="text-[9px] font-black text-white bg-amber-600 px-2 py-0.5 rounded-full shadow-xs uppercase flex items-center gap-1">
-                    📋 {isAm ? 'Admin Review' : 'Admin Review'}
-                  </span>
                 </div>
 
                 <div className="relative">
@@ -1104,14 +815,13 @@ export default function WalletManager() {
                     type="text"
                     placeholder={
                       provider === 'CBE Birr' || provider === 'Bank Transfer'
-                        ? (isAm ? 'ለምሳሌ: FT260927XXXXX ወይም ከባንኩ የተላከውን SMS እዚህ ይለጥፉ' : 'e.g. FT260927XXXXX or paste bank confirmation SMS')
-                        : (isAm ? 'ለምሳሌ: CI0000XXXX ወይም የቴሌብር SMS Transaction Code' : 'e.g. CI0000XXXX or Telebirr TXN Code')
+                        ? 'e.g. FT260927XXXXX'
+                        : 'e.g. CI0000XXXX'
                     }
                     value={transactionCode}
                     onChange={(e) => {
                       const val = e.target.value.toUpperCase().replace(/\s/g, '');
                       setTransactionCode(val);
-                      if (screenshotError) setScreenshotError(null);
                       if (depositError) setDepositError(null);
                     }}
                     className="w-full bg-white border-2 border-emerald-300 focus:border-emerald-600 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none shadow-inner"
@@ -1127,96 +837,8 @@ export default function WalletManager() {
                   )}
                 </div>
 
-                {/* Real-time format hint */}
-                <p className="text-[10px] text-slate-500 font-medium">
-                  {provider === 'Telebirr'
-                    ? (isAm ? '💡 የቴሌብር መለያ ቁጥር 10 ፊደላት/ቁጥሮች ነው (ምሳሌ: DJ74JCZJNJ)' : '💡 Telebirr code is 10 alphanumeric characters (e.g. DJ74JCZJNJ)')
-                    : (isAm ? '💡 የCBE ማስተላለፊያ ቁጥር በ FT ይጀምራል (ምሳሌ: FT24281XXXXX)' : '💡 CBE reference begins with FT (e.g. FT24281XXXXX)')}
-                </p>
-
-                {/* Verification notice */}
-                <div className="bg-amber-50/80 rounded-xl p-2.5 border border-amber-300 flex items-start gap-2">
-                  <span className="text-base shrink-0 mt-0.5">⏳</span>
-                  <p className="text-[10px] text-amber-900 font-bold leading-relaxed">
-                    {isAm
-                      ? 'የግብይት መለያዎ በቦኖ ይረጋገጣል። ቦኖ ማረጋገጥ ካልቻለ ለአስተዳዳሪ ይላካል፤ እስኪረጋገጥ ድረስ ቦርሳዎ አይሞላም።'
-                      : 'Your transaction ID is sent to Bonno for verification. If Bonno cannot verify it, it goes to admin review. Your wallet is credited only after verification.'}
-                  </p>
-                </div>
-              </div>
-
-              {/* 📸 PAYMENT SCREENSHOT UPLOAD (Optional if Transaction Code is entered) */}
-              <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-black text-slate-900 flex items-center gap-1.5">
-                    <Camera className="w-3.5 h-3.5 text-amber-700" />
-                    <span>{isAm ? 'የክፍያ ደረሰኝ ስክሪንሾት (አማራጭ)' : 'Payment Screenshot (Optional)'}</span>
-                  </label>
-                  <span className="text-[9px] text-slate-600 font-bold uppercase tracking-wider bg-slate-200 px-2 py-0.5 rounded">
-                    {transactionCode.trim() ? (isAm ? 'አማራጭ' : 'Optional') : (isAm ? 'አማራጭ / ወይም ኮድ ያስገቡ' : 'Optional / Or Code')}
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-500">
-                  {isAm
-                    ? 'ስክሪንሾት ማንሳት ከቻሉ ማያያዝ ይችላሉ (ከላይ ኮድ ካስገቡ ስክሪንሾት ማስገባት ግዴታ አይደለም)።'
-                    : 'Attach your transfer screenshot if available. If you already entered the transaction code above, screenshot is optional.'}
-                </p>
-
-                {screenshotPreview ? (
-                  <div className="relative rounded-xl border border-emerald-300 bg-white p-2.5 flex items-center gap-3 shadow-xs">
-                    <img
-                      src={screenshotPreview}
-                      alt="Payment Receipt"
-                      className="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-xs"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-emerald-800 truncate flex items-center gap-1">
-                        <CheckCircle className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-                        <span>{isAm ? 'ደረሰኝ ተያይዟል' : 'Receipt Attached'}</span>
-                      </p>
-                      <p className="text-[10px] text-slate-500 truncate mt-0.5">{screenshotFileName || 'screenshot.png'}</p>
-                      <p className="text-[10px] text-amber-800 font-bold">{isAm ? 'ለባለቤቱ በቴሌግራም ይላካል' : 'Sent to owner for verification'}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleRemoveScreenshot}
-                      className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:text-rose-600 transition cursor-pointer"
-                      title="Remove Screenshot"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-xl p-3 cursor-pointer bg-white hover:bg-slate-50 transition text-center group">
-                      <Upload className="w-5 h-5 text-amber-600 group-hover:scale-110 transition mb-0.5" />
-                      <span className="text-xs font-black text-slate-800">
-                        {isAm ? 'ደረሰኝ ካለዎት እዚህ ይጫኑ' : 'Upload Receipt (If available)'}
-                      </span>
-                      <span className="text-[9px] text-slate-400 mt-0.5">
-                        JPG, PNG
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleScreenshotChange}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                )}
-
-                {screenshotError && (
-                  <p className="text-[11px] text-rose-700 font-bold flex items-center gap-1 mt-1">
-                    <XCircle className="w-3.5 h-3.5 shrink-0" /> {screenshotError}
-                  </p>
-                )}
-                {depositError && (
-                  <div className="p-3 bg-rose-50 border-2 border-rose-300 rounded-xl flex items-center gap-2 text-rose-800 text-xs font-bold shadow-xs">
-                    <XCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                    <span>{depositError}</span>
-                  </div>
-                )}
+                <p className="text-xs text-slate-600">Bonno checks the payment. Your wallet is credited only after verification.</p>
+                {depositError && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">{depositError}</p>}
               </div>
 
               <div className="flex gap-2 pt-1">
@@ -1230,9 +852,9 @@ export default function WalletManager() {
                 <button
                   type="button"
                   onClick={handleDepositSubmit}
-                  disabled={isProcessing || (!transactionCode.trim() && !screenshotBase64)}
+                  disabled={isProcessing || !transactionCode.trim()}
                   className={`w-2/3 py-2.5 rounded-xl font-black text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
-                    (!transactionCode.trim() && !screenshotBase64)
+                    !transactionCode.trim()
                       ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-60'
                       : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20'
                   }`}
@@ -1244,14 +866,6 @@ export default function WalletManager() {
                   )}
                 </button>
               </div>
-              {/* Helper hint — tells user what unlocks the submit button */}
-              {!transactionCode.trim() && !screenshotBase64 && (
-                <p className="text-[10px] text-center text-amber-800 font-bold bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                  ⬆️ {isAm
-                    ? 'ለማስገባት: ከላይ ያለውን የ Transaction ID / FT ቁጥር ያስገቡ (ወይም ደረሰኝ ያያይዙ)'
-                    : 'To submit: Enter your Transaction ID / FT number above (or attach receipt)'}
-                </p>
-              )}
             </div>
           )}
         </form>
@@ -1622,81 +1236,6 @@ export default function WalletManager() {
                 </div>
               ))
             )}
-          </div>
-        </div>
-      )}
-
-      {/* ── QR CODE MODAL ────────────────────────────────────────────────────── */}
-      {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 border-2 border-blue-400 shadow-2xl relative text-center space-y-4">
-            {/* Close button */}
-            <button
-              onClick={() => setShowQrModal(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer transition"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="flex flex-col items-center">
-              <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 bg-blue-100 px-3 py-1 rounded-full border border-blue-200 mb-1">
-                Instant Transfer QR
-              </span>
-              <h3 className="text-lg font-black text-slate-900">
-                {provider} Scan & Pay
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">
-                የቴሌብር ወይም የሲቢኢ ብር አፕሊኬሽን በመጠቀም ስካን ያድርጉ
-              </p>
-            </div>
-
-            {/* QR Code Container with animated scan effect */}
-            <div className="relative mx-auto w-52 h-52 bg-white p-3 rounded-2xl border-2 border-dashed border-blue-300 shadow-inner flex items-center justify-center overflow-hidden">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
-                  provider === 'Telebirr'
-                    ? `telebirr://transfer?phone=251938922481&amount=${amount}&ref=${depositReference}`
-                    : `cbe://transfer?account=1000540829954&amount=${amount}&ref=${depositReference}`
-                )}`}
-                alt="Payment QR Code"
-                className="w-44 h-44 object-contain rounded-lg"
-              />
-              <div className="absolute inset-x-4 top-2 h-0.5 bg-blue-500/80 shadow-[0_0_8px_#3b82f6] animate-bounce pointer-events-none"></div>
-            </div>
-
-            {/* Payment Summary */}
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs space-y-1.5 text-left">
-              <div className="flex justify-between items-center text-slate-700 font-semibold">
-                <span>Amount to Pay:</span>
-                <span className="text-base font-black text-emerald-700">{amount} ETB</span>
-              </div>
-              <div className="flex justify-between items-center text-slate-700 font-semibold">
-                <span>Recipient:</span>
-                <span className="font-mono font-black text-slate-900">
-                  {provider === 'Telebirr' ? '0938922481' : '1000540829954'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-slate-700 font-semibold pt-1 border-t border-slate-200">
-                <span>Remark:</span>
-                <div className="flex items-center gap-1">
-                  <span className="font-mono font-bold text-amber-800 text-[11px] truncate max-w-[140px]">{depositReference}</span>
-                  <button
-                    onClick={() => handleCopyRef(depositReference)}
-                    className="p-1 text-slate-500 hover:text-amber-800 cursor-pointer"
-                    title="Copy Reference"
-                  >
-                    {copiedRef ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowQrModal(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-black text-xs transition cursor-pointer"
-            >
-              Done / ተጠናቋል
-            </button>
           </div>
         </div>
       )}
