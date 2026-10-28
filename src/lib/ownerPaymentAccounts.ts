@@ -35,7 +35,7 @@ function readOwnerConfig() {
     process.env.OWNER_TELEBIRR_MERCHANT_ID ??
     process.env.OWNER_TELEBIRR_PHONE ??
     process.env.NEXT_PUBLIC_OWNER_TELEBIRR_PHONE ??
-    '0938922481';
+    '+251912738543';
   const telebirrName =
     process.env.OWNER_TELEBIRR_NAME ??
     process.env.NEXT_PUBLIC_OWNER_TELEBIRR_NAME ??
@@ -51,7 +51,7 @@ function readOwnerConfig() {
   const cbeAccount =
     process.env.OWNER_CBE_ACCOUNT ??
     process.env.NEXT_PUBLIC_OWNER_CBE_ACCOUNT ??
-    '1000540829954';
+    '1000444571528';
   return { telebirrPhone, telebirrName, cbePhone, cbeName, cbeAccount };
 }
 
