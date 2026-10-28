@@ -17,7 +17,7 @@ declare global {
 }
 
 export default function WalletManager() {
-  const { wallet, transactions, depositWallet, submitPendingDeposit, requestWithdrawal, user, openAuthModal, t, language } = useBingo();
+  const { wallet, transactions, depositWallet, submitPendingDeposit, requestWithdrawal, refreshWallet, user, openAuthModal, t, language } = useBingo();
   const isAm = language === 'am';
 
   const [activeTab, setActiveTab] = useState<'balance' | 'deposit' | 'withdraw' | 'accounts' | 'history'>('balance');
@@ -346,7 +346,12 @@ export default function WalletManager() {
     try {
       const res = await fetch('/api/payments/deposit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(window.Telegram?.WebApp?.initData
+            ? { 'X-Telegram-Init-Data': window.Telegram.WebApp.initData }
+            : {}),
+        },
         body: JSON.stringify({
           userId:          user?.id,
           amount:          depositAmt,
@@ -363,13 +368,11 @@ export default function WalletManager() {
       const data = await res.json();
 
       if (data.success) {
-        // Do NOT credit wallet locally — admin must verify first
-        showStatus(
-          'success',
-          isAm
-            ? `የ ${depositAmt} ETB ተቀማጭ ጥያቄዎ ለአስተዳዳሪ ተልኳል! ክፍያው ሲረጋገጥ ሂሳብዎ ይሞላል።`
-            : `Deposit of ${depositAmt} ETB submitted for admin review! Your balance will be credited once verified.`
-        );
+        // The backend may have credited a Bonno-verified transfer; always reload the authoritative balance.
+        await refreshWallet();
+        showStatus('success', data.message || (isAm
+          ? `የ ${depositAmt} ETB ተቀማጭ ጥያቄዎ ለአስተዳዳሪ ተልኳል! ክፍያው ሲረጋገጥ ሂሳብዎ ይሞላል።`
+          : `Deposit of ${depositAmt} ETB submitted for admin review! Your balance will be credited once verified.`));
         setActiveTab('history');
         setDepositStep(1);
         setTransactionCode('');
@@ -792,7 +795,10 @@ export default function WalletManager() {
                   {isAm ? 'የክፍያ ዘዴ ምረጡ (Manual Transfer)' : 'Choose Payment Method'}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {([{ name: 'Telebirr', icon: Smartphone, color: 'text-blue-600', desc: t('telecomDesc') }] as const).map((p) => {
+                  {([
+                    { name: 'Telebirr', icon: Smartphone, color: 'text-blue-600', desc: t('telecomDesc') },
+                    { name: 'CBE Birr', icon: Landmark, color: 'text-indigo-600', desc: t('cbeDesc') },
+                  ] as const).map((p) => {
                     const Icon = p.icon;
                     return (
                       <button

@@ -26,6 +26,7 @@ const transactionsMap = new Map<string, Transaction>();
 const withdrawalsMap = new Map<string, WithdrawalRequest>();
 const linkedAccountsMap = new Map<string, LinkedPaymentAccount[]>();
 const announcementsMap = new Map<string, SystemAnnouncement>();
+const bonnoClaimedReferences = new Map<string, string>();
 let activeAnnouncementInMemory: SystemAnnouncement | null = null;
 
 function generateId(prefix = 'id'): string {
@@ -120,6 +121,10 @@ const db = {
    */
   async init() {
     return initDatabaseSchema();
+  },
+
+  isPersistentDatabaseConfigured(): boolean {
+    return Boolean(getNeonSql());
   },
 
   /**
@@ -543,7 +548,7 @@ const db = {
     provider: PaymentProvider;
     reference: string;
     description: string;
-  }): Promise<Transaction> {
+  }): Promise<Transaction | null> {
     const sql = getNeonSql();
     const user = await this.getUserById(params.userId);
     const username = user?.username ?? 'unknown';
@@ -551,23 +556,42 @@ const db = {
 
     if (sql) {
       try {
+        await sql`
+          CREATE TABLE IF NOT EXISTS bonno_deposit_reference_claims (
+            reference_key VARCHAR(255) PRIMARY KEY,
+            transaction_id VARCHAR(64) NOT NULL UNIQUE REFERENCES transactions(id) ON DELETE CASCADE,
+            claimed_at TIMESTAMPTZ DEFAULT NOW()
+          )
+        `;
         const walletRows = await sql`SELECT available_balance FROM wallets WHERE user_id = ${params.userId} LIMIT 1`;
         const currentBal = walletRows.length > 0 ? parseFloat(walletRows[0].available_balance) : 0;
-        const txRows = await sql`
-          INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
-          VALUES (
-            ${txId}, ${params.userId}, ${username}, 'DEPOSIT', ${params.amount}, ${currentBal},
-            ${params.provider}, 'PENDING', ${params.reference}, ${params.description}
-          )
-          RETURNING *
-        `;
-        return rowToTransaction(txRows[0]);
+        const referenceKey = params.reference.trim().toUpperCase().replace(/[\s_-]/g, '');
+        const [txRows] = await sql.transaction((transactionSql) => [
+          transactionSql`
+            INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
+            VALUES (
+              ${txId}, ${params.userId}, ${username}, 'DEPOSIT', ${params.amount}, ${currentBal},
+              ${params.provider}, 'PENDING', ${params.reference}, ${params.description}
+            )
+            RETURNING *
+          `,
+          transactionSql`
+            INSERT INTO bonno_deposit_reference_claims (reference_key, transaction_id)
+            VALUES (${referenceKey}, ${txId})
+          `,
+        ]);
+        return txRows.length > 0 ? rowToTransaction(txRows[0]) : null;
       } catch (e) {
         console.error('Neon createPendingDeposit error:', e);
+        return null;
       }
     }
 
     const wallet = await this.getOrCreateWallet(params.userId);
+    const referenceKey = params.reference.trim().toUpperCase().replace(/[\s_-]/g, '');
+    const claimedBy = bonnoClaimedReferences.get(referenceKey);
+    if (claimedBy) return null;
+    bonnoClaimedReferences.set(referenceKey, txId);
     const tx: Transaction = {
       id: txId,
       userId: params.userId,
@@ -603,7 +627,7 @@ const db = {
               SELECT id FROM transactions
               WHERE type = 'DEPOSIT'
                 AND UPPER(REPLACE(REPLACE(reference, ' ', ''), '-', '')) = ${cleanRef}
-                AND status IN ('COMPLETED', 'PENDING')
+                AND status IN ('COMPLETED', 'PENDING', 'VERIFYING', 'REVIEW_REQUIRED')
                 AND id <> ${excludeTxId}
               LIMIT 1
             `
@@ -611,7 +635,7 @@ const db = {
               SELECT id FROM transactions
               WHERE type = 'DEPOSIT'
                 AND UPPER(REPLACE(REPLACE(reference, ' ', ''), '-', '')) = ${cleanRef}
-                AND status IN ('COMPLETED', 'PENDING')
+                AND status IN ('COMPLETED', 'PENDING', 'VERIFYING', 'REVIEW_REQUIRED')
               LIMIT 1
             `;
         return rows.length > 0;
@@ -624,7 +648,7 @@ const db = {
         t.type === 'DEPOSIT' &&
         t.reference &&
         t.reference.trim().toUpperCase().replace(/[\s-_]/g, '') === cleanRef &&
-        (t.status === 'COMPLETED' || t.status === 'PENDING') &&
+        ['COMPLETED', 'PENDING', 'VERIFYING', 'REVIEW_REQUIRED'].includes(t.status) &&
         t.id !== excludeTxId
     );
   },
@@ -656,6 +680,152 @@ const db = {
         t.reference &&
         t.reference.trim().toUpperCase().replace(/[\s-_]/g, '') === cleanRef
     ) || null;
+  },
+
+  /** Atomically reserve a transaction reference and claim its pending deposit for verification. */
+  async claimDepositForBonnoVerification(transactionId: string): Promise<boolean> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        await sql`
+          CREATE TABLE IF NOT EXISTS bonno_deposit_reference_claims (
+            reference_key VARCHAR(255) PRIMARY KEY,
+            transaction_id VARCHAR(64) NOT NULL UNIQUE REFERENCES transactions(id) ON DELETE CASCADE,
+            claimed_at TIMESTAMPTZ DEFAULT NOW()
+          )
+        `;
+        const rows = await sql`
+          WITH candidate AS (
+            SELECT id, reference FROM transactions
+            WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status = 'PENDING'
+          ), reserved AS (
+            INSERT INTO bonno_deposit_reference_claims (reference_key, transaction_id)
+            SELECT upper(regexp_replace(reference, '[[:space:]_-]', '', 'g')), id FROM candidate
+            ON CONFLICT (reference_key) DO UPDATE
+              SET transaction_id = EXCLUDED.transaction_id
+              WHERE bonno_deposit_reference_claims.transaction_id = EXCLUDED.transaction_id
+            RETURNING transaction_id
+          ), claimed AS (
+            UPDATE transactions
+            SET status = 'VERIFYING', description = 'Verifying transaction with Bonno'
+            WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status = 'PENDING'
+              AND id IN (SELECT transaction_id FROM reserved)
+            RETURNING id
+          )
+          SELECT id FROM claimed
+        `;
+        if (rows.length > 0) return true;
+
+        const conflict = await sql`
+          SELECT reference_key, transaction_id FROM bonno_deposit_reference_claims
+          WHERE transaction_id = ${transactionId}
+             OR reference_key = (
+               SELECT upper(regexp_replace(reference, '[[:space:]_-]', '', 'g'))
+               FROM transactions WHERE id = ${transactionId} AND type = 'DEPOSIT' LIMIT 1
+             )
+          LIMIT 1
+        `;
+        if (conflict.length > 0 && conflict[0].transaction_id !== transactionId) {
+          await sql`
+            UPDATE transactions SET status = 'FAILED', description = 'Duplicate transaction reference already claimed'
+            WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status = 'PENDING'
+          `;
+        }
+        return false;
+      } catch (e) {
+        console.error('Neon claimDepositForBonnoVerification error:', e);
+        return false;
+      }
+    }
+
+    const tx = transactionsMap.get(transactionId);
+    if (!tx || tx.type !== 'DEPOSIT' || tx.status !== 'PENDING') return false;
+    const referenceKey = (tx.reference || '').trim().toUpperCase().replace(/[\s_-]/g, '');
+    const existingClaim = bonnoClaimedReferences.get(referenceKey);
+    if (existingClaim && existingClaim !== transactionId) {
+      tx.status = 'FAILED';
+      tx.description = 'Duplicate transaction reference already claimed';
+      transactionsMap.set(tx.id, tx);
+      return false;
+    }
+    bonnoClaimedReferences.set(referenceKey, transactionId);
+    tx.status = 'VERIFYING';
+    tx.description = 'Verifying transaction with Bonno';
+    transactionsMap.set(tx.id, tx);
+    return true;
+  },
+
+  /** Keep uncertain Bonno results uncredited and visible for an administrator. */
+  async markDepositReviewRequired(transactionId: string, reason: string): Promise<Transaction | null> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          UPDATE transactions
+          SET status = 'REVIEW_REQUIRED', description = ${`Bonno review required: ${reason}`}
+          WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status = 'VERIFYING'
+          RETURNING *
+        `;
+        return rows.length > 0 ? rowToTransaction(rows[0]) : null;
+      } catch (e) {
+        console.error('Neon markDepositReviewRequired error:', e);
+        return null;
+      }
+    }
+
+    const tx = transactionsMap.get(transactionId);
+    if (!tx || tx.status !== 'VERIFYING') return null;
+    tx.status = 'REVIEW_REQUIRED';
+    tx.description = `Bonno review required: ${reason}`;
+    transactionsMap.set(tx.id, tx);
+    return tx;
+  },
+
+  /** Credit a verified deposit once, in the same database statement that claims it. */
+  async completeBonnoVerifiedDeposit(transactionId: string): Promise<Transaction | null> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          WITH claimed AS (
+            UPDATE transactions
+            SET status = 'COMPLETED', description = 'Deposit verified with Bonno', verified_by = 'Bonno'
+            WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status = 'VERIFYING'
+            RETURNING *
+          ), wallet_update AS (
+            INSERT INTO wallets (user_id, available_balance, bonus_balance, winning_balance, total_deposited, total_withdrawn)
+            SELECT user_id, amount, 20.00, 0.00, amount, 0.00 FROM claimed
+            ON CONFLICT (user_id) DO UPDATE SET
+              available_balance = wallets.available_balance + EXCLUDED.available_balance,
+              total_deposited = wallets.total_deposited + EXCLUDED.total_deposited,
+              updated_at = NOW()
+            RETURNING user_id, available_balance
+          )
+          SELECT claimed.id, claimed.user_id, claimed.username, claimed.type, claimed.amount,
+            wallet_update.available_balance AS balance_after, claimed.provider, claimed.status,
+            claimed.reference, claimed.description, claimed.created_at, claimed.verified_by
+          FROM claimed JOIN wallet_update USING (user_id)
+        `;
+        return rows.length > 0 ? rowToTransaction(rows[0]) : null;
+      } catch (e) {
+        console.error('Neon completeBonnoVerifiedDeposit error:', e);
+        return null;
+      }
+    }
+
+    const tx = transactionsMap.get(transactionId);
+    if (!tx || tx.type !== 'DEPOSIT' || tx.status !== 'VERIFYING') return null;
+    const wallet = await this.getOrCreateWallet(tx.userId);
+    if (tx.status !== 'VERIFYING') return null;
+    wallet.availableBalance += tx.amount;
+    wallet.totalDeposited += tx.amount;
+    walletsMap.set(tx.userId, wallet);
+    tx.balanceAfter = wallet.availableBalance;
+    tx.status = 'COMPLETED';
+    tx.verifiedBy = 'Bonno';
+    tx.description = 'Deposit verified with Bonno';
+    transactionsMap.set(tx.id, tx);
+    return tx;
   },
 
   /**
@@ -798,7 +968,7 @@ const db = {
           SELECT COUNT(*)::int as count FROM transactions
           WHERE user_id = ${userId}
             AND type = 'DEPOSIT'
-            AND status = 'PENDING'
+            AND status IN ('PENDING', 'VERIFYING', 'REVIEW_REQUIRED')
         `;
         return rows[0]?.count ?? 0;
       } catch (e) {
@@ -806,7 +976,7 @@ const db = {
       }
     }
     return [...transactionsMap.values()].filter(
-      (t) => t.userId === userId && t.type === 'DEPOSIT' && t.status === 'PENDING'
+      (t) => t.userId === userId && t.type === 'DEPOSIT' && ['PENDING', 'VERIFYING', 'REVIEW_REQUIRED'].includes(t.status)
     ).length;
   },
 
@@ -817,31 +987,34 @@ const db = {
     const sql = getNeonSql();
     if (sql) {
       try {
-        const txRows = await sql`SELECT * FROM transactions WHERE id = ${transactionId} LIMIT 1`;
-        if (txRows.length === 0) return null;
-        const tx = rowToTransaction(txRows[0]);
-        if (tx.status !== 'PENDING') return tx;
-
-        // Credit user wallet
-        const walletRows = await sql`
-          UPDATE wallets
-          SET
-            available_balance = available_balance + ${tx.amount},
-            total_deposited = total_deposited + ${tx.amount},
-            updated_at = NOW()
-          WHERE user_id = ${tx.userId}
-          RETURNING *
+        const claimed = await sql`
+          WITH claimed AS (
+            UPDATE transactions
+            SET status = 'COMPLETED', description = 'Deposit approved by administrator', verified_by = ${verifiedBy ?? null}
+            WHERE id = ${transactionId} AND type = 'DEPOSIT'
+              AND status IN ('PENDING', 'REVIEW_REQUIRED')
+            RETURNING *
+          ), wallet_update AS (
+            INSERT INTO wallets (user_id, available_balance, bonus_balance, winning_balance, total_deposited, total_withdrawn)
+            SELECT user_id, amount, 20.00, 0.00, amount, 0.00 FROM claimed
+            ON CONFLICT (user_id) DO UPDATE SET
+              available_balance = wallets.available_balance + EXCLUDED.available_balance,
+              total_deposited = wallets.total_deposited + EXCLUDED.total_deposited,
+              updated_at = NOW()
+            RETURNING user_id, available_balance
+          )
+          SELECT claimed.id, claimed.user_id, claimed.username, claimed.type, claimed.amount,
+            wallet_update.available_balance AS balance_after, claimed.provider, claimed.status,
+            claimed.reference, claimed.description, claimed.created_at, claimed.verified_by
+          FROM claimed JOIN wallet_update USING (user_id)
         `;
-        const newBal = walletRows.length > 0 ? parseFloat(walletRows[0].available_balance) : 0;
+        if (claimed.length > 0) return rowToTransaction(claimed[0]);
 
-        // Update tx
-        const updatedTxRows = await sql`
-          UPDATE transactions
-          SET status = 'COMPLETED', balance_after = ${newBal}, verified_by = ${verifiedBy ?? null}
-          WHERE id = ${transactionId}
-          RETURNING *
-        `;
-        return rowToTransaction(updatedTxRows[0]);
+        const existing = await sql`SELECT * FROM transactions WHERE id = ${transactionId} LIMIT 1`;
+        if (existing.length > 0 && existing[0].status === 'COMPLETED' && existing[0].type === 'DEPOSIT') {
+          return rowToTransaction(existing[0]);
+        }
+        return null;
       } catch (e) {
         console.error('Neon approvePendingDeposit error:', e);
       }
@@ -849,9 +1022,10 @@ const db = {
 
     // In-memory
     const tx = transactionsMap.get(transactionId);
-    if (!tx || tx.status !== 'PENDING') return tx || null;
+    if (!tx || tx.type !== 'DEPOSIT' || !['PENDING', 'REVIEW_REQUIRED'].includes(tx.status)) return tx || null;
 
     const wallet = await this.getOrCreateWallet(tx.userId);
+    if (!['PENDING', 'REVIEW_REQUIRED'].includes(tx.status)) return tx.status === 'COMPLETED' ? tx : null;
     wallet.availableBalance += tx.amount;
     wallet.totalDeposited += tx.amount;
     walletsMap.set(tx.userId, wallet);
@@ -873,7 +1047,9 @@ const db = {
         const updatedTxRows = await sql`
           UPDATE transactions
           SET status = 'FAILED'
-          WHERE id = ${transactionIdOrRef} OR reference = ${transactionIdOrRef}
+          WHERE type = 'DEPOSIT'
+            AND (id = ${transactionIdOrRef} OR reference = ${transactionIdOrRef})
+            AND status IN ('PENDING', 'REVIEW_REQUIRED')
           RETURNING *
         `;
         if (updatedTxRows.length > 0) return rowToTransaction(updatedTxRows[0]);
@@ -884,7 +1060,7 @@ const db = {
 
     const tx = transactionsMap.get(transactionIdOrRef) ||
       [...transactionsMap.values()].find(t => t.reference === transactionIdOrRef);
-    if (tx) {
+    if (tx && tx.type === 'DEPOSIT' && ['PENDING', 'REVIEW_REQUIRED'].includes(tx.status)) {
       tx.status = 'FAILED';
       transactionsMap.set(tx.id, tx);
       return tx;

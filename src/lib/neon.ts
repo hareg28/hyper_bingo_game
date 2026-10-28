@@ -160,6 +160,15 @@ export async function initDatabaseSchema() {
       await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS verified_by VARCHAR(255)`;
     } catch {}
 
+    // Reserve each normalized bank reference to one deposit, even under concurrent submissions.
+    await sql`
+      CREATE TABLE IF NOT EXISTS bonno_deposit_reference_claims (
+        reference_key VARCHAR(255) PRIMARY KEY,
+        transaction_id VARCHAR(64) NOT NULL UNIQUE REFERENCES transactions(id) ON DELETE CASCADE,
+        claimed_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+
     // 4. Withdrawal Requests Table
     await sql`
       CREATE TABLE IF NOT EXISTS withdrawal_requests (

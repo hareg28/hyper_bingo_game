@@ -34,6 +34,14 @@ import { getInitialLotterySoldMap } from '../lib/store';
 import { audioManager } from '../lib/audioManager';
 import { isMiniAppActive, subscribeToMiniAppActivity } from '../lib/miniAppActivity';
 
+function getTelegramAuthHeaders(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  const initData = (window as any).Telegram?.WebApp?.initData;
+  return typeof initData === 'string' && initData
+    ? { 'X-Telegram-Init-Data': initData }
+    : {};
+}
+
 interface NotificationMessage {
   id: string;
   title: string;
@@ -72,6 +80,7 @@ interface BingoContextType {
   submitPendingDeposit: (amount: number, provider: PaymentProvider, reference: string, transactionCode?: string) => Promise<boolean>;
   approveDeposit: (transactionId: string, adminName: string) => Promise<void>;
   rejectDeposit: (transactionId: string, adminName: string) => Promise<void>;
+  refreshWallet: () => Promise<void>;
   requestWithdrawal: (amount: number, provider: PaymentProvider, accountNumber: string, accountName: string) => Promise<boolean>;
   approveWithdrawal: (withdrawalId: string, adminName: string, payoutReference?: string) => Promise<void>;
   rejectWithdrawal: (withdrawalId: string, adminName: string) => Promise<void>;
@@ -1125,7 +1134,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const refreshFinanceQueue = async () => {
     try {
       const [depRes, wdrRes] = await Promise.all([
-        fetch('/api/admin/deposits'),
+        fetch('/api/admin/deposits', { headers: getTelegramAuthHeaders() }),
         fetch('/api/admin/withdrawals'),
       ]);
       const depJson = await depRes.json();
@@ -1157,10 +1166,24 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshWallet = async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch(`/api/wallet?userId=${encodeURIComponent(user.id)}`, { cache: 'no-store' });
+      const result = await res.json();
+      if (result.success && result.data?.wallet) {
+        setWallet(result.data.wallet);
+        localStorage.setItem('hyper_bingo_wallet', JSON.stringify(result.data.wallet));
+      }
+    } catch {
+      /* Keep the current balance if the refresh request fails. */
+    }
+  };
+
   // 4b. ADMIN APPROVE DEPOSIT
   const approveDeposit = async (transactionId: string, adminName: string) => {
     const tx = transactions.find((t) => t.id === transactionId);
-    if (!tx || tx.status !== 'PENDING') return;
+    if (!tx || !['PENDING', 'REVIEW_REQUIRED'].includes(tx.status)) return;
 
     // Optimistically mark as COMPLETED immediately so the button disappears
     setTransactions((prev) =>
@@ -1170,7 +1193,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     try {
       const res = await fetch('/api/admin/deposits', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
         body: JSON.stringify({ transactionId, action: 'APPROVE', adminName }),
       });
       const json = await res.json();
@@ -1182,7 +1205,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       } else if (!json.success) {
         // Revert on failure
         setTransactions((prev) =>
-          prev.map((t) => (t.id === transactionId ? { ...t, status: 'PENDING' } : t))
+          prev.map((t) => (t.id === transactionId ? { ...t, status: tx.status } : t))
         );
         addNotification('❌ Approval Failed', json.error ?? 'Could not approve deposit.', 'error');
         return;
@@ -1190,17 +1213,13 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     } catch {
       // Revert on network error
       setTransactions((prev) =>
-        prev.map((t) => (t.id === transactionId ? { ...t, status: 'PENDING' } : t))
+        prev.map((t) => (t.id === transactionId ? { ...t, status: tx.status } : t))
       );
       addNotification('❌ Approval Failed', 'Network error. Please try again.', 'error');
       return;
     }
 
-    setWallet((prev) => ({
-      ...prev,
-      availableBalance: prev.availableBalance + tx.amount,
-      totalDeposited: prev.totalDeposited + tx.amount,
-    }));
+    await refreshWallet();
 
     const audit: AuditLog = {
       id: `aud_${Date.now()}`,
@@ -1236,14 +1255,14 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     try {
       const res = await fetch('/api/admin/deposits', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
         body: JSON.stringify({ transactionId, action: 'REJECT', adminName }),
       });
       const json = await res.json();
       if (!json.success) {
         // Revert on failure
         setTransactions((prev) =>
-          prev.map((t) => (t.id === transactionId ? { ...t, status: 'PENDING' } : t))
+          prev.map((t) => (t.id === transactionId ? { ...t, status: tx.status } : t))
         );
         addNotification('❌ Rejection Failed', json.error ?? 'Could not reject deposit.', 'error');
         return;
@@ -1251,7 +1270,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     } catch {
       // Revert on network error
       setTransactions((prev) =>
-        prev.map((t) => (t.id === transactionId ? { ...t, status: 'PENDING' } : t))
+        prev.map((t) => (t.id === transactionId ? { ...t, status: tx.status } : t))
       );
       addNotification('❌ Rejection Failed', 'Network error. Please try again.', 'error');
       return;
@@ -2558,6 +2577,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         submitPendingDeposit,
         approveDeposit,
         rejectDeposit,
+        refreshWallet,
         requestWithdrawal,
         approveWithdrawal,
         rejectWithdrawal,

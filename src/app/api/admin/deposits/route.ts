@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 import { getAdminWhitelist } from '@/lib/authUtils';
+import { getAuthorizedTelegramAdmin, isAuthorizedTelegramAdmin } from '@/lib/adminRequestAuth';
 
 /** Format a date in Ethiopian local time (UTC+3) */
 function formatEthTime(date: Date): string {
@@ -28,7 +29,10 @@ function formatEthTime(date: Date): string {
 }
 
 // ── GET — list all recent deposits (any status) ─────────────────────────────
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!isAuthorizedTelegramAdmin(req)) {
+    return NextResponse.json<ApiResponse>({ success: false, error: 'Administrator authentication required.' }, { status: 403 });
+  }
   try {
     const deposits = await db.getRecentDeposits();
     return NextResponse.json<ApiResponse>({
@@ -47,12 +51,16 @@ export async function GET() {
 // ── POST — approve or reject a pending deposit ──────────────────────────────
 export async function POST(req: NextRequest) {
   try {
+    const authorizedAdmin = getAuthorizedTelegramAdmin(req);
+    if (!authorizedAdmin) {
+      return NextResponse.json<ApiResponse>({ success: false, error: 'Administrator authentication required.' }, { status: 403 });
+    }
     const body = await req.json();
-    const { transactionId, action, adminName } = body as {
+    const { transactionId, action } = body as {
       transactionId: string;
       action: 'APPROVE' | 'REJECT';
-      adminName?: string;
     };
+    const adminName = authorizedAdmin.username || String(authorizedAdmin.id);
 
     if (!transactionId || !action) {
       return NextResponse.json<ApiResponse>({

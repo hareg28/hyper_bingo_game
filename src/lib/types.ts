@@ -94,7 +94,7 @@ export type TransactionType =
   | 'REFERRAL_BONUS'
   | 'PROMOTION_BONUS';
 
-export type TransactionStatus = 'PENDING' | 'APPROVED' | 'COMPLETED' | 'REJECTED' | 'FAILED';
+export type TransactionStatus = 'PENDING' | 'VERIFYING' | 'REVIEW_REQUIRED' | 'APPROVED' | 'COMPLETED' | 'REJECTED' | 'FAILED';
 
 /**
  * All supported ETB payment providers.

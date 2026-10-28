@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAdminTelegramId } from '@/lib/authUtils';
 import { db } from '@/lib/db';
 import { getNeonSql } from '@/lib/neon';
+import { verifyDepositActionSignature } from '@/lib/adminDepositActions';
 
 function safeTgHtml(str: string): string {
   if (!str) return '';
@@ -131,13 +132,19 @@ export async function POST(req: NextRequest) {
       }
 
       if (data.startsWith('appr_dep:') || data.startsWith('rejc_dep:')) {
+        const isApprove = data.startsWith('appr_dep:');
+        const actionPrefix = isApprove ? 'appr_dep:' : 'rejc_dep:';
+        const [txId, signature] = data.slice(actionPrefix.length).split(':');
+        const signedAction = isApprove ? 'approve' : 'reject';
+        if (!txId || !signature || !verifyDepositActionSignature(signedAction, txId, signature)) {
+          await answerCallback('⛔ Invalid or expired deposit action.', true);
+          return NextResponse.json({ ok: true });
+        }
+
         if (!isAdmin) {
           await answerCallback('⛔ Access Denied: You are not authorized to approve deposits.', true);
           return NextResponse.json({ ok: true });
         }
-
-        const isApprove = data.startsWith('appr_dep:');
-        const txId = data.replace(isApprove ? 'appr_dep:' : 'rejc_dep:', '').trim();
 
         if (isApprove) {
           const approvedTx = await db.approvePendingDeposit(txId, adminTelegramId);
@@ -158,7 +165,7 @@ export async function POST(req: NextRequest) {
                 text:
                   `🎉 <b>DEPOSIT CONFIRMED &amp; CREDITED!</b>\n\n` +
                   `💰 Amount: <b>+${approvedTx.amount} ETB</b>\n` +
-                  `💳 Provider: <b>${approvedTx.provider || 'Telebirr'}</b>\n` +
+                `💳 Provider: <b>${approvedTx.paymentProvider || 'Telebirr'}</b>\n` +
                   `🔖 Reference: <code>${approvedTx.reference}</code>\n\n` +
                   `✨ Your wallet balance has been credited. Good luck playing Hyper Bingo!`,
               });

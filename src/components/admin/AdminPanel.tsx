@@ -635,7 +635,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
         {/* ── Pending Finance Notifications Banner ──────────────────────────── */}
         {(() => {
-          const pendingDeposits = transactions.filter((t) => t.type === 'DEPOSIT' && t.status === 'PENDING');
+          const pendingDeposits = transactions.filter((t) => t.type === 'DEPOSIT' && ['PENDING', 'VERIFYING', 'REVIEW_REQUIRED'].includes(t.status));
           const pendingWithdrawalsCount = withdrawals.filter((w) => w.status === 'PENDING').length;
           const total = pendingDeposits.length + pendingWithdrawalsCount;
           if (total === 0) return null;
@@ -1483,7 +1483,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                   </p>
                 </div>
                 <span className="px-2.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  {transactions.filter((t) => t.type === 'DEPOSIT' && t.status === 'PENDING').length} {language === 'am' ? 'በመጠባበቅ ላይ' : 'Pending'}
+                  {transactions.filter((t) => t.type === 'DEPOSIT' && ['PENDING', 'VERIFYING', 'REVIEW_REQUIRED'].includes(t.status)).length} {language === 'am' ? 'በመጠባበቅ ላይ' : 'Needs review'}
                 </span>
               </div>
 
@@ -1521,6 +1521,9 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                             </td>
                             <td className="p-2.5 font-mono text-xs font-black text-amber-800 bg-amber-50 px-2 py-1 rounded border border-amber-200">
                               {tx.reference || '—'}
+                              {tx.status === 'REVIEW_REQUIRED' && tx.description && (
+                                <div className="mt-1 font-sans font-semibold text-[10px] text-rose-700">{tx.description}</div>
+                              )}
                             </td>
                             <td className="p-2.5 font-black text-emerald-700 font-mono text-xs">{formatETB(tx.amount)}</td>
                             <td className="p-2.5">
@@ -1528,7 +1531,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                                 className={`px-2 py-0.5 rounded text-[10px] font-black ${
                                   tx.status === 'COMPLETED'
                                     ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                    : tx.status === 'PENDING'
+                                    : tx.status === 'PENDING' || tx.status === 'VERIFYING' || tx.status === 'REVIEW_REQUIRED'
                                     ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
                                     : 'bg-rose-100 text-rose-800 border border-rose-300'
                                 }`}
@@ -1537,7 +1540,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                               </span>
                             </td>
                             <td className="p-2.5">
-                              {tx.status === 'PENDING' ? (
+                              {tx.status === 'PENDING' || tx.status === 'REVIEW_REQUIRED' ? (
                                 <div className="flex gap-1.5">
                                   <button
                                     type="button"

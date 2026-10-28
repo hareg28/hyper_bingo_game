@@ -10,6 +10,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ApiResponse, PaymentProvider } from '@/lib/types';
 import { getAdminWhitelist } from '@/lib/authUtils';
+import { verifyDepositWithBonno } from '@/lib/bonno';
+import { createDepositActionSignature } from '@/lib/adminDepositActions';
+import { isTelegramInitDataFresh, parseTelegramUser, verifyTelegramInitData } from '@/lib/telegramAuth';
 
 /** Format a date in Ethiopian local time (UTC+3) */
 function formatEthTime(date: Date): string {
@@ -79,10 +82,10 @@ export async function POST(req: NextRequest) {
     };
 
     // ── Common validation ────────────────────────────────────────────────────
-    if (!userId || !amount || amount < 10) {
+    if (typeof userId !== 'string' || !userId || typeof amount !== 'number' || !Number.isFinite(amount) || amount < 10 || Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-6) {
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'userId and amount (minimum 10 ETB) are required',
+        error: 'A valid user and an amount of at least 10 ETB (in whole cents) are required.',
       }, { status: 400 });
     }
 
@@ -98,10 +101,17 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
-    if (provider && provider !== 'Telebirr') {
+    const initData = req.headers.get('x-telegram-init-data') ?? '';
+    const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN ?? '';
+    const telegramIdentity = initData && telegramBotToken && verifyTelegramInitData(initData, telegramBotToken) && isTelegramInitDataFresh(initData)
+      ? parseTelegramUser(initData)
+      : null;
+    const verifiedSubmittingUser = Boolean(telegramIdentity?.id && String(telegramIdentity.id) === user.telegramId);
+
+    if (provider && provider !== 'Telebirr' && provider !== 'CBE Birr') {
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'Only Telebirr merchant deposits are accepted.',
+        error: 'Bonno deposit verification currently supports Telebirr and CBE only.',
       }, { status: 400 });
     }
 
@@ -134,6 +144,13 @@ export async function POST(req: NextRequest) {
         success: false,
         error: 'Please enter your Transaction Reference Code / FT number, or attach a payment receipt screenshot.',
       }, { status: 400 });
+    }
+
+    if (hasCode && process.env.BONNO_API_KEY && verifiedSubmittingUser && !db.isPersistentDatabaseConfigured()) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Automatic deposit verification is unavailable because persistent wallet storage is not configured.',
+      }, { status: 503 });
     }
 
     // ── Strict format validation to prevent fake/random codes ────────────────
@@ -181,16 +198,37 @@ export async function POST(req: NextRequest) {
               'This transaction reference was already verified and approved. Each transfer code can only be used once.',
           }, { status: 409 });
         }
+        if (existing.userId !== userId) {
+          return NextResponse.json<ApiResponse>({
+            success: false,
+            error: 'This transaction reference was already submitted by another user.',
+          }, { status: 409 });
+        }
+        if (Math.round(existing.amount * 100) !== Math.round(amount * 100) || existing.paymentProvider !== (provider ?? 'Telebirr')) {
+          return NextResponse.json<ApiResponse>({
+            success: false,
+            error: 'This transaction reference is already linked to a different amount or payment method.',
+          }, { status: 409 });
+        }
+        if (existing.status === 'VERIFYING') {
+          return NextResponse.json<ApiResponse>({
+            success: false,
+            error: 'This transaction is already being verified. Please wait and refresh your wallet.',
+          }, { status: 409 });
+        }
+        if (existing.status === 'REVIEW_REQUIRED') {
+          return NextResponse.json<ApiResponse>({
+            success: false,
+            error: 'This transfer is already awaiting administrator review. Please wait for an update.',
+          }, { status: 409 });
+        }
         if (existing.status === 'PENDING') {
-          if (existing.userId === userId) {
-            // Already pending for this user — reuse it so admin gets notified
-            pendingTx = existing;
-          } else {
-            return NextResponse.json<ApiResponse>({
-              success: false,
-              error: 'This transaction reference was already submitted by another user.',
-            }, { status: 409 });
-          }
+          pendingTx = existing;
+        } else {
+          return NextResponse.json<ApiResponse>({
+            success: false,
+            error: 'This transaction reference has already been processed and cannot be reused.',
+          }, { status: 409 });
         }
       }
     }
@@ -204,6 +242,41 @@ export async function POST(req: NextRequest) {
         reference: txRef,
         description: `Manual deposit via ${provider ?? 'Telebirr'} — pending admin review`,
       });
+    }
+    if (!pendingTx) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'This transaction reference is already reserved for another deposit, or the request could not be saved. Contact support if you have already paid.',
+      }, { status: 409 });
+    }
+
+    let reviewReason: string | null = null;
+    if (hasCode && process.env.BONNO_API_KEY && verifiedSubmittingUser) {
+      const claimed = await db.claimDepositForBonnoVerification(pendingTx.id);
+      if (!claimed) {
+        return NextResponse.json<ApiResponse>({
+          success: false,
+          error: 'This transaction is already being verified or has been processed. Please refresh your wallet.',
+        }, { status: 409 });
+      }
+
+      const verification = await verifyDepositWithBonno(cleanCode, amount, (provider ?? 'Telebirr') as 'Telebirr' | 'CBE Birr');
+      if (verification.matched) {
+        const completed = await db.completeBonnoVerifiedDeposit(pendingTx.id);
+        if (completed) {
+          return NextResponse.json<ApiResponse>({
+            success: true,
+            data: { txId: completed.id, amount: completed.amount, status: completed.status },
+            message: `Bonno verified the ${completed.amount} ETB deposit and credited your wallet.`,
+          });
+        }
+        reviewReason = 'Verification passed, but safe wallet settlement could not be confirmed.';
+      } else {
+        reviewReason = verification.reason;
+      }
+
+      const reviewTx = await db.markDepositReviewRequired(pendingTx.id, reviewReason);
+      if (reviewTx) pendingTx = reviewTx;
     }
 
     // ── Notify admins via Telegram (non-blocking) ────────────────────────────
@@ -223,19 +296,18 @@ export async function POST(req: NextRequest) {
       `🔖 <b>Reference:</b> <code>${txRef}</code>\n` +
       `📋 <b>Tx ID:</b> <code>${pendingTx.id}</code>\n` +
       `⏰ <b>Time:</b> ${formatEthTime(new Date())}\n\n` +
-      `⚠️ <i>Wallet NOT credited yet. Please verify payment and approve in the admin panel.</i>\n` +
+      (reviewReason
+        ? `⚠️ <i>Wallet NOT credited. Bonno could not safely confirm this transfer; review it in the admin panel.</i>\n`
+        : `⚠️ <i>Wallet NOT credited yet. Please verify payment and approve in the admin panel.</i>\n`) +
       `🔗 <a href="${appUrl}/admin">Open Admin Panel</a>`;
 
     const inlineApprovalKeyboard = {
       inline_keyboard: [
         [
-          { text: `✅ Approve ${amount} ETB`, callback_data: `appr_dep:${pendingTx.id}` },
-          { text: `❌ Reject`, callback_data: `rejc_dep:${pendingTx.id}` },
+          { text: `✅ Approve ${amount} ETB`, callback_data: `appr_dep:${pendingTx.id}:${createDepositActionSignature('approve', pendingTx.id)}` },
+          { text: `❌ Reject`, callback_data: `rejc_dep:${pendingTx.id}:${createDepositActionSignature('reject', pendingTx.id)}` },
         ],
-        [
-          { text: `⚡ 1-Click Web Approve`, url: `${appUrl}/api/admin/quick-approve?action=approve&txId=${pendingTx.id}` },
-          { text: `🛡️ Admin Panel`, url: `${appUrl}?tab=admin` },
-        ],
+        [{ text: `🛡️ Admin Panel`, url: `${appUrl}?tab=admin` }],
       ],
     };
 
@@ -271,8 +343,10 @@ export async function POST(req: NextRequest) {
         txId:    pendingTx.id,
         txRef,
         amount,
-        status:  'PENDING',
-        message: `Deposit request of ${amount} ETB submitted for review. Your balance will be credited once an admin verifies your payment — usually within a few hours.`,
+        status: pendingTx.status,
+        message: pendingTx.status === 'REVIEW_REQUIRED'
+          ? 'Your transfer could not be safely auto-verified. It is awaiting admin review and your wallet has not been credited.'
+          : `Deposit request of ${amount} ETB submitted for review. Your balance will be credited once an admin verifies your payment — usually within a few hours.`,
       },
     });
 

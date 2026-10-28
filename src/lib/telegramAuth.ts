@@ -63,7 +63,7 @@ export function isTelegramInitDataFresh(initData: string, maxAgeSeconds = 86400)
     const authDate = urlParams.get('auth_date');
     if (!authDate) return false;
     const age = Math.floor(Date.now() / 1000) - parseInt(authDate);
-    return age <= maxAgeSeconds;
+    return Number.isFinite(age) && age >= 0 && age <= maxAgeSeconds;
   } catch {
     return false;
   }
