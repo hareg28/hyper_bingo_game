@@ -63,7 +63,7 @@ export async function verifyDepositWithLinksEt(
   amount: number,
   provider: LinksEtDepositProvider,
 ): Promise<LinksEtVerificationResult> {
-  const apiKey = process.env.LINKS_ET_API_KEY;
+  const apiKey = process.env.LINKS_API_KEY || process.env.LINKS_ET_API_KEY;
   if (!apiKey) return { matched: false, reason: 'links.et API key is not configured.' };
   const inputIsUrl = isSupportedLinksEtReceiptUrl(transactionId);
   if (!inputIsUrl && provider !== 'Telebirr') return { matched: false, reason: 'Paste the bank or wallet receipt URL to verify this payment.' };
@@ -86,7 +86,7 @@ export async function verifyDepositWithLinksEt(
     });
 
     if (response.status === 401 || response.status === 403) {
-      return { matched: false, reason: `links.et denied API access (HTTP ${response.status}); check LINKS_ET_API_KEY.` };
+      return { matched: false, reason: `links.et denied API access (HTTP ${response.status}); check LINKS_API_KEY.` };
     }
     if (!response.ok) return { matched: false, reason: `links.et returned HTTP ${response.status}.` };
 

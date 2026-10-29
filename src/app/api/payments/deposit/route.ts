@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
     const hasScreenshot = Boolean(screenshot && screenshot.trim().length > 0);
 
     // links.et accepts Telebirr references directly and receipt URLs from all supported providers.
-    const linksEtApiKeyConfigured = Boolean(process.env.LINKS_ET_API_KEY);
+    const linksEtApiKeyConfigured = Boolean(process.env.LINKS_API_KEY || process.env.LINKS_ET_API_KEY);
     const canVerifyWithLinksEt = hasCode && linksEtApiKeyConfigured && (isReceiptUrl || !provider || provider === 'Telebirr');
     if (isReceiptUrl && (cleanCode.length > 255 || !isSupportedLinksEtReceiptUrl(cleanCode))) {
       return NextResponse.json<ApiResponse>({
