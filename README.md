@@ -1,5 +1,9 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Automatic deposit verification
+
+Manual deposits are checked through [links.et](https://links.et) when `LINKS_ET_API_KEY` is configured in the server environment. Create an API key in the links.et dashboard and add it as a server-only environment variable. Players can submit a Telebirr reference or a receipt URL from any bank or wallet links.et supports. The app checks the returned transaction reference, completed status when provided, amount, and recipient before crediting the wallet. CBE and other providers require a receipt URL; unverifiable receipts remain uncredited for admin review.
+
 ## Getting Started
 
 First, run the development server:

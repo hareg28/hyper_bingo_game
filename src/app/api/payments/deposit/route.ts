@@ -1,8 +1,8 @@
 /**
  * POST /api/payments/deposit
  *
- * Manual Telebirr / CBE deposit only (no payment gateway).
- * Wallet is credited ONLY after an admin verifies the transfer in the admin panel.
+ * Manual Telebirr deposits are checked with links.et when configured.
+ * The admin panel is the fallback when automatic verification cannot confirm a transfer.
  * If the player attaches a screenshot, it is forwarded to all admin Telegram chats as a photo.
  */
 
@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ApiResponse, PaymentProvider } from '@/lib/types';
 import { getAdminWhitelist } from '@/lib/authUtils';
-import { verifyDepositWithBonno } from '@/lib/bonno';
+import { verifyDepositWithLinksEt } from '@/lib/linksEt';
 import { createDepositActionSignature } from '@/lib/adminDepositActions';
 
 /** Format a date in Ethiopian local time (UTC+3) */
@@ -20,6 +20,17 @@ function formatEthTime(date: Date): string {
     dateStyle: 'short',
     timeStyle: 'medium',
   });
+}
+
+function escapeHtml(value: string): string {
+  const entities: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return value.replace(/[&<>"']/g, (character) => entities[character]);
 }
 
 /**
@@ -100,10 +111,10 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
-    if (provider && provider !== 'Telebirr' && provider !== 'CBE Birr') {
+    if (provider && provider !== 'Telebirr' && provider !== 'CBE Birr' && provider !== 'Bank Transfer') {
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'Bonno deposit verification currently supports Telebirr and CBE only.',
+        error: 'Choose Telebirr, CBE Birr, or another supported bank/wallet.',
       }, { status: 400 });
     }
 
@@ -118,15 +129,16 @@ export async function POST(req: NextRequest) {
 
     // ── Manual Telebirr / CBE deposit (admin-reviewed) ───────────────────────
     const rawCode       = (transactionCode ?? '').trim();
-    const cleanCode     = rawCode.toUpperCase().replace(/[\s-_]/g, '');
+    const isReceiptUrl  = /^https:\/\//i.test(rawCode);
+    const cleanCode     = isReceiptUrl ? rawCode : rawCode.toUpperCase().replace(/[\s-_]/g, '');
     const hasCode       = cleanCode.length >= 3;
     const hasScreenshot = Boolean(screenshot && screenshot.trim().length > 0);
 
-    // Bonno is the primary verifier for transaction-code deposits. Admin review
-    // is the fallback when Bonno is unavailable or cannot confirm a transfer.
-    const bonnoApiKeyConfigured = Boolean(process.env.BONNO_API_KEY);
-    const canVerifyWithBonno = hasCode && bonnoApiKeyConfigured;
-    if (!canVerifyWithBonno) {
+    // links.et accepts Telebirr references directly. CBE needs a receipt URL,
+    // which this form does not collect, so CBE remains in administrator review.
+    const linksEtApiKeyConfigured = Boolean(process.env.LINKS_ET_API_KEY);
+    const canVerifyWithLinksEt = hasCode && linksEtApiKeyConfigured && (isReceiptUrl || !provider || provider === 'Telebirr');
+    if (!canVerifyWithLinksEt) {
       const pendingCount = await db.getPendingDepositsCountForUser(userId);
       if (pendingCount >= 2) {
         return NextResponse.json<ApiResponse>({
@@ -143,7 +155,14 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    if (canVerifyWithBonno && !db.isPersistentDatabaseConfigured()) {
+    if (isReceiptUrl && (cleanCode.length > 255 || !/^https:\/\/[a-z0-9.-]+(?::\d+)?\//i.test(cleanCode))) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Enter a valid HTTPS receipt link of 255 characters or fewer.',
+      }, { status: 400 });
+    }
+
+    if (canVerifyWithLinksEt && !db.isPersistentDatabaseConfigured()) {
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'Automatic deposit verification is unavailable because persistent wallet storage is not configured.',
@@ -152,7 +171,7 @@ export async function POST(req: NextRequest) {
 
     // ── Strict format validation to prevent fake/random codes ────────────────
     const provStr = (provider ?? 'Telebirr').toString().toLowerCase();
-    if (hasCode) {
+    if (hasCode && !isReceiptUrl) {
       // Reject repetitive or sequential junk
       if (/^(.)\1+$/.test(cleanCode) || cleanCode === '1234567890' || cleanCode === '0123456789') {
         return NextResponse.json<ApiResponse>({
@@ -215,12 +234,12 @@ export async function POST(req: NextRequest) {
         }
         if (existing.status === 'PENDING') {
           pendingTx = existing;
-        } else if (existing.status === 'REVIEW_REQUIRED' && canVerifyWithBonno) {
+        } else if (existing.status === 'REVIEW_REQUIRED' && canVerifyWithLinksEt) {
           pendingTx = existing;
         } else if (existing.status === 'REVIEW_REQUIRED') {
           return NextResponse.json<ApiResponse>({
             success: false,
-            error: 'This transfer is awaiting administrator review because Bonno verification is unavailable.',
+            error: 'This transfer is awaiting administrator review because automatic verification is unavailable.',
           }, { status: 409 });
         } else {
           return NextResponse.json<ApiResponse>({
@@ -249,8 +268,8 @@ export async function POST(req: NextRequest) {
     }
 
     let reviewReason: string | null = null;
-    if (canVerifyWithBonno) {
-      const claimed = await db.claimDepositForBonnoVerification(pendingTx.id);
+    if (canVerifyWithLinksEt) {
+      const claimed = await db.claimDepositForLinksEtVerification(pendingTx.id);
       if (!claimed) {
         return NextResponse.json<ApiResponse>({
           success: false,
@@ -258,14 +277,14 @@ export async function POST(req: NextRequest) {
         }, { status: 409 });
       }
 
-      const verification = await verifyDepositWithBonno(cleanCode, amount, (provider ?? 'Telebirr') as 'Telebirr' | 'CBE Birr');
+      const verification = await verifyDepositWithLinksEt(cleanCode, amount, (provider ?? 'Telebirr') as 'Telebirr' | 'CBE Birr' | 'Bank Transfer');
       if (verification.matched) {
-        const completed = await db.completeBonnoVerifiedDeposit(pendingTx.id);
+        const completed = await db.completeLinksEtVerifiedDeposit(pendingTx.id, verification.reference);
         if (completed) {
           return NextResponse.json<ApiResponse>({
             success: true,
             data: { txId: completed.id, amount: completed.amount, status: completed.status },
-            message: `Bonno verified the ${completed.amount} ETB deposit and credited your wallet.`,
+            message: `links.et verified the ${completed.amount} ETB deposit and credited your wallet.`,
           });
         }
         reviewReason = 'Verification passed, but safe wallet settlement could not be confirmed.';
@@ -289,13 +308,13 @@ export async function POST(req: NextRequest) {
       `📞 <b>Phone:</b> <code>${user.phone ?? senderPhone ?? 'N/A'}</code>\n` +
       `💰 <b>Amount:</b> <b>${amount} ETB</b>\n` +
       `💳 <b>Provider:</b> ${provider ?? 'Telebirr'}\n` +
-      (hasCode       ? `🔖 <b>Transaction Code / FT:</b> <code>${cleanCode}</code>\n` : '') +
+      (hasCode       ? `🔖 <b>Transaction Code / Receipt Link:</b> <code>${escapeHtml(cleanCode)}</code>\n` : '') +
       (hasScreenshot ? `📸 <b>Receipt/Screenshot:</b> See photo below\n`         : '') +
-      `🔖 <b>Reference:</b> <code>${txRef}</code>\n` +
+      `🔖 <b>Reference:</b> <code>${escapeHtml(txRef)}</code>\n` +
       `📋 <b>Tx ID:</b> <code>${pendingTx.id}</code>\n` +
       `⏰ <b>Time:</b> ${formatEthTime(new Date())}\n\n` +
       (reviewReason
-        ? `⚠️ <i>Wallet NOT credited. Bonno could not verify this transfer (${reviewReason}); review it in the admin panel.</i>\n`
+        ? `⚠️ <i>Wallet NOT credited. links.et could not verify this transfer (${reviewReason}); review it in the admin panel.</i>\n`
         : `⚠️ <i>Wallet NOT credited yet. Please verify payment and approve in the admin panel.</i>\n`) +
       `🔗 <a href="${appUrl}/admin">Open Admin Panel</a>`;
 

@@ -26,7 +26,7 @@ const transactionsMap = new Map<string, Transaction>();
 const withdrawalsMap = new Map<string, WithdrawalRequest>();
 const linkedAccountsMap = new Map<string, LinkedPaymentAccount[]>();
 const announcementsMap = new Map<string, SystemAnnouncement>();
-const bonnoClaimedReferences = new Map<string, string>();
+const linksEtClaimedReferences = new Map<string, string>();
 let activeAnnouncementInMemory: SystemAnnouncement | null = null;
 
 function generateId(prefix = 'id'): string {
@@ -589,9 +589,9 @@ const db = {
 
     const wallet = await this.getOrCreateWallet(params.userId);
     const referenceKey = params.reference.trim().toUpperCase().replace(/[\s_-]/g, '');
-    const claimedBy = bonnoClaimedReferences.get(referenceKey);
+    const claimedBy = linksEtClaimedReferences.get(referenceKey);
     if (claimedBy) return null;
-    bonnoClaimedReferences.set(referenceKey, txId);
+    linksEtClaimedReferences.set(referenceKey, txId);
     const tx: Transaction = {
       id: txId,
       userId: params.userId,
@@ -683,7 +683,7 @@ const db = {
   },
 
   /** Atomically reserve a transaction reference and claim its deposit for verification. */
-  async claimDepositForBonnoVerification(transactionId: string): Promise<boolean> {
+  async claimDepositForLinksEtVerification(transactionId: string): Promise<boolean> {
     const sql = getNeonSql();
     if (sql) {
       try {
@@ -707,7 +707,7 @@ const db = {
             RETURNING transaction_id
           ), claimed AS (
             UPDATE transactions
-            SET status = 'VERIFYING', description = 'Verifying transaction with Bonno'
+            SET status = 'VERIFYING', description = 'Verifying transaction with links.et'
             WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status IN ('PENDING', 'REVIEW_REQUIRED')
               AND id IN (SELECT transaction_id FROM reserved)
             RETURNING id
@@ -733,7 +733,7 @@ const db = {
         }
         return false;
       } catch (e) {
-        console.error('Neon claimDepositForBonnoVerification error:', e);
+        console.error('Neon claimDepositForLinksEtVerification error:', e);
         return false;
       }
     }
@@ -741,28 +741,28 @@ const db = {
     const tx = transactionsMap.get(transactionId);
     if (!tx || tx.type !== 'DEPOSIT' || !['PENDING', 'REVIEW_REQUIRED'].includes(tx.status)) return false;
     const referenceKey = (tx.reference || '').trim().toUpperCase().replace(/[\s_-]/g, '');
-    const existingClaim = bonnoClaimedReferences.get(referenceKey);
+    const existingClaim = linksEtClaimedReferences.get(referenceKey);
     if (existingClaim && existingClaim !== transactionId) {
       tx.status = 'FAILED';
       tx.description = 'Duplicate transaction reference already claimed';
       transactionsMap.set(tx.id, tx);
       return false;
     }
-    bonnoClaimedReferences.set(referenceKey, transactionId);
+    linksEtClaimedReferences.set(referenceKey, transactionId);
     tx.status = 'VERIFYING';
-    tx.description = 'Verifying transaction with Bonno';
+    tx.description = 'Verifying transaction with links.et';
     transactionsMap.set(tx.id, tx);
     return true;
   },
 
-  /** Keep uncertain Bonno results uncredited and visible for an administrator. */
+  /** Keep uncertain payment verification results uncredited and visible for an administrator. */
   async markDepositReviewRequired(transactionId: string, reason: string): Promise<Transaction | null> {
     const sql = getNeonSql();
     if (sql) {
       try {
         const rows = await sql`
           UPDATE transactions
-          SET status = 'REVIEW_REQUIRED', description = ${`Bonno review required: ${reason}`}
+          SET status = 'REVIEW_REQUIRED', description = ${`links.et review required: ${reason}`}
           WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status = 'VERIFYING'
           RETURNING *
         `;
@@ -776,21 +776,29 @@ const db = {
     const tx = transactionsMap.get(transactionId);
     if (!tx || tx.status !== 'VERIFYING') return null;
     tx.status = 'REVIEW_REQUIRED';
-    tx.description = `Bonno review required: ${reason}`;
+    tx.description = `links.et review required: ${reason}`;
     transactionsMap.set(tx.id, tx);
     return tx;
   },
 
   /** Credit a verified deposit once, in the same database statement that claims it. */
-  async completeBonnoVerifiedDeposit(transactionId: string): Promise<Transaction | null> {
+  async completeLinksEtVerifiedDeposit(transactionId: string, verifiedReference: string): Promise<Transaction | null> {
     const sql = getNeonSql();
     if (sql) {
       try {
         const rows = await sql`
-          WITH claimed AS (
+          WITH reference_claim AS (
+            INSERT INTO bonno_deposit_reference_claims (reference_key, transaction_id)
+            VALUES (${verifiedReference.trim().toUpperCase().replace(/[\s_-]/g, '')}, ${transactionId})
+            ON CONFLICT (reference_key) DO UPDATE
+              SET transaction_id = EXCLUDED.transaction_id
+              WHERE bonno_deposit_reference_claims.transaction_id = EXCLUDED.transaction_id
+            RETURNING transaction_id
+          ), claimed AS (
             UPDATE transactions
-            SET status = 'COMPLETED', description = 'Deposit verified with Bonno', verified_by = 'Bonno'
+            SET status = 'COMPLETED', reference = ${verifiedReference}, description = 'Deposit verified with links.et', verified_by = 'links.et'
             WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status = 'VERIFYING'
+              AND id IN (SELECT transaction_id FROM reference_claim)
             RETURNING *
           ), wallet_update AS (
             INSERT INTO wallets (user_id, available_balance, bonus_balance, winning_balance, total_deposited, total_withdrawn)
@@ -808,13 +816,17 @@ const db = {
         `;
         return rows.length > 0 ? rowToTransaction(rows[0]) : null;
       } catch (e) {
-        console.error('Neon completeBonnoVerifiedDeposit error:', e);
+        console.error('Neon completeLinksEtVerifiedDeposit error:', e);
         return null;
       }
     }
 
     const tx = transactionsMap.get(transactionId);
     if (!tx || tx.type !== 'DEPOSIT' || tx.status !== 'VERIFYING') return null;
+    const referenceKey = verifiedReference.trim().toUpperCase().replace(/[\s_-]/g, '');
+    const existingClaim = linksEtClaimedReferences.get(referenceKey);
+    if (existingClaim && existingClaim !== transactionId) return null;
+    linksEtClaimedReferences.set(referenceKey, transactionId);
     const wallet = await this.getOrCreateWallet(tx.userId);
     if (tx.status !== 'VERIFYING') return null;
     wallet.availableBalance += tx.amount;
@@ -822,8 +834,9 @@ const db = {
     walletsMap.set(tx.userId, wallet);
     tx.balanceAfter = wallet.availableBalance;
     tx.status = 'COMPLETED';
-    tx.verifiedBy = 'Bonno';
-    tx.description = 'Deposit verified with Bonno';
+    tx.reference = verifiedReference;
+    tx.verifiedBy = 'links.et';
+    tx.description = 'Deposit verified with links.et';
     transactionsMap.set(tx.id, tx);
     return tx;
   },

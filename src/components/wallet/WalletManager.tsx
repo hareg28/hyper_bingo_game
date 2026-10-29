@@ -139,7 +139,7 @@ export default function WalletManager() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Deposit: submit transaction reference for Bonno or admin review ─────────
+  // ── Deposit: submit transaction reference for links.et or admin review ──────
   const handleDepositSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
     if (e && 'preventDefault' in e) {
       e.preventDefault();
@@ -167,6 +167,7 @@ export default function WalletManager() {
     // Helper: intelligently extract code if user pasted bank/Telebirr SMS
     const extractCleanCode = (input: string): string => {
       const trimmed = input.trim();
+      if (/^https:\/\//i.test(trimmed)) return trimmed;
       // Look for FT reference anywhere in the input
       const ftMatch = trimmed.match(/FT[0-9A-Za-z]{6,16}/i);
       if (ftMatch) return ftMatch[0].toUpperCase();
@@ -188,7 +189,8 @@ export default function WalletManager() {
       return;
     }
 
-    if (cleanCode) {
+    const isReceiptUrl = /^https:\/\//i.test(cleanCode);
+    if (cleanCode && !isReceiptUrl) {
       if (/^(.)\1+$/.test(cleanCode) || cleanCode === '1234567890' || cleanCode === '0123456789') {
         const err = isAm
           ? 'ትክክለኛ ያልሆነ የመለያ ቁጥር። እባክዎ ከባንኩ ወይም ቴሌብር የተላከውን ትክክለኛ ቁጥር ያስገቡ።'
@@ -242,7 +244,7 @@ export default function WalletManager() {
       const data = await res.json();
 
       if (data.success) {
-        // The backend may have credited a Bonno-verified transfer; always reload the authoritative balance.
+        // The backend may have credited a links.et-verified transfer; always reload the authoritative balance.
         await refreshWallet();
         showStatus('success', data.message || (isAm
           ? `የ ${depositAmt} ETB ተቀማጭ ጥያቄዎ ለአስተዳዳሪ ተልኳል! ክፍያው ሲረጋገጥ ሂሳብዎ ይሞላል።`
@@ -621,7 +623,7 @@ export default function WalletManager() {
             <Copy className="w-3 h-3" /> {isAm ? 'ቅዳ' : 'Copy'}
           </button>
         </div>
-        <p className="text-[10px] text-amber-300/80 font-bold text-center">{isAm ? 'ክፍያው በቦኖ ወይም በአስተዳዳሪ ከተረጋገጠ በኋላ ሂሳብዎ ይሞላል።' : 'Your wallet is credited after Bonno or an administrator verifies the transfer.'}</p>
+        <p className="text-[10px] text-amber-300/80 font-bold text-center">{isAm ? 'ክፍያው በlinks.et ወይም በአስተዳዳሪ ከተረጋገጠ በኋላ ሂሳብዎ ይሞላል።' : 'Your wallet is credited after links.et or an administrator verifies the transfer.'}</p>
       </div>
 
       {/* Tab Navigation */}
@@ -671,6 +673,7 @@ export default function WalletManager() {
                   {([
                     { name: 'Telebirr', icon: Smartphone, color: 'text-blue-600', desc: t('telecomDesc') },
                     { name: 'CBE Birr', icon: Landmark, color: 'text-indigo-600', desc: t('cbeDesc') },
+                    { name: 'Bank Transfer', icon: Landmark, color: 'text-cyan-700', desc: 'Other supported banks and wallets' },
                   ] as const).map((p) => {
                     const Icon = p.icon;
                     return (
@@ -749,8 +752,8 @@ export default function WalletManager() {
 
               <p className="text-[11px] text-slate-600 font-medium bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                 {isAm
-                  ? 'ገንዘቡን ካስተላለፉ በኋላ የግብይት መለያ ቁጥሩን ያስገቡ። ቦኖ ከማረጋገጡ በኋላ ቦርሳዎ ይሞላል።'
-                  : 'Enter the transaction ID after you transfer. Bonno may verify it automatically; otherwise an admin will review it before your wallet is credited.'}
+                  ? 'ገንዘቡን ካስተላለፉ በኋላ የቴሌብር ግብይት መለያ ቁጥሩን ያስገቡ። links.et በራስ-ሰር ሊያረጋግጠው ይችላል፤ CBE እና ያልተረጋገጡ ክፍያዎች በአስተዳዳሪ ይታያሉ።'
+                  : 'After paying, enter the Telebirr reference or paste a receipt link from CBE or another supported bank/wallet. links.et checks supported receipt links.'}
               </p>
 
               {depositError && (
@@ -796,15 +799,13 @@ export default function WalletManager() {
                     <Copy className="mr-1 inline h-3 w-3" />{copiedRef ? 'Copied' : 'Copy'}
                   </button>
                 </div>
-                <p className="mt-2 text-xs text-slate-600">Pay {amount} ETB in your {provider} app, then enter the transaction ID.</p>
+                <p className="mt-2 text-xs text-slate-600">Pay {amount} ETB to the shown account using {provider === 'Bank Transfer' ? 'your bank or wallet' : `your ${provider} app`}, then enter the reference or paste the receipt link.</p>
               </div>
               <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                     <span>
-                      {provider === 'CBE Birr' || provider === 'Bank Transfer'
-                        ? (isAm ? 'የCBE ግብይት መለያ ቁጥር' : 'CBE transaction ID')
-                        : (isAm ? 'የቴሌብር ግብይት መለያ ቁጥር' : 'Telebirr transaction ID')}
+                      {isAm ? 'የግብይት መለያ ወይም የደረሰኝ አገናኝ' : 'Transaction reference or receipt link'}
                     </span>
                     <span className="text-rose-600 font-black">*</span>
                   </label>
@@ -814,13 +815,13 @@ export default function WalletManager() {
                   <input
                     type="text"
                     placeholder={
-                      provider === 'CBE Birr' || provider === 'Bank Transfer'
-                        ? 'e.g. FT260927XXXXX'
-                        : 'e.g. CI0000XXXX'
+                      'Paste an https receipt link or transaction reference'
                     }
                     value={transactionCode}
                     onChange={(e) => {
-                      const val = e.target.value.toUpperCase().replace(/\s/g, '');
+                      const val = e.target.value.includes('://')
+                        ? e.target.value.trim()
+                        : e.target.value.toUpperCase().replace(/\s/g, '');
                       setTransactionCode(val);
                       if (depositError) setDepositError(null);
                     }}
@@ -837,7 +838,7 @@ export default function WalletManager() {
                   )}
                 </div>
 
-                <p className="text-xs text-slate-600">Bonno may verify the payment automatically. If it cannot, an admin will review your transaction before your wallet is credited.</p>
+                <p className="text-xs text-slate-600">Telebirr references and receipt links from supported banks and wallets can be verified automatically. Unconfirmed payments go to admin review.</p>
                 {depositError && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">{depositError}</p>}
               </div>
 
