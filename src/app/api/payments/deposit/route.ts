@@ -294,7 +294,7 @@ export async function POST(req: NextRequest) {
       `📋 <b>Tx ID:</b> <code>${pendingTx.id}</code>\n` +
       `⏰ <b>Time:</b> ${formatEthTime(new Date())}\n\n` +
       (reviewReason
-        ? `⚠️ <i>Wallet NOT credited. Bonno could not safely confirm this transfer; review it in the admin panel.</i>\n`
+        ? `⚠️ <i>Wallet NOT credited. Bonno could not verify this transfer (${reviewReason}); review it in the admin panel.</i>\n`
         : `⚠️ <i>Wallet NOT credited yet. Please verify payment and approve in the admin panel.</i>\n`) +
       `🔗 <a href="${appUrl}/admin">Open Admin Panel</a>`;
 

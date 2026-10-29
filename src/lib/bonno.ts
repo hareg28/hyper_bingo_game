@@ -58,8 +58,10 @@ export async function verifyDepositWithBonno(
       return { matched: false, reason: 'Bonno returned a different or missing transaction reference.' };
     }
     const returnedAmount = Number(result.amount);
-    if (!Number.isFinite(returnedAmount) || Math.round(returnedAmount * 100) !== Math.round(amount * 100)) {
-      return { matched: false, reason: 'Verified transaction amount does not match the requested deposit.' };
+    // Credit only the requested amount. A larger verified transfer is safe to
+    // accept as an overpayment; a smaller one must stay in admin review.
+    if (!Number.isFinite(returnedAmount) || Math.round(returnedAmount * 100) < Math.round(amount * 100)) {
+      return { matched: false, reason: 'Verified transaction amount is less than the requested deposit.' };
     }
     if (normalize(result.bank) !== expectedBank(provider)) {
       return { matched: false, reason: 'Verified transaction bank does not match the selected payment method.' };
