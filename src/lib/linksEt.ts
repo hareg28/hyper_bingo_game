@@ -9,7 +9,7 @@ export type LinksEtVerificationResult =
 
 function normalize(value: unknown): string {
   return typeof value === 'string'
-    ? value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase()
+    ? value.normalize('NFKC').trim().replace(/[_\s]+/g, ' ').toLowerCase()
     : '';
 }
 
