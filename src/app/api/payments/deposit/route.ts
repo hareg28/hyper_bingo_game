@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ApiResponse, PaymentProvider } from '@/lib/types';
 import { getAdminWhitelist } from '@/lib/authUtils';
-import { verifyDepositWithLinksEt } from '@/lib/linksEt';
+import { isSupportedLinksEtReceiptUrl, verifyDepositWithLinksEt } from '@/lib/linksEt';
 import { createDepositActionSignature } from '@/lib/adminDepositActions';
 
 /** Format a date in Ethiopian local time (UTC+3) */
@@ -134,11 +134,19 @@ export async function POST(req: NextRequest) {
     const hasCode       = cleanCode.length >= 3;
     const hasScreenshot = Boolean(screenshot && screenshot.trim().length > 0);
 
-    // links.et accepts Telebirr references directly. CBE needs a receipt URL,
-    // which this form does not collect, so CBE remains in administrator review.
+    // links.et accepts Telebirr references directly and receipt URLs from all supported providers.
     const linksEtApiKeyConfigured = Boolean(process.env.LINKS_ET_API_KEY);
     const canVerifyWithLinksEt = hasCode && linksEtApiKeyConfigured && (isReceiptUrl || !provider || provider === 'Telebirr');
-    if (!canVerifyWithLinksEt) {
+    if (isReceiptUrl && (cleanCode.length > 255 || !isSupportedLinksEtReceiptUrl(cleanCode))) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Enter a valid HTTPS receipt link from a bank or wallet supported by links.et.',
+      }, { status: 400 });
+    }
+
+    // Supported receipt links still go to admin review if the verifier key is
+    // missing, so players can submit a payment and admins can see the request.
+    if (!canVerifyWithLinksEt && !isReceiptUrl) {
       const pendingCount = await db.getPendingDepositsCountForUser(userId);
       if (pendingCount >= 2) {
         return NextResponse.json<ApiResponse>({
@@ -152,13 +160,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'Please enter your Transaction Reference Code / FT number, or attach a payment receipt screenshot.',
-      }, { status: 400 });
-    }
-
-    if (isReceiptUrl && (cleanCode.length > 255 || !/^https:\/\/[a-z0-9.-]+(?::\d+)?\//i.test(cleanCode))) {
-      return NextResponse.json<ApiResponse>({
-        success: false,
-        error: 'Enter a valid HTTPS receipt link of 255 characters or fewer.',
       }, { status: 400 });
     }
 

@@ -24,7 +24,7 @@ function parseBirr(value: unknown): number {
   return amount ? Number(amount[0]) : Number.NaN;
 }
 
-function isReceiptUrl(value: string): boolean {
+export function isSupportedLinksEtReceiptUrl(value: string): boolean {
   const supportedHosts = [
     'transactioninfo.ethiotelecom.et', 'apps.cbe.com.et', 'mb.cbe.com.et',
     'mbreciept.cbe.com.et', 'cbepay1.cbe.com.et', 'cbepay2.cbe.com.et',
@@ -65,7 +65,7 @@ export async function verifyDepositWithLinksEt(
 ): Promise<LinksEtVerificationResult> {
   const apiKey = process.env.LINKS_ET_API_KEY;
   if (!apiKey) return { matched: false, reason: 'links.et API key is not configured.' };
-  const inputIsUrl = isReceiptUrl(transactionId);
+  const inputIsUrl = isSupportedLinksEtReceiptUrl(transactionId);
   if (!inputIsUrl && provider !== 'Telebirr') return { matched: false, reason: 'Paste the bank or wallet receipt URL to verify this payment.' };
 
   const controller = new AbortController();
