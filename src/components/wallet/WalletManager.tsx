@@ -82,6 +82,8 @@ export default function WalletManager() {
   const [copiedRef, setCopiedRef] = useState<boolean>(false);
   const [ownerAccounts, setOwnerAccounts] = useState<OwnerPaymentAccount[]>([]);
   const telebirrMerchant = ownerAccounts.find((account) => account.method === 'TELEBIRR');
+  const cbeMerchant = ownerAccounts.find((account) => account.method === 'CBE');
+  const selectedReceivingAccount = provider === 'Telebirr' ? telebirrMerchant : cbeMerchant;
 
   useEffect(() => {
     fetch('/api/payments/owner-accounts')
@@ -605,21 +607,67 @@ export default function WalletManager() {
         </div>
       </div>
 
-      {/* ── TELEBIRR MERCHANT ACCOUNT ─────────────────────────────────────── */}
+      {activeTab === 'balance' && (
+        <div className="bg-white p-4 rounded-2xl border-2 border-purple-200 shadow-xs space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <h3 className="text-xs font-black uppercase tracking-wider text-purple-800 flex items-center gap-1.5">
+              <History className="w-4 h-4 text-purple-600" /> {t('recentTransactions')}
+            </h3>
+            <button
+              type="button"
+              onClick={() => setActiveTab('history')}
+              className="text-[10px] font-bold text-purple-700 hover:text-purple-900 underline underline-offset-2"
+            >
+              {isAm ? 'ሁሉንም እይ' : 'View all'}
+            </button>
+          </div>
+          {transactions.length === 0 ? (
+            <div className="py-4 text-center text-xs text-slate-500">{t('noTransactionsYet')}</div>
+          ) : (
+            <div className="space-y-2">
+              {transactions.slice(0, 3).map((tx) => (
+                <div key={tx.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 border border-slate-200 p-2.5">
+                  <div className="min-w-0">
+                    <div className="truncate text-xs font-bold text-slate-900">{tx.description}</div>
+                    <div className="mt-0.5 text-[10px] text-slate-500">
+                      {new Date(tx.createdAt).toLocaleDateString()} · {tx.status.replace('_', ' ')}
+                    </div>
+                  </div>
+                  <div className={`shrink-0 text-sm font-black ${tx.amount > 0 ? 'text-emerald-700' : 'text-slate-800'}`}>
+                    {tx.amount > 0 ? `+${tx.amount}` : tx.amount} ETB
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── SELECTED RECEIVING ACCOUNT ────────────────────────────────────── */}
       <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-4 text-white shadow-xl space-y-3 border border-blue-500/30">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-xl">📱</div>
           <div>
-            <div className="text-xs font-black text-blue-200">{isAm ? 'የቴሌብር ነጋዴ መለያ' : 'Telebirr Merchant ID'}</div>
-            <div className="text-[10px] text-slate-300">{isAm ? 'በቴሌብር ብቻ ይክፈሉ' : 'Pay to this merchant account using Telebirr'}</div>
+            <div className="text-xs font-black text-blue-200">
+              {provider === 'Telebirr'
+                ? (isAm ? 'የቴሌብር ተቀባይ መለያ' : 'Telebirr Receiving Account')
+                : (isAm ? 'የCBE ባንክ ሂሳብ' : 'CBE Receiving Account')}
+            </div>
+            <div className="text-[10px] text-slate-300">
+              {provider === 'Telebirr'
+                ? (isAm ? 'በቴሌብር ይክፈሉ' : 'Pay using Telebirr')
+                : (isAm ? 'በCBE ወይም በሌላ ባንክ ይክፈሉ' : 'Pay using CBE or another supported bank')}
+            </div>
           </div>
         </div>
         <div className="flex items-center justify-between bg-blue-500/10 border border-blue-400/25 rounded-xl px-3 py-2">
           <div>
-            <div className="font-mono font-bold text-white text-sm tracking-wide">{telebirrMerchant?.accountNumber || 'Loading merchant ID…'}</div>
-            <div className="text-[10px] text-slate-300">{telebirrMerchant?.accountName || ''}</div>
+            <div className="font-mono font-bold text-white text-sm tracking-wide">
+              {selectedReceivingAccount?.accountNumber || (isAm ? 'መለያው እየጫነ ነው…' : 'Loading account…')}
+            </div>
+            <div className="text-[10px] text-slate-300">{selectedReceivingAccount?.accountName || ''}</div>
           </div>
-          <button type="button" disabled={!telebirrMerchant?.accountNumber} onClick={() => telebirrMerchant && handleCopyRef(telebirrMerchant.accountNumber)} className="px-2 py-1 bg-blue-500/30 hover:bg-blue-500/50 border border-blue-400/40 text-blue-200 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition">
+          <button type="button" disabled={!selectedReceivingAccount?.accountNumber} onClick={() => selectedReceivingAccount && handleCopyRef(selectedReceivingAccount.accountNumber)} className="px-2 py-1 bg-blue-500/30 hover:bg-blue-500/50 border border-blue-400/40 text-blue-200 rounded-lg text-[10px] font-black flex items-center gap-1 cursor-pointer transition">
             <Copy className="w-3 h-3" /> {isAm ? 'ቅዳ' : 'Copy'}
           </button>
         </div>
