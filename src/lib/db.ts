@@ -786,13 +786,17 @@ const db = {
     const sql = getNeonSql();
     if (sql) {
       try {
+        const verifiedReferenceKey = verifiedReference.trim().toUpperCase().replace(/[\s_-]/g, '');
         const rows = await sql`
           WITH reference_claim AS (
-            INSERT INTO bonno_deposit_reference_claims (reference_key, transaction_id)
-            VALUES (${verifiedReference.trim().toUpperCase().replace(/[\s_-]/g, '')}, ${transactionId})
-            ON CONFLICT (reference_key) DO UPDATE
-              SET transaction_id = EXCLUDED.transaction_id
-              WHERE bonno_deposit_reference_claims.transaction_id = EXCLUDED.transaction_id
+            UPDATE bonno_deposit_reference_claims AS existing_claim
+            SET reference_key = ${verifiedReferenceKey}
+            WHERE existing_claim.transaction_id = ${transactionId}
+              AND NOT EXISTS (
+                SELECT 1 FROM bonno_deposit_reference_claims AS duplicate_claim
+                WHERE duplicate_claim.reference_key = ${verifiedReferenceKey}
+                  AND duplicate_claim.transaction_id <> ${transactionId}
+              )
             RETURNING transaction_id
           ), claimed AS (
             UPDATE transactions
