@@ -133,7 +133,12 @@ export async function verifyDepositWithLinksEt(
     const receiver = getReceiptField(receipt, 'creditedPartyName', 'receiverName', 'recipientName', 'beneficiaryName');
     const account = getOwnerPaymentAccounts().find((candidate) => candidate.method === (provider === 'Telebirr' ? 'TELEBIRR' : 'CBE'));
     if (!account?.accountName || normalize(receiver) !== normalize(account.accountName)) {
-      return { matched: false, reason: 'Verified receiver name does not match the configured owner account.' };
+      const returnedName = typeof receiver === 'string' && receiver.trim() ? receiver.trim() : '(not provided)';
+      const configuredName = account?.accountName?.trim() || '(not configured)';
+      return {
+        matched: false,
+        reason: `Verified receiver name "${returnedName}" does not match configured owner name "${configuredName}".`,
+      };
     }
     return { matched: true, reference: verifiedId };
   } catch (error) {

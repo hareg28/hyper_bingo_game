@@ -217,6 +217,7 @@ export async function POST(req: NextRequest) {
     const txRef = telebirrUrlReference || cleanCode || `HBINGO_${userId}_${Date.now()}`;
 
     let pendingTx: any = null;
+    let isExistingReviewRetry = false;
     if (hasCode) {
       let existing = await db.findDepositByReference(txRef);
       if (!existing && isReceiptUrl && txRef !== cleanCode) {
@@ -253,10 +254,15 @@ export async function POST(req: NextRequest) {
         if (existing.status === 'PENDING') {
           pendingTx = existing;
         } else if (existing.status === 'REVIEW_REQUIRED') {
-          return NextResponse.json<ApiResponse>({
-            success: false,
-            error: 'This receipt is already in the administrator review queue. It cannot be submitted again.',
-          }, { status: 409 });
+          if (canVerifyWithLinksEt) {
+            pendingTx = existing;
+            isExistingReviewRetry = true;
+          } else {
+            return NextResponse.json<ApiResponse>({
+              success: false,
+              error: 'This receipt is already in the administrator review queue. It cannot be submitted again.',
+            }, { status: 409 });
+          }
         } else {
           return NextResponse.json<ApiResponse>({
             success: false,
@@ -310,6 +316,12 @@ export async function POST(req: NextRequest) {
 
       const reviewTx = await db.markDepositReviewRequired(pendingTx.id, reviewReason);
       if (reviewTx) pendingTx = reviewTx;
+      if (isExistingReviewRetry) {
+        return NextResponse.json<ApiResponse>({
+          success: false,
+          error: `This receipt is already in the review queue. The latest check still needs review: ${reviewReason}`,
+        }, { status: 409 });
+      }
     }
 
     // ── Notify admins via Telegram (non-blocking) ────────────────────────────
@@ -330,7 +342,7 @@ export async function POST(req: NextRequest) {
       `📋 <b>Tx ID:</b> <code>${pendingTx.id}</code>\n` +
       `⏰ <b>Time:</b> ${formatEthTime(new Date())}\n\n` +
       (reviewReason
-        ? `⚠️ <i>Wallet NOT credited. links.et could not verify this transfer (${reviewReason}); review it in the admin panel.</i>\n`
+        ? `⚠️ <i>Wallet NOT credited. links.et could not verify this transfer (${escapeHtml(reviewReason)}); review it in the admin panel.</i>\n`
         : `⚠️ <i>Wallet NOT credited yet. Please verify payment and approve in the admin panel.</i>\n`) +
       `🔗 <a href="${appUrl}/admin">Open Admin Panel</a>`;
 
