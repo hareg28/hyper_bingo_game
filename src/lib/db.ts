@@ -782,7 +782,11 @@ const db = {
   },
 
   /** Credit a verified deposit once, in the same database statement that claims it. */
-  async completeLinksEtVerifiedDeposit(transactionId: string, verifiedReference: string): Promise<Transaction | null> {
+  async completeLinksEtVerifiedDeposit(
+    transactionId: string,
+    verifiedReference: string,
+    submittedReference = verifiedReference,
+  ): Promise<Transaction | null> {
     const sql = getNeonSql();
     if (sql) {
       try {
@@ -800,7 +804,7 @@ const db = {
             RETURNING transaction_id
           ), claimed AS (
             UPDATE transactions
-            SET status = 'COMPLETED', reference = ${verifiedReference}, description = 'Deposit verified with links.et', verified_by = 'links.et'
+            SET status = 'COMPLETED', reference = ${submittedReference}, description = 'Deposit verified with links.et', verified_by = 'links.et'
             WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status = 'VERIFYING'
               AND id IN (SELECT transaction_id FROM reference_claim)
             RETURNING *
@@ -838,7 +842,7 @@ const db = {
     walletsMap.set(tx.userId, wallet);
     tx.balanceAfter = wallet.availableBalance;
     tx.status = 'COMPLETED';
-    tx.reference = verifiedReference;
+    tx.reference = submittedReference;
     tx.verifiedBy = 'links.et';
     tx.description = 'Deposit verified with links.et';
     transactionsMap.set(tx.id, tx);

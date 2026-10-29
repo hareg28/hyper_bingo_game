@@ -190,6 +190,26 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   );
   const pendingCardPurchasesRef = React.useRef<Record<string, Promise<boolean>>>({});
 
+  const fetchTransactionHistory = React.useCallback(async (userId: string) => {
+    if (!getTelegramAuthHeaders()['X-Telegram-Init-Data']) return;
+    try {
+      const res = await fetch(`/api/wallet/history?userId=${encodeURIComponent(userId)}`, {
+        headers: getTelegramAuthHeaders(),
+        cache: 'no-store',
+      });
+      const result = await res.json();
+      if (result.success && Array.isArray(result.data)) {
+        setTransactions(result.data as Transaction[]);
+      }
+    } catch {
+      /* Keep the current history if refresh fails. */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user?.id) void fetchTransactionHistory(user.id);
+  }, [user?.id, fetchTransactionHistory]);
+
   const isLoggedIn = Boolean(user);
 
   const t = (key: keyof typeof translations['en']): string => {
@@ -1175,6 +1195,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         setWallet(result.data.wallet);
         localStorage.setItem('hyper_bingo_wallet', JSON.stringify(result.data.wallet));
       }
+      await fetchTransactionHistory(user.id);
     } catch {
       /* Keep the current balance if the refresh request fails. */
     }

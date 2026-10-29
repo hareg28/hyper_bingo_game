@@ -301,8 +301,24 @@ export async function POST(req: NextRequest) {
 
       const verification = await verifyDepositWithLinksEt(cleanCode, amount, (provider ?? 'Telebirr') as 'Telebirr' | 'CBE Birr' | 'Bank Transfer');
       if (verification.matched) {
-        const completed = await db.completeLinksEtVerifiedDeposit(pendingTx.id, verification.reference);
+        const completed = await db.completeLinksEtVerifiedDeposit(pendingTx.id, verification.reference, pendingTx.reference ?? txRef);
         if (completed) {
+          const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
+          if (botToken && user.telegramId && !user.telegramId.startsWith('web_')) {
+            const playerMessage =
+              `✅ <b>Deposit Verified & Credited</b>\n\n` +
+              `Your deposit of <b>${completed.amount} ETB</b> via <b>${completed.paymentProvider}</b> was verified and credited to your Hyper Bingo wallet.`;
+            try {
+              await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: user.telegramId, text: playerMessage, parse_mode: 'HTML' }),
+                signal: AbortSignal.timeout(5000),
+              });
+            } catch (error) {
+              console.error('[Deposit confirmation] Could not notify player in Telegram:', error);
+            }
+          }
           return NextResponse.json<ApiResponse>({
             success: true,
             data: { txId: completed.id, amount: completed.amount, status: completed.status },

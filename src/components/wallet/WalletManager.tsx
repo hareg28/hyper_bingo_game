@@ -248,9 +248,27 @@ export default function WalletManager() {
       if (data.success) {
         // The backend may have credited a links.et-verified transfer; always reload the authoritative balance.
         await refreshWallet();
-        showStatus('success', data.message || (isAm
+        const successMessage = data.message ?? data.data?.message ?? (isAm
           ? `የ ${depositAmt} ETB ተቀማጭ ጥያቄዎ ለአስተዳዳሪ ተልኳል! ክፍያው ሲረጋገጥ ሂሳብዎ ይሞላል።`
-          : `Deposit of ${depositAmt} ETB submitted for admin review! Your balance will be credited once verified.`));
+          : `Deposit of ${depositAmt} ETB submitted for admin review! Your balance will be credited once verified.`);
+        showStatus('success', successMessage);
+        const telegramWebApp = window.Telegram?.WebApp;
+        if (typeof telegramWebApp?.showPopup === 'function') {
+          try {
+            const wasCredited = data.data?.status === 'COMPLETED';
+            telegramWebApp.showPopup({
+              title: isAm
+                ? (wasCredited ? 'ክፍያ ተረጋግጧል' : 'የተቀማጭ ማሻሻያ')
+                : (wasCredited ? 'Deposit confirmed' : 'Deposit update'),
+              message: successMessage,
+              buttons: [{ type: 'ok' }],
+            });
+          } catch {
+            // The inline status banner remains available if Telegram cannot open a popup.
+          }
+        } else if (typeof telegramWebApp?.showAlert === 'function') {
+          telegramWebApp.showAlert(successMessage);
+        }
         setActiveTab('history');
         setDepositStep(1);
         setTransactionCode('');
