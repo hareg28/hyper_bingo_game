@@ -33,6 +33,17 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => entities[character]);
 }
 
+function getTelebirrReferenceFromReceiptUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.hostname !== 'transactioninfo.ethiotelecom.et') return null;
+    const match = url.pathname.match(/^\/receipt\/([a-z0-9]{6,32})\/?$/i);
+    return match?.[1]?.toUpperCase() ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Send the screenshot to a Telegram chat.
  * The screenshot can be a base64 data-URI (data:image/...;base64,...) or a raw base64 string.
@@ -202,17 +213,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const txRef = cleanCode || `HBINGO_${userId}_${Date.now()}`;
+    const telebirrUrlReference = isReceiptUrl ? getTelebirrReferenceFromReceiptUrl(cleanCode) : null;
+    const txRef = telebirrUrlReference || cleanCode || `HBINGO_${userId}_${Date.now()}`;
 
     let pendingTx: any = null;
     if (hasCode) {
-      const existing = await db.findDepositByReference(cleanCode);
+      let existing = await db.findDepositByReference(txRef);
+      if (!existing && isReceiptUrl && txRef !== cleanCode) {
+        existing = await db.findDepositByReference(cleanCode);
+      }
+      if (!existing && !isReceiptUrl && (provider ?? 'Telebirr') === 'Telebirr') {
+        existing = await db.findDepositByReference(`https://transactioninfo.ethiotelecom.et/receipt/${txRef}`);
+      }
       if (existing) {
         if (existing.status === 'COMPLETED') {
           return NextResponse.json<ApiResponse>({
             success: false,
-            error:
-              'This transaction reference was already verified and approved. Each transfer code can only be used once.',
+            error: 'This receipt was already checked and credited. A payment can only be credited once.',
           }, { status: 409 });
         }
         if (existing.userId !== userId) {
@@ -235,12 +252,10 @@ export async function POST(req: NextRequest) {
         }
         if (existing.status === 'PENDING') {
           pendingTx = existing;
-        } else if (existing.status === 'REVIEW_REQUIRED' && canVerifyWithLinksEt) {
-          pendingTx = existing;
         } else if (existing.status === 'REVIEW_REQUIRED') {
           return NextResponse.json<ApiResponse>({
             success: false,
-            error: 'This transfer is awaiting administrator review because automatic verification is unavailable.',
+            error: 'This receipt is already in the administrator review queue. It cannot be submitted again.',
           }, { status: 409 });
         } else {
           return NextResponse.json<ApiResponse>({
