@@ -12,7 +12,6 @@ import { ApiResponse, PaymentProvider } from '@/lib/types';
 import { getAdminWhitelist } from '@/lib/authUtils';
 import { verifyDepositWithBonno } from '@/lib/bonno';
 import { createDepositActionSignature } from '@/lib/adminDepositActions';
-import { isTelegramInitDataFresh, parseTelegramUser, verifyTelegramInitData } from '@/lib/telegramAuth';
 
 /** Format a date in Ethiopian local time (UTC+3) */
 function formatEthTime(date: Date): string {
@@ -101,13 +100,6 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
-    const initData = req.headers.get('x-telegram-init-data') ?? '';
-    const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN ?? '';
-    const telegramIdentity = initData && telegramBotToken && verifyTelegramInitData(initData, telegramBotToken) && isTelegramInitDataFresh(initData)
-      ? parseTelegramUser(initData)
-      : null;
-    const verifiedSubmittingUser = Boolean(telegramIdentity?.id && String(telegramIdentity.id) === user.telegramId);
-
     if (provider && provider !== 'Telebirr' && provider !== 'CBE Birr') {
       return NextResponse.json<ApiResponse>({
         success: false,
@@ -130,25 +122,17 @@ export async function POST(req: NextRequest) {
     const hasCode       = cleanCode.length >= 3;
     const hasScreenshot = Boolean(screenshot && screenshot.trim().length > 0);
 
-    // Bonno-eligible requests should reach the verifier even when older deposits
-    // are awaiting admin review. Keep the pending limit for manual-only requests.
+    // Bonno is the primary verifier for transaction-code deposits. Admin review
+    // is the fallback when Bonno is unavailable or cannot confirm a transfer.
     const bonnoApiKeyConfigured = Boolean(process.env.BONNO_API_KEY);
-    const canVerifyWithBonno = hasCode && bonnoApiKeyConfigured && verifiedSubmittingUser;
+    const canVerifyWithBonno = hasCode && bonnoApiKeyConfigured;
     if (!canVerifyWithBonno) {
       const pendingCount = await db.getPendingDepositsCountForUser(userId);
       if (pendingCount >= 2) {
-        const error = !hasCode
-          ? 'You have deposits awaiting manual review. Submit a transaction ID to request Bonno verification.'
-          : !bonnoApiKeyConfigured
-            ? 'Bonno verification is not configured on this server. Add BONNO_API_KEY to the deployed server environment and redeploy.'
-            : !verifiedSubmittingUser
-              ? 'Telegram could not verify this session for your account. Reopen Hyper Bingo from Telegram and try again.'
-              : 'You have deposits awaiting manual review. Please wait for an update.';
-        const status = hasCode && !bonnoApiKeyConfigured ? 503 : hasCode && !verifiedSubmittingUser ? 401 : 429;
         return NextResponse.json<ApiResponse>({
           success: false,
-          error,
-        }, { status });
+          error: 'You have deposits awaiting administrator review. Please wait for an update before submitting another deposit.',
+        }, { status: 429 });
       }
     }
 
@@ -159,7 +143,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    if (hasCode && process.env.BONNO_API_KEY && verifiedSubmittingUser && !db.isPersistentDatabaseConfigured()) {
+    if (canVerifyWithBonno && !db.isPersistentDatabaseConfigured()) {
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'Automatic deposit verification is unavailable because persistent wallet storage is not configured.',
@@ -264,7 +248,7 @@ export async function POST(req: NextRequest) {
     }
 
     let reviewReason: string | null = null;
-    if (hasCode && process.env.BONNO_API_KEY && verifiedSubmittingUser) {
+    if (canVerifyWithBonno) {
       const claimed = await db.claimDepositForBonnoVerification(pendingTx.id);
       if (!claimed) {
         return NextResponse.json<ApiResponse>({
