@@ -213,14 +213,15 @@ export async function POST(req: NextRequest) {
             error: 'This transaction is already being verified. Please wait and refresh your wallet.',
           }, { status: 409 });
         }
-        if (existing.status === 'REVIEW_REQUIRED') {
-          return NextResponse.json<ApiResponse>({
-            success: false,
-            error: 'This transfer is already awaiting administrator review. Please wait for an update.',
-          }, { status: 409 });
-        }
         if (existing.status === 'PENDING') {
           pendingTx = existing;
+        } else if (existing.status === 'REVIEW_REQUIRED' && canVerifyWithBonno) {
+          pendingTx = existing;
+        } else if (existing.status === 'REVIEW_REQUIRED') {
+          return NextResponse.json<ApiResponse>({
+            success: false,
+            error: 'This transfer is awaiting administrator review because Bonno verification is unavailable.',
+          }, { status: 409 });
         } else {
           return NextResponse.json<ApiResponse>({
             success: false,

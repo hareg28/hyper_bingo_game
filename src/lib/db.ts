@@ -682,7 +682,7 @@ const db = {
     ) || null;
   },
 
-  /** Atomically reserve a transaction reference and claim its pending deposit for verification. */
+  /** Atomically reserve a transaction reference and claim its deposit for verification. */
   async claimDepositForBonnoVerification(transactionId: string): Promise<boolean> {
     const sql = getNeonSql();
     if (sql) {
@@ -697,7 +697,7 @@ const db = {
         const rows = await sql`
           WITH candidate AS (
             SELECT id, reference FROM transactions
-            WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status = 'PENDING'
+            WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status IN ('PENDING', 'REVIEW_REQUIRED')
           ), reserved AS (
             INSERT INTO bonno_deposit_reference_claims (reference_key, transaction_id)
             SELECT upper(regexp_replace(reference, '[[:space:]_-]', '', 'g')), id FROM candidate
@@ -708,7 +708,7 @@ const db = {
           ), claimed AS (
             UPDATE transactions
             SET status = 'VERIFYING', description = 'Verifying transaction with Bonno'
-            WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status = 'PENDING'
+            WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status IN ('PENDING', 'REVIEW_REQUIRED')
               AND id IN (SELECT transaction_id FROM reserved)
             RETURNING id
           )
@@ -728,7 +728,7 @@ const db = {
         if (conflict.length > 0 && conflict[0].transaction_id !== transactionId) {
           await sql`
             UPDATE transactions SET status = 'FAILED', description = 'Duplicate transaction reference already claimed'
-            WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status = 'PENDING'
+            WHERE id = ${transactionId} AND type = 'DEPOSIT' AND status IN ('PENDING', 'REVIEW_REQUIRED')
           `;
         }
         return false;
@@ -739,7 +739,7 @@ const db = {
     }
 
     const tx = transactionsMap.get(transactionId);
-    if (!tx || tx.type !== 'DEPOSIT' || tx.status !== 'PENDING') return false;
+    if (!tx || tx.type !== 'DEPOSIT' || !['PENDING', 'REVIEW_REQUIRED'].includes(tx.status)) return false;
     const referenceKey = (tx.reference || '').trim().toUpperCase().replace(/[\s_-]/g, '');
     const existingClaim = bonnoClaimedReferences.get(referenceKey);
     if (existingClaim && existingClaim !== transactionId) {
