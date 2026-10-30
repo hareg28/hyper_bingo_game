@@ -1210,7 +1210,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     ? drawnNumbersArr
     : [...drawnNumbersArr.filter((ball) => ball !== currentGame.currentBall), currentGame.currentBall];
   const currentBallNum = ballHistory.length > 0 ? ballHistory[ballHistory.length - 1] : currentGame.currentBall ?? null;
-  const previousBalls = ballHistory.slice(Math.max(0, ballHistory.length - 4), Math.max(0, ballHistory.length - 1));
+  const previousBalls = showMoreNumbers
+    ? (currentBallNum == null ? ballHistory : ballHistory.slice(0, -1))
+    : ballHistory.slice(Math.max(0, ballHistory.length - 4), Math.max(0, ballHistory.length - 1));
   const rows = [
     { letter: 'B', range: Array.from({ length: 15 }, (_, i) => i + 1), color: 'bg-blue-600 text-white' },
     { letter: 'I', range: Array.from({ length: 15 }, (_, i) => i + 16), color: 'bg-rose-600 text-white' },
@@ -1469,7 +1471,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           {/* ── Middle Area: Previous balls + Intermission timer ── */}
           <div className="flex items-center justify-between gap-2 py-1.5 px-2.5 bg-slate-50 rounded-xl border border-slate-200 mx-1">
             {/* Previous 3 balls — bingo ball style */}
-            <div className="flex items-center gap-1">
+            <div className={`flex items-center gap-1 ${showMoreNumbers ? 'flex-wrap max-h-16 overflow-y-auto' : ''}`}>
               {previousBalls.length > 0 ? previousBalls.map((pb, idx) => {
                 const pbLetter = getBallLetter(pb);
                 const pbColor = getLetterColor(pbLetter);
@@ -1538,7 +1540,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </div>
 
           {/* Current Ball with 3 Previous Balls — Bingo Ball Style */}
-          <div className="flex items-center justify-center gap-2 py-1">
+          <div className={`flex items-center justify-center gap-2 py-1 ${showMoreNumbers ? 'flex-wrap max-h-24 overflow-y-auto' : ''}`}>
             {previousBalls.length > 0 && previousBalls.map((pb, idx) => {
               const pbLetter = getBallLetter(pb);
               const pbColor = getLetterColor(pbLetter);
