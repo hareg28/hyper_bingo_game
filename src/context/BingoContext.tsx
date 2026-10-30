@@ -1563,11 +1563,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    // If user has no more cards in this game, decrement player count
-    const remaining = userCards.filter(
-      (c) => c.gameId === card.gameId && c.id !== cardId && c.userId === card.userId
-    );
-    if (remaining.length === 0) {
+    // The room's participant total represents paid cards, not distinct users.
+    if (card.isPaid !== false) {
       setGames((prev) =>
         prev.map((g) =>
           g.id === card.gameId ? { ...g, currentPlayers: Math.max(0, (g.currentPlayers || 1) - 1) } : g
@@ -1599,6 +1596,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       existingNums.add(candidate);
       const newCard = createNewBingoCard(gameId, user?.id || 'guest', String(candidate));
       newCard.isRegistered = false;
+      newCard.isPaid = false;
       newCards.push(newCard);
       candidate = Math.floor(Math.random() * 1000) + 1;
     }
@@ -1644,6 +1642,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             });
           }
           if (result.data?.refund > 0) {
+            setGames((prev) => prev.map((g) => g.id === card.gameId
+              ? { ...g, currentPlayers: Math.max(0, (g.currentPlayers || 0) - 1) }
+              : g));
             const tx: Transaction = {
               id: `TX_REFUND_${Date.now().toString(36)}`, userId: user.id, username: user.username,
               type: 'GAME_ENTRY', amount: result.data.refund,
@@ -1693,7 +1694,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
       // Count a newly purchased/refunded card as a player; free re-registration
       // of an already-paid card must not increment the player count again.
-      if (registeredInGame === 0 && !card.isPaid) {
+      if (!card.isPaid) {
         setGames((prev) =>
           prev.map((g) => (g.id === card.gameId ? { ...g, currentPlayers: (g.currentPlayers || 0) + 1 } : g))
         );
@@ -1764,7 +1765,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       ...gameData,
       prizePool: enforcedPrize,
       id: `gm_${Date.now().toString().slice(-4)}`,
-      currentPlayers: 1,
+      currentPlayers: 0,
       drawnNumbers: [],
       winners: [],
       createdAt: new Date().toISOString(),

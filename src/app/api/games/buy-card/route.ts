@@ -161,12 +161,12 @@ export async function POST(req: NextRequest) {
       WHERE user_id = ${userId}
     `;
 
-    // Keep the participant count exact under concurrent purchases from the
-    // same account: one player is one distinct owner, regardless of cards.
+    // The displayed player total is the number of paid cards, including
+    // multiple cards bought by the same account.
     await sql`
       UPDATE games
       SET current_players = (
-        SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${gameId} AND is_paid = TRUE
+        SELECT COUNT(*)::integer FROM game_cards WHERE game_id = ${gameId} AND is_paid IS DISTINCT FROM FALSE
       ), updated_at = NOW()
       WHERE id = ${gameId}
     `;
@@ -245,7 +245,7 @@ export async function PATCH(req: NextRequest) {
       `;
       await sql`
         UPDATE games SET current_players = (
-          SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${gameId} AND is_paid = TRUE
+          SELECT COUNT(*)::integer FROM game_cards WHERE game_id = ${gameId} AND is_paid IS DISTINCT FROM FALSE
         ), updated_at = NOW() WHERE id = ${gameId}
       `;
     }
@@ -360,7 +360,7 @@ export async function DELETE(req: NextRequest) {
     await sql`
       UPDATE games
       SET current_players = (
-        SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${gameId} AND is_paid = TRUE
+        SELECT COUNT(*)::integer FROM game_cards WHERE game_id = ${gameId} AND is_paid IS DISTINCT FROM FALSE
       ), updated_at = NOW()
       WHERE id = ${gameId}
     `;

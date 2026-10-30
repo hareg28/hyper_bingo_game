@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
         SET status = 'RUNNING', round_started_at = NOW(), drawn_numbers = '{}', current_ball = NULL,
             last_ball_drawn_at = NULL, winners = '[]'::jsonb,
             blocked_cards = '{}', blocked_players = '{}',
-            current_players = (SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${weekendGame.id} AND is_paid = TRUE),
+            current_players = (SELECT COUNT(*)::integer FROM game_cards WHERE game_id = ${weekendGame.id} AND is_paid IS DISTINCT FROM FALSE),
             weekend_round_key = ${weekendRoundKey}, updated_at = NOW()
         WHERE id = ${weekendGame.id} AND weekend_round_key IS DISTINCT FROM ${weekendRoundKey}
       `;
@@ -336,12 +336,11 @@ export async function GET(req: NextRequest) {
       // Gracefully ignore if table empty or not yet migrated
     }
 
-    const playerIdsByGame: Record<string, Set<string>> = {};
+    const paidCardCountsByGame: Record<string, number> = {};
     try {
       for (const row of soldRows) {
         if (row.is_paid !== false) {
-          if (!playerIdsByGame[row.game_id]) playerIdsByGame[row.game_id] = new Set<string>();
-          playerIdsByGame[row.game_id].add(String(row.user_id));
+          paidCardCountsByGame[row.game_id] = (paidCardCountsByGame[row.game_id] || 0) + 1;
         }
       }
     } catch {
@@ -354,7 +353,7 @@ export async function GET(req: NextRequest) {
       drawnNumbers: parseIntegerArray(r.drawn_numbers),
       currentBall: r.current_ball == null ? null : Number(r.current_ball),
       roundStartedAt: r.round_started_at ? new Date(r.round_started_at).getTime() : undefined,
-      currentPlayers: playerIdsByGame[r.id]?.size ?? 0,
+      currentPlayers: paidCardCountsByGame[r.id] ?? 0,
       winners: Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : []),
       blockedCards: Array.isArray(r.blocked_cards) ? r.blocked_cards : [],
       blockedPlayers: Array.isArray(r.blocked_players) ? r.blocked_players : [],
