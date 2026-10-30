@@ -19,7 +19,7 @@ import { getGameLivePrizePool } from '../../lib/store';
 import { subscribeToMiniAppActivity } from '../../lib/miniAppActivity';
 
 const SUPPORT_PHONE_1 = process.env.NEXT_PUBLIC_SUPPORT_PHONE_1 || '0912738543';
-const SUPPORT_PHONE_2 = process.env.NEXT_PUBLIC_SUPPORT_PHONE_2 || '0912738543';
+const SUPPORT_PHONE_2 = '0938922481';
 
 // Dynamic reliable display title formatter
 function getGameDisplayName(g: { entryPrice: number; gameType?: string; isWeekendSpecial?: boolean; name?: string; category?: string; weekendDay?: string; weekendSlot?: string }, lang: string): string {
