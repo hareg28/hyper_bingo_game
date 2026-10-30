@@ -191,10 +191,17 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const pendingCardPurchasesRef = React.useRef<Record<string, Promise<boolean>>>({});
 
   const fetchTransactionHistory = React.useCallback(async (userId: string) => {
-    if (!getTelegramAuthHeaders()['X-Telegram-Init-Data']) return;
+    const authHeaders = getTelegramAuthHeaders();
+    if (!authHeaders['X-Telegram-Init-Data']) return;
+    const isAdmin = Boolean(user && (
+      user.role === 'admin' || isAdminTelegramId(user.telegramId) || isAdminTelegramId(user.username)
+    ));
     try {
-      const res = await fetch(`/api/wallet/history?userId=${encodeURIComponent(userId)}`, {
-        headers: getTelegramAuthHeaders(),
+      const url = isAdmin
+        ? '/api/admin/transactions'
+        : `/api/wallet/history?userId=${encodeURIComponent(userId)}`;
+      const res = await fetch(url, {
+        headers: authHeaders,
         cache: 'no-store',
       });
       const result = await res.json();
@@ -204,7 +211,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     } catch {
       /* Keep the current history if refresh fails. */
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (user?.id) void fetchTransactionHistory(user.id);

@@ -1392,6 +1392,19 @@ const db = {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
 
+  async getAllTransactions(): Promise<Transaction[]> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`SELECT * FROM transactions ORDER BY created_at DESC LIMIT 500`;
+        return rows.map(rowToTransaction);
+      } catch (e) { console.error('Neon getAllTransactions error:', e); }
+    }
+    return [...transactionsMap.values()]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 500);
+  },
+
   async getAllWithdrawals(): Promise<WithdrawalRequest[]> {
     const sql = getNeonSql();
     if (sql) {
