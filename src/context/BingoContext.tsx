@@ -100,8 +100,6 @@ interface BingoContextType {
   drawNextBall: (gameId: string) => number | null;
   dismissNotification: (id: string) => void;
   addNotification: (title: string, body: string, type?: 'success' | 'info' | 'warning' | 'win') => void;
-  toggleAutoDaub: () => void;
-  autoDaubEnabled: boolean;
   toggleUserRole: () => void;
   setUserRole: (role: UserRole) => void;
   updateUserRoleInDb: (targetUserId: string, role: UserRole) => Promise<{ success: boolean; message?: string }>;
@@ -158,7 +156,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const [promotions] = useState<Promotion[]>(INITIAL_PROMOTIONS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
   const [referrals] = useState<Referral[]>(INITIAL_REFERRALS);
-  const [autoDaubEnabled, setAutoDaubEnabled] = useState<boolean>(true);
   const [language, setLanguageState] = useState<Language>('en');
 
   // Load persisted language from localStorage or Telegram WebApp
@@ -798,7 +795,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const toggleAutoDaub = () => setAutoDaubEnabled((prev) => !prev);
 
   const toggleUserRole = () => {
     // Only users whose Telegram ID or username is configured in .env can toggle Admin privileges
@@ -2228,20 +2224,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
               };
             })
           );
-          if (autoDaubEnabled) {
-            setUserCards((prev) =>
-              prev.map((card) => {
-                if (card.gameId !== gameId) return card;
-                const newMarked = card.marked.map((row, rIdx) =>
-                  row.map((val, cIdx) => {
-                    const num = card.numbers[rIdx][cIdx];
-                    return num === serverBall || (rIdx === 2 && cIdx === 2) ? true : val;
-                  })
-                );
-                return { ...card, marked: newMarked };
-              })
-            );
-          }
         }
       })
       .catch(() => {});
@@ -2636,8 +2618,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         drawNextBall,
         dismissNotification,
         addNotification,
-        toggleAutoDaub,
-        autoDaubEnabled,
         toggleUserRole,
         setUserRole,
         updateUserRoleInDb,

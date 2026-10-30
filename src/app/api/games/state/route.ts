@@ -160,24 +160,8 @@ export async function GET(req: NextRequest) {
         `;
       }
 
-      if (game.status !== 'RUNNING' || winners.length > 0 || drawn.length >= 75) continue;
-      const intervalMs = Math.max(1, Number(game.draw_interval || 3)) * 1000;
-      const lastDrawAt = game.last_ball_drawn_at ? new Date(game.last_ball_drawn_at).getTime() : 0;
-      if (lastDrawAt && Date.now() < lastDrawAt + intervalMs) continue;
-      const drawnSet = new Set(drawn);
-      const remaining = Array.from({ length: 75 }, (_, index) => index + 1).filter((ball) => !drawnSet.has(ball));
-      if (remaining.length === 0) continue;
-      const nextBall = remaining[Math.floor(Math.random() * remaining.length)];
-      const updatedDrawn = [...drawn, nextBall];
-      await sql`
-        UPDATE games
-        SET drawn_numbers = ${`{${updatedDrawn.join(',')}}`}::int4[], current_ball = ${nextBall},
-            last_ball_drawn_at = NOW(), status = ${updatedDrawn.length >= 75 ? 'COMPLETED' : 'RUNNING'}, updated_at = NOW()
-        WHERE id = ${game.id} AND status = 'RUNNING'
-          AND drawn_numbers = ${`{${drawn.join(',')}}`}::int4[]
-          AND winners = '[]'::jsonb
-          AND (last_ball_drawn_at IS NULL OR last_ball_drawn_at <= NOW() - (${intervalMs} * INTERVAL '1 millisecond'))
-      `;
+      // Drawing is player initiated from the room. State polling only syncs data;
+      // it must never call a ball automatically.
     }
     await sql`
       UPDATE games
@@ -297,8 +281,9 @@ export async function GET(req: NextRequest) {
 
     // Fetch sold cards by game so clients can show live sold cards & left cards on the board
     const soldCardsByGame: Record<string, number[]> = {};
+    let soldRows: any[] = [];
     try {
-      const soldRows = await sql`
+      soldRows = await sql`
         SELECT game_id, card_number, user_id FROM game_cards
       `;
       for (const row of soldRows) {
@@ -314,18 +299,14 @@ export async function GET(req: NextRequest) {
       // Gracefully ignore if table empty or not yet migrated
     }
 
-    const activePlayerIdsByGame: Record<string, Set<string>> = {};
+    const playerIdsByGame: Record<string, Set<string>> = {};
     try {
-      const activeRows = await sql`
-        SELECT game_id, user_id FROM game_presence
-        WHERE last_seen_at > NOW() - INTERVAL '45 seconds'
-      `;
-      for (const row of activeRows) {
-        if (!activePlayerIdsByGame[row.game_id]) activePlayerIdsByGame[row.game_id] = new Set<string>();
-        activePlayerIdsByGame[row.game_id].add(String(row.user_id));
+      for (const row of soldRows) {
+        if (!playerIdsByGame[row.game_id]) playerIdsByGame[row.game_id] = new Set<string>();
+        playerIdsByGame[row.game_id].add(String(row.user_id));
       }
     } catch {
-      // Presence tracking is initialized when the first game room is opened.
+      // Player totals remain zero if card data is unavailable.
     }
 
     const games = rows.map((r: any) => ({
@@ -333,7 +314,7 @@ export async function GET(req: NextRequest) {
       status: r.status,
       drawnNumbers: parseIntegerArray(r.drawn_numbers),
       currentBall: r.current_ball == null ? null : Number(r.current_ball),
-      currentPlayers: activePlayerIdsByGame[r.id]?.size ?? 0,
+      currentPlayers: playerIdsByGame[r.id]?.size ?? 0,
       winners: Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : []),
       blockedCards: Array.isArray(r.blocked_cards) ? r.blocked_cards : [],
       blockedPlayers: Array.isArray(r.blocked_players) ? r.blocked_players : [],

@@ -183,8 +183,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     blockCard,
     resetGameRound,
     drawNextBall, 
-    autoDaubEnabled, 
-    toggleAutoDaub,
     joinGame,
     addCardToGame,
     removeCard,
@@ -387,29 +385,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const isWeekendLive = computeIsWeekendLive(currentGame);
 
   // Outside scheduled live draw times, weekend games remain in scheduled/open entry mode without auto-drawing
-  const [isAutoDrawing, setIsAutoDrawing] = useState(() => {
-    if (isWeekendGame) return computeIsWeekendLive(currentGame);
-    const isSpecial = currentGame.category === 'HYPER_SPECIAL' || currentGame.gameType === 'HYPER_SPECIAL';
-    if (isSpecial) {
-      if (currentGame.status === 'RUNNING' || currentGame.drawnNumbers.length > 0) return true;
-      if (currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) return false;
-      if (currentGame.drawnNumbers.length === 0 && (!currentGame.winners || currentGame.winners.length === 0)) return false;
-    }
-    return true;
-  });
-  useEffect(() => {
-    if (!isWeekendGame) return;
-    const syncWeekendSchedule = () => {
-      if (isHiddenRef.current) return;
-      const inSchedule = computeIsWeekendLive(currentGame);
-      const liveRoundReady = inSchedule && currentGame.status === 'RUNNING' &&
-        !(currentGame.winners?.length) && currentGame.drawnNumbers.length < 75;
-      setIsAutoDrawing((current) => current === liveRoundReady ? current : liveRoundReady);
-    };
-    syncWeekendSchedule();
-    const timer = window.setInterval(syncWeekendSchedule, 1000);
-    return () => window.clearInterval(timer);
-  }, [isWeekendGame, currentGame.id, currentGame.status, currentGame.winners?.length, currentGame.drawnNumbers.length]);
   const [claimStatus, setClaimStatus] = useState<{ success?: boolean; message?: string; prize?: number } | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
@@ -592,7 +567,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     if (!isHiddenRef.current) announceBallRef.current(ball);
   }, [currentGame.id, currentGame.nextRoundStartsAt, currentGame.drawnNumbers.length, currentGame.currentBall]);
 
-  // Hyper Fetan draws continuously until the shared round has a winner.
+  // Keep Hyper Fetan's shared card-pick window synchronized.
   const [fetanIsIntermission, setFetanIsIntermission] = useState<boolean>(false);
   const lastSpecialTimerDeadlineRef = React.useRef<number | undefined>(undefined);
   const [fetanOvertime, setFetanOvertime] = useState<boolean>(false);
@@ -612,10 +587,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       }
       setSpecialIsIntermission(false);
       setIsSelectorOpen(false);
-      setIsAutoDrawing(true);
-      window.setTimeout(() => drawNextBall(currentGame.id), 350);
     });
-  }, [currentGame.id, startSpecialRound, drawNextBall]);
+  }, [currentGame.id, startSpecialRound]);
   useEffect(() => {
     nextRoundStartsAtRef.current = currentGame.nextRoundStartsAt;
   }, [currentGame.nextRoundStartsAt]);
@@ -650,7 +623,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         startedSpecialDeadlineRef.current = undefined;
         setSpecialSecondsLeft(remaining);
         setSpecialIsIntermission(true);
-        setIsAutoDrawing(false);
       } else {
         // Keep retrying the shared server transition until it succeeds. This
         // also handles clients resuming from the background after the deadline.
@@ -696,7 +668,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         // Special card purchases stay on the room's plus picker during its
         // newly-created five-minute window.
         setSpecialIsIntermission(true);
-        setIsAutoDrawing(false);
         setSpecialSecondsLeft(300);
       } else if (openLotteryTabRef.current) {
         openLotteryTabRef.current();
@@ -705,7 +676,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       }
     };
 
-    setIsAutoDrawing(false);
     const timer = window.setInterval(update, 250);
     const unsubscribe = subscribeToMiniAppActivity((active) => {
       if (active) update();
@@ -771,8 +741,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     };
   }, [isSpecialGame, specialIsIntermission, currentGame.id, startExpiredSpecialRound]);
 
-  // Fetan uses the shared server deadline for its 30-second pick window, then
-  // starts drawing continuously until a winner ends the round.
+  // Fetan uses the shared server deadline for its 30-second pick window.
   useEffect(() => {
     if (!isFetanGame) return;
 
@@ -785,8 +754,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       );
       setFetanIsIntermission((current) => current === pickingCards ? current : pickingCards);
       setFetanOvertime(false);
-      const shouldDraw = !pickingCards && currentGame.status === 'RUNNING';
-      setIsAutoDrawing((current) => current === shouldDraw ? current : shouldDraw);
       if (
         currentGame.status === 'OPEN' && currentGame.drawnNumbers.length === 0 &&
         currentGame.nextRoundStartsAt && Date.now() >= currentGame.nextRoundStartsAt
@@ -871,38 +838,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeGameCards, currentGame.winningRule, currentGame.activeSpecialRuleIndex, currentGame.category, language, currentGame.drawnNumbers]);
-
-  // Auto Draw interval timer simulation — calls balls automatically without requiring player action
-  // Pauses when the page/app is hidden (backgrounded) to prevent phone freezing/stacking
-  useEffect(() => {
-    let interval: NodeJS.Timeout | undefined;
-    const isSpecialIntermissionNow = isSpecialGame && (
-      specialIsIntermission || (currentGame?.status !== 'RUNNING' && currentGame?.nextRoundStartsAt ? Date.now() < currentGame.nextRoundStartsAt : false)
-    );
-
-    const canAutoDraw = isAutoDrawing && 
-      currentGame && 
-      currentGame.status !== 'COMPLETED' && 
-      (!currentGame.winners || currentGame.winners.length === 0) &&
-      currentGame.drawnNumbers.length < 75 && 
-      !fetanIsIntermission &&
-      !isSpecialIntermissionNow &&
-      (!isWeekendGame || isWeekendLive);
-
-    if (canAutoDraw) {
-      interval = setInterval(() => {
-        // Skip tick if app is backgrounded — prevents stacking/freezing on mobile
-        if (isHiddenRef.current) return;
-        drawNextBall(currentGame.id);
-      }, Math.max(2500, (currentGame.drawInterval || 3) * 1000));
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  // Use stable primitives (id, status, drawnNumbers.length) instead of the whole currentGame
-  // object so the interval is NOT recreated on every single ball draw — major perf fix.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAutoDrawing, currentGame?.id, currentGame?.status, currentGame?.drawnNumbers?.length, drawNextBall, soundEnabled, fetanIsIntermission, specialIsIntermission, isSpecialGame, isWeekendGame, isWeekendLive]);
 
   // Automatically trigger Winner Celebration Modal when game ends or a winner is registered
   useEffect(() => {
@@ -1269,9 +1204,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     if (unpurchasedNumbers.length > 0) {
       joinGame(currentGame.id, unpurchasedNumbers);
     }
-    if (!isWeekendGame || isWeekendLive) {
-      setIsAutoDrawing(true);
-    }
     setIsSelectorOpen(false);
   };
 
@@ -1280,10 +1212,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       openAuthModal('register');
       return;
     }
-    const joined = joinGame(currentGame.id);
-    if (joined && (!isWeekendGame || isWeekendLive)) {
-      setIsAutoDrawing(true);
-    }
+    joinGame(currentGame.id);
   };
 
   // 75-Ball rows for master board (always visible inline, not a modal)
@@ -1485,8 +1414,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </div>
           </div>
 
-          {/* Controls: Hit, Sound only */}
+          {/* Controls */}
           <div className="flex items-center gap-1.5 px-1 pt-0.5">
+            <button
+              type="button"
+              onClick={handleManualDraw}
+              disabled={currentGame.status !== 'RUNNING' || currentGame.drawnNumbers.length >= 75 || Boolean(currentGame.winners?.length) || (isWeekendGame && !isWeekendLive)}
+              className="bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 disabled:text-slate-500 text-white font-black text-[10px] px-2.5 py-1 rounded-lg cursor-pointer disabled:cursor-not-allowed transition active:scale-95 shadow-2xs"
+            >
+              {language === 'am' ? 'ጥራ ቁጥር' : 'Pick Next Number'}
+            </button>
             <button
               type="button"
               onClick={() => setShowPatternHintModal(true)}
@@ -1761,9 +1698,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         </div>
       )}
 
-      {/* ── CARD 2: 75-Ball Master Table (Compact 1-Screen Layout for Fetan & Special) ── */}
-      {(isFetanGame || isSpecialGame) && showMoreNumbers && (
-        <>
+      {/* ── 75-Ball Master Table ── */}
       {/* ================================================================
           CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
           ================================================================ */}
@@ -1825,8 +1760,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </span>
           </button>
         </div>
-      )}
-        </>
       )}
 
       {/* ================================================================
@@ -2834,7 +2767,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   if (isSpecialGame) {
                     setSpecialIsIntermission(true);
                     setSpecialSecondsLeft(300);
-                    setIsAutoDrawing(false);
                     setIsSelectorOpen(true);
                   } else if (onOpenLotteryTab) {
                     onOpenLotteryTab();
