@@ -1937,6 +1937,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 {activeGameCards.map((card) => {
                   const cardDrawnSet = new Set(currentGame.drawnNumbers || []);
                   const isRegistered = Boolean(card.isRegistered);
+                  const specialRoundHasStarted = isSpecialGame && (currentGame.status === 'RUNNING' || currentGame.drawnNumbers.length > 0);
                   const effectiveCardMarked = (card.numbers || []).map((row, rIdx) =>
                     row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]))
                   );
@@ -1970,10 +1971,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                         <button
                           type="button"
                           onClick={() => removeCard(card.id)}
-                          className={`hover:bg-black/20 p-0.5 rounded cursor-pointer transition shrink-0 ${
+                          disabled={specialRoundHasStarted}
+                          className={`hover:bg-black/20 p-0.5 rounded cursor-pointer transition shrink-0 disabled:cursor-not-allowed disabled:opacity-40 ${
                             isRegistered ? 'text-white/80 hover:text-white' : 'text-white/70 hover:text-white'
                           }`}
-                          title="Remove card"
+                          title={specialRoundHasStarted ? 'Card stays available until the round ends' : 'Remove card'}
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>

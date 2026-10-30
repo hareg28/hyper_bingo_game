@@ -17,6 +17,22 @@ let gameRoundStartedMigration: Promise<void> | null = null;
 let weekendRoundKeyMigration: Promise<void> | null = null;
 let blockedPlayersMigration: Promise<void> | null = null;
 let builtinGamesMigration: Promise<void> | null = null;
+let gameCardPaidMigration: Promise<void> | null = null;
+
+/** Track whether a retained Special card has been paid for after unregistering. */
+export async function ensureGameCardPaidColumn(
+  sql: NonNullable<ReturnType<typeof getNeonSql>>
+): Promise<void> {
+  if (!gameCardPaidMigration) {
+    gameCardPaidMigration = sql`ALTER TABLE game_cards ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT TRUE`
+      .then(() => undefined)
+      .catch((error) => {
+        gameCardPaidMigration = null;
+        throw error;
+      });
+  }
+  await gameCardPaidMigration;
+}
 
 /** Ensure this runtime column exists for databases created before timed draws. */
 export async function ensureGameDrawTimestampColumn(
@@ -287,6 +303,7 @@ export async function initDatabaseSchema() {
         username VARCHAR(255),
         cost NUMERIC(10,2) NOT NULL DEFAULT 0,
         is_registered BOOLEAN DEFAULT FALSE,
+        is_paid BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         UNIQUE(game_id, card_number)
       );
@@ -295,6 +312,7 @@ export async function initDatabaseSchema() {
       await sql`CREATE INDEX IF NOT EXISTS idx_game_cards_game_id ON game_cards(game_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_game_cards_user_id ON game_cards(user_id)`;
       await sql`ALTER TABLE game_cards ADD COLUMN IF NOT EXISTS is_registered BOOLEAN DEFAULT FALSE`;
+      await sql`ALTER TABLE game_cards ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT TRUE`;
     } catch {}
 
     // 7. Announcements Table

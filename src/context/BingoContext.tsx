@@ -449,16 +449,17 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       .then((response) => response.json())
       .then((result) => {
         if (cancelled || !result.success || !Array.isArray(result.data?.myCards)) return;
-        const ownedRows = result.data.myCards as Array<{ gameId: string; cardNumber: string; isRegistered?: boolean }>;
+        const ownedRows = result.data.myCards as Array<{ gameId: string; cardNumber: string; isRegistered?: boolean; isPaid?: boolean }>;
         setUserCards((prev) => {
           const existing = new Map(prev.map((card) => [`${card.gameId}:${card.cardNumber}`, card]));
           return ownedRows.map((row) => {
             const key = `${row.gameId}:${row.cardNumber}`;
             const inMemory = existing.get(key);
-            if (inMemory) return inMemory;
+            if (inMemory) return { ...inMemory, isRegistered: Boolean(row.isRegistered), isPaid: row.isPaid !== false };
             const card = createNewBingoCard(row.gameId, user.id, row.cardNumber);
             card.id = `gc_${row.gameId}_${row.cardNumber}`;
             card.isRegistered = Boolean(row.isRegistered);
+            card.isPaid = row.isPaid !== false;
             return card;
           });
         });
@@ -1529,7 +1530,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const game = games.find((g) => g.id === card.gameId);
     const refundAmount = game?.entryPrice || 10;
     const isSpecial = game?.category === 'HYPER_SPECIAL' || game?.gameType === 'HYPER_SPECIAL';
-    if (isSpecial && card.isRegistered) {
+    if (isSpecial && (game?.status === 'RUNNING' || Boolean(game?.drawnNumbers?.length))) return;
+    if (isSpecial) {
       const cardNumber = parseInt(card.cardNumber, 10);
       if (Number.isFinite(cardNumber)) refundLotteryNumber(card.gameId, cardNumber);
       return;
@@ -1619,9 +1621,42 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     if (card.isRegistered) {
       const num = parseInt(card.cardNumber, 10);
-      return Number.isNaN(num)
-        ? { success: false, message: 'Invalid card number.' }
-        : refundLotteryNumber(card.gameId, num);
+      if (Number.isNaN(num)) return { success: false, message: 'Invalid card number.' };
+      setUserCards((prev) => prev.map((c) => c.id === cardId ? { ...c, isRegistered: false } : c));
+      if (user?.id) {
+        fetch('/api/games/buy-card', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gameId: card.gameId, userId: user.id, cardNumber: card.cardNumber }),
+        }).then(async (response) => {
+          const result = await response.json();
+          if (!response.ok || !result.success) {
+            setUserCards((prev) => prev.map((c) => c.id === cardId ? { ...c, isRegistered: true } : c));
+            return;
+          }
+          const isPaid = result.data?.isPaid !== false;
+          setUserCards((prev) => prev.map((c) => c.id === cardId ? { ...c, isRegistered: false, isPaid } : c));
+          if (result.data?.walletAfter) {
+            setWallet((prev) => {
+              const updated = { ...prev, availableBalance: result.data.walletAfter.availableBalance, bonusBalance: result.data.walletAfter.bonusBalance };
+              try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
+              return updated;
+            });
+          }
+          if (result.data?.refund > 0) {
+            const tx: Transaction = {
+              id: `TX_REFUND_${Date.now().toString(36)}`, userId: user.id, username: user.username,
+              type: 'GAME_ENTRY', amount: result.data.refund,
+              balanceAfter: result.data.walletAfter?.availableBalance ?? wallet.availableBalance,
+              reference: `REFUND-${card.gameId}`, status: 'COMPLETED',
+              description: `Refund for unregistered Hyper Special card #${card.cardNumber} in ${game?.name || card.gameId}`,
+              createdAt: new Date().toISOString(),
+            };
+            setTransactions((prev) => [tx, ...prev]);
+          }
+        }).catch(() => setUserCards((prev) => prev.map((c) => c.id === cardId ? { ...c, isRegistered: true } : c)));
+      }
+      return { success: true, message: `Card #${card.cardNumber} is unregistered and remains available to register again.`, isRegistered: false };
     } else {
       // Register card
       const registeredInGame = userCards.filter((c) => c.gameId === card.gameId && c.isRegistered).length;
@@ -1630,12 +1665,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       }
 
       const playableBalance = wallet.availableBalance + wallet.bonusBalance;
-      if (playableBalance < entryPrice) {
+      if (!card.isPaid && playableBalance < entryPrice) {
         return { success: false, message: `በቂ ሒሳብ የለዎትም! (${entryPrice} ETB ያስፈልጋል)` };
       }
 
       // Optimistic local deduction — bonus first, then available
-      let remCost = entryPrice;
+      let remCost = card.isPaid ? 0 : entryPrice;
       let newBonus = wallet.bonusBalance;
       let newAvailable = wallet.availableBalance;
       if (newBonus >= remCost) {
@@ -1653,11 +1688,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       });
 
       setUserCards((prev) =>
-        prev.map((c) => (c.id === cardId ? { ...c, isRegistered: true } : c))
+        prev.map((c) => (c.id === cardId ? { ...c, isRegistered: true, isPaid: true } : c))
       );
 
-      // Increment game player count if first registered card
-      if (registeredInGame === 0) {
+      // Count a newly purchased/refunded card as a player; free re-registration
+      // of an already-paid card must not increment the player count again.
+      if (registeredInGame === 0 && !card.isPaid) {
         setGames((prev) =>
           prev.map((g) => (g.id === card.gameId ? { ...g, currentPlayers: (g.currentPlayers || 0) + 1 } : g))
         );
@@ -1687,7 +1723,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         })
           .then((r) => r.json())
           .then((res) => {
-            if (res.success && res.data?.walletAfter) {
+            if (!res.success) {
+              setUserCards((prev) => prev.map((c) => c.id === cardId ? { ...c, isRegistered: false, isPaid: card.isPaid } : c));
+              setWallet((prev) => ({ ...prev, availableBalance: wallet.availableBalance, bonusBalance: wallet.bonusBalance }));
+            } else if (res.data?.walletAfter) {
               // Sync authoritative server wallet back to local state + localStorage
               setWallet((prev) => {
                 const updated = {
@@ -1701,11 +1740,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             }
           })
           .catch(() => {
-            // Network error — optimistic state stands; will sync on next wallet poll
+            setUserCards((prev) => prev.map((c) => c.id === cardId ? { ...c, isRegistered: false, isPaid: card.isPaid } : c));
+            setWallet((prev) => ({ ...prev, availableBalance: wallet.availableBalance, bonusBalance: wallet.bonusBalance }));
           });
       }
 
-      return { success: true, message: `ካርድ #${card.cardNumber} ተመዝግቧል! (${entryPrice} ETB ተቀንሷል)`, isRegistered: true };
+      return { success: true, message: card.isPaid ? `Card #${card.cardNumber} registered again.` : `ካርድ #${card.cardNumber} ተመዝግቧል! (${entryPrice} ETB ተቀንሷል)`, isRegistered: true };
     }
   };
 
@@ -2517,8 +2557,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     };
     void releaseOwnedCard();
 
-    // Refund entry price only if not Hyper Special
-    if (!pendingPurchase) {
+    // Special card purchases/refunds are settled by the server so retained
+    // registration state and wallet balance cannot drift or be refunded twice.
+    if (!pendingPurchase && !isSpecial) {
       const refundAmount = game.entryPrice || 10;
       let newAvail = wallet.availableBalance + refundAmount;
       setWallet((prev) => {

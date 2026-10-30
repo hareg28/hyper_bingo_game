@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
+import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 import { FETAN_PICK_SECONDS, getExpiredWeekendRoundKey, getWeekendRoundKey, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS } from '@/lib/bingoUtils';
 
@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
 
   try {
     await ensureGameDrawTimestampColumn(sql);
+    await ensureGameCardPaidColumn(sql);
     await ensureWeekendRoundKeyColumn(sql);
     await ensureBlockedPlayersColumn(sql);
     await ensureBuiltinGameRows(sql);
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest) {
         SET status = 'RUNNING', round_started_at = NOW(), drawn_numbers = '{}', current_ball = NULL,
             last_ball_drawn_at = NULL, winners = '[]'::jsonb,
             blocked_cards = '{}', blocked_players = '{}',
-            current_players = (SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${weekendGame.id}),
+            current_players = (SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${weekendGame.id} AND is_paid = TRUE),
             weekend_round_key = ${weekendRoundKey}, updated_at = NOW()
         WHERE id = ${weekendGame.id} AND weekend_round_key IS DISTINCT FROM ${weekendRoundKey}
       `;
@@ -320,7 +321,7 @@ export async function GET(req: NextRequest) {
     let soldRows: any[] = [];
     try {
       soldRows = await sql`
-        SELECT game_id, card_number, user_id FROM game_cards
+        SELECT game_id, card_number, user_id, is_paid FROM game_cards
       `;
       for (const row of soldRows) {
         if (!soldCardsByGame[row.game_id]) {
@@ -338,8 +339,10 @@ export async function GET(req: NextRequest) {
     const playerIdsByGame: Record<string, Set<string>> = {};
     try {
       for (const row of soldRows) {
-        if (!playerIdsByGame[row.game_id]) playerIdsByGame[row.game_id] = new Set<string>();
-        playerIdsByGame[row.game_id].add(String(row.user_id));
+        if (row.is_paid !== false) {
+          if (!playerIdsByGame[row.game_id]) playerIdsByGame[row.game_id] = new Set<string>();
+          playerIdsByGame[row.game_id].add(String(row.user_id));
+        }
       }
     } catch {
       // Player totals remain zero if card data is unavailable.

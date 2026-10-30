@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
+import { ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
 import { FETAN_PICK_SECONDS, SPECIAL_PICK_SECONDS } from '@/lib/bingoUtils';
 
 function parseIntegerArray(value: unknown): number[] {
@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureGameDrawTimestampColumn(sql);
+    await ensureGameCardPaidColumn(sql);
     const body = await req.json();
     const { gameId, cardNumbers, userId, isRegistered } = body as {
       gameId: string;
@@ -57,7 +58,20 @@ export async function POST(req: NextRequest) {
       [game] = await sql`SELECT id, name, status, entry_price, category, game_type, next_round_starts_at, drawn_numbers FROM games WHERE id = ${gameId}`;
       pickDeadline = Number(game?.next_round_starts_at || 0);
     }
-    if (isFetan || isSpecial) {
+    // 2. Fetch user wallet — check balance
+    const pricePerCard = parseFloat(game.entry_price);
+    const existingOwned = new Set<string>();
+    const existingPaid = new Set<string>();
+    for (const cardNumber of cardNumbers) {
+      const [existing] = await sql`SELECT user_id, is_paid FROM game_cards WHERE game_id = ${gameId} AND card_number = ${cardNumber}`;
+      if (existing?.user_id === userId) {
+        existingOwned.add(cardNumber);
+        if (existing.is_paid !== false) existingPaid.add(cardNumber);
+      }
+    }
+    const chargeableCount = cardNumbers.filter((cardNumber) => !existingPaid.has(cardNumber)).length;
+    const onlyReRegisteringOwnedCards = Boolean(isRegistered) && cardNumbers.every((cardNumber) => existingOwned.has(cardNumber) && existingPaid.has(cardNumber));
+    if (!onlyReRegisteringOwnedCards && (isFetan || isSpecial)) {
       const drawn = parseIntegerArray(game.drawn_numbers);
       if (game.status !== 'OPEN' || drawn.length > 0 || !pickDeadline || Date.now() >= pickDeadline) {
         return NextResponse.json({
@@ -66,18 +80,9 @@ export async function POST(req: NextRequest) {
         }, { status: 409 });
       }
     }
-    if (!isWeekend && (game.status === 'COMPLETED' || game.status === 'CANCELLED')) {
+    if (!onlyReRegisteringOwnedCards && !isWeekend && (game.status === 'COMPLETED' || game.status === 'CANCELLED')) {
       return NextResponse.json({ success: false, error: 'Game is no longer open for card purchases' }, { status: 409 });
     }
-
-    // 2. Fetch user wallet — check balance
-    const pricePerCard = parseFloat(game.entry_price);
-    const existingOwned = new Set<string>();
-    for (const cardNumber of cardNumbers) {
-      const [existing] = await sql`SELECT user_id FROM game_cards WHERE game_id = ${gameId} AND card_number = ${cardNumber}`;
-      if (existing?.user_id === userId) existingOwned.add(cardNumber);
-    }
-    const chargeableCount = cardNumbers.filter((cardNumber) => !existingOwned.has(cardNumber)).length;
     const requiredCost = pricePerCard * chargeableCount;
 
     const [wallet] = await sql`SELECT available_balance, bonus_balance FROM wallets WHERE user_id = ${userId}`;
@@ -106,8 +111,9 @@ export async function POST(req: NextRequest) {
     for (const cardNumber of cardNumbers) {
       if (existingOwned.has(cardNumber)) {
         if (isRegistered) {
-          await sql`UPDATE game_cards SET is_registered = TRUE WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND user_id = ${userId}`;
+          await sql`UPDATE game_cards SET is_registered = TRUE, is_paid = TRUE, cost = ${pricePerCard} WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND user_id = ${userId}`;
           purchased.push(cardNumber);
+          if (!existingPaid.has(cardNumber)) newlyPurchased.push(cardNumber);
         } else {
           alreadySold.push(cardNumber);
         }
@@ -115,8 +121,8 @@ export async function POST(req: NextRequest) {
       }
       const cardId = `gc_${gameId}_${cardNumber}`;
       const rows = await sql`
-        INSERT INTO game_cards (id, game_id, card_number, user_id, username, cost, is_registered)
-        VALUES (${cardId}, ${gameId}, ${cardNumber}, ${userId}, ${username}, ${pricePerCard}, ${Boolean(isRegistered)})
+        INSERT INTO game_cards (id, game_id, card_number, user_id, username, cost, is_registered, is_paid)
+        VALUES (${cardId}, ${gameId}, ${cardNumber}, ${userId}, ${username}, ${pricePerCard}, ${Boolean(isRegistered)}, TRUE)
         ON CONFLICT (game_id, card_number) DO NOTHING
         RETURNING card_number
       `;
@@ -160,22 +166,24 @@ export async function POST(req: NextRequest) {
     await sql`
       UPDATE games
       SET current_players = (
-        SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${gameId}
+        SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${gameId} AND is_paid = TRUE
       ), updated_at = NOW()
       WHERE id = ${gameId}
     `;
 
     // 7. Record transaction
-    const txId = `TX_ENTRY_${Date.now().toString(36).slice(-6)}`;
-    const balanceAfter = newAvailable;
-    await sql`
-      INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
-      VALUES (
-        ${txId}, ${userId}, ${username}, 'GAME_ENTRY', ${-actualCost}, ${balanceAfter},
-        'System', 'COMPLETED', ${'GM-' + gameId},
-        ${`${game.category === 'HYPER_FETAN' ? 'Hyper Fetan entry fee' : game.category === 'HYPER_SPECIAL' ? 'Hyper Special entry fee' : game.game_type === 'WEEKEND_LOTTERY' ? 'Weekend entry fee' : 'Bingo entry fee'}: ${purchased.length} card(s) in ${game.name} (card price ${pricePerCard} ETB each)`}
-      )
-    `;
+    if (actualCost > 0) {
+      const txId = `TX_ENTRY_${Date.now().toString(36).slice(-6)}`;
+      const balanceAfter = newAvailable;
+      await sql`
+        INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
+        VALUES (
+          ${txId}, ${userId}, ${username}, 'GAME_ENTRY', ${-actualCost}, ${balanceAfter},
+          'System', 'COMPLETED', ${'GM-' + gameId},
+          ${`${game.category === 'HYPER_FETAN' ? 'Hyper Fetan entry fee' : game.category === 'HYPER_SPECIAL' ? 'Hyper Special entry fee' : game.game_type === 'WEEKEND_LOTTERY' ? 'Weekend entry fee' : 'Bingo entry fee'}: ${newlyPurchased.length} card(s) in ${game.name} (card price ${pricePerCard} ETB each)`}
+        )
+      `;
+    }
 
     return NextResponse.json({
       success: true,
@@ -188,6 +196,62 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error('[buy-card]', err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+/** PATCH /api/games/buy-card — unregister but keep a Special card available on the player's table. */
+export async function PATCH(req: NextRequest) {
+  const sql = getNeonSql();
+  if (!sql) return NextResponse.json({ success: false, error: 'DB not configured' }, { status: 503 });
+  try {
+    await ensureGameCardPaidColumn(sql);
+    const { gameId, userId, cardNumber } = await req.json() as { gameId: string; userId: string; cardNumber: string };
+    if (!gameId || !userId || !cardNumber) {
+      return NextResponse.json({ success: false, error: 'gameId, userId and cardNumber required' }, { status: 400 });
+    }
+    const [owned] = await sql`
+      SELECT gc.cost, gc.is_paid, g.name, g.category, g.game_type, g.status,
+             g.next_round_starts_at, g.drawn_numbers
+      FROM game_cards gc JOIN games g ON g.id = gc.game_id
+      WHERE gc.game_id = ${gameId} AND gc.card_number = ${cardNumber} AND gc.user_id = ${userId}
+    `;
+    if (!owned || (owned.category !== 'HYPER_SPECIAL' && owned.game_type !== 'HYPER_SPECIAL')) {
+      return NextResponse.json({ success: false, error: 'Card could not be unregistered for the current round.' }, { status: 409 });
+    }
+    const drawn = parseIntegerArray(owned.drawn_numbers);
+    const deadline = Number(owned.next_round_starts_at || 0);
+    const canRefund = owned.status === 'OPEN' && drawn.length === 0 && deadline > 0 && Date.now() < deadline;
+    const refund = canRefund && owned.is_paid !== false ? parseFloat(owned.cost || '0') : 0;
+    const [refundWallet] = refund > 0
+      ? await sql`SELECT available_balance, bonus_balance FROM wallets WHERE user_id = ${userId}`
+      : [null];
+    if (refund > 0 && !refundWallet) return NextResponse.json({ success: false, error: 'Wallet not found; card was not changed.' }, { status: 404 });
+    await sql`
+      UPDATE game_cards
+      SET is_registered = FALSE, is_paid = CASE WHEN ${refund > 0} THEN FALSE ELSE is_paid END
+      WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND user_id = ${userId}
+    `;
+
+    let walletAfter;
+    if (refund > 0 && refundWallet) {
+      const availableBalance = parseFloat(refundWallet.available_balance) + refund;
+      await sql`UPDATE wallets SET available_balance = ${availableBalance}, updated_at = NOW() WHERE user_id = ${userId}`;
+      walletAfter = { availableBalance, bonusBalance: parseFloat(refundWallet.bonus_balance) };
+      const [player] = await sql`SELECT username FROM users WHERE id = ${userId}`;
+      await sql`
+        INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
+        VALUES (${`TX_UNREGISTER_${Date.now().toString(36)}`}, ${userId}, ${player?.username || userId}, 'GAME_ENTRY', ${refund}, ${availableBalance}, 'System', 'COMPLETED', ${'REFUND-' + gameId}, ${'Refund for unregistered Hyper Special card #' + cardNumber + ' in ' + owned.name})
+      `;
+      await sql`
+        UPDATE games SET current_players = (
+          SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${gameId} AND is_paid = TRUE
+        ), updated_at = NOW() WHERE id = ${gameId}
+      `;
+    }
+    return NextResponse.json({ success: true, data: { cardNumber, isRegistered: false, isPaid: refund === 0 ? owned.is_paid !== false : false, remainsOnTable: true, refund, walletAfter } });
+  } catch (err: any) {
+    console.error('[buy-card PATCH]', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
@@ -208,9 +272,10 @@ export async function GET(req: NextRequest) {
   if (!gameId && !userId) return NextResponse.json({ success: false, error: 'gameId or userId required' }, { status: 400 });
 
   try {
+    await ensureGameCardPaidColumn(sql);
     if (!gameId && userId) {
       const rows = await sql`
-        SELECT game_id, card_number, is_registered
+        SELECT game_id, card_number, is_registered, is_paid
         FROM game_cards
         WHERE user_id = ${userId}
         ORDER BY created_at ASC
@@ -222,18 +287,20 @@ export async function GET(req: NextRequest) {
             gameId: row.game_id,
             cardNumber: String(row.card_number),
             isRegistered: Boolean(row.is_registered),
+            isPaid: row.is_paid !== false,
           })),
         },
       });
     }
     const rows = await sql`
-      SELECT card_number, user_id, is_registered FROM game_cards WHERE game_id = ${gameId}
+      SELECT card_number, user_id, is_registered, is_paid FROM game_cards WHERE game_id = ${gameId}
     `;
     const allSold = rows.map((r: any) => parseInt(r.card_number, 10)).filter((n: number) => !isNaN(n));
     const myCards = userId
       ? rows.filter((r: any) => r.user_id === userId).map((r: any) => ({
           cardNumber: r.card_number,
           isRegistered: r.is_registered,
+          isPaid: r.is_paid !== false,
         }))
       : [];
 
@@ -249,6 +316,7 @@ export async function DELETE(req: NextRequest) {
   if (!sql) return NextResponse.json({ success: false, error: 'DB not configured' }, { status: 503 });
 
   try {
+    await ensureGameCardPaidColumn(sql);
     const { gameId, userId, cardNumber } = await req.json() as {
       gameId: string;
       userId: string;
@@ -259,7 +327,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const [ownedCard] = await sql`
-      SELECT gc.cost, g.category, g.game_type, g.status, g.next_round_starts_at, g.drawn_numbers
+      SELECT gc.cost, gc.is_paid, g.category, g.game_type, g.status, g.next_round_starts_at, g.drawn_numbers
       FROM game_cards gc
       JOIN games g ON g.id = gc.game_id
       WHERE gc.game_id = ${gameId} AND gc.card_number = ${cardNumber} AND gc.user_id = ${userId}
@@ -283,19 +351,22 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
+    const refund = ownedCard.is_paid === false ? 0 : parseFloat(ownedCard.cost ?? '0');
+    const [wallet] = refund > 0
+      ? await sql`SELECT available_balance, bonus_balance FROM wallets WHERE user_id = ${userId}`
+      : [null];
+    if (refund > 0 && !wallet) return NextResponse.json({ success: false, error: 'Wallet not found; card was not removed.' }, { status: 404 });
     await sql`DELETE FROM game_cards WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND user_id = ${userId}`;
     await sql`
       UPDATE games
       SET current_players = (
-        SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${gameId}
+        SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${gameId} AND is_paid = TRUE
       ), updated_at = NOW()
       WHERE id = ${gameId}
     `;
 
     let walletAfter;
-    const refund = parseFloat(ownedCard.cost ?? '0');
-    const [wallet] = await sql`SELECT available_balance, bonus_balance FROM wallets WHERE user_id = ${userId}`;
-    if (wallet) {
+    if (refund > 0 && wallet) {
       const availableBalance = parseFloat(wallet.available_balance) + refund;
       await sql`
         UPDATE wallets SET available_balance = ${availableBalance}, updated_at = NOW()
