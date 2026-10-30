@@ -769,7 +769,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   }, [isFetanGame, currentGame.id, currentGame.nextRoundStartsAt, currentGame.status, currentGame.drawnNumbers.length, startExpiredSpecialRound]);
   // drawnSet must be defined before the topHitRequirement useMemo that references it
   const drawnSet = new Set(currentGame.drawnNumbers || []);
-  const cardDrawnSet = drawnSet;
 
   // Dynamic Hit Requirement calculation for active cards
   const topHitRequirement = React.useMemo(() => {
@@ -1205,7 +1204,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   };
 
   // 75-Ball rows for master board (always visible inline, not a modal)
-  // drawnSet / cardDrawnSet already declared above the topHitRequirement useMemo
+  // drawnSet is declared above the topHitRequirement useMemo
   const drawnNumbersArr = currentGame.drawnNumbers || [];
   const ballHistory = currentGame.currentBall == null
     ? drawnNumbersArr
@@ -1935,7 +1934,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             ) : (
               <div className="grid grid-cols-2 gap-1.5 pb-3 max-h-[42vh] overflow-y-auto pr-1">
                 {activeGameCards.map((card) => {
-                  const cardDrawnSet = new Set(currentGame.drawnNumbers || []);
                   const isRegistered = Boolean(card.isRegistered);
                   const specialRoundHasStarted = isSpecialGame && (currentGame.status === 'RUNNING' || currentGame.drawnNumbers.length > 0);
                   const effectiveCardMarked = (card.numbers || []).map((row, rIdx) =>
@@ -2013,7 +2011,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                             row.map((val, cIdx) => {
                               const isFree = rIdx === 2 && cIdx === 2;
                               const isMarked = effectiveCardMarked[rIdx][cIdx];
-                              const isCurrent = currentGame.currentBall === val && !isFree;
                               return (
                                 <div
                                   key={`${rIdx}-${cIdx}`}
@@ -2021,8 +2018,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                                   className={`rounded aspect-square flex items-center justify-center font-bold text-[9px] sm:text-[10px] cursor-pointer transition select-none ${
                                     isFree
                                       ? 'bg-[#22c55e] text-white border border-emerald-600 shadow-2xs font-black'
-                                      : isCurrent
-                                      ? 'bg-amber-300 text-slate-950 font-black ring-1 ring-amber-500 scale-105 z-10'
                                       : isMarked
                                       ? 'bg-amber-400 text-slate-950 ring-1 ring-amber-500 font-black shadow-2xs'
                                       : 'bg-white border border-slate-200 text-slate-900 shadow-2xs hover:bg-slate-50'
@@ -2085,7 +2080,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                         ? 'FULL_HOUSE_ONLY'
                         : currentGame.winningRule;
 
-                      const cardDrawnSet = new Set(currentGame.drawnNumbers || []);
                       const effectiveCardMarked = (card.numbers || []).map((row, rIdx) =>
                         row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]))
                       );
@@ -2181,9 +2175,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                             {card.numbers.map((row, rIdx) =>
                               row.map((val, cIdx) => {
                                 const isFree = rIdx === 2 && cIdx === 2;
-                                const isDrawn = !isFree && cardDrawnSet.has(val);
                                 const isMarked = Boolean(card.marked?.[rIdx]?.[cIdx]);
-                                const isCurrent = currentGame.currentBall === val && !isFree;
                                 const isHintCell = cardIsHint && Boolean(patternHint?.[rIdx]?.[cIdx]) && !isMarked && !isFree;
                                 const isTargetNumber = Boolean(oneAway?.isOneAway && oneAway?.neededNumber === val) && !isMarked && !isFree;
 
@@ -2198,10 +2190,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                                         ? 'bg-[#dc2626] border border-red-700 text-white shadow-inner'
                                         : isTargetNumber
                                         ? 'bg-amber-100 border border-amber-400 text-amber-950 ring-1 ring-amber-500 animate-pulse z-10'
-                                        : isCurrent
-                                        ? 'bg-amber-300 border border-amber-400 text-slate-950 ring-1 ring-amber-500 scale-105 z-10'
-                                        : isDrawn
-                                        ? 'bg-sky-50 border border-sky-200 text-slate-950'
                                         : isHintCell
                                         ? 'bg-amber-100 border border-amber-400 text-amber-950 ring-1 ring-amber-400 animate-pulse'
                                         : 'bg-slate-50/90 hover:bg-slate-100 border border-slate-200/90 text-slate-900 shadow-2xs'
@@ -2382,7 +2370,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           ? 'FULL_HOUSE_ONLY'
           : currentGame.winningRule;
 
-        const fsDrawnSet = new Set(currentGame.drawnNumbers || []);
         const effectiveFsMarked = (fsCard.numbers || []).map((row, rIdx) =>
           (row || []).map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(fsCard.marked?.[rIdx]?.[cIdx]))
         );
@@ -2458,9 +2445,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               {fsCard.numbers.map((row, rIdx) =>
                 row.map((val, cIdx) => {
                   const isFree = rIdx === 2 && cIdx === 2;
-                  const isDrawn = !isFree && fsDrawnSet.has(val);
                   const isMarked = Boolean(fsCard.marked?.[rIdx]?.[cIdx]);
-                  const isCurrent = currentGame.currentBall === val && !isFree;
                   return (
                     <button
                       key={`fs-${rIdx}-${cIdx}`}
@@ -2470,10 +2455,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                           ? 'bg-[#16a34a] border-emerald-500 shadow-sm'
                           : isMarked
                           ? 'bg-[#dc2626] border-red-700 text-white shadow-inner'
-                          : isCurrent
-                          ? 'bg-amber-300 border-amber-400 text-slate-950 ring-2 ring-amber-500'
-                          : isDrawn
-                          ? 'bg-sky-50 border-sky-200 text-slate-950'
                           : 'bg-white text-slate-950 border-slate-200 hover:bg-slate-100 shadow-xs'
                       }`}
                     >
