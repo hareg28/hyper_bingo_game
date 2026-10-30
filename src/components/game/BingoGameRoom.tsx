@@ -23,6 +23,8 @@ import {
   getGameHitRequirement,
   isWeekendSlotCurrentlyLive,
   getFetanClock,
+  SPECIAL_PICK_SECONDS,
+  SPECIAL_ROUND_SECONDS,
 } from '../../lib/bingoUtils';
 import confetti from 'canvas-confetti';
 import SharedCountdownText from './SharedCountdownText';
@@ -411,7 +413,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const isUserAdmin = Boolean(
     user && (user.role === 'admin' || isAdminTelegramId(user.telegramId) || isAdminTelegramId(user.username))
   );
-  const isPlayerBlocked = Boolean(user && currentGame.blockedPlayers?.includes(user.id));
 
   // Live clock for header — skip update when page is hidden to save CPU
   useEffect(() => {
@@ -597,7 +598,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     if (isSpecialGame && currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) {
       return Math.max(0, Math.ceil((currentGame.nextRoundStartsAt - Date.now()) / 1000));
     }
-    return 300;
+    return SPECIAL_PICK_SECONDS;
   });
   const [specialIsIntermission, setSpecialIsIntermission] = useState<boolean>(() => {
     if (!isSpecialGame) return false;
@@ -638,7 +639,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     }
   }, [isSpecialGame, currentGame.id, currentGame.nextRoundStartsAt, currentGame.status, currentGame.drawnNumbers.length, startExpiredSpecialRound]);
 
-  // Unified 10-second winner announcement countdown for ALL games (redirects to card buy board or 5-min special gap)
+  // Unified 10-second winner announcement countdown for ALL games (redirects to card buy board or Special pick gap)
   const [announcementSecondsLeft, setAnnouncementSecondsLeft] = useState<number>(10);
   const resetGameRoundRef = React.useRef(resetGameRound);
   const openLotteryTabRef = React.useRef(onOpenLotteryTab);
@@ -666,9 +667,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       resetGameRoundRef.current(currentGame.id);
       if (isSpecialGame) {
         // Special card purchases stay on the room's plus picker during its
-        // newly-created five-minute window.
+        // newly-created four-minute window.
         setSpecialIsIntermission(true);
-        setSpecialSecondsLeft(300);
+        setSpecialSecondsLeft(SPECIAL_PICK_SECONDS);
       } else if (openLotteryTabRef.current) {
         openLotteryTabRef.current();
       } else {
@@ -817,7 +818,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
     for (const card of activeGameCards) {
       const cardEffectiveMarked = (card.numbers || []).map((row, rIdx) =>
-        (row || []).map((val, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]) || cardDrawnSet.has(val))
+        row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]))
       );
       const hit = getGameHitRequirement(cardEffectiveMarked, card.numbers || [], effectiveRuleType, language, currentGame.activeSpecialRuleIndex);
       if (hit.isHit) {
@@ -832,12 +833,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     if (activeGameCards.length > 0) {
       const firstCard = activeGameCards[0];
       const firstCardEffectiveMarked = (firstCard.numbers || []).map((row, rIdx) =>
-        (row || []).map((val, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(firstCard.marked?.[rIdx]?.[cIdx]) || cardDrawnSet.has(val))
+        row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(firstCard.marked?.[rIdx]?.[cIdx]))
       );
       return getGameHitRequirement(firstCardEffectiveMarked, firstCard.numbers || [], effectiveRuleType, language, currentGame.activeSpecialRuleIndex);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGameCards, currentGame.winningRule, currentGame.activeSpecialRuleIndex, currentGame.category, language, currentGame.drawnNumbers]);
+  }, [activeGameCards, currentGame.winningRule, currentGame.activeSpecialRuleIndex, currentGame.category, language]);
 
   // Automatically trigger Winner Celebration Modal when game ends or a winner is registered
   useEffect(() => {
@@ -1054,13 +1055,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     let hitCount = 0;
     let hitNumbers: number[] = [];
 
-    // Daub all drawn numbers on this card that player hasn't marked yet
+    // Show the player which called numbers are still unmarked; leave daubing to them.
     for (let r = 0; r < 5; r++) {
       for (let c = 0; c < 5; c++) {
         if (r === 2 && c === 2) continue; // Free center
         const val = card.numbers[r][c];
         if (drawnSet.has(val) && !card.marked[r][c]) {
-          daubCell(card.id, r, c);
           hitCount++;
           hitNumbers.push(val);
         }
@@ -1075,8 +1075,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       playBingoVictoryFanfare();
       setGameHitFeedback(
         language === 'am'
-          ? `💡 ፍንጭ! ${hitNumbers.length} የወጡ ቁጥሮች በካርድ #${card.cardNumber} ተሞሉ!`
-          : `💡 HIT! ${hitNumbers.length} number${hitNumbers.length > 1 ? 's' : ''} daubed on #${card.cardNumber}!`
+          ? `💡 ፍንጭ! ${hitNumbers.length} የተጠሩ ቁጥሮችን በካርድ #${card.cardNumber} ላይ እራስዎ ምልክት ያድርጉ!`
+          : `💡 ${hitNumbers.length} called number${hitNumbers.length > 1 ? 's are' : ' is'} unmarked on #${card.cardNumber}. Tap each one to mark it.`
       );
     } else {
       const remaining = countRemainingNumbers(card.marked);
@@ -1094,16 +1094,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   // Claim Bingo
   const handleClaimBingo = (cardId?: string) => {
-    if (isPlayerBlocked) {
-      playErrorBuzzer();
-      setClaimStatus({
-        success: false,
-        message: language === 'am'
-          ? '🚫 በዚህ ዙር የተሳሳተ ቢንጎ ስላስገቡ ጨዋታው እስኪያልቅ ድረስ ታግደዋል።'
-          : '🚫 You are blocked from playing until this game round ends.',
-      });
-      return;
-    }
     if (activeGameCards.length === 0) {
       setClaimStatus({
         success: false,
@@ -1120,7 +1110,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     if (!targetCard) return;
 
     // Check if card is already blocked
-    if (isPlayerBlocked || currentGame.blockedCards?.includes(targetCard.cardNumber)) {
+    if (currentGame.blockedCards?.includes(targetCard.cardNumber)) {
       playErrorBuzzer();
       setClaimStatus({
         success: false,
@@ -1141,15 +1131,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       ? 'FULL_HOUSE_ONLY'
       : currentGame.winningRule;
 
-    const gameDrawnSet = new Set(currentGame.drawnNumbers);
     const effectiveMarked = targetCard.numbers.map((row, rIdx) =>
-      row.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || targetCard.marked[rIdx][cIdx] || gameDrawnSet.has(val))
+      row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || targetCard.marked[rIdx][cIdx])
     );
 
     const bestRule: WinningRuleMatch | null = getBestWinningRule(effectiveMarked, effectiveRuleType, currentGame.activeSpecialRuleIndex);
 
     if (!bestRule) {
-      // FALSE BINGO -> BLOCK THE PLAYER & CARD
+      // False Bingo blocks only the specific card.
       playErrorBuzzer();
       const rem = countRemainingNumbers(effectiveMarked);
       claimBingo(targetCard.id); // This adds card to blockedCards in context
@@ -1166,7 +1155,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       setClaimStatus({
         success: false,
         message: language === 'am'
-          ? `🚫 ታግደዋል! ካርድ #${targetCard.cardNumber} ያለ ${ruleName} ቢንጎ ስላሉ ታግደዋል። (${rem} ቁጥሮች ቀርተዋል)`
+          ? `🚫 ካርድ #${targetCard.cardNumber} ብቻ ታግዷል። ${rem} ቁጥሮች ቀርተዋል።`
           : `🚫 BLOCKED! Card #${targetCard.cardNumber} disqualified for false claim without ${ruleName} (${rem} numbers left).`
       });
       return;
@@ -1267,6 +1256,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     : Math.round(totalGrossMoney * 0.80);
   const playableBalance = (wallet?.availableBalance || 0) + (wallet?.bonusBalance || 0);
   const hasSufficientBalance = playableBalance >= (currentGame?.entryPrice || 0);
+  const currentSpecialRule = HYPER_SPECIAL_RULES[Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
+  const dashboardLaw = isSpecialGame
+    ? `${currentSpecialRule.nameEn} — ${currentSpecialRule.descEn}`
+    : isFetanGame
+      ? 'Complete 1 row, 1 column, 1 diagonal, or all 4 corners.'
+      : isWeekendGame
+        ? 'Full House: manually mark all 24 numbered cells.'
+        : 'Complete the winning pattern shown for this game.';
 
   // =========================================================================
   // 🔽 SINGLE UNIFIED RENDER (used for both weekend & regular games)
@@ -1310,6 +1307,33 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </div>
         )}
 
+
+      <div className="mx-1 rounded-xl border border-slate-300 bg-white px-3 py-2 shadow-xs">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">
+              {language === 'am' ? 'የጨዋታ ሕግ' : 'GAME RULE'}
+              {isSpecialGame && <span className="ml-1 text-indigo-700">· #{(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} {language === 'am' ? currentSpecialRule.nameAm : currentSpecialRule.nameEn}</span>}
+            </div>
+            <div className="text-[11px] font-bold leading-snug text-slate-950">
+              {language === 'am'
+                ? isSpecialGame ? currentSpecialRule.descAm : isFetanGame ? 'አንድ ረድፍ፣ አንድ አምድ፣ አንድ ዲያጎናል ወይም 4ቱን ማዕዘኖች ያሟሉ።' : isWeekendGame ? 'ሙሉ ቤት፦ 24ቱን ቁጥሮች እራስዎ ምልክት ያድርጉ።' : dashboardLaw
+                : dashboardLaw}
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className="text-[9px] font-black uppercase text-slate-600">{language === 'am' ? 'ዋጋ / ተጫዋቾች' : 'COST / PLAYERS'}</div>
+            <div className="text-xs font-black text-slate-950">{formatETB(currentGame.entryPrice)} · {currentGame.currentPlayers || 0}</div>
+            {isSpecialGame && <div className="text-[9px] font-bold text-indigo-800">Pick 4m · Play 12m</div>}
+          </div>
+        </div>
+        {isSpecialGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && (
+          <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700">
+            <span>{language === 'am' ? 'የዙሩ ቀሪ ጊዜ' : 'ROUND TIME LEFT'}</span>
+            <SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + SPECIAL_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" />
+          </div>
+        )}
+      </div>
 
       {/* ── Clean & Simple Weekend Bar (No Crowding, Single Slim Row) ── */}
       {isWeekendGame && (
@@ -1681,7 +1705,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                                   ? 'bg-amber-400 text-slate-950 font-black scale-105 shadow-xs ring-1 ring-amber-400 z-10'
                                   : isDrawn
                                   ? `${row.color} font-black shadow-xs`
-                                  : 'bg-white text-slate-500 border border-slate-200'
+                                  : 'bg-white text-slate-950 border border-slate-200'
                               }`}
                             >
                               {num}
@@ -1732,7 +1756,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                           ? 'bg-yellow-300 text-slate-950 font-black scale-125 shadow-[0_0_12px_3px_rgba(250,204,21,0.85)] ring-2 ring-yellow-400 animate-pulse z-20 brightness-110'
                           : isDrawn
                           ? `${row.color} font-black shadow-xs`
-                          : 'bg-white text-slate-400 border border-slate-100'
+                          : 'bg-white text-slate-950 border border-slate-200'
                       }`}
                     >
                       {num}
@@ -1914,10 +1938,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   const cardDrawnSet = new Set(currentGame.drawnNumbers || []);
                   const isRegistered = Boolean(card.isRegistered);
                   const effectiveCardMarked = (card.numbers || []).map((row, rIdx) =>
-                    (row || []).map((val, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]) || cardDrawnSet.has(val))
+                    row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]))
                   );
                   const cardIsWin = Boolean(getBestWinningRule(effectiveCardMarked, currentGame.winningRule, currentGame.activeSpecialRuleIndex));
-                  const cardIsBlocked = isPlayerBlocked || currentGame.blockedCards?.includes(card.cardNumber);
+                  const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
 
                   return (
                     <div
@@ -2061,10 +2085,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
                       const cardDrawnSet = new Set(currentGame.drawnNumbers || []);
                       const effectiveCardMarked = (card.numbers || []).map((row, rIdx) =>
-                        (row || []).map((val, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]) || cardDrawnSet.has(val))
+                        row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]))
                       );
                       const cardIsWin = Boolean(getBestWinningRule(effectiveCardMarked, effectiveRuleType, currentGame.activeSpecialRuleIndex));
-                      const cardIsBlocked = isPlayerBlocked || currentGame.blockedCards?.includes(card.cardNumber);
+                      const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
                       const cardIsHint = hintCardId === card.id;
                       const oneAway = checkOneAwayStatus(effectiveCardMarked, card.numbers || [], effectiveRuleType, currentGame.activeSpecialRuleIndex);
 
@@ -2168,12 +2192,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                                     className={`rounded flex items-center justify-center font-extrabold transition-all relative select-none cursor-pointer ${
                                       isFree
                                         ? 'bg-[#16a34a] border border-emerald-600 shadow-2xs'
-                                        : isMarked || isDrawn
+                                        : isMarked
                                         ? 'bg-[#dc2626] border border-red-700 text-white shadow-inner'
                                         : isTargetNumber
                                         ? 'bg-amber-100 border border-amber-400 text-amber-950 ring-1 ring-amber-500 animate-pulse z-10'
                                         : isCurrent
                                         ? 'bg-amber-300 border border-amber-400 text-slate-950 ring-1 ring-amber-500 scale-105 z-10'
+                                        : isDrawn
+                                        ? 'bg-sky-50 border border-sky-200 text-slate-950'
                                         : isHintCell
                                         ? 'bg-amber-100 border border-amber-400 text-amber-950 ring-1 ring-amber-400 animate-pulse'
                                         : 'bg-slate-50/90 hover:bg-slate-100 border border-slate-200/90 text-slate-900 shadow-2xs'
@@ -2184,7 +2210,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                                       <span className="text-[#2563eb] font-black text-[9px] leading-none">★</span>
                                     ) : (
                                       <span className={`text-[8px] sm:text-[9px] font-black leading-none ${
-                                        isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950 font-black' : 'text-slate-900'
+                                        isMarked ? 'text-white' : 'text-slate-950'
                                       }`}>
                                         {val}
                                       </span>
@@ -2345,7 +2371,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         const fsCard =
           activeGameCards.find((c) => c.id === selectedCardId) || activeGameCards[0];
         if (!fsCard) return null;
-        const fsBlocked = isPlayerBlocked || currentGame.blockedCards?.includes(fsCard.cardNumber);
+        const fsBlocked = currentGame.blockedCards?.includes(fsCard.cardNumber);
         const isFetan = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.id.includes('fetan') || isFetanGame;
         const isWeekend = !!currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.category === 'HYPER_WEEKEND' || isWeekendGame;
         const effectiveRuleType = isFetan
@@ -2366,7 +2392,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0">
                 {activeGameCards.map((c) => {
                   const isActive = c.id === fsCard.id;
-                  const isBlk = isPlayerBlocked || currentGame.blockedCards?.includes(c.cardNumber);
+                  const isBlk = currentGame.blockedCards?.includes(c.cardNumber);
                   return (
                     <button
                       key={c.id}
@@ -2440,10 +2466,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       className={`flex items-center justify-center font-extrabold rounded-xl border transition-all cursor-pointer aspect-square ${
                         isFree
                           ? 'bg-[#16a34a] border-emerald-500 shadow-sm'
-                          : isMarked || isDrawn
+                          : isMarked
                           ? 'bg-[#dc2626] border-red-700 text-white shadow-inner'
                           : isCurrent
                           ? 'bg-amber-300 border-amber-400 text-slate-950 ring-2 ring-amber-500'
+                          : isDrawn
+                          ? 'bg-sky-50 border-sky-200 text-slate-950'
                           : 'bg-white text-slate-950 border-slate-200 hover:bg-slate-100 shadow-xs'
                       }`}
                     >
@@ -2451,7 +2479,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                         <span className="text-[#2563eb] font-black text-2xl sm:text-3xl leading-none">★</span>
                       ) : (
                         <span className={`font-black text-xl sm:text-2xl ${
-                          isMarked || isDrawn ? 'text-white' : isCurrent ? 'text-slate-950 font-black' : 'text-slate-950'
+                          isMarked ? 'text-white' : 'text-slate-950'
                         }`}>
                           {val}
                         </span>
@@ -2766,7 +2794,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   setShowWinnerModal(false);
                   if (isSpecialGame) {
                     setSpecialIsIntermission(true);
-                    setSpecialSecondsLeft(300);
+                    setSpecialSecondsLeft(SPECIAL_PICK_SECONDS);
                     setIsSelectorOpen(true);
                   } else if (onOpenLotteryTab) {
                     onOpenLotteryTab();

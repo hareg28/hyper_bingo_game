@@ -13,6 +13,7 @@ export function getNeonSql() {
 }
 
 let gameDrawTimestampMigration: Promise<void> | null = null;
+let gameRoundStartedMigration: Promise<void> | null = null;
 let weekendRoundKeyMigration: Promise<void> | null = null;
 let blockedPlayersMigration: Promise<void> | null = null;
 let builtinGamesMigration: Promise<void> | null = null;
@@ -30,6 +31,15 @@ export async function ensureGameDrawTimestampColumn(
       });
   }
   await gameDrawTimestampMigration;
+  if (!gameRoundStartedMigration) {
+    gameRoundStartedMigration = sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS round_started_at TIMESTAMPTZ`
+      .then(() => undefined)
+      .catch((error) => {
+        gameRoundStartedMigration = null;
+        throw error;
+      });
+  }
+  await gameRoundStartedMigration;
 }
 
 /** Marker prevents a scheduled Weekend slot from being reset more than once. */

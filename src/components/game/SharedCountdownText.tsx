@@ -5,7 +5,7 @@ import { formatCountdownClock, getFetanClock, getSpecialPickClock } from '../../
 import { isMiniAppActive, subscribeToMiniAppActivity } from '../../lib/miniAppActivity';
 
 type SharedCountdownTextProps = {
-  mode: 'FETAN' | 'SPECIAL';
+  mode: 'FETAN' | 'SPECIAL' | 'ROUND';
   deadline?: number | null;
   status?: string;
   drawnCount?: number;
@@ -13,9 +13,9 @@ type SharedCountdownTextProps = {
 };
 
 function getRemainingSeconds({ mode, deadline, status, drawnCount = 0 }: SharedCountdownTextProps): number {
-  return mode === 'FETAN'
-    ? getFetanClock(deadline, status, drawnCount).secondsLeft
-    : getSpecialPickClock(deadline, status, drawnCount).secondsLeft;
+  if (mode === 'FETAN') return getFetanClock(deadline, status, drawnCount).secondsLeft;
+  if (mode === 'SPECIAL') return getSpecialPickClock(deadline, status, drawnCount).secondsLeft;
+  return deadline ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : 0;
 }
 
 /** Ticks locally without rerendering the large game room or lottery board. */

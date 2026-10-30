@@ -34,10 +34,6 @@ export async function POST(req: NextRequest) {
             WHEN ${cardNumber} = ANY(COALESCE(blocked_cards, '{}')) THEN COALESCE(blocked_cards, '{}')
             ELSE array_append(COALESCE(blocked_cards, '{}'), ${cardNumber})
           END,
-          blocked_players = CASE
-            WHEN ${userId} = ANY(COALESCE(blocked_players, '{}')) THEN COALESCE(blocked_players, '{}')
-            ELSE array_append(COALESCE(blocked_players, '{}'), ${userId})
-          END,
           updated_at = NOW()
       WHERE id = ${gameId} AND status = 'RUNNING'
       RETURNING blocked_cards, blocked_players

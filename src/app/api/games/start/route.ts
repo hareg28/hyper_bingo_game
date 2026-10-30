@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getNeonSql } from '@/lib/neon';
+import { ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 
 /**
  * POST /api/games/start
- * Starts a game round (e.g. when 5-min intermission in Hyper Special ends).
+ * Starts a game round (e.g. when 4-min card-pick window in Hyper Special ends).
  * Sets status to 'RUNNING' and clears next_round_starts_at.
  */
 export async function POST(req: NextRequest) {
@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    await ensureGameDrawTimestampColumn(sql);
     const body = await req.json();
     const { gameId } = body as { gameId: string };
 
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
       UPDATE games
       SET
         status = 'RUNNING',
+        round_started_at = COALESCE(round_started_at, NOW()),
         next_round_starts_at = NULL,
         updated_at = NOW()
       WHERE id = ${gameId}

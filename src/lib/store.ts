@@ -77,7 +77,7 @@ export const INITIAL_GAMES: Game[] = [
   // CATEGORY 1: HYPER FETAN (10 Birr ONLY)
   // - 1-500 Master Card Picker
   // - 5 Slots (S1..S5)
-  // - 1 min game round duration + 30 sec card pick intermission
+  // - 30 sec card pick window; draws are initiated by a player
   // - Win Rule: 1 Line OR 4 Corners
   // ================================================================
   {
@@ -102,9 +102,8 @@ export const INITIAL_GAMES: Game[] = [
   },
 
   // ================================================================
-  // CATEGORY 2: HYPER SPECIAL — Player-Selected / System-Recommended Pricing
-  // - System recommends: 20 ETB (with quick choices: 10, 20 ⭐, 50, 100 ETB)
-  // - Players can also choose custom stakes (min 10 ETB)
+  // CATEGORY 2: HYPER SPECIAL — 10 / 20 ETB rotating entry price
+  // - 4-minute card pick window and 12-minute game round
   // - Rotating Special Game Law (1 rule active per game until finished)
   // ================================================================
   {
@@ -115,6 +114,8 @@ export const INITIAL_GAMES: Game[] = [
     winningRule: 'STANDARD',
     activeSpecialRuleIndex: 0,
     entryPrice: 10,
+    pickDuration: 240,
+    roundDuration: 720,
     maxPlayers: 1000,
     currentPlayers: 0,
     startTime: 'Live Round',

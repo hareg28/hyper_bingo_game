@@ -1159,12 +1159,11 @@ const db = {
         const walletRows = await sql`SELECT * FROM wallets WHERE user_id = ${params.userId} LIMIT 1`;
         if (walletRows.length === 0) throw new Error('Wallet not found');
         const currentWinning  = parseFloat(walletRows[0].winning_balance)  || 0;
-        const currentAvailable = parseFloat(walletRows[0].available_balance) || 0;
-        const totalWithdrawable = currentWinning + currentAvailable;
+        const totalWithdrawable = currentWinning;
         if (totalWithdrawable < params.amount) throw new Error('Insufficient withdrawable balance');
 
         // Requests do not debit the wallet. Approval performs the debit.
-        const newBalance = totalWithdrawable;
+        const newBalance = currentWinning;
 
         // ── Insert PENDING transaction ─────────────────────────────────────
         const txId  = generateId('tx');
@@ -1205,7 +1204,7 @@ const db = {
 
     // ── In-memory fallback ─────────────────────────────────────────────────
     const wallet = await this.getOrCreateWallet(params.userId);
-    const totalWithdrawable = (wallet.winningBalance || 0) + (wallet.availableBalance || 0);
+    const totalWithdrawable = wallet.winningBalance || 0;
     if (totalWithdrawable < params.amount) throw new Error('Insufficient withdrawable balance');
 
     const tx: Transaction = {
@@ -1214,7 +1213,7 @@ const db = {
       username,
       type: 'WITHDRAWAL',
       amount: -params.amount,
-      balanceAfter: wallet.availableBalance + wallet.winningBalance,
+      balanceAfter: wallet.winningBalance,
       reference: generateId('WDR'),
       paymentProvider: params.paymentMethod,
       status: 'PENDING',
@@ -1272,10 +1271,9 @@ const db = {
         const pending = rowToWithdrawal(claimedRows[0]);
         const debited = await sql`
           UPDATE wallets
-          SET winning_balance = winning_balance - LEAST(winning_balance, ${pending.amount}),
-              available_balance = available_balance - GREATEST(0, ${pending.amount} - winning_balance),
+          SET winning_balance = winning_balance - ${pending.amount},
               total_withdrawn = total_withdrawn + ${pending.amount}, updated_at = NOW()
-          WHERE user_id = ${pending.userId} AND winning_balance + available_balance >= ${pending.amount}
+          WHERE user_id = ${pending.userId} AND winning_balance >= ${pending.amount}
           RETURNING user_id
         `;
         if (debited.length === 0) {
@@ -1305,10 +1303,8 @@ const db = {
     const wr = withdrawalsMap.get(withdrawalId);
     if (!wr || wr.status !== 'PENDING') return null;
     const wallet = walletsMap.get(wr.userId);
-    if (!wallet || wallet.availableBalance + wallet.winningBalance < wr.amount) throw new Error('Insufficient withdrawable balance');
-    const fromWinning = Math.min(wallet.winningBalance, wr.amount);
-    wallet.winningBalance -= fromWinning;
-    wallet.availableBalance -= wr.amount - fromWinning;
+    if (!wallet || wallet.winningBalance < wr.amount) throw new Error('Insufficient withdrawable balance');
+    wallet.winningBalance -= wr.amount;
     wallet.totalWithdrawn += wr.amount;
     walletsMap.set(wr.userId, wallet);
     wr.status = 'COMPLETED';

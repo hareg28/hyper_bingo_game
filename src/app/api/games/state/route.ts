@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
-import { FETAN_PICK_SECONDS, getExpiredWeekendRoundKey, getWeekendRoundKey, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_PICK_SECONDS } from '@/lib/bingoUtils';
+import { FETAN_PICK_SECONDS, getExpiredWeekendRoundKey, getWeekendRoundKey, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS } from '@/lib/bingoUtils';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     await ensureBuiltinGameRows(sql);
 
     // First Hyper rounds get a shared, server-timed card-pick window. Fetan
-    // opens for 30 seconds after a winner; Special opens for five minutes.
+    // opens for 30 seconds after a winner; Special opens for four minutes.
     await sql`
       UPDATE games
       SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + 30000
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
         AND next_round_starts_at IS NULL
     `;
 
-    // Apply scheduled Weekend transitions before the server draw pass so a
+    // Apply scheduled Weekend transitions before returning shared state so a
     // cron invocation at the slot boundary can start the round immediately.
     for (const weekendGame of INITIAL_GAMES.filter((game) => game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY')) {
       const expiredRoundKey = getExpiredWeekendRoundKey(weekendGame);
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
             RETURNING id
           )
           UPDATE games
-          SET status = 'OPEN', drawn_numbers = '{}', current_ball = NULL,
+          SET status = 'OPEN', drawn_numbers = '{}', current_ball = NULL, round_started_at = NULL,
               last_ball_drawn_at = NULL, winners = '[]'::jsonb,
               blocked_cards = '{}', blocked_players = '{}', current_players = 0,
               weekend_round_key = NULL, updated_at = NOW()
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
           RETURNING id
         )
         UPDATE games
-        SET status = 'RUNNING', drawn_numbers = '{}', current_ball = NULL,
+        SET status = 'RUNNING', round_started_at = NOW(), drawn_numbers = '{}', current_ball = NULL,
             last_ball_drawn_at = NULL, winners = '[]'::jsonb,
             blocked_cards = '{}', blocked_players = '{}',
             current_players = (SELECT COUNT(DISTINCT user_id)::integer FROM game_cards WHERE game_id = ${weekendGame.id}),
@@ -87,11 +87,9 @@ export async function GET(req: NextRequest) {
       `;
     }
 
-    // Keep Hyper and scheduled Weekend rounds moving on the server. The app polls this shared state
-    // endpoint from the lobby as well as the game room, so a player leaving the
-    // room does not pause the draw or strand the next pick window.
+    // Keep scheduled rounds and shared state synchronized for every client.
     const hyperRows = await sql`
-      SELECT id, category, game_type, status, drawn_numbers, current_ball, winners,
+      SELECT id, category, game_type, status, drawn_numbers, current_ball, winners, round_started_at,
              next_round_starts_at, last_ball_drawn_at, draw_interval, active_special_rule_index,
              entry_price, weekend_round_key
       FROM games
@@ -118,7 +116,10 @@ export async function GET(req: NextRequest) {
         return Number.isFinite(claimedAt) ? Math.max(latest, claimedAt) : latest;
       }, 0);
       const completionAt = game.last_ball_drawn_at ? new Date(game.last_ball_drawn_at).getTime() : 0;
-      const fullRoundEnded = game.status === 'COMPLETED' && drawn.length >= 75 && completionAt > 0 && Date.now() >= completionAt + 10_000;
+      const specialRoundStartedAt = game.round_started_at ? new Date(game.round_started_at).getTime() : 0;
+      const specialRoundEnded = isSpecial && game.status === 'COMPLETED' && specialRoundStartedAt > 0 &&
+        Date.now() >= specialRoundStartedAt + SPECIAL_ROUND_SECONDS * 1000;
+      const fullRoundEnded = specialRoundEnded || (game.status === 'COMPLETED' && drawn.length >= 75 && completionAt > 0 && Date.now() >= completionAt + 10_000);
       const claimedRoundEnded = winners.length > 0 && latestClaimAt > 0 && Date.now() >= latestClaimAt + 10_000;
       const scheduledGame = isWeekend ? INITIAL_GAMES.find((candidate) => candidate.id === game.id) : null;
       const activeWeekendKey = scheduledGame ? getWeekendRoundKey(scheduledGame) : null;
@@ -128,7 +129,7 @@ export async function GET(req: NextRequest) {
         const resetRows = await sql`
           WITH reset_game AS (
             UPDATE games
-            SET status = 'OPEN', drawn_numbers = '{}', current_ball = NULL,
+            SET status = 'OPEN', drawn_numbers = '{}', current_ball = NULL, round_started_at = NULL,
                 last_ball_drawn_at = NULL, current_players = 0, winners = '[]'::jsonb,
                 blocked_cards = '{}', blocked_players = '{}',
                 active_special_rule_index = ${nextRuleIndex}, entry_price = ${nextPrice},
@@ -153,11 +154,20 @@ export async function GET(req: NextRequest) {
       if (!isWeekend && game.status === 'OPEN' && drawn.length === 0 && game.next_round_starts_at &&
           Date.now() >= Number(game.next_round_starts_at)) {
         await sql`
-          UPDATE games SET status = 'RUNNING', next_round_starts_at = NULL, updated_at = NOW()
+          UPDATE games SET status = 'RUNNING', round_started_at = COALESCE(round_started_at, NOW()), next_round_starts_at = NULL, updated_at = NOW()
           WHERE id = ${game.id} AND status = 'OPEN' AND drawn_numbers = '{}'
             AND next_round_starts_at = ${game.next_round_starts_at}
             AND next_round_starts_at <= (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint
         `;
+      }
+
+      if (isSpecial && game.status === 'RUNNING' && specialRoundStartedAt > 0 &&
+          Date.now() >= specialRoundStartedAt + SPECIAL_ROUND_SECONDS * 1000) {
+        await sql`
+          UPDATE games SET status = 'COMPLETED', updated_at = NOW()
+          WHERE id = ${game.id} AND status = 'RUNNING' AND round_started_at = ${game.round_started_at}
+        `;
+        continue;
       }
 
       // Drawing is player initiated from the room. State polling only syncs data;
@@ -165,26 +175,24 @@ export async function GET(req: NextRequest) {
     }
     await sql`
       UPDATE games
-      SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + 300000
+      SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + ${SPECIAL_PICK_SECONDS * 1000}
       WHERE (category = 'HYPER_SPECIAL' OR game_type = 'HYPER_SPECIAL')
         AND status = 'OPEN'
         AND drawn_numbers = '{}'
         AND next_round_starts_at IS NULL
     `;
     // Keep the Special entry price tied to the active rule, including rows
-    // that existed before the 10 / 20 / 25 ETB rotation was introduced.
+    // that existed before the 10 / 20 ETB rotation was introduced.
     await sql`
       UPDATE games
-      SET entry_price = CASE MOD(MOD(active_special_rule_index, 3) + 3, 3)
+      SET entry_price = CASE MOD(MOD(active_special_rule_index, 2) + 2, 2)
         WHEN 0 THEN 10
-        WHEN 1 THEN 20
-        ELSE 25
+        ELSE 20
       END
       WHERE (category = 'HYPER_SPECIAL' OR game_type = 'HYPER_SPECIAL')
-        AND entry_price <> CASE MOD(MOD(active_special_rule_index, 3) + 3, 3)
+        AND entry_price <> CASE MOD(MOD(active_special_rule_index, 2) + 2, 2)
           WHEN 0 THEN 10
-          WHEN 1 THEN 20
-          ELSE 25
+          ELSE 20
         END
     `;
 
@@ -194,6 +202,7 @@ export async function GET(req: NextRequest) {
         status,
         drawn_numbers,
         current_ball,
+        round_started_at,
         current_players,
         winners,
         blocked_cards,
@@ -231,6 +240,7 @@ export async function GET(req: NextRequest) {
           status,
           drawn_numbers,
           current_ball,
+          round_started_at,
           current_players,
           winners,
           blocked_cards,
@@ -251,7 +261,7 @@ export async function GET(req: NextRequest) {
       // this first snapshot as well.
       await sql`
         UPDATE games
-        SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + 300000
+        SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + ${SPECIAL_PICK_SECONDS * 1000}
         WHERE (category = 'HYPER_SPECIAL' OR game_type = 'HYPER_SPECIAL')
           AND status = 'OPEN'
           AND drawn_numbers = '{}'
@@ -263,6 +273,7 @@ export async function GET(req: NextRequest) {
           status,
           drawn_numbers,
           current_ball,
+          round_started_at,
           current_players,
           winners,
           blocked_cards,
@@ -314,6 +325,7 @@ export async function GET(req: NextRequest) {
       status: r.status,
       drawnNumbers: parseIntegerArray(r.drawn_numbers),
       currentBall: r.current_ball == null ? null : Number(r.current_ball),
+      roundStartedAt: r.round_started_at ? new Date(r.round_started_at).getTime() : undefined,
       currentPlayers: playerIdsByGame[r.id]?.size ?? 0,
       winners: Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : []),
       blockedCards: Array.isArray(r.blocked_cards) ? r.blocked_cards : [],

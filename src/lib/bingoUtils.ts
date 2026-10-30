@@ -1410,8 +1410,9 @@ export function getLotteryGameLabel(
 }
 
 export const FETAN_PICK_SECONDS = 30;
-export const SPECIAL_PICK_SECONDS = 5 * 60;
-export const HYPER_SPECIAL_PRICE_CYCLE = [10, 20, 25] as const;
+export const SPECIAL_PICK_SECONDS = 4 * 60;
+export const SPECIAL_ROUND_SECONDS = 12 * 60;
+export const HYPER_SPECIAL_PRICE_CYCLE = [10, 20] as const;
 
 export function formatCountdownClock(totalSec: number): string {
   const clamped = Math.max(0, Math.floor(totalSec));
@@ -1445,7 +1446,7 @@ export function getFetanClock(
   return { pickingCards: false, secondsLeft: 0 };
 }
 
-/** Hyper Special 5-minute select window, synced to nextRoundStartsAt. */
+/** Hyper Special 4-minute select window, synced to nextRoundStartsAt. */
 export function getSpecialPickClock(
   nextRoundStartsAt?: number | null,
   status?: string,

@@ -64,7 +64,8 @@ export interface Game {
   roundDuration?: number;   // In seconds, e.g. 60 for Hyper Fetan
   pickDuration?: number;    // In seconds, e.g. 30 for Hyper Fetan intermission
   activeSpecialRuleIndex?: number; // 0..14 index for Hyper Special rotating rule
-  nextRoundStartsAt?: number;      // Epoch ms when next round starts (e.g. 5-min intermission)
+  nextRoundStartsAt?: number;      // Epoch ms when next round starts (e.g. 4-min card-pick window)
+  roundStartedAt?: number;
   createdAt: string;
 }
 

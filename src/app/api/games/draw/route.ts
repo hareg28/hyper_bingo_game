@@ -3,6 +3,7 @@ import { ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql 
 import { isAdminTelegramId } from '@/lib/authUtils';
 import { INITIAL_GAMES } from '@/lib/store';
 import { getWeekendRoundKey } from '@/lib/bingoUtils';
+import { SPECIAL_ROUND_SECONDS } from '@/lib/bingoUtils';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch current game state
     const [game] = await sql`
-      SELECT id, category, game_type, status, drawn_numbers, winners, next_round_starts_at, weekend_round_key, draw_interval, last_ball_drawn_at
+      SELECT id, category, game_type, status, drawn_numbers, winners, round_started_at, next_round_starts_at, weekend_round_key, draw_interval, last_ball_drawn_at
       FROM games WHERE id = ${gameId}
     `;
     if (!game) {
@@ -69,6 +70,10 @@ export async function POST(req: NextRequest) {
       : (typeof game.winners === 'string' ? JSON.parse(game.winners || '[]') : []);
     if (game.status === 'COMPLETED' || winners.length > 0) {
       return NextResponse.json({ success: false, error: 'Game already completed' }, { status: 409 });
+    }
+    if ((game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL') && game.round_started_at &&
+        Date.now() >= new Date(game.round_started_at).getTime() + SPECIAL_ROUND_SECONDS * 1000) {
+      return NextResponse.json({ success: false, error: 'The 12-minute Special round has ended.' }, { status: 409 });
     }
 
     // Fetan draws only after the shared server-side pick deadline has elapsed
@@ -125,6 +130,7 @@ export async function POST(req: NextRequest) {
       SET
         drawn_numbers = ${`{${updatedDrawn.join(',')}}`}::int4[],
         current_ball = ${nextBall},
+        round_started_at = COALESCE(round_started_at, NOW()),
         last_ball_drawn_at = NOW(),
         status = ${isCompleted ? 'COMPLETED' : 'RUNNING'},
         updated_at = NOW()

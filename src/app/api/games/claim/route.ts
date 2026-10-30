@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ensureBlockedPlayersColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
+import { ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 import { getWeekendRoundKey } from '@/lib/bingoUtils';
 
@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureWeekendRoundKeyColumn(sql);
-    await ensureBlockedPlayersColumn(sql);
     const body = await req.json();
     const { gameId, userId, username, cardNumber, pattern, prizeWon, winningBall } = body as {
       gameId: string;
@@ -36,15 +35,11 @@ export async function POST(req: NextRequest) {
 
     // 1. Fetch current game state
     const [game] = await sql`
-      SELECT id, category, game_type, weekend_round_key, status, winners, current_players, entry_price, prize_pool, blocked_cards, blocked_players
+      SELECT id, category, game_type, weekend_round_key, status, winners, current_players, entry_price, prize_pool, blocked_cards
       FROM games WHERE id = ${gameId}
     `;
     if (!game) {
       return NextResponse.json({ success: false, error: 'Game not found' }, { status: 404 });
-    }
-    const blockedPlayers: string[] = Array.isArray(game.blocked_players) ? game.blocked_players : [];
-    if (blockedPlayers.includes(userId)) {
-      return NextResponse.json({ success: false, error: 'You are blocked from this game until the current round ends.' }, { status: 403 });
     }
     if (game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY') {
       const scheduledGame = INITIAL_GAMES.find((candidate) => candidate.id === gameId);
@@ -99,7 +94,6 @@ export async function POST(req: NextRequest) {
       UPDATE wallets
       SET
         winning_balance = winning_balance + ${prizeWon},
-        available_balance = available_balance + ${prizeWon},
         updated_at = NOW()
       WHERE user_id = ${userId}
     `;

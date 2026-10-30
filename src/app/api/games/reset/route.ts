@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
 import { isAdminTelegramId } from '@/lib/authUtils';
-import { HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES } from '@/lib/bingoUtils';
+import { HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_PICK_SECONDS } from '@/lib/bingoUtils';
 import { INITIAL_GAMES } from '@/lib/store';
 
 /**
  * POST /api/games/reset
  * Resets a game round (clears drawn_numbers, winners, blocked_cards).
- * For Hyper Special: rotates the winning rule and sets a 5-minute intermission.
+ * For Hyper Special: rotates the winning rule and sets a 4-minute intermission.
  * Deletes one-round game cards, including Weekend reservations when that
  * scheduled game ends, so the master board is available for its next sale.
  * 
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       ? HYPER_SPECIAL_PRICE_CYCLE[nextSpecialIndex % HYPER_SPECIAL_PRICE_CYCLE.length]
       : parseFloat(game.entry_price || '10');
     const nextRoundStartsAt = isSpecial
-      ? Date.now() + 5 * 60 * 1000
+      ? Date.now() + SPECIAL_PICK_SECONDS * 1000
       : isFetan
         ? Date.now() + 30 * 1000
         : null;
@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
         SET
           drawn_numbers = '{}',
           current_ball = NULL,
+          round_started_at = NULL,
           last_ball_drawn_at = NULL,
           current_players = 0,
           winners = '[]'::jsonb,

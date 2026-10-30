@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
     if (message === 'Insufficient withdrawable balance') {
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'Insufficient balance. You can only withdraw from your winning or available balance (bonus balance is excluded).',
+        error: 'Insufficient winnings. Deposits and bonus balance cannot be withdrawn.',
       }, { status: 422 });
     }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
+import { FETAN_PICK_SECONDS, SPECIAL_PICK_SECONDS } from '@/lib/bingoUtils';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -24,11 +25,11 @@ export async function POST(req: NextRequest) {
   try {
     await ensureGameDrawTimestampColumn(sql);
     const body = await req.json();
-    const { gameId, cardNumbers, userId, cost } = body as {
+    const { gameId, cardNumbers, userId, isRegistered } = body as {
       gameId: string;
       cardNumbers: string[];
       userId: string;
-      cost: number; // total cost for all cards
+      isRegistered?: boolean;
     };
 
     if (!gameId || !cardNumbers?.length || !userId) {
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
     const gameDrawn = parseIntegerArray(game.drawn_numbers);
     let pickDeadline = Number(game.next_round_starts_at || 0);
     if ((isFetan || isSpecial) && game.status === 'OPEN' && gameDrawn.length === 0 && !pickDeadline) {
-      const pickSeconds = isFetan ? 30 : 300;
+      const pickSeconds = isFetan ? FETAN_PICK_SECONDS : SPECIAL_PICK_SECONDS;
       await sql`
         UPDATE games
         SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + ${pickSeconds * 1000}
@@ -70,6 +71,15 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Fetch user wallet — check balance
+    const pricePerCard = parseFloat(game.entry_price);
+    const existingOwned = new Set<string>();
+    for (const cardNumber of cardNumbers) {
+      const [existing] = await sql`SELECT user_id FROM game_cards WHERE game_id = ${gameId} AND card_number = ${cardNumber}`;
+      if (existing?.user_id === userId) existingOwned.add(cardNumber);
+    }
+    const chargeableCount = cardNumbers.filter((cardNumber) => !existingOwned.has(cardNumber)).length;
+    const requiredCost = pricePerCard * chargeableCount;
+
     const [wallet] = await sql`SELECT available_balance, bonus_balance FROM wallets WHERE user_id = ${userId}`;
     if (!wallet) {
       return NextResponse.json({ success: false, error: 'Wallet not found' }, { status: 404 });
@@ -78,10 +88,10 @@ export async function POST(req: NextRequest) {
     const bonus = parseFloat(wallet.bonus_balance);
     const playable = available + bonus;
 
-    if (playable < cost) {
+    if (playable < requiredCost) {
       return NextResponse.json({
         success: false,
-        error: `Insufficient balance. Need ${cost} ETB, have ${playable.toFixed(2)} ETB.`,
+        error: `Insufficient balance. Need ${requiredCost} ETB, have ${playable.toFixed(2)} ETB.`,
       }, { status: 402 });
     }
 
@@ -91,18 +101,28 @@ export async function POST(req: NextRequest) {
     // 4. Try inserting each card — ON CONFLICT DO NOTHING means already-sold cards are skipped
     const purchased: string[] = [];
     const alreadySold: string[] = [];
-    const pricePerCard = parseFloat(game.entry_price);
+    const newlyPurchased: string[] = [];
 
     for (const cardNumber of cardNumbers) {
+      if (existingOwned.has(cardNumber)) {
+        if (isRegistered) {
+          await sql`UPDATE game_cards SET is_registered = TRUE WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND user_id = ${userId}`;
+          purchased.push(cardNumber);
+        } else {
+          alreadySold.push(cardNumber);
+        }
+        continue;
+      }
       const cardId = `gc_${gameId}_${cardNumber}`;
       const rows = await sql`
-        INSERT INTO game_cards (id, game_id, card_number, user_id, username, cost)
-        VALUES (${cardId}, ${gameId}, ${cardNumber}, ${userId}, ${username}, ${pricePerCard})
+        INSERT INTO game_cards (id, game_id, card_number, user_id, username, cost, is_registered)
+        VALUES (${cardId}, ${gameId}, ${cardNumber}, ${userId}, ${username}, ${pricePerCard}, ${Boolean(isRegistered)})
         ON CONFLICT (game_id, card_number) DO NOTHING
         RETURNING card_number
       `;
       if (rows.length > 0) {
         purchased.push(cardNumber);
+        newlyPurchased.push(cardNumber);
       } else {
         alreadySold.push(cardNumber);
       }
@@ -117,7 +137,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Deduct wallet — bonus first, then available
-    const actualCost = pricePerCard * purchased.length;
+    const actualCost = pricePerCard * newlyPurchased.length;
     let remCost = actualCost;
     let newBonus = bonus;
     let newAvailable = available;
@@ -272,19 +292,21 @@ export async function DELETE(req: NextRequest) {
       WHERE id = ${gameId}
     `;
 
-    const isSpecial = ownedCard.category === 'HYPER_SPECIAL' || ownedCard.game_type === 'HYPER_SPECIAL';
     let walletAfter;
-    if (!isSpecial) {
-      const refund = parseFloat(ownedCard.cost ?? '0');
-      const [wallet] = await sql`SELECT available_balance, bonus_balance FROM wallets WHERE user_id = ${userId}`;
-      if (wallet) {
-        const availableBalance = parseFloat(wallet.available_balance) + refund;
-        await sql`
-          UPDATE wallets SET available_balance = ${availableBalance}, updated_at = NOW()
-          WHERE user_id = ${userId}
-        `;
-        walletAfter = { availableBalance, bonusBalance: parseFloat(wallet.bonus_balance) };
-      }
+    const refund = parseFloat(ownedCard.cost ?? '0');
+    const [wallet] = await sql`SELECT available_balance, bonus_balance FROM wallets WHERE user_id = ${userId}`;
+    if (wallet) {
+      const availableBalance = parseFloat(wallet.available_balance) + refund;
+      await sql`
+        UPDATE wallets SET available_balance = ${availableBalance}, updated_at = NOW()
+        WHERE user_id = ${userId}
+      `;
+      walletAfter = { availableBalance, bonusBalance: parseFloat(wallet.bonus_balance) };
+      const [player] = await sql`SELECT username FROM users WHERE id = ${userId}`;
+      await sql`
+        INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
+        VALUES (${`TX_UNREGISTER_${Date.now().toString(36)}`}, ${userId}, ${player?.username || userId}, 'GAME_ENTRY', ${refund}, ${availableBalance}, 'System', 'COMPLETED', ${'REFUND-' + gameId}, ${'Refund for unregistered card #' + cardNumber + ' in ' + gameId})
+      `;
     }
 
     return NextResponse.json({ success: true, data: { walletAfter } });

@@ -304,8 +304,8 @@ export default function WalletManager() {
       showStatus('error', 'Minimum withdrawal is 50 ETB (ዝቅተኛው የማውጣት መጠን 50 ብር ነው).');
       return;
     }
-    if (withdrawAmt > (wallet.availableBalance + wallet.winningBalance)) {
-      showStatus('error', 'Insufficient withdrawable balance.');
+    if (withdrawAmt > wallet.winningBalance) {
+      showStatus('error', 'You can withdraw winnings only; deposits and bonus funds are not withdrawable.');
       return;
     }
     if (!phoneOrAccount || !accountName) {
@@ -955,8 +955,7 @@ export default function WalletManager() {
               <div>
                 <div className="text-xs font-black text-amber-900">Welcome Bonus is Play-Only</div>
                 <p className="text-[11px] text-amber-800 font-medium leading-relaxed mt-0.5">
-                  Your <strong>{formatETB(wallet.bonusBalance)}</strong> welcome bonus cannot be withdrawn — it is for playing games only. 
-                  To withdraw real ETB, please deposit funds first.
+                  Deposits and your <strong>{formatETB(wallet.bonusBalance)}</strong> play bonus cannot be withdrawn. Only confirmed bingo winnings can be paid out.
                 </p>
               </div>
             </div>
@@ -1051,7 +1050,7 @@ export default function WalletManager() {
                 {t('withdrawalAmount')}
               </label>
               <span className="text-[11px] font-mono font-bold text-amber-900">
-                {isAm ? 'ማውጣት የሚቻለው:' : 'Withdrawable:'} <strong>{formatETB(wallet.availableBalance + wallet.winningBalance)}</strong>
+                {isAm ? 'የሚወጣ አሸናፊ ገንዘብ:' : 'Winnings available:'} <strong>{formatETB(wallet.winningBalance)}</strong>
               </span>
             </div>
 
@@ -1072,7 +1071,7 @@ export default function WalletManager() {
               ))}
               <button
                 type="button"
-                onClick={() => setAmount(Math.max(50, Math.floor(wallet.availableBalance + wallet.winningBalance)))}
+                onClick={() => setAmount(Math.floor(wallet.winningBalance))}
                 className="py-1.5 rounded-xl text-[10px] font-black border bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300 cursor-pointer"
               >
                 {isAm ? 'ሁሉንም' : 'Max'}
@@ -1084,7 +1083,7 @@ export default function WalletManager() {
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(Number(e.target.value))}
-                max={wallet.winningBalance + wallet.availableBalance}
+                max={wallet.winningBalance}
                 min={50}
                 placeholder="50"
                 className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 font-mono font-bold focus:bg-white focus:outline-none focus:border-amber-500"
@@ -1135,9 +1134,9 @@ export default function WalletManager() {
 
           <button
             type="submit"
-            disabled={isProcessing || Number(amount) < 50 || Number(amount) > (wallet.availableBalance + wallet.winningBalance)}
+            disabled={isProcessing || Number(amount) < 50 || Number(amount) > wallet.winningBalance}
             className={`w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer ${
-              Number(amount) >= 50 && Number(amount) <= (wallet.availableBalance + wallet.winningBalance)
+              Number(amount) >= 50 && Number(amount) <= wallet.winningBalance
                 ? 'bg-gradient-to-r from-amber-500 to-yellow-400 hover:brightness-105 text-slate-950 shadow-md active:scale-95'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
             }`}

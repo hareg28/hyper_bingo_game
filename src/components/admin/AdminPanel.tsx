@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
-import { formatETB } from '../../lib/bingoUtils';
+import { formatETB, HYPER_SPECIAL_RULES } from '../../lib/bingoUtils';
 import { 
   Users, Gamepad2, Wallet, ShieldCheck, FileText, PlusCircle, 
   CheckCircle, XCircle, Search, RefreshCw, AlertTriangle, ArrowLeft, 
@@ -1434,6 +1434,17 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                       <span className="text-[10px] text-slate-500 font-bold block">{t('players')}</span>
                       <div className="font-black text-purple-700">{g.currentPlayers} / {g.maxPlayers}</div>
                     </div>
+                  </div>
+
+                  <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-[11px] text-slate-900">
+                    <span className="font-black uppercase text-indigo-900">{language === 'am' ? 'የድል ሕግ:' : 'Winning rule:'} </span>
+                    {g.category === 'HYPER_SPECIAL' || g.gameType === 'HYPER_SPECIAL'
+                      ? `${HYPER_SPECIAL_RULES[Math.abs(g.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length].nameEn} — ${HYPER_SPECIAL_RULES[Math.abs(g.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length].descEn}`
+                      : g.category === 'HYPER_FETAN' || g.gameType === 'HYPER_FETAN'
+                        ? (language === 'am' ? 'አንድ ረድፍ፣ አምድ፣ ዲያጎናል ወይም 4 ማዕዘኖች' : '1 row, 1 column, 1 diagonal, or all 4 corners')
+                        : g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY'
+                          ? (language === 'am' ? 'ሙሉ ቤት፤ 24 ቁጥሮችን ምልክት ያድርጉ' : 'Full House; manually mark all 24 numbers')
+                          : (language === 'am' ? 'በጨዋታው የተወሰነ የድል ቅርጽ' : 'Complete the winning pattern for this game')}
                   </div>
 
                   <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">

@@ -20,6 +20,7 @@ import {
   WinningRuleMatch,
   HYPER_SPECIAL_RULES,
   HYPER_SPECIAL_PRICE_CYCLE,
+  SPECIAL_PICK_SECONDS,
   calcLotteryTotalCost,
   formatLotteryCardNumber,
   LOTTERY_NUMBERS_TOTAL,
@@ -564,6 +565,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 sameValues(localGame.blockedPlayers || [], serverBlockedPlayers) &&
                 localGame.activeSpecialRuleIndex === server.activeSpecialRuleIndex &&
                 localGame.nextRoundStartsAt === server.nextRoundStartsAt &&
+                localGame.roundStartedAt === server.roundStartedAt &&
                 localGame.weekendRoundKey === server.weekendRoundKey &&
                 localGame.entryPrice === server.entryPrice &&
                 localGame.prizePool === server.prizePool &&
@@ -582,6 +584,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 blockedPlayers: serverBlockedPlayers,
                 activeSpecialRuleIndex: server.activeSpecialRuleIndex,
                 nextRoundStartsAt: server.nextRoundStartsAt,
+                roundStartedAt: server.roundStartedAt,
                 weekendRoundKey: server.weekendRoundKey,
                 entryPrice: server.entryPrice,
                 prizePool: server.prizePool,
@@ -988,19 +991,19 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    const withdrawable = wallet.availableBalance + wallet.winningBalance;
+    const withdrawable = wallet.winningBalance;
     if (withdrawable < amount) {
       const totalBalance = wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance;
       if (totalBalance >= amount && wallet.bonusBalance > 0) {
         addNotification(
           '⚠️ Cannot Withdraw Bonus',
-          `Your welcome bonus is play-only and cannot be withdrawn. Deposit real ETB to withdraw winnings.`,
+          `Your welcome bonus is play-only and cannot be withdrawn. Only bingo winnings can be withdrawn; deposits and bonuses remain in your play balance.`,
           'warning'
         );
       } else {
         addNotification(
           '⚠️ Insufficient Balance',
-          `You need at least ${amount} ETB withdrawable (available + winnings). Current: ${withdrawable.toFixed(0)} ETB.`,
+          `You need at least ${amount} ETB in winnings to withdraw. Current winnings: ${withdrawable.toFixed(0)} ETB.`,
           'warning'
         );
       }
@@ -1520,6 +1523,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (!card) return;
     const game = games.find((g) => g.id === card.gameId);
     const refundAmount = game?.entryPrice || 10;
+    const isSpecial = game?.category === 'HYPER_SPECIAL' || game?.gameType === 'HYPER_SPECIAL';
+    if (isSpecial && card.isRegistered) {
+      const cardNumber = parseInt(card.cardNumber, 10);
+      if (Number.isFinite(cardNumber)) refundLotteryNumber(card.gameId, cardNumber);
+      return;
+    }
 
     setUserCards((prev) => prev.filter((c) => c.id !== cardId));
     const num = parseInt(card.cardNumber, 10);
@@ -1532,10 +1541,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    // If Hyper Special, do not return card price after registration or draft deletion
-    const isSpecial = game?.category === 'HYPER_SPECIAL' || game?.gameType === 'HYPER_SPECIAL';
-
-    // Refund entry price only for non-special games
+    // Special draft cards have not been paid for until they are registered.
     if (!isSpecial) {
       let newAvail = wallet.availableBalance + refundAmount;
       setWallet((prev) => {
@@ -1607,25 +1613,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const entryPrice = game?.entryPrice || 10;
 
     if (card.isRegistered) {
-      // Unregister card
-      if (game && game.drawnNumbers.length > 0) {
-        return { success: false, message: 'ጨዋታው ስለተጀመረ መሰረዝ አይቻልም (Game already started)' };
-      }
-      // Do NOT refund entry price per requirement: card price is not returned after registration in Hyper Special
-      setUserCards((prev) =>
-        prev.map((c) => (c.id === cardId ? { ...c, isRegistered: false } : c))
-      );
-
       const num = parseInt(card.cardNumber, 10);
-      if (!Number.isNaN(num)) {
-        setLotterySoldMap((prev) => {
-          const cur = new Set(prev[card.gameId] || []);
-          cur.delete(num);
-          return { ...prev, [card.gameId]: cur };
-        });
-      }
-
-      return { success: true, message: `ካርድ #${card.cardNumber} ከምዝገባ ተሰርዟል (Card #${card.cardNumber} unregistered)`, isRegistered: false };
+      return Number.isNaN(num)
+        ? { success: false, message: 'Invalid card number.' }
+        : refundLotteryNumber(card.gameId, num);
     } else {
       // Register card
       const registeredInGame = userCards.filter((c) => c.gameId === card.gameId && c.isRegistered).length;
@@ -1686,6 +1677,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             cardNumbers: [card.cardNumber],
             userId: user.id,
             cost: entryPrice,
+            isRegistered: true,
           }),
         })
           .then((r) => r.json())
@@ -1766,6 +1758,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
   // 8. DAUB CELL
   const daubCell = (cardId: string, row: number, col: number) => {
+    const card = userCards.find((item) => item.id === cardId);
+    const game = card && games.find((item) => item.id === card.gameId);
+    if (!card || !game || (row === 2 && col === 2) || !game.drawnNumbers.includes(card.numbers[row]?.[col])) return;
     setUserCards((prev) =>
       prev.map((card) => {
         if (card.id !== cardId) return card;
@@ -1784,16 +1779,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       prev.map((g) => {
         if (g.id !== gameId) return g;
         const currentBlocked = g.blockedCards || [];
-        const currentBlockedPlayers = g.blockedPlayers || [];
         const alreadyBlockedCard = currentBlocked.includes(cardNumber);
-        const alreadyBlockedPlayer = !blockedPlayerId || currentBlockedPlayers.includes(blockedPlayerId);
-        if (alreadyBlockedCard && alreadyBlockedPlayer) return g;
+        if (alreadyBlockedCard) return g;
         return {
           ...g,
-          blockedCards: alreadyBlockedCard ? currentBlocked : [...currentBlocked, cardNumber],
-          blockedPlayers: blockedPlayerId && !(g.blockedPlayers || []).includes(blockedPlayerId)
-            ? [...(g.blockedPlayers || []), blockedPlayerId]
-            : (g.blockedPlayers || []),
+          blockedCards: [...currentBlocked, cardNumber],
         };
       })
     );
@@ -1808,7 +1798,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         setGames((prev) => prev.map((game) => game.id !== gameId ? game : {
           ...game,
           blockedCards: result.data.blockedCards,
-          blockedPlayers: result.data.blockedPlayers,
         }));
       }).catch(() => {});
     }
@@ -1828,7 +1817,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       ? HYPER_SPECIAL_PRICE_CYCLE[nextSpecialIndex % HYPER_SPECIAL_PRICE_CYCLE.length]
       : game.entryPrice;
     const nextRoundStartsAt = isSpecial
-      ? Date.now() + 5 * 60 * 1000
+      ? Date.now() + SPECIAL_PICK_SECONDS * 1000
       : isFetan
         ? Date.now() + 30 * 1000
         : undefined;
@@ -1844,7 +1833,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           currentBall: undefined,
           blockedCards: [],
           winners: [],
-          status: 'OPEN',
+          status: 'OPEN' as const,
+          roundStartedAt: undefined,
           activeSpecialRuleIndex: nextSpecialIndex,
           entryPrice: nextPrice,
           nextRoundStartsAt,
@@ -1893,7 +1883,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }).catch(() => {});
   };
 
-  // 8d. START SPECIAL GAME ROUND — ends 5-min intermission & starts live drawing
+  // 8d. START SPECIAL GAME ROUND — ends the 4-minute pick window
   const startSpecialRound = async (gameId: string): Promise<boolean> => {
     try {
       const res = await fetch('/api/games/start', {
@@ -1913,6 +1903,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         return {
           ...g,
           status: 'RUNNING',
+          roundStartedAt: Date.now(),
           nextRoundStartsAt: undefined,
         };
       })
@@ -1938,10 +1929,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const game = games.find((g) => g.id === card.gameId);
     if (!game) return { success: false, message: 'Game not found' };
 
-    if (game.blockedPlayers?.includes(user.id)) {
-      return { success: false, message: '🚫 You are blocked from this game until the current round ends.' };
-    }
-
     // Check if card is already blocked
     if (game.blockedCards?.includes(card.cardNumber)) {
       return {
@@ -1950,8 +1937,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    // For Hyper Special: card must be registered (max 5) to play and claim Bingo
-    if ((game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL') && card.isRegistered === false) {
+    // For Hyper Special, only a paid registered card is eligible to claim.
+    if ((game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL') && !card.isRegistered) {
       return {
         success: false,
         message: 'ካርዱ አልተመዘገበም! ለመጫወት እባክዎ «Register Card» ይጫኑ (Card is not registered! Click Register Card to play)',
@@ -1959,10 +1946,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
 
     // ---- WINNING RULE CHECK ACCORDING TO GAME CATEGORY / RULE ----
-    // Include all drawn numbers so player is NEVER blocked for a valid horizontal line or pattern
-    const gameDrawnSet = new Set(game.drawnNumbers);
     const effectiveMarked = card.numbers.map((row, rIdx) =>
-      row.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || card.marked[rIdx][cIdx] || gameDrawnSet.has(val))
+      row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || card.marked[rIdx][cIdx])
     );
 
     const isFetan = game.category === 'HYPER_FETAN' || game.name?.includes('Fetan') || game.id.includes('fetan');
@@ -2079,7 +2064,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             setWallet((prev) => ({
               ...prev,
               winningBalance: prev.winningBalance - calculatedPrize + serverPrize,
-              availableBalance: prev.availableBalance - calculatedPrize + serverPrize,
             }));
           }
         }
@@ -2103,12 +2087,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     // Update user wallet & transaction record
     const newWinningBalance = wallet.winningBalance + calculatedPrize;
-    const newAvailableBalance = wallet.availableBalance + calculatedPrize;
+    const newAvailableBalance = wallet.availableBalance;
 
     setWallet((prev) => ({
       ...prev,
       winningBalance: newWinningBalance,
-      availableBalance: newAvailableBalance,
     }));
 
     const tx: Transaction = {
@@ -2264,7 +2247,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (isSpecialGame) {
       const specialClock = getSpecialPickClock(game.nextRoundStartsAt, game.status, game.drawnNumbers?.length || 0);
       if (!specialClock.pickingCards) {
-        return { success: false, message: 'Special card picking is closed. Watch the live game or wait for the next 5-minute window.' };
+        return { success: false, message: 'Special card picking is closed. Watch the live game or wait for the next 4-minute window.' };
       }
     }
     const maxNumbersForGame = isFetanGame ? 500 : isSpecialGame ? 99999 : LOTTERY_NUMBERS_TOTAL;
@@ -2487,7 +2470,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       if (ownedCard) {
         setUserCards((prev) => prev.some((card) => card.id === ownedCard.id) ? prev : [...prev, ownedCard]);
       }
-      if (!isSpecial && !pendingPurchase) {
+      if (!pendingPurchase) {
         setWallet((prev) => {
           const updated = { ...prev, availableBalance: Math.max(0, prev.availableBalance - (game.entryPrice || 10)) };
           try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
@@ -2530,7 +2513,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     void releaseOwnedCard();
 
     // Refund entry price only if not Hyper Special
-    if (!isSpecial && !pendingPurchase) {
+    if (!pendingPurchase) {
       const refundAmount = game.entryPrice || 10;
       let newAvail = wallet.availableBalance + refundAmount;
       setWallet((prev) => {
