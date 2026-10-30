@@ -25,6 +25,7 @@ import {
   getFetanClock,
   SPECIAL_PICK_SECONDS,
   SPECIAL_ROUND_SECONDS,
+    SPECIAL_BALL_INTERVAL_MS,
 } from '../../lib/bingoUtils';
 import confetti from 'canvas-confetti';
 import SharedCountdownText from './SharedCountdownText';
@@ -1325,7 +1326,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           <div className="shrink-0 text-right">
             <div className="text-[9px] font-black uppercase text-slate-600">{language === 'am' ? 'ዋጋ / ተጫዋቾች' : 'COST / PLAYERS'}</div>
             <div className="text-xs font-black text-slate-950">{formatETB(currentGame.entryPrice)} · {currentGame.currentPlayers || 0}</div>
-            {isSpecialGame && <div className="text-[9px] font-bold text-indigo-800">Pick 4m · Play 12m</div>}
+            {isSpecialGame && <div className="text-[9px] font-bold text-indigo-800">{language === 'am' ? `ካርድ 4 ደቂቃ · ጨዋታ 12 ደቂቃ · ቁጥር በየ${(SPECIAL_BALL_INTERVAL_MS / 1000).toFixed(1)} ሰከንድ` : `Pick 4m · Play 12m · Number every ${(SPECIAL_BALL_INTERVAL_MS / 1000).toFixed(1)}s`}</div>}
           </div>
         </div>
         {isSpecialGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && (

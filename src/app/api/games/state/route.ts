@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
-import { FETAN_PICK_SECONDS, getExpiredWeekendRoundKey, getWeekendRoundKey, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS } from '@/lib/bingoUtils';
+import { FETAN_PICK_SECONDS, getExpiredWeekendRoundKey, getWeekendRoundKey, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS } from '@/lib/bingoUtils';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -176,9 +176,16 @@ export async function GET(req: NextRequest) {
       // Compare the old draw array and due time in SQL so overlapping polls
       // can commit at most one ball per interval.
       if ((isFetan || isSpecial) && game.status === 'RUNNING' && drawn.length < 75 && winners.length === 0) {
-        const drawIntervalMs = Math.max(1, Number.parseInt(game.draw_interval || '3', 10)) * 1000;
+        const drawIntervalMs = isSpecial
+          ? SPECIAL_BALL_INTERVAL_MS
+          : Math.max(1, Number.parseInt(game.draw_interval || '3', 10)) * 1000;
         const lastDrawAt = game.last_ball_drawn_at ? new Date(game.last_ball_drawn_at).getTime() : 0;
-        if (!lastDrawAt || Date.now() >= lastDrawAt + drawIntervalMs) {
+        const roundStartedAt = game.round_started_at ? new Date(game.round_started_at).getTime() : 0;
+        const nextSpecialDrawAt = roundStartedAt + drawn.length * SPECIAL_BALL_INTERVAL_MS;
+        const drawIsDue = isSpecial
+          ? roundStartedAt > 0 && Date.now() >= nextSpecialDrawAt
+          : !lastDrawAt || Date.now() >= lastDrawAt + drawIntervalMs;
+        if (drawIsDue) {
           const drawnSet = new Set(drawn);
           const remaining: number[] = [];
           for (let ball = 1; ball <= 75; ball++) if (!drawnSet.has(ball)) remaining.push(ball);
@@ -193,7 +200,7 @@ export async function GET(req: NextRequest) {
                   status = ${nextDrawn.length >= 75 ? 'COMPLETED' : 'RUNNING'}, updated_at = NOW()
               WHERE id = ${game.id} AND status = 'RUNNING'
                 AND drawn_numbers = ${`{${drawn.join(',')}}`}::int4[]
-                AND (last_ball_drawn_at IS NULL OR last_ball_drawn_at <= NOW() - (${drawIntervalMs} * INTERVAL '1 millisecond'))
+                AND (${isSpecial} OR last_ball_drawn_at IS NULL OR last_ball_drawn_at <= NOW() - (${drawIntervalMs} * INTERVAL '1 millisecond'))
             `;
           }
         }

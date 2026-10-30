@@ -3,7 +3,7 @@ import { ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql 
 import { isAdminTelegramId } from '@/lib/authUtils';
 import { INITIAL_GAMES } from '@/lib/store';
 import { getWeekendRoundKey } from '@/lib/bingoUtils';
-import { SPECIAL_ROUND_SECONDS } from '@/lib/bingoUtils';
+import { SPECIAL_BALL_INTERVAL_MS, SPECIAL_ROUND_SECONDS } from '@/lib/bingoUtils';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
     }
 
     const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN' || gameId.includes('fetan');
+    const isSpecial = game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL';
     const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY' || gameId.includes('weekend');
     if (isWeekend) {
       const scheduledGame = INITIAL_GAMES.find((candidate) => candidate.id === gameId);
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
     if (game.status === 'COMPLETED' || winners.length > 0) {
       return NextResponse.json({ success: false, error: 'Game already completed' }, { status: 409 });
     }
-    if ((game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL') && game.round_started_at &&
+    if (isSpecial && game.round_started_at &&
         Date.now() >= new Date(game.round_started_at).getTime() + SPECIAL_ROUND_SECONDS * 1000) {
       return NextResponse.json({ success: false, error: 'The 12-minute Special round has ended.' }, { status: 409 });
     }
@@ -97,7 +98,12 @@ export async function POST(req: NextRequest) {
 
     const drawn = parseIntegerArray(game.drawn_numbers);
     const drawIntervalMs = Math.max(1, parseInt(game.draw_interval ?? '3', 10)) * 1000;
-    if (game.last_ball_drawn_at) {
+    if (isSpecial && game.round_started_at) {
+      const nextDueAt = new Date(game.round_started_at).getTime() + drawn.length * SPECIAL_BALL_INTERVAL_MS;
+      if (Date.now() < nextDueAt) {
+        return NextResponse.json({ success: false, error: 'The next Special number is not due yet.', nextAllowedAt: nextDueAt }, { status: 425 });
+      }
+    } else if (game.last_ball_drawn_at) {
       const nextAllowedAt = new Date(game.last_ball_drawn_at).getTime() + drawIntervalMs;
       if (Date.now() < nextAllowedAt) {
         return NextResponse.json({ success: false, error: 'The next ball is not due yet.', nextAllowedAt }, { status: 425 });
