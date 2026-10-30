@@ -260,8 +260,8 @@ export default function AuthModal() {
           <p className="text-xs text-slate-600 max-w-xs mx-auto font-medium">
             {activeTab === 'register'
               ? (language === 'am' 
-                  ? 'ይመዝገቡ እና 20 ብር የጀማሪ ቦነስ ይቀበሉ (ለጨዋታ መጫወቻ ብቻ የሚያገለግል)!'
-                  : 'Register and receive 20 ETB Welcome Bonus (Play Only · Cannot withdraw)!')
+                  ? 'ይመዝገቡ እና 20 ብር የጀማሪ ቦነስ ይቀበሉ!'
+                  : 'Register and receive a 20 ETB Welcome Bonus!')
               : (language === 'am'
                   ? 'ያስመዘገቡትን ስልክ ቁጥር ወይም ቴሌግራም መታወቂያ በማስገባት ይግቡ'
                   : 'Enter your registered Ethiopian phone number or Telegram ID.')}
@@ -411,17 +411,12 @@ export default function AuthModal() {
                 )}
               </div>
 
-              {/* 🎁 Welcome 20 Birr Bonus Badge (Play Only) */}
+              {/* 🎁 Welcome 20 Birr Bonus Badge */}
               <div className="p-3 rounded-xl bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs flex items-start gap-2.5 shadow-xs">
                 <Gift className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                 <div>
                   <div className="font-black text-xs text-amber-900">
                     {language === 'am' ? '🎁 20 ብር የጀማሪ ቦነስ ያገኛሉ!' : '🎁 20 ETB Welcome Bonus on Registration!'}
-                  </div>
-                  <div className="text-[11px] text-amber-800 font-bold mt-0.5">
-                    {language === 'am' 
-                      ? 'ይህ 20 ብር ለጨዋታ መጫወቻ ብቻ የሚያገለግል ሲሆን በቀጥታ ማውጣት አይቻልም።' 
-                      : 'Play Only: Use this 20 ETB bonus to play games. Cannot be withdrawn.'}
                   </div>
                 </div>
               </div>

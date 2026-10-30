@@ -544,8 +544,8 @@ export default function MiniAppShell({
                     </h4>
                     <p className="text-[10px] text-emerald-700 mt-0.5 leading-snug">
                       {language === 'am'
-                        ? 'አካውንት ሲፈጥሩ 20 ብር ቦነስ ወዲያው ይጨምርልዎታል። ቦነስ ለጨዋታ ብቻ ያገለግላል — ማውጣት አይቻልም።'
-                        : 'Create an account and get 20 ETB bonus instantly. Bonus is for playing only — cannot be withdrawn.'}
+                        ? 'አካውንት ሲፈጥሩ 20 ብር ቦነስ ወዲያው ይጨምርልዎታል።'
+                        : 'Create an account and get 20 ETB bonus instantly.'}
                     </p>
                   </div>
                   <button

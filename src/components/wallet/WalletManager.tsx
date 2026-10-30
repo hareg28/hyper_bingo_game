@@ -305,7 +305,7 @@ export default function WalletManager() {
       return;
     }
     if (withdrawAmt > wallet.winningBalance) {
-      showStatus('error', 'You can withdraw winnings only; deposits and bonus funds are not withdrawable.');
+      showStatus('error', 'Insufficient winnings balance.');
       return;
     }
     if (!phoneOrAccount || !accountName) {
@@ -616,7 +616,6 @@ export default function WalletManager() {
           <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
             <span className="text-[10px] text-slate-600 font-bold block">{t('bonusBalance')}</span>
             <div className="font-black text-purple-700 text-sm mt-0.5">{formatETB(wallet.bonusBalance)}</div>
-            <div className="text-[9px] text-amber-800 font-bold mt-0.5 leading-tight">Play Only<br/>Non-withdrawable</div>
           </div>
           <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
             <span className="text-[10px] text-slate-600 font-bold block">{t('linkedAccts')}</span>
@@ -947,19 +946,6 @@ export default function WalletManager() {
             </h3>
             <span className="text-[10px] font-bold text-slate-600">{t('winningBalance')}: {formatETB(wallet.winningBalance)}</span>
           </div>
-
-          {/* Warning: Bonus balance cannot be withdrawn */}
-          {wallet.availableBalance === 0 && wallet.bonusBalance > 0 && (
-            <div className="p-3 rounded-xl bg-amber-50 border-2 border-amber-300 flex items-start gap-2.5">
-              <span className="text-lg shrink-0">⚠️</span>
-              <div>
-                <div className="text-xs font-black text-amber-900">Welcome Bonus is Play-Only</div>
-                <p className="text-[11px] text-amber-800 font-medium leading-relaxed mt-0.5">
-                  Deposits and your <strong>{formatETB(wallet.bonusBalance)}</strong> play bonus cannot be withdrawn. Only confirmed bingo winnings can be paid out.
-                </p>
-              </div>
-            </div>
-          )}
 
           {/* Use linked account shortcut */}
           {linkedAccounts.filter(a => a.status === 'VERIFIED').length > 0 && (

@@ -999,20 +999,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     const withdrawable = wallet.winningBalance;
     if (withdrawable < amount) {
-      const totalBalance = wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance;
-      if (totalBalance >= amount && wallet.bonusBalance > 0) {
-        addNotification(
-          '⚠️ Cannot Withdraw Bonus',
-          `Your welcome bonus is play-only and cannot be withdrawn. Only bingo winnings can be withdrawn; deposits and bonuses remain in your play balance.`,
-          'warning'
-        );
-      } else {
-        addNotification(
-          '⚠️ Insufficient Balance',
-          `You need at least ${amount} ETB in winnings to withdraw. Current winnings: ${withdrawable.toFixed(0)} ETB.`,
-          'warning'
-        );
-      }
+      addNotification(
+        '⚠️ Insufficient Balance',
+        `You need at least ${amount} ETB in winnings to withdraw. Current winnings: ${withdrawable.toFixed(0)} ETB.`,
+        'warning'
+      );
       return false;
     }
 

@@ -99,7 +99,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         `💎 ልዩ ጥቅሞች (Why Play Now):\n` +
         `   ✅ 80% የተጣራ ክፍያ ለአሸናፊዎች (80% Return to Players)\n` +
         `   ✅ ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር (Instant Cashout)\n` +
-        `   🎁 20 ETB የመመዝገቢያ ቦነስ (Play-only Welcome Bonus)\n\n` +
+        `   🎁 20 ETB የመመዝገቢያ ቦነስ (Welcome Bonus)\n\n` +
         `🚀 ዕድልዎን አሁኑኑ ይሞክሩ! ካርዶችዎን ቀድመው ይያዙ!\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
         `👇 ከታች ያለውን አዝራር ተጭነው አሁኑኑ ይቀላቀሉ!`,
@@ -163,7 +163,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
       `💎 ልዩ ጥቅሞች (Why Play Now):\n` +
       `   ✅ 80% የተጣራ ክፍያ ለአሸናፊዎች (80% Return to Players)\n` +
       `   ✅ ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር (Instant Cashout)\n` +
-      `   🎁 20 ETB የመመዝገቢያ ቦነስ (Play-only Welcome Bonus)\n\n` +
+      `   🎁 20 ETB የመመዝገቢያ ቦነስ (Welcome Bonus)\n\n` +
       `🚀 ዕድልዎን አሁኑኑ ይሞክሩ! ካርዶችዎን ቀድመው ይያዙ!\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `👇 ከታች ያለውን አዝራር ተጭነው አሁኑኑ ይቀላቀሉ!`
