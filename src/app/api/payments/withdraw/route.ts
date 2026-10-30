@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     };
 
     // ── Validation ──────────────────────────────────────────────────────────
-    if (!userId || !amount || !accountNumber || !accountName || !paymentMethod) {
+    if (!userId || !Number.isFinite(amount) || amount <= 0 || !accountNumber || !accountName || !paymentMethod) {
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'All fields are required: userId, amount, accountNumber, accountName, paymentMethod',
@@ -63,9 +63,7 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
-    // ── Reserve balance + create PENDING withdrawal ─────────────────────────
-    // createPendingWithdrawal deducts the amount from the wallet immediately
-    // so the player cannot double-spend while the admin reviews the request.
+    // Create the pending request. The wallet is debited only after approval.
     const { withdrawal, transaction } = await db.createPendingWithdrawal({
       userId,
       amount,
@@ -90,7 +88,7 @@ export async function POST(req: NextRequest) {
       `🔖 <b>Withdrawal ID:</b> <code>${withdrawal.id}</code>\n` +
       `📋 <b>Transaction ID:</b> <code>${transaction.id}</code>\n` +
       `⏰ <b>Requested At:</b> ${new Date().toLocaleString()}\n\n` +
-      `⏳ <i>Status: PENDING — Balance has been reserved. Visit the admin panel to Approve or Reject.</i>\n\n` +
+        `⏳ <i>Status: PENDING — Visit the admin panel to Approve or Reject.</i>\n\n` +
       `🔗 <a href="${process.env.NEXT_PUBLIC_APP_URL ?? ''}/admin">Open Admin Panel</a>`;
 
     Promise.allSettled(
@@ -118,8 +116,8 @@ export async function POST(req: NextRequest) {
       },
       message:
         `✅ Withdrawal request of ${amount} ETB submitted successfully!\n` +
-        `Your balance has been reserved. The funds will be sent to ${accountNumber} ` +
-        `(${paymentMethod}) once approved — usually within a few hours.`,
+        `Your wallet will be debited after the request is approved and paid to ${accountNumber} ` +
+        `(${paymentMethod}) — usually within a few hours.`,
     });
 
   } catch (err: unknown) {

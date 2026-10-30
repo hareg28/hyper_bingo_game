@@ -181,7 +181,9 @@ export async function POST(req: NextRequest) {
     console.error('[Admin/Withdrawals POST] Error:', err);
     return NextResponse.json<ApiResponse>({
       success: false,
-      error: 'Internal server error',
-    }, { status: 500 });
+      error: err instanceof Error && err.message === 'Insufficient withdrawable balance'
+        ? 'Insufficient balance: this user no longer has enough withdrawable funds to approve the request.'
+        : 'Internal server error',
+    }, { status: err instanceof Error && err.message === 'Insufficient withdrawable balance' ? 422 : 500 });
   }
 }

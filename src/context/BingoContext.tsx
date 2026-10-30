@@ -972,7 +972,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
-  // 2. WITHDRAWAL — reserve balance, PENDING until admin sends payout (or gateway if enabled)
+  // 2. WITHDRAWAL — submit a pending request; debit only after admin approval.
   const requestWithdrawal = async (
     amount: number,
     provider: PaymentProvider,
@@ -1044,7 +1044,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
       addNotification(
         '✅ Withdrawal submitted',
-        `${amount} ETB reserved pending admin payout to ${provider} (${accountNumber}).`,
+        `${amount} ETB requested for payout to ${provider} (${accountNumber}). Your wallet is debited after approval.`,
         'success'
       );
       audioManager.playApprovalRequestChime();
@@ -1094,6 +1094,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     setTransactions((prev) =>
       prev.map((t) => (t.id === wd.transactionId ? { ...t, status: 'COMPLETED' } : t))
     );
+    if (user?.id) {
+      const walletRes = await fetch(`/api/wallet?userId=${encodeURIComponent(user.id)}`).then((r) => r.json()).catch(() => null);
+      if (walletRes?.success && walletRes.data?.wallet) setWallet(walletRes.data.wallet);
+    }
 
     const audit: AuditLog = {
       id: `aud_${Date.now()}`,
@@ -1119,12 +1123,20 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (!wd || wd.status !== 'PENDING') return;
 
     try {
-      await fetch('/api/admin/withdrawals', {
+      const res = await fetch('/api/admin/withdrawals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ withdrawalId, action: 'REJECT', adminName }),
       });
-    } catch {}
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        addNotification('❌ Withdrawal', data.error ?? 'Could not reject withdrawal.', 'error');
+        return;
+      }
+    } catch {
+      addNotification('❌ Withdrawal', 'Network error rejecting withdrawal.', 'error');
+      return;
+    }
 
     setWithdrawals((prev) =>
       prev.map((w) => (w.id === withdrawalId ? { ...w, status: 'FAILED' } : w))
