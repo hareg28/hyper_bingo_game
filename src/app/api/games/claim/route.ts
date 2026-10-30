@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Fetch current game state
     const [game] = await sql`
-      SELECT id, category, game_type, weekend_round_key, status, winners, current_players, entry_price, prize_pool, blocked_cards
+      SELECT id, name, category, game_type, weekend_round_key, status, winners, current_players, entry_price, prize_pool, blocked_cards
       FROM games WHERE id = ${gameId}
     `;
     if (!game) {
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
         ${parseFloat(walletRow?.available_balance ?? '0')},
         'System', 'COMPLETED',
         ${'WIN-' + gameId},
-        ${'BINGO! ' + pattern + ' with Card #' + cardNumber}
+        ${`${game.name}: Bingo prize for ${pattern} with Card #${cardNumber}`}
       )
     `;
 

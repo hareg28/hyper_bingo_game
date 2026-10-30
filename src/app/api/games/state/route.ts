@@ -102,6 +102,7 @@ export async function GET(req: NextRequest) {
         ? game.winners
         : (typeof game.winners === 'string' ? JSON.parse(game.winners || '[]') : []);
       const drawn = parseIntegerArray(game.drawn_numbers);
+      const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN';
       const isSpecial = game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL';
       const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY';
       const pickSeconds = isSpecial ? SPECIAL_PICK_SECONDS : FETAN_PICK_SECONDS;
@@ -170,8 +171,32 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      // Drawing is player initiated from the room. State polling only syncs data;
-      // it must never call a ball automatically.
+      // Fetan and Special draw automatically after their pick window closes.
+      // Compare the old draw array and due time in SQL so overlapping polls
+      // can commit at most one ball per interval.
+      if ((isFetan || isSpecial) && game.status === 'RUNNING' && drawn.length < 75 && winners.length === 0) {
+        const drawIntervalMs = Math.max(1, Number.parseInt(game.draw_interval || '3', 10)) * 1000;
+        const lastDrawAt = game.last_ball_drawn_at ? new Date(game.last_ball_drawn_at).getTime() : 0;
+        if (!lastDrawAt || Date.now() >= lastDrawAt + drawIntervalMs) {
+          const drawnSet = new Set(drawn);
+          const remaining: number[] = [];
+          for (let ball = 1; ball <= 75; ball++) if (!drawnSet.has(ball)) remaining.push(ball);
+          const nextBall = remaining[Math.floor(Math.random() * remaining.length)];
+          if (nextBall !== undefined) {
+            const nextDrawn = [...drawn, nextBall];
+            await sql`
+              UPDATE games
+              SET drawn_numbers = ${`{${nextDrawn.join(',')}}`}::int4[],
+                  current_ball = ${nextBall}, last_ball_drawn_at = NOW(),
+                  round_started_at = COALESCE(round_started_at, NOW()),
+                  status = ${nextDrawn.length >= 75 ? 'COMPLETED' : 'RUNNING'}, updated_at = NOW()
+              WHERE id = ${game.id} AND status = 'RUNNING'
+                AND drawn_numbers = ${`{${drawn.join(',')}}`}::int4[]
+                AND (last_ball_drawn_at IS NULL OR last_ball_drawn_at <= NOW() - (${drawIntervalMs} * INTERVAL '1 millisecond'))
+            `;
+          }
+        }
+      }
     }
     await sql`
       UPDATE games

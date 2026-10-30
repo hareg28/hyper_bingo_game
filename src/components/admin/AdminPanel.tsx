@@ -18,6 +18,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     withdrawals, 
     auditLogs, 
     transactions, 
+    refreshTransactions,
     user, 
     approveWithdrawal, 
     rejectWithdrawal, 
@@ -36,8 +37,9 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     addAdminByIdentifier,
   } = useBingo();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'broadcast' | 'games' | 'finance' | 'users' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'broadcast' | 'games' | 'finance' | 'transactions' | 'users' | 'audit'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
+  const [transactionSearch, setTransactionSearch] = useState('');
 
   // Admin Registered Users Roster and Stats
   const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
@@ -51,6 +53,10 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
       refreshFinanceQueue();
     }
   }, [activeTab, refreshFinanceQueue]);
+
+  useEffect(() => {
+    if (activeTab === 'transactions') void refreshTransactions();
+  }, [activeTab, refreshTransactions]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -612,6 +618,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
             { id: 'broadcast', label: language === 'am' ? '📢 ማስታወቂያ ማሰራጫ' : '📢 Broadcast Center', icon: Megaphone },
             { id: 'games', label: t('games'), icon: Gamepad2 },
             { id: 'finance', label: `${t('finance')} (${withdrawals.length})`, icon: Wallet },
+            { id: 'transactions', label: language === 'am' ? 'የግብይት ታሪክ' : 'Player Transactions', icon: FileText },
             { id: 'users', label: `${t('users')} (${registeredUsers.length || dbStats?.totalUsers || 0})`, icon: Users },
             { id: 'audit', label: t('audit'), icon: ShieldCheck },
           ].map((tab) => {
@@ -1675,6 +1682,33 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'transactions' && (
+          <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black text-slate-900">{language === 'am' ? 'የተጫዋቾች ሙሉ የግብይት ታሪክ' : 'All Player Transactions'}</h3>
+                <p className="text-xs text-slate-500">{language === 'am' ? 'እያንዳንዱ ተጫዋች ያደረገው ገቢ፣ ወጪ፣ የጨዋታ ክፍያ እና ሽልማት' : 'Deposits, withdrawals, game entry charges, refunds, and prizes for every player.'}</p>
+              </div>
+              <div className="flex gap-2">
+                <input value={transactionSearch} onChange={(e) => setTransactionSearch(e.target.value)} placeholder={language === 'am' ? 'በተጫዋች ፈልግ' : 'Filter by player or reason'} className="w-56 rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-900" />
+                <button type="button" onClick={() => void refreshTransactions()} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800"><RefreshCw className="h-3.5 w-3.5" />{language === 'am' ? 'አድስ' : 'Refresh'}</button>
+              </div>
+            </div>
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs border-collapse min-w-[900px]">
+                <thead><tr className="bg-slate-100 text-slate-800 border-b border-slate-200 uppercase text-[10px] font-black"><th className="p-2.5">Date</th><th className="p-2.5">Player</th><th className="p-2.5">Type</th><th className="p-2.5">Reason / Game</th><th className="p-2.5">Amount</th><th className="p-2.5">Balance after</th><th className="p-2.5">Reference</th><th className="p-2.5">Status</th></tr></thead>
+                <tbody className="divide-y divide-slate-100">
+                  {transactions.filter((tx) => `${tx.username} ${tx.userId} ${tx.description} ${tx.type} ${tx.reference}`.toLowerCase().includes(transactionSearch.trim().toLowerCase())).map((tx) => (
+                    <tr key={tx.id} className="hover:bg-slate-50"><td className="whitespace-nowrap p-2.5 text-slate-600">{new Date(tx.createdAt).toLocaleString()}</td><td className="p-2.5 font-bold text-slate-900">@{tx.username}<div className="font-mono text-[10px] font-medium text-slate-500">{tx.userId}</div></td><td className="p-2.5 font-black text-slate-700">{tx.type}</td><td className="max-w-sm p-2.5 text-slate-700">{tx.description || '—'}</td><td className={`whitespace-nowrap p-2.5 font-mono font-black ${tx.amount < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{tx.amount < 0 ? '−' : '+'}{formatETB(Math.abs(tx.amount))}</td><td className="whitespace-nowrap p-2.5 font-mono font-bold text-slate-800">{formatETB(tx.balanceAfter)}</td><td className="p-2.5 font-mono text-[10px] text-slate-600">{tx.reference || '—'}</td><td className="p-2.5 font-bold text-slate-700">{tx.status}</td></tr>
+                  ))}
+                  {transactions.filter((tx) => `${tx.username} ${tx.userId} ${tx.description} ${tx.type} ${tx.reference}`.toLowerCase().includes(transactionSearch.trim().toLowerCase())).length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-500">{language === 'am' ? 'ግብይት አልተገኘም' : 'No transactions match this search.'}</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[10px] text-slate-500">{transactions.length} {language === 'am' ? 'ግብይቶች ተጭነዋል' : 'transactions loaded'}</p>
           </div>
         )}
 

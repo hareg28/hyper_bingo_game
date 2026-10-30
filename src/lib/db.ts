@@ -1378,7 +1378,7 @@ const db = {
     if (sql) {
       try {
         const rows = await sql`
-          SELECT * FROM transactions WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 100
+          SELECT * FROM transactions WHERE user_id = ${userId} ORDER BY created_at DESC
         `;
         return rows.map(rowToTransaction);
       } catch (e) { console.error('Neon getTransactions error:', e); }
@@ -1392,13 +1392,12 @@ const db = {
     const sql = getNeonSql();
     if (sql) {
       try {
-        const rows = await sql`SELECT * FROM transactions ORDER BY created_at DESC LIMIT 500`;
+        const rows = await sql`SELECT * FROM transactions ORDER BY created_at DESC`;
         return rows.map(rowToTransaction);
       } catch (e) { console.error('Neon getAllTransactions error:', e); }
     }
     return [...transactionsMap.values()]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 500);
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
 
   async getAllWithdrawals(): Promise<WithdrawalRequest[]> {

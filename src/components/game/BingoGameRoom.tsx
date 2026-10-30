@@ -2382,7 +2382,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
         const fsDrawnSet = new Set(currentGame.drawnNumbers || []);
         const effectiveFsMarked = (fsCard.numbers || []).map((row, rIdx) =>
-          (row || []).map((val, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(fsCard.marked?.[rIdx]?.[cIdx]) || fsDrawnSet.has(val))
+          (row || []).map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(fsCard.marked?.[rIdx]?.[cIdx]))
         );
         const fsWin = Boolean(getBestWinningRule(effectiveFsMarked, effectiveRuleType, currentGame.activeSpecialRuleIndex));
         return (
@@ -2704,12 +2704,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         const winningCard = activeGameCards.find((c) => c.cardNumber === latestWinner.cardNumber);
         const winningNumbers: number[] = [];
         if (winningCard) {
-          const drawnNums = new Set(currentGame.drawnNumbers || []);
           for (let r = 0; r < 5; r++) {
             for (let c = 0; c < 5; c++) {
               const num = winningCard.numbers?.[r]?.[c] ?? 0;
               const isFree = (r === 2 && c === 2);
-              if ((Boolean(winningCard.marked?.[r]?.[c]) || drawnNums.has(num)) && !isFree && num > 0) {
+              if (Boolean(winningCard.marked?.[r]?.[c]) && !isFree && num > 0) {
                 winningNumbers.push(num);
               }
             }

@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Load the current shared round and ensure first-round pick deadlines
     // exist before accepting purchases.
-    let [game] = await sql`SELECT id, status, entry_price, category, game_type, next_round_starts_at, drawn_numbers FROM games WHERE id = ${gameId}`;
+    let [game] = await sql`SELECT id, name, status, entry_price, category, game_type, next_round_starts_at, drawn_numbers FROM games WHERE id = ${gameId}`;
     if (!game) {
       return NextResponse.json({ success: false, error: 'Game not found' }, { status: 404 });
     }
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + ${pickSeconds * 1000}
         WHERE id = ${gameId} AND status = 'OPEN' AND drawn_numbers = '{}' AND next_round_starts_at IS NULL
       `;
-      [game] = await sql`SELECT id, status, entry_price, category, game_type, next_round_starts_at, drawn_numbers FROM games WHERE id = ${gameId}`;
+      [game] = await sql`SELECT id, name, status, entry_price, category, game_type, next_round_starts_at, drawn_numbers FROM games WHERE id = ${gameId}`;
       pickDeadline = Number(game?.next_round_starts_at || 0);
     }
     if (isFetan || isSpecial) {
@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
       VALUES (
         ${txId}, ${userId}, ${username}, 'GAME_ENTRY', ${-actualCost}, ${balanceAfter},
         'System', 'COMPLETED', ${'GM-' + gameId},
-        ${'Entry: ' + purchased.length + ' card(s) in game ' + gameId}
+        ${`${game.category === 'HYPER_FETAN' ? 'Hyper Fetan entry fee' : game.category === 'HYPER_SPECIAL' ? 'Hyper Special entry fee' : game.game_type === 'WEEKEND_LOTTERY' ? 'Weekend entry fee' : 'Bingo entry fee'}: ${purchased.length} card(s) in ${game.name} (card price ${pricePerCard} ETB each)`}
       )
     `;
 

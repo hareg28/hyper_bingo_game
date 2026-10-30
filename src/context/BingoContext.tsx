@@ -68,6 +68,7 @@ interface BingoContextType {
   activeGameId: string | null;
   userCards: BingoCard[];
   transactions: Transaction[];
+  refreshTransactions: () => Promise<void>;
   withdrawals: WithdrawalRequest[];
   promotions: Promotion[];
   auditLogs: AuditLog[];
@@ -210,6 +211,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       /* Keep the current history if refresh fails. */
     }
   }, [user]);
+
+  const refreshTransactions = React.useCallback(async () => {
+    if (user?.id) await fetchTransactionHistory(user.id);
+  }, [user?.id, fetchTransactionHistory]);
 
   useEffect(() => {
     if (user?.id) void fetchTransactionHistory(user.id);
@@ -1432,7 +1437,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             balanceAfter: res.data?.walletAfter?.availableBalance ?? wallet.availableBalance,
             reference: `GM-${gameId}`,
             status: 'COMPLETED',
-            description: `Entry: ${cardsToCreate.length} card(s) for ${targetGame.name}`,
+            description: `${targetGame.category === 'HYPER_FETAN' ? 'Hyper Fetan entry fee' : targetGame.category === 'HYPER_SPECIAL' ? 'Hyper Special entry fee' : 'Bingo entry fee'}: ${cardsToCreate.length} card(s) in ${targetGame.name}`,
             createdAt: new Date().toISOString(),
           };
           setTransactions((prev) => [tx, ...prev]);
@@ -2569,6 +2574,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         activeGameId,
         userCards,
         transactions,
+        refreshTransactions,
         withdrawals,
         promotions,
         auditLogs,
