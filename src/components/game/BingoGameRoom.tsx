@@ -396,7 +396,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const [patternHint, setPatternHint] = useState<boolean[][] | null>(null);
   const [gameHitFeedback, setGameHitFeedback] = useState<string | null>(null);
   const [showMoreNumbers, setShowMoreNumbers] = useState(false);
-  const [showMasterBoard, setShowMasterBoard] = useState(false);
+  const [showMasterBoard, setShowMasterBoard] = useState(true);
   const [currentTime, setCurrentTime] = useState<string>('');
   const [showBlockedModal, setShowBlockedModal] = useState(false);
   const [showWinnerModal, setShowWinnerModal] = useState(false);
@@ -1310,22 +1310,22 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         )}
 
 
-      <div className="mx-1 rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 shadow-xs">
+      <div className="mx-1 rounded-xl border border-slate-300 bg-white px-2 py-1 shadow-xs">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">
+            <div className="text-[8px] font-black uppercase tracking-wider text-slate-600">
               {language === 'am' ? 'ሕግ' : 'RULE'}
               {isSpecialGame && <span className="ml-1 text-indigo-700">· #{(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} {language === 'am' ? currentSpecialRule.nameAm : currentSpecialRule.nameEn}</span>}
             </div>
-            {showGameInfo && <div className="text-[11px] font-bold leading-snug text-slate-950">
+            {showGameInfo && <div className="text-[10px] font-bold leading-tight text-slate-950">
               {language === 'am'
                 ? isSpecialGame ? currentSpecialRule.descAm : isFetanGame ? 'አንድ ረድፍ፣ አንድ አምድ፣ አንድ ዲያጎናል ወይም 4ቱን ማዕዘኖች ያሟሉ።' : isWeekendGame ? 'ሙሉ ቤት፦ 24ቱን ቁጥሮች እራስዎ ምልክት ያድርጉ።' : dashboardLaw
                 : dashboardLaw}
             </div>}
           </div>
           <div className="shrink-0 text-right">
-            <div className="text-[9px] font-black text-slate-600">{formatETB(currentGame.entryPrice)} · {currentGame.currentPlayers || 0} {language === 'am' ? 'ተጫዋች' : 'players'}</div>
-            {isSpecialGame && <div className="text-[9px] font-bold text-indigo-800">{language === 'am' ? '4/12 ደቂቃ' : 'Pick 4m · Play 12m'}</div>}
+            <div className="text-[8px] font-black text-slate-600">{formatETB(currentGame.entryPrice)} · {currentGame.currentPlayers || 0} {language === 'am' ? 'ተጫዋች' : 'players'}</div>
+            {isSpecialGame && <div className="text-[8px] font-bold text-indigo-800">{language === 'am' ? '4/12 ደቂቃ' : 'Pick 4m · Play 12m'}</div>}
           </div>
         </div>
         <button type="button" onClick={() => setShowGameInfo((visible) => !visible)} aria-expanded={showGameInfo} className="w-full text-center text-[9px] font-bold text-rose-600 leading-4">
@@ -1732,11 +1732,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           ================================================================ */}
       <div className="bg-white rounded-xl p-1 sm:p-1.5 border border-slate-200/80 shadow-xs">
         {/* Slim board title */}
-        <div className="flex items-center justify-between mb-1.5 px-0.5">
-          <span className="text-[10px] font-black text-slate-800 uppercase tracking-wider">
+        <div className="flex items-center justify-between mb-1 px-0.5">
+          <span className="text-[9px] font-black text-slate-800 uppercase tracking-wider">
             {language === 'am' ? 'የቢንጎ 75-ኳስ ሰንጠረዥ' : '75-Ball Master Board'}
           </span>
-          <span className="text-[9px] font-mono font-black text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+          <span className="text-[8px] font-mono font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200">
             {currentGame.drawnNumbers.length} / 75 {language === 'am' ? 'የተጠሩ' : 'Drawn'}
           </span>
         </div>
@@ -1744,7 +1744,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         <button
           type="button"
           onClick={() => setShowMasterBoard((visible) => !visible)}
-          className="w-full flex items-center justify-center gap-1 py-0.5 text-[9px] font-bold text-rose-600"
+          className="w-full flex items-center justify-center gap-1 py-0.5 text-[8px] font-bold text-rose-600"
           aria-expanded={showMasterBoard}
         >
           <ChevronLeft className={`w-3.5 h-3.5 transition-transform ${showMasterBoard ? 'rotate-90' : '-rotate-90'}`} />
@@ -1754,7 +1754,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         {showMasterBoard && <div className="space-y-px bg-slate-50/70 p-0.5 sm:p-1 rounded-lg border border-slate-100">
           {rows.map((row) => (
             <div key={row.letter} className="flex items-center gap-1">
-              <div className={`w-4 h-3.5 sm:w-6 sm:h-4.5 rounded text-[8px] sm:text-[9px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
+              <div className={`w-4 h-5 sm:w-6 sm:h-6 rounded text-[9px] sm:text-[10px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
                 {row.letter}
               </div>
               <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
@@ -1764,7 +1764,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   return (
                     <div
                       key={num}
-                      className={`h-3.5 sm:h-4.5 rounded text-[7px] sm:text-[9px] font-bold flex items-center justify-center transition-all ${
+                      className={`h-5 sm:h-6 rounded text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-all ${
                         isCurrent
                           ? 'bg-yellow-300 text-slate-950 font-black scale-125 shadow-[0_0_12px_3px_rgba(250,204,21,0.85)] ring-2 ring-yellow-400 animate-pulse z-20 brightness-110'
                           : isDrawn
