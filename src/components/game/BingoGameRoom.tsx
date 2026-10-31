@@ -1310,25 +1310,27 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         )}
 
 
-      <div className="mx-1 rounded-xl border border-slate-300 bg-white px-3 py-2 shadow-xs">
-        <div className="flex items-start justify-between gap-3">
+      <div className="mx-1 rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 shadow-xs">
+        <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">
-              {language === 'am' ? 'የጨዋታ ሕግ' : 'GAME RULE'}
+              {language === 'am' ? 'ሕግ' : 'RULE'}
               {isSpecialGame && <span className="ml-1 text-indigo-700">· #{(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} {language === 'am' ? currentSpecialRule.nameAm : currentSpecialRule.nameEn}</span>}
             </div>
-            <div className="text-[11px] font-bold leading-snug text-slate-950">
+            {showGameInfo && <div className="text-[11px] font-bold leading-snug text-slate-950">
               {language === 'am'
                 ? isSpecialGame ? currentSpecialRule.descAm : isFetanGame ? 'አንድ ረድፍ፣ አንድ አምድ፣ አንድ ዲያጎናል ወይም 4ቱን ማዕዘኖች ያሟሉ።' : isWeekendGame ? 'ሙሉ ቤት፦ 24ቱን ቁጥሮች እራስዎ ምልክት ያድርጉ።' : dashboardLaw
                 : dashboardLaw}
-            </div>
+            </div>}
           </div>
           <div className="shrink-0 text-right">
-            <div className="text-[9px] font-black uppercase text-slate-600">{language === 'am' ? 'ዋጋ / ተጫዋቾች' : 'COST / PLAYERS'}</div>
-            <div className="text-xs font-black text-slate-950">{formatETB(currentGame.entryPrice)} · {currentGame.currentPlayers || 0}</div>
-            {isSpecialGame && <div className="text-[9px] font-bold text-indigo-800">{language === 'am' ? 'ካርድ 4 ደቂቃ · ጨዋታ 12 ደቂቃ' : 'Pick 4m · Play 12m'}</div>}
+            <div className="text-[9px] font-black text-slate-600">{formatETB(currentGame.entryPrice)} · {currentGame.currentPlayers || 0} {language === 'am' ? 'ተጫዋች' : 'players'}</div>
+            {isSpecialGame && <div className="text-[9px] font-bold text-indigo-800">{language === 'am' ? '4/12 ደቂቃ' : 'Pick 4m · Play 12m'}</div>}
           </div>
         </div>
+        <button type="button" onClick={() => setShowGameInfo((visible) => !visible)} aria-expanded={showGameInfo} className="w-full text-center text-[9px] font-bold text-rose-600 leading-4">
+          {showGameInfo ? (language === 'am' ? 'ያነሰ አሳይ' : 'Show Less') : (language === 'am' ? 'የጨዋታ ዝርዝር አሳይ' : 'Show More')}
+        </button>
         {isSpecialGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && (
           <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700">
             <span>{language === 'am' ? 'የዙሩ ቀሪ ጊዜ' : 'ROUND TIME LEFT'}</span>
@@ -1728,7 +1730,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       {/* ================================================================
           CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
           ================================================================ */}
-      <div className="bg-white rounded-2xl p-2 border border-slate-200/80 shadow-xs">
+      <div className="bg-white rounded-xl p-1.5 border border-slate-200/80 shadow-xs">
         {/* Slim board title */}
         <div className="flex items-center justify-between mb-1.5 px-0.5">
           <span className="text-[10px] font-black text-slate-800 uppercase tracking-wider">

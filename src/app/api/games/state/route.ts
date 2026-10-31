@@ -192,9 +192,18 @@ export async function GET(req: NextRequest) {
           const drawnSet = new Set(drawn);
           const remaining: number[] = [];
           for (let ball = 1; ball <= 75; ball++) if (!drawnSet.has(ball)) remaining.push(ball);
-          const nextBall = remaining[Math.floor(Math.random() * remaining.length)];
-          if (nextBall !== undefined) {
-            const nextDrawn = [...drawn, nextBall];
+          const dueSpecialCount = isSpecial
+            ? Math.max(1, Math.floor((Date.now() - roundStartedAt) / SPECIAL_BALL_INTERVAL_MS) + 1 - drawn.length)
+            : 1;
+          const ballsToDraw = Math.min(remaining.length, dueSpecialCount);
+          for (let i = 0; i < ballsToDraw; i++) {
+            const swapIndex = i + Math.floor(Math.random() * (remaining.length - i));
+            [remaining[i], remaining[swapIndex]] = [remaining[swapIndex], remaining[i]];
+          }
+          const newlyDrawn = remaining.slice(0, ballsToDraw);
+          if (newlyDrawn.length > 0) {
+            const nextBall = newlyDrawn[newlyDrawn.length - 1];
+            const nextDrawn = [...drawn, ...newlyDrawn];
             await sql`
               UPDATE games
               SET drawn_numbers = ${`{${nextDrawn.join(',')}}`}::int4[],
