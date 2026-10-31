@@ -1281,7 +1281,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       {/* ================================================================
           SCROLLABLE BODY — Modern Card Layout (Matches Telegram Mockup)
           ================================================================ */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-32 bg-slate-100/70 p-2 sm:p-3 space-y-1.5 sm:space-y-2.5">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-24 sm:pb-32 bg-slate-100/70 p-1.5 sm:p-3 space-y-1 sm:space-y-2.5">
 
         {voiceBanner && (
           <div className="sticky top-0 z-40 bg-amber-50 border-b border-amber-300 px-3 py-2.5 shadow-sm">
@@ -1730,7 +1730,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       {/* ================================================================
           CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
           ================================================================ */}
-      <div className="bg-white rounded-xl p-1.5 border border-slate-200/80 shadow-xs">
+      <div className="bg-white rounded-xl p-1 sm:p-1.5 border border-slate-200/80 shadow-xs">
         {/* Slim board title */}
         <div className="flex items-center justify-between mb-1.5 px-0.5">
           <span className="text-[10px] font-black text-slate-800 uppercase tracking-wider">
@@ -1744,17 +1744,17 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         <button
           type="button"
           onClick={() => setShowMasterBoard((visible) => !visible)}
-          className="w-full flex items-center justify-center gap-1 py-1 text-[10px] font-bold text-rose-600"
+          className="w-full flex items-center justify-center gap-1 py-0.5 text-[9px] font-bold text-rose-600"
           aria-expanded={showMasterBoard}
         >
           <ChevronLeft className={`w-3.5 h-3.5 transition-transform ${showMasterBoard ? 'rotate-90' : '-rotate-90'}`} />
           <span>{showMasterBoard ? (language === 'am' ? 'ደብቅ' : 'Show Less') : (language === 'am' ? 'ሙሉ ሰንጠረዥ አሳይ' : 'Show 75 Numbers')}</span>
         </button>
         {/* 5 Rows B-I-N-G-O with 15 columns */}
-        {showMasterBoard && <div className="space-y-0.5 bg-slate-50/70 p-1 rounded-xl border border-slate-100">
+        {showMasterBoard && <div className="space-y-px bg-slate-50/70 p-0.5 sm:p-1 rounded-lg border border-slate-100">
           {rows.map((row) => (
             <div key={row.letter} className="flex items-center gap-1">
-              <div className={`w-5 h-4 sm:w-6 sm:h-4.5 rounded text-[9px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
+              <div className={`w-4 h-3.5 sm:w-6 sm:h-4.5 rounded text-[8px] sm:text-[9px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
                 {row.letter}
               </div>
               <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
@@ -1764,7 +1764,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   return (
                     <div
                       key={num}
-                      className={`h-4 sm:h-4.5 rounded text-[8px] sm:text-[9px] font-bold flex items-center justify-center transition-all ${
+                      className={`h-3.5 sm:h-4.5 rounded text-[7px] sm:text-[9px] font-bold flex items-center justify-center transition-all ${
                         isCurrent
                           ? 'bg-yellow-300 text-slate-950 font-black scale-125 shadow-[0_0_12px_3px_rgba(250,204,21,0.85)] ring-2 ring-yellow-400 animate-pulse z-20 brightness-110'
                           : isDrawn
