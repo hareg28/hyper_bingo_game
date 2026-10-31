@@ -119,7 +119,10 @@ export async function GET(req: NextRequest) {
       }, 0);
       const completionAt = game.last_ball_drawn_at ? new Date(game.last_ball_drawn_at).getTime() : 0;
       const specialRoundStartedAt = game.round_started_at ? new Date(game.round_started_at).getTime() : 0;
-      const specialRoundEnded = isSpecial && game.status === 'COMPLETED' && specialRoundStartedAt > 0 &&
+      // Reset an expired Special round in the same state request that notices
+      // the deadline. Waiting for a second poll after marking it COMPLETED can
+      // leave the old board visible at 00:00 if no later poll reaches the DB.
+      const specialRoundEnded = isSpecial && (game.status === 'RUNNING' || game.status === 'COMPLETED') && specialRoundStartedAt > 0 &&
         Date.now() >= specialRoundStartedAt + SPECIAL_ROUND_SECONDS * 1000;
       const fullRoundEnded = specialRoundEnded || (game.status === 'COMPLETED' && drawn.length >= 75 && completionAt > 0 && Date.now() >= completionAt + 10_000);
       const claimedRoundEnded = winners.length > 0 && latestClaimAt > 0 && Date.now() >= latestClaimAt + 10_000;
