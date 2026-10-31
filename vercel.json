@@ -2,10 +2,6 @@
   "framework": "nextjs",
   "crons": [
     {
-      "path": "/api/games/state",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/telegram/keepalive",
       "schedule": "0 6 * * *"
     },
