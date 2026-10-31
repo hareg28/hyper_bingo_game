@@ -1983,11 +1983,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                         <button
                           type="button"
                           onClick={() => removeCard(card.id)}
-                          disabled={specialRoundHasStarted}
-                          className={`hover:bg-black/20 p-0.5 rounded cursor-pointer transition shrink-0 disabled:cursor-not-allowed disabled:opacity-40 ${
+                          disabled={specialRoundHasStarted && (isRegistered || card.isPaid !== false)}
+                          className={`hover:bg-black/20 p-1 rounded cursor-pointer transition shrink-0 disabled:cursor-not-allowed disabled:opacity-40 ${
                             isRegistered ? 'text-white/80 hover:text-white' : 'text-white/70 hover:text-white'
                           }`}
-                          title={specialRoundHasStarted ? 'Card stays available until the round ends' : 'Remove card'}
+                          title={specialRoundHasStarted && (isRegistered || card.isPaid !== false) ? 'Registered cards stay active until the round ends' : 'Remove card'}
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>

@@ -1521,8 +1521,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const game = games.find((g) => g.id === card.gameId);
     const refundAmount = game?.entryPrice || 10;
     const isSpecial = game?.category === 'HYPER_SPECIAL' || game?.gameType === 'HYPER_SPECIAL';
-    if (isSpecial && (game?.status === 'RUNNING' || Boolean(game?.drawnNumbers?.length))) return;
+    if (isSpecial && (game?.status === 'RUNNING' || Boolean(game?.drawnNumbers?.length)) && (card.isRegistered || card.isPaid !== false)) return;
     if (isSpecial) {
+      if (!card.isRegistered && card.isPaid === false) {
+        setUserCards((prev) => prev.filter((c) => c.id !== cardId));
+        return;
+      }
       const cardNumber = parseInt(card.cardNumber, 10);
       if (Number.isFinite(cardNumber)) refundLotteryNumber(card.gameId, cardNumber);
       return;
