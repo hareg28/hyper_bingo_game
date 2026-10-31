@@ -396,6 +396,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const [patternHint, setPatternHint] = useState<boolean[][] | null>(null);
   const [gameHitFeedback, setGameHitFeedback] = useState<string | null>(null);
   const [showMoreNumbers, setShowMoreNumbers] = useState(false);
+  const [showMasterBoard, setShowMasterBoard] = useState(false);
   const [currentTime, setCurrentTime] = useState<string>('');
   const [showBlockedModal, setShowBlockedModal] = useState(false);
   const [showWinnerModal, setShowWinnerModal] = useState(false);
@@ -1280,7 +1281,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       {/* ================================================================
           SCROLLABLE BODY — Modern Card Layout (Matches Telegram Mockup)
           ================================================================ */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-32 bg-slate-100/70 p-2.5 sm:p-3 space-y-2.5">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-32 bg-slate-100/70 p-2 sm:p-3 space-y-1.5 sm:space-y-2.5">
 
         {voiceBanner && (
           <div className="sticky top-0 z-40 bg-amber-50 border-b border-amber-300 px-3 py-2.5 shadow-sm">
@@ -1727,7 +1728,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       {/* ================================================================
           CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
           ================================================================ */}
-      <div className="bg-white rounded-2xl p-2.5 border border-slate-200/80 shadow-xs">
+      <div className="bg-white rounded-2xl p-2 border border-slate-200/80 shadow-xs">
         {/* Slim board title */}
         <div className="flex items-center justify-between mb-1.5 px-0.5">
           <span className="text-[10px] font-black text-slate-800 uppercase tracking-wider">
@@ -1738,8 +1739,17 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </span>
         </div>
 
+        <button
+          type="button"
+          onClick={() => setShowMasterBoard((visible) => !visible)}
+          className="w-full flex items-center justify-center gap-1 py-1 text-[10px] font-bold text-rose-600"
+          aria-expanded={showMasterBoard}
+        >
+          <ChevronLeft className={`w-3.5 h-3.5 transition-transform ${showMasterBoard ? 'rotate-90' : '-rotate-90'}`} />
+          <span>{showMasterBoard ? (language === 'am' ? 'ደብቅ' : 'Show Less') : (language === 'am' ? 'ሙሉ ሰንጠረዥ አሳይ' : 'Show 75 Numbers')}</span>
+        </button>
         {/* 5 Rows B-I-N-G-O with 15 columns */}
-        <div className="space-y-0.5 bg-slate-50/70 p-1 rounded-xl border border-slate-100">
+        {showMasterBoard && <div className="space-y-0.5 bg-slate-50/70 p-1 rounded-xl border border-slate-100">
           {rows.map((row) => (
             <div key={row.letter} className="flex items-center gap-1">
               <div className={`w-5 h-4 sm:w-6 sm:h-4.5 rounded text-[9px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
@@ -1767,7 +1777,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
             </div>
           ))}
-        </div>
+        </div>}
       </div>
 
       {/* Blocked Cards Pill (Only shown if any cards are blocked) */}
