@@ -184,7 +184,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     claimBingo, 
     blockCard,
     resetGameRound,
-    drawNextBall, 
     joinGame,
     addCardToGame,
     removeCard,
@@ -850,11 +849,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     }
   }, [currentGame?.winners?.length, currentGame?.status]);
 
-  const handleManualDraw = () => {
-    if (!currentGame || currentGame.drawnNumbers.length >= 75 || currentGame.status === 'COMPLETED') return;
-    drawNextBall(currentGame.id);
-  };
-
   // Auto-dismiss claim alerts after 4 seconds
   useEffect(() => {
     if (claimStatus) {
@@ -1444,14 +1438,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
           {/* Controls */}
           <div className="flex items-center gap-1.5 px-1 pt-0.5">
-            <button
-              type="button"
-              onClick={handleManualDraw}
-              disabled={currentGame.status !== 'RUNNING' || currentGame.drawnNumbers.length >= 75 || Boolean(currentGame.winners?.length) || (isWeekendGame && !isWeekendLive)}
-              className="bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 disabled:text-slate-500 text-white font-black text-[10px] px-2.5 py-1 rounded-lg cursor-pointer disabled:cursor-not-allowed transition active:scale-95 shadow-2xs"
-            >
-              {language === 'am' ? 'ጥራ ቁጥር' : 'Pick Next Number'}
-            </button>
             <button
               type="button"
               onClick={() => setShowPatternHintModal(true)}
