@@ -2101,7 +2101,13 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         if (res.success && res.data?.winRecord) {
           // Sync the server-verified prize (may differ if multiple winners claimed simultaneously)
           const serverPrize: number = res.data.prizeWon ?? calculatedPrize;
-          if (serverPrize !== calculatedPrize) {
+          if (res.data.wallet) {
+            setWallet((prev) => ({
+              ...prev,
+              availableBalance: res.data.wallet.availableBalance ?? prev.availableBalance,
+              winningBalance: res.data.wallet.winningBalance ?? prev.winningBalance,
+            }));
+          } else if (serverPrize !== calculatedPrize) {
             setWallet((prev) => ({
               ...prev,
               winningBalance: prev.winningBalance - calculatedPrize + serverPrize,

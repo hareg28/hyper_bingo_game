@@ -89,30 +89,40 @@ export async function POST(req: NextRequest) {
       WHERE id = ${gameId}
     `;
 
-    // 7. Credit winner's wallet (winning balance + available)
-    await sql`
-      UPDATE wallets
-      SET
-        winning_balance = winning_balance + ${prizeWon},
+    // 7. Credit winner's wallet, creating it if this account has no row yet.
+    const [walletRow] = await sql`
+      INSERT INTO wallets (user_id, available_balance, bonus_balance, winning_balance, total_deposited, total_withdrawn)
+      VALUES (${userId}, 0, 0, ${prizeWon}, 0, 0)
+      ON CONFLICT (user_id) DO UPDATE SET
+        winning_balance = wallets.winning_balance + EXCLUDED.winning_balance,
         updated_at = NOW()
-      WHERE user_id = ${userId}
+      RETURNING available_balance, winning_balance
     `;
 
     // 8. Record win transaction
-    const [walletRow] = await sql`SELECT available_balance FROM wallets WHERE user_id = ${userId}`;
     const txId = `TX_WIN_${Date.now().toString(36).slice(-6)}`;
     await sql`
       INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
       VALUES (
         ${txId}, ${userId}, ${username}, 'GAME_WIN', ${prizeWon},
-        ${parseFloat(walletRow?.available_balance ?? '0')},
+        ${parseFloat(walletRow?.winning_balance ?? '0')},
         'System', 'COMPLETED',
         ${'WIN-' + gameId},
         ${`${game.name}: Bingo prize for ${pattern} with Card #${cardNumber}`}
       )
     `;
 
-    return NextResponse.json({ success: true, data: { winRecord, prizeWon } });
+    return NextResponse.json({
+      success: true,
+      data: {
+        winRecord,
+        prizeWon,
+        wallet: {
+          availableBalance: parseFloat(walletRow?.available_balance ?? '0'),
+          winningBalance: parseFloat(walletRow?.winning_balance ?? '0'),
+        },
+      },
+    });
   } catch (err: any) {
     console.error('[claim]', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
