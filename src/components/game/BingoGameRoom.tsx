@@ -1250,7 +1250,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const gamePrizeDisplay = (currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY')
     ? getGameLivePrizePool(currentGame)
     : Math.round(totalGrossMoney * 0.80);
-  const playableBalance = (wallet?.availableBalance || 0) + (wallet?.bonusBalance || 0);
+  const playableBalance = (wallet?.availableBalance || 0) + (wallet?.bonusBalance || 0) + (wallet?.winningBalance || 0);
   const hasSufficientBalance = playableBalance >= (currentGame?.entryPrice || 0);
   const currentSpecialRule = HYPER_SPECIAL_RULES[Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
   const dashboardLaw = isSpecialGame

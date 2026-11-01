@@ -111,7 +111,7 @@ export default function CardNumberSelector({
   }, [purchasedNumbers, gameId, userCards]);
   const purchasedCount = purchasedSet.size;
   const totalSpent = purchasedCount * entryPrice;
-  const playableBalance = wallet.availableBalance + wallet.bonusBalance;
+  const playableBalance = wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance;
 
   const showMessage = (msg: string) => {
     if (isSpecial) return;

@@ -1237,7 +1237,7 @@ function WeekendLotteryNumberPicker({
   const activeSlotSet = new Set(slotNumbers.filter((n): n is number => n !== null));
   const slotCountFilled = slotNumbers.filter((n) => n !== null).length;
   const totalCost = slotCountFilled * entryPrice;
-  const playableBalance = (wallet?.availableBalance ?? 0) + (wallet?.bonusBalance ?? 0);
+  const playableBalance = (wallet?.availableBalance ?? 0) + (wallet?.bonusBalance ?? 0) + (wallet?.winningBalance ?? 0);
   const canAfford = playableBalance >= totalCost;
   const firstEmptySlotIdx = slotNumbers.findIndex((n) => n === null);
 

@@ -1358,7 +1358,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const cardsToCreate = rawCards.slice(0, 5);
 
     // ── Optimistic local update (immediate UI response) ──
-    const playableBalance = wallet.availableBalance + wallet.bonusBalance;
+    const playableBalance = wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance;
     const totalCost = actualStake * cardsToCreate.length;
     if (playableBalance < totalCost) {
       addNotification(
@@ -1407,6 +1407,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 ...prev,
                 availableBalance: res.data.walletAfter.availableBalance,
                 bonusBalance: res.data.walletAfter.bonusBalance,
+                winningBalance: res.data.walletAfter.winningBalance ?? prev.winningBalance,
               };
               try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
               return updated;
@@ -1477,29 +1478,34 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    const playableBalance = wallet.availableBalance + wallet.bonusBalance;
+    const playableBalance = wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance;
     if (playableBalance < targetGame.entryPrice) {
       addNotification('⚠️ Insufficient Balance', `Card cost is ${targetGame.entryPrice} ETB.`, 'warning');
       return false;
     }
 
-    // Deduct cost from bonus first
+    // Spend bonus, then available balance, then winnings.
     let remCost = targetGame.entryPrice;
     let newBonus = wallet.bonusBalance;
     let newAvailable = wallet.availableBalance;
+    let newWinning = wallet.winningBalance;
 
     if (newBonus >= remCost) {
       newBonus -= remCost;
     } else {
       remCost -= newBonus;
       newBonus = 0;
-      newAvailable = Math.max(0, newAvailable - remCost);
+      const availableSpent = Math.min(newAvailable, remCost);
+      newAvailable -= availableSpent;
+      remCost -= availableSpent;
+      newWinning = Math.max(0, newWinning - remCost);
     }
 
     setWallet((prev) => ({
       ...prev,
       availableBalance: newAvailable,
       bonusBalance: newBonus,
+      winningBalance: newWinning,
     }));
 
     // Generate new card
@@ -1666,25 +1672,30 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         return { success: false, message: 'ከ5 በላይ ካርዶች መመዝገብ አይቻልም! (Max 5 registered cards)' };
       }
 
-      const playableBalance = wallet.availableBalance + wallet.bonusBalance;
+      const playableBalance = wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance;
       if (!card.isPaid && playableBalance < entryPrice) {
         return { success: false, message: `በቂ ሒሳብ የለዎትም! (${entryPrice} ETB ያስፈልጋል)` };
       }
 
-      // Optimistic local deduction — bonus first, then available
+      // Optimistic local deduction — bonus, then available balance, then winnings.
       let remCost = card.isPaid ? 0 : entryPrice;
       let newBonus = wallet.bonusBalance;
       let newAvailable = wallet.availableBalance;
+      let newWinning = wallet.winningBalance;
       if (newBonus >= remCost) {
         newBonus -= remCost;
+        remCost = 0;
       } else {
         remCost -= newBonus;
         newBonus = 0;
-        newAvailable = Math.max(0, newAvailable - remCost);
+        const availableSpent = Math.min(newAvailable, remCost);
+        newAvailable -= availableSpent;
+        remCost -= availableSpent;
+        newWinning = Math.max(0, newWinning - remCost);
       }
 
       setWallet((prev) => {
-        const updated = { ...prev, availableBalance: newAvailable, bonusBalance: newBonus };
+        const updated = { ...prev, availableBalance: newAvailable, bonusBalance: newBonus, winningBalance: newWinning };
         try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
         return updated;
       });
@@ -1727,7 +1738,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           .then((res) => {
             if (!res.success) {
               setUserCards((prev) => prev.map((c) => c.id === cardId ? { ...c, isRegistered: false, isPaid: card.isPaid } : c));
-              setWallet((prev) => ({ ...prev, availableBalance: wallet.availableBalance, bonusBalance: wallet.bonusBalance }));
+              setWallet((prev) => ({ ...prev, availableBalance: wallet.availableBalance, bonusBalance: wallet.bonusBalance, winningBalance: wallet.winningBalance }));
             } else if (res.data?.walletAfter) {
               // Sync authoritative server wallet back to local state + localStorage
               setWallet((prev) => {
@@ -1735,6 +1746,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                   ...prev,
                   availableBalance: res.data.walletAfter.availableBalance,
                   bonusBalance: res.data.walletAfter.bonusBalance,
+                  winningBalance: res.data.walletAfter.winningBalance ?? prev.winningBalance,
                 };
                 try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
                 return updated;
@@ -1743,7 +1755,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           })
           .catch(() => {
             setUserCards((prev) => prev.map((c) => c.id === cardId ? { ...c, isRegistered: false, isPaid: card.isPaid } : c));
-            setWallet((prev) => ({ ...prev, availableBalance: wallet.availableBalance, bonusBalance: wallet.bonusBalance }));
+            setWallet((prev) => ({ ...prev, availableBalance: wallet.availableBalance, bonusBalance: wallet.bonusBalance, winningBalance: wallet.winningBalance }));
           });
       }
 
@@ -2333,7 +2345,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
 
     const totalCost = calcLotteryTotalCost(numbers.length, game.entryPrice);
-    const playable = wallet.availableBalance + wallet.bonusBalance;
+    const playable = wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance;
     if (playable < totalCost) {
       addNotification(
         '⚠️ Insufficient Balance',
@@ -2343,25 +2355,32 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       return { success: false, message: `You don't have enough balance to buy this card. Need ${totalCost} ETB; you have ${playable.toFixed(0)} ETB.` };
     }
 
-    // Deduct from wallet: bonus first, then available
+    // Spend bonus, then available balance, then winnings.
     let newAvail = wallet.availableBalance;
+    let newWinning = wallet.winningBalance;
     setWallet((prev) => {
       let rem = totalCost;
       let newBonus = prev.bonusBalance;
       let newAv = prev.availableBalance;
+      let newWin = prev.winningBalance;
       if (newBonus >= rem) {
         newBonus -= rem;
         rem = 0;
       } else {
         rem -= newBonus;
         newBonus = 0;
-        newAv = Math.max(0, newAv - rem);
+        const availableSpent = Math.min(newAv, rem);
+        newAv -= availableSpent;
+        rem -= availableSpent;
+        newWin = Math.max(0, newWin - rem);
       }
       newAvail = newAv;
+      newWinning = newWin;
       const updated = {
         ...prev,
         availableBalance: newAv,
         bonusBalance: newBonus,
+        winningBalance: newWinning,
       };
       if (typeof window !== 'undefined') {
         try {
@@ -2410,6 +2429,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
     const purchasedLabels = numbers.map((n) => formatLotteryCardNumber(n));
     const bonusSpent = Math.min(wallet.bonusBalance, totalCost);
+    const availableSpent = Math.min(wallet.availableBalance, totalCost - bonusSpent);
+    const winningSpent = Math.max(0, totalCost - bonusSpent - availableSpent);
     const purchasePromise = fetch('/api/games/buy-card', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2421,7 +2442,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           const walletAfter = body.data?.walletAfter;
           if (walletAfter) {
             setWallet((prev) => {
-              const updated = { ...prev, availableBalance: walletAfter.availableBalance, bonusBalance: walletAfter.bonusBalance };
+              const updated = {
+                ...prev,
+                availableBalance: walletAfter.availableBalance,
+                bonusBalance: walletAfter.bonusBalance,
+                winningBalance: walletAfter.winningBalance ?? prev.winningBalance,
+              };
               try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
               return updated;
             });
@@ -2440,7 +2466,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           const updated = {
             ...prev,
             bonusBalance: prev.bonusBalance + bonusSpent,
-            availableBalance: prev.availableBalance + (totalCost - bonusSpent),
+            availableBalance: prev.availableBalance + availableSpent,
+            winningBalance: prev.winningBalance + winningSpent,
           };
           try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
           return updated;

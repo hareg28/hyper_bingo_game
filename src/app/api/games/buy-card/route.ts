@@ -85,13 +85,14 @@ export async function POST(req: NextRequest) {
     }
     const requiredCost = pricePerCard * chargeableCount;
 
-    const [wallet] = await sql`SELECT available_balance, bonus_balance FROM wallets WHERE user_id = ${userId}`;
+    const [wallet] = await sql`SELECT available_balance, bonus_balance, winning_balance FROM wallets WHERE user_id = ${userId}`;
     if (!wallet) {
       return NextResponse.json({ success: false, error: 'Wallet not found' }, { status: 404 });
     }
     const available = parseFloat(wallet.available_balance);
     const bonus = parseFloat(wallet.bonus_balance);
-    const playable = available + bonus;
+    const winning = parseFloat(wallet.winning_balance);
+    const playable = available + bonus + winning;
 
     if (playable < requiredCost) {
       return NextResponse.json({
@@ -147,17 +148,22 @@ export async function POST(req: NextRequest) {
     let remCost = actualCost;
     let newBonus = bonus;
     let newAvailable = available;
+    let newWinning = winning;
     if (newBonus >= remCost) {
       newBonus -= remCost;
+      remCost = 0;
     } else {
       remCost -= newBonus;
       newBonus = 0;
-      newAvailable = Math.max(0, newAvailable - remCost);
+      const availableSpent = Math.min(newAvailable, remCost);
+      newAvailable -= availableSpent;
+      remCost -= availableSpent;
+      newWinning = Math.max(0, newWinning - remCost);
     }
 
     await sql`
       UPDATE wallets
-      SET available_balance = ${newAvailable}, bonus_balance = ${newBonus}, updated_at = NOW()
+      SET available_balance = ${newAvailable}, bonus_balance = ${newBonus}, winning_balance = ${newWinning}, updated_at = NOW()
       WHERE user_id = ${userId}
     `;
 
@@ -190,7 +196,7 @@ export async function POST(req: NextRequest) {
       data: {
         purchased,
         alreadySold,
-        walletAfter: { availableBalance: newAvailable, bonusBalance: newBonus },
+        walletAfter: { availableBalance: newAvailable, bonusBalance: newBonus, winningBalance: newWinning },
         cost: actualCost,
       },
     });
