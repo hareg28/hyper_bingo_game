@@ -84,7 +84,8 @@ export async function GET(req: NextRequest) {
             blocked_cards = '{}', blocked_players = '{}',
             current_players = (SELECT COUNT(*)::integer FROM game_cards WHERE game_id = ${weekendGame.id} AND is_paid IS DISTINCT FROM FALSE),
             weekend_round_key = ${weekendRoundKey}, updated_at = NOW()
-        WHERE id = ${weekendGame.id} AND weekend_round_key IS DISTINCT FROM ${weekendRoundKey}
+        WHERE id = ${weekendGame.id}
+          AND (weekend_round_key IS DISTINCT FROM ${weekendRoundKey} OR status = 'OPEN')
       `;
     }
 
