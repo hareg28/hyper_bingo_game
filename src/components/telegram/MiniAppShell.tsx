@@ -212,7 +212,7 @@ export default function MiniAppShell({
               className="px-2 py-1 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 font-mono font-black text-[10px] hover:bg-emerald-100 transition flex items-center gap-0.5 cursor-pointer shadow-2xs"
             >
               <Wallet className="w-3 h-3 text-emerald-600 shrink-0" />
-              <span className="truncate max-w-[56px]">{formatETB(wallet.availableBalance + wallet.bonusBalance)}</span>
+              <span className="truncate max-w-[76px]">{formatETB(wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance)}</span>
             </button>
           </div>
         </div>
@@ -305,7 +305,7 @@ export default function MiniAppShell({
               className="px-2 py-1 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 font-mono font-black text-[10px] hover:bg-emerald-100 transition flex items-center gap-0.5 cursor-pointer shadow-2xs"
             >
               <Wallet className="w-3 h-3 text-emerald-600 shrink-0" />
-              <span className="truncate max-w-[52px]">{formatETB(wallet.availableBalance + wallet.bonusBalance)}</span>
+              <span className="truncate max-w-[72px]">{formatETB(wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance)}</span>
             </button>
 
             {/* When in game and opened, show close button to collapse back */}
@@ -1271,8 +1271,8 @@ function WeekendLotteryNumberPicker({
 
     if (mode === 'FETAN' && !fetanIsIntermission) {
       setPurchaseFeedback(isAm
-        ? `ካርድ ለመግዛት የሚቀጥለውን የ30 ሰከንድ ጊዜ ይጠብቁ (${fetanSecondsRef.current}s)`
-        : `Card picking opens in ${fetanSecondsRef.current}s. Please wait for the 30-second window.`);
+        ? `ካርድ ለመግዛት የሚቀጥለውን የ40 ሰከንድ ጊዜ ይጠብቁ (${fetanSecondsRef.current}s)`
+        : `Card picking opens in ${fetanSecondsRef.current}s. Please wait for the 40-second window.`);
       setTimeout(() => setPurchaseFeedback(null), 2500);
       return;
     }
@@ -1330,7 +1330,7 @@ function WeekendLotteryNumberPicker({
     onPickCards(selectedGame.id, cardStrs);
   };
 
-  // Enter the live room when Fetan's 30-second shared card-pick window closes.
+  // Enter the live room when Fetan's 40-second shared card-pick window closes.
   React.useEffect(() => {
     if (mode === 'FETAN' && selectedGame) {
       const roundStarted = selectedGame.status === 'RUNNING' || (selectedGame.drawnNumbers?.length || 0) > 0;
@@ -1377,7 +1377,7 @@ function WeekendLotteryNumberPicker({
               </h3>
               <span className="text-[10px] text-slate-500 font-bold">
                 {mode === 'FETAN' 
-                  ? (isAm ? '30 ሰከንድ ካርድ መምረጫ · 500 ካርዶች' : '30s Card Pick · 500 Cards')
+                  ? (isAm ? '40 ሰከንድ ካርድ መምረጫ · 3.2 ሴኮንድ ቁጥር · 500 ካርዶች' : '40s Card Pick · 3.2s per Number · 500 Cards')
                   : mode === 'SPECIAL'
                   ? (isAm
                       ? `${entryPrice} ብር · ሕግ #${(Math.abs(selectedGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} · ${selectedSpecialRule?.nameAm || 'ልዩ የማሸነፊያ ሕግ'}`

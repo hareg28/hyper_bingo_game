@@ -3,7 +3,7 @@ import { ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql 
 import { isAdminTelegramId } from '@/lib/authUtils';
 import { INITIAL_GAMES } from '@/lib/store';
 import { getWeekendRoundKey } from '@/lib/bingoUtils';
-import { SPECIAL_BALL_INTERVAL_MS, SPECIAL_ROUND_SECONDS } from '@/lib/bingoUtils';
+import { FETAN_BALL_INTERVAL_MS, SPECIAL_BALL_INTERVAL_MS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -97,11 +97,16 @@ export async function POST(req: NextRequest) {
     }
 
     const drawn = parseIntegerArray(game.drawn_numbers);
-    const drawIntervalMs = Math.max(1, parseInt(game.draw_interval ?? '3', 10)) * 1000;
-    if (isSpecial && game.round_started_at) {
-      const nextDueAt = new Date(game.round_started_at).getTime() + drawn.length * SPECIAL_BALL_INTERVAL_MS;
+    const drawIntervalMs = isFetan
+      ? FETAN_BALL_INTERVAL_MS
+      : isWeekend
+        ? WEEKEND_BALL_INTERVAL_MS
+        : Math.max(1, parseInt(game.draw_interval ?? '3', 10)) * 1000;
+    if ((isSpecial || isFetan) && game.round_started_at) {
+      const ballIntervalMs = isSpecial ? SPECIAL_BALL_INTERVAL_MS : FETAN_BALL_INTERVAL_MS;
+      const nextDueAt = new Date(game.round_started_at).getTime() + drawn.length * ballIntervalMs;
       if (Date.now() < nextDueAt) {
-        return NextResponse.json({ success: false, error: 'The next Special number is not due yet.', nextAllowedAt: nextDueAt }, { status: 425 });
+        return NextResponse.json({ success: false, error: `The next ${isFetan ? 'Fetan' : 'Special'} number is not due yet.`, nextAllowedAt: nextDueAt }, { status: 425 });
       }
     } else if (game.last_ball_drawn_at) {
       const nextAllowedAt = new Date(game.last_ball_drawn_at).getTime() + drawIntervalMs;

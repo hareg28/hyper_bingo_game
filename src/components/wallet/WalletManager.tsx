@@ -602,9 +602,9 @@ export default function WalletManager() {
         </div>
 
         <div className="mt-3">
-          <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">{t('availableBalance')}</div>
+          <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">{t('totalBalance')}</div>
           <div className="text-3xl font-black text-amber-700 tracking-tight mt-0.5">
-            {formatETB(wallet.availableBalance)}
+            {formatETB(wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance)}
           </div>
         </div>
 

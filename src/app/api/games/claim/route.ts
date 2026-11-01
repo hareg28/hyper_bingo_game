@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
-import { getWeekendRoundKey } from '@/lib/bingoUtils';
+import { computeWeekendPrizePool, getWeekendRoundKey } from '@/lib/bingoUtils';
 
 /**
  * POST /api/games/claim
@@ -41,12 +41,23 @@ export async function POST(req: NextRequest) {
     if (!game) {
       return NextResponse.json({ success: false, error: 'Game not found' }, { status: 404 });
     }
-    if (game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY') {
+    const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY';
+    let awardedPrize = Math.max(0, Number(prizeWon) || 0);
+    if (isWeekend) {
       const scheduledGame = INITIAL_GAMES.find((candidate) => candidate.id === gameId);
       const activeScheduleKey = scheduledGame ? getWeekendRoundKey(scheduledGame) : null;
       if (!activeScheduleKey || game.weekend_round_key !== activeScheduleKey || game.status !== 'RUNNING') {
         return NextResponse.json({ success: false, error: 'Weekend winner claims are accepted only during the scheduled live draw.' }, { status: 409 });
       }
+      const [playerCountRow] = await sql`
+        SELECT COUNT(*)::integer AS player_count
+        FROM game_cards
+        WHERE game_id = ${gameId} AND is_paid IS DISTINCT FROM FALSE
+      `;
+      awardedPrize = computeWeekendPrizePool(
+        Number(game.entry_price || 0),
+        Number(playerCountRow?.player_count || 0)
+      );
     }
 
     // 2. Check if card is blocked
@@ -74,7 +85,7 @@ export async function POST(req: NextRequest) {
       cardNumber,
       winningBall,
       pattern,
-      prizeWon,
+      prizeWon: awardedPrize,
       claimedAt: new Date().toISOString(),
     };
     const updatedWinners = [...currentWinners, winRecord];
@@ -92,7 +103,7 @@ export async function POST(req: NextRequest) {
     // 7. Credit winner's wallet, creating it if this account has no row yet.
     const [walletRow] = await sql`
       INSERT INTO wallets (user_id, available_balance, bonus_balance, winning_balance, total_deposited, total_withdrawn)
-      VALUES (${userId}, 0, 0, ${prizeWon}, 0, 0)
+      VALUES (${userId}, 0, 0, ${awardedPrize}, 0, 0)
       ON CONFLICT (user_id) DO UPDATE SET
         winning_balance = wallets.winning_balance + EXCLUDED.winning_balance,
         updated_at = NOW()
@@ -104,7 +115,7 @@ export async function POST(req: NextRequest) {
     await sql`
       INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
       VALUES (
-        ${txId}, ${userId}, ${username}, 'GAME_WIN', ${prizeWon},
+        ${txId}, ${userId}, ${username}, 'GAME_WIN', ${awardedPrize},
         ${parseFloat(walletRow?.winning_balance ?? '0')},
         'System', 'COMPLETED',
         ${'WIN-' + gameId},
@@ -116,7 +127,7 @@ export async function POST(req: NextRequest) {
       success: true,
       data: {
         winRecord,
-        prizeWon,
+        prizeWon: awardedPrize,
         wallet: {
           availableBalance: parseFloat(walletRow?.available_balance ?? '0'),
           winningBalance: parseFloat(walletRow?.winning_balance ?? '0'),

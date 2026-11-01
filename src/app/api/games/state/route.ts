@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
-import { FETAN_PICK_SECONDS, getExpiredWeekendRoundKey, getWeekendRoundKey, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS } from '@/lib/bingoUtils';
+import { FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getWeekendRoundKey, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -31,10 +31,10 @@ export async function GET(req: NextRequest) {
     await ensureBuiltinGameRows(sql);
 
     // First Hyper rounds get a shared, server-timed card-pick window. Fetan
-    // opens for 30 seconds after a winner; Special opens for four minutes.
+    // opens for 40 seconds after a winner; Special opens for four minutes.
     await sql`
       UPDATE games
-      SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + 30000
+      SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + ${FETAN_PICK_SECONDS * 1000}
       WHERE (category = 'HYPER_FETAN' OR game_type = 'HYPER_FETAN')
         AND status = 'OPEN'
         AND drawn_numbers = '{}'
@@ -44,28 +44,28 @@ export async function GET(req: NextRequest) {
     // Apply scheduled Weekend transitions before returning shared state so a
     // cron invocation at the slot boundary can start the round immediately.
     for (const weekendGame of INITIAL_GAMES.filter((game) => game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY')) {
-      const expiredRoundKey = getExpiredWeekendRoundKey(weekendGame);
-      if (expiredRoundKey) {
+      const weekendRoundKey = getWeekendRoundKey(weekendGame);
+      if (!weekendRoundKey) {
         await sql`
-          WITH expired_cards AS (
+          WITH old_round AS (
+            SELECT id FROM games
+            WHERE id = ${weekendGame.id} AND weekend_round_key IS NOT NULL
+          ), expired_cards AS (
             DELETE FROM game_cards
-            WHERE game_id = ${weekendGame.id}
-              AND EXISTS (
-                SELECT 1 FROM games
-                WHERE id = ${weekendGame.id} AND weekend_round_key = ${expiredRoundKey}
-              )
+            WHERE game_id IN (SELECT id FROM old_round)
             RETURNING id
           )
           UPDATE games
           SET status = 'OPEN', drawn_numbers = '{}', current_ball = NULL, round_started_at = NULL,
               last_ball_drawn_at = NULL, winners = '[]'::jsonb,
-              blocked_cards = '{}', blocked_players = '{}', current_players = 0,
+              blocked_cards = '{}', blocked_players = '{}',
+              current_players = (SELECT COUNT(*)::integer FROM game_cards WHERE game_id = ${weekendGame.id} AND is_paid IS DISTINCT FROM FALSE),
               weekend_round_key = NULL, updated_at = NOW()
-          WHERE id = ${weekendGame.id} AND weekend_round_key = ${expiredRoundKey}
+          WHERE id = ${weekendGame.id}
+            AND (weekend_round_key IS NOT NULL OR status IN ('RUNNING', 'COMPLETED'))
         `;
+        continue;
       }
-      const weekendRoundKey = getWeekendRoundKey(weekendGame);
-      if (!weekendRoundKey) continue;
       await sql`
         WITH expired_cards AS (
           DELETE FROM game_cards
@@ -130,8 +130,10 @@ export async function GET(req: NextRequest) {
       const scheduledGame = isWeekend ? INITIAL_GAMES.find((candidate) => candidate.id === game.id) : null;
       const activeWeekendKey = scheduledGame ? getWeekendRoundKey(scheduledGame) : null;
       const weekendRoundIsLive = isWeekend && Boolean(activeWeekendKey && game.weekend_round_key === activeWeekendKey);
+      const fetanRoundEnded = isFetan && game.status === 'RUNNING' && specialRoundStartedAt > 0 &&
+        Date.now() >= specialRoundStartedAt + FETAN_ROUND_SECONDS * 1000;
 
-      if ((fullRoundEnded || claimedRoundEnded) && (!isWeekend || weekendRoundIsLive)) {
+      if ((fullRoundEnded || fetanRoundEnded || claimedRoundEnded) && !isWeekend) {
         const resetRows = await sql`
           WITH reset_game AS (
             UPDATE games
@@ -183,21 +185,29 @@ export async function GET(req: NextRequest) {
           game.status === 'RUNNING' && drawn.length < 75 && winners.length === 0) {
         const drawIntervalMs = isSpecial
           ? SPECIAL_BALL_INTERVAL_MS
-          : Math.max(1, Number.parseInt(game.draw_interval || '3', 10)) * 1000;
+          : isFetan
+            ? FETAN_BALL_INTERVAL_MS
+            : isWeekend
+              ? WEEKEND_BALL_INTERVAL_MS
+              : Math.max(1, Number.parseInt(game.draw_interval || '3', 10)) * 1000;
         const lastDrawAt = game.last_ball_drawn_at ? new Date(game.last_ball_drawn_at).getTime() : 0;
         const roundStartedAt = game.round_started_at ? new Date(game.round_started_at).getTime() : 0;
         const nextSpecialDrawAt = roundStartedAt + drawn.length * SPECIAL_BALL_INTERVAL_MS;
         const drawIsDue = isSpecial
           ? roundStartedAt > 0 && Date.now() >= nextSpecialDrawAt
+          : isFetan
+            ? roundStartedAt > 0 && Date.now() >= roundStartedAt + drawn.length * FETAN_BALL_INTERVAL_MS
           : !lastDrawAt || Date.now() >= lastDrawAt + drawIntervalMs;
         if (drawIsDue) {
           const drawnSet = new Set(drawn);
           const remaining: number[] = [];
           for (let ball = 1; ball <= 75; ball++) if (!drawnSet.has(ball)) remaining.push(ball);
-          const dueSpecialCount = isSpecial
+          const dueDrawCount = isSpecial
             ? Math.max(1, Math.floor((Date.now() - roundStartedAt) / SPECIAL_BALL_INTERVAL_MS) + 1 - drawn.length)
-            : 1;
-          const ballsToDraw = Math.min(remaining.length, dueSpecialCount);
+            : isFetan
+              ? Math.max(1, Math.floor((Date.now() - roundStartedAt) / FETAN_BALL_INTERVAL_MS) + 1 - drawn.length)
+              : 1;
+          const ballsToDraw = Math.min(remaining.length, dueDrawCount);
           for (let i = 0; i < ballsToDraw; i++) {
             const swapIndex = i + Math.floor(Math.random() * (remaining.length - i));
             [remaining[i], remaining[swapIndex]] = [remaining[swapIndex], remaining[i]];
@@ -211,10 +221,10 @@ export async function GET(req: NextRequest) {
               SET drawn_numbers = ${`{${nextDrawn.join(',')}}`}::int4[],
                   current_ball = ${nextBall}, last_ball_drawn_at = NOW(),
                   round_started_at = COALESCE(round_started_at, NOW()),
-                  status = ${nextDrawn.length >= 75 ? 'COMPLETED' : 'RUNNING'}, updated_at = NOW()
+                  status = ${nextDrawn.length >= 75 && !isFetan && !isWeekend ? 'COMPLETED' : 'RUNNING'}, updated_at = NOW()
               WHERE id = ${game.id} AND status = 'RUNNING'
                 AND drawn_numbers = ${`{${drawn.join(',')}}`}::int4[]
-                AND (${isSpecial} OR last_ball_drawn_at IS NULL OR last_ball_drawn_at <= NOW() - (${drawIntervalMs} * INTERVAL '1 millisecond'))
+                AND (${isSpecial || isFetan} OR last_ball_drawn_at IS NULL OR last_ball_drawn_at <= NOW() - (${drawIntervalMs} * INTERVAL '1 millisecond'))
             `;
           }
         }

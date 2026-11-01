@@ -1188,9 +1188,9 @@ export function isWeekendLotteryDay(): boolean {
 
 /**
  * Checks if a specific weekend game slot is currently LIVE right now.
- * A weekend game is LIVE ONLY during its specific scheduled day and hour:
+ * A weekend game is LIVE ONLY for the first 10 minutes of its scheduled slot:
  * - Friday, Saturday, or Sunday
- * - 2:00 PM (14:00 - 15:00) or 6:00 PM (18:00 - 19:00) East Africa Time (UTC+3)
+ * - 2:00 PM or 6:00 PM East Africa Time (UTC+3)
  * On all other days (Mon-Thu) and at all other hours, it is NOT live (strictly SCHEDULED).
  */
 export function isWeekendSlotCurrentlyLive(game: {
@@ -1209,11 +1209,13 @@ export function isWeekendSlotCurrentlyLive(game: {
       timeZone: 'Africa/Addis_Ababa',
       weekday: 'short',
       hour: 'numeric',
+      minute: '2-digit',
       hourCycle: 'h23',
     }).formatToParts(now);
 
     const weekdayStr = parts.find(p => p.type === 'weekday')?.value?.toUpperCase() || '';
     const hourVal = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+    const minuteVal = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
 
     const targetDay = game.weekendDay || 'FRI';
     if (targetDay === 'FRI' && !weekdayStr.startsWith('FRI')) return false;
@@ -1221,21 +1223,24 @@ export function isWeekendSlotCurrentlyLive(game: {
     if (targetDay === 'SUN' && !weekdayStr.startsWith('SUN')) return false;
 
     const targetSlot = game.weekendSlot || '2PM';
-    if (targetSlot === '2PM' && (hourVal < 14 || hourVal >= 15)) return false;
-    if (targetSlot === '6PM' && (hourVal < 18 || hourVal >= 19)) return false;
+    const slotStartMinute = (targetSlot === '2PM' ? 14 : 18) * 60;
+    const currentMinute = hourVal * 60 + minuteVal;
+    if (currentMinute < slotStartMinute || currentMinute >= slotStartMinute + 10) return false;
 
     return true;
   } catch {
     const now = new Date();
     const day = now.getDay();
     const hour = now.getHours();
+    const minute = now.getMinutes();
     const targetDay = game.weekendDay || 'FRI';
     if (targetDay === 'FRI' && day !== 5) return false;
     if (targetDay === 'SAT' && day !== 6) return false;
     if (targetDay === 'SUN' && day !== 0) return false;
     const targetSlot = game.weekendSlot || '2PM';
-    if (targetSlot === '2PM' && (hour < 14 || hour >= 15)) return false;
-    if (targetSlot === '6PM' && (hour < 18 || hour >= 19)) return false;
+    const slotStartMinute = (targetSlot === '2PM' ? 14 : 18) * 60;
+    const currentMinute = hour * 60 + minute;
+    if (currentMinute < slotStartMinute || currentMinute >= slotStartMinute + 10) return false;
     return true;
   }
 }
@@ -1258,6 +1263,7 @@ export function getWeekendRoundKey(game: {
       month: '2-digit',
       day: '2-digit',
       hour: 'numeric',
+      minute: '2-digit',
       hourCycle: 'h23',
     }).formatToParts(now);
     const part = (type: string) => parts.find((item) => item.type === type)?.value || '';
@@ -1268,15 +1274,17 @@ export function getWeekendRoundKey(game: {
         (targetDay === 'SUN' && !weekday.startsWith('SUN'))) return null;
     const slot = game.weekendSlot || '2PM';
     const hour = parseInt(part('hour'), 10);
+    const minute = parseInt(part('minute'), 10);
     const scheduledHour = slot === '2PM' ? 14 : 18;
-    if (hour !== scheduledHour) return null;
+    const elapsedMinutes = hour * 60 + minute - scheduledHour * 60;
+    if (elapsedMinutes < 0 || elapsedMinutes >= WEEKEND_ROUND_SECONDS / 60) return null;
     return `${part('year')}-${part('month')}-${part('day')}-${slot}`;
   } catch {
     return null;
   }
 }
 
-/** Returns this slot's occurrence key once its scheduled one-hour window has ended. */
+/** Returns this slot's occurrence key once its scheduled 10-minute round has ended. */
 export function getExpiredWeekendRoundKey(game: {
   gameType?: string;
   category?: string;
@@ -1288,7 +1296,7 @@ export function getExpiredWeekendRoundKey(game: {
   if (!isWeekend) return null;
   try {
     const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Africa/Addis_Ababa', weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit', hour: 'numeric', hourCycle: 'h23',
+      timeZone: 'Africa/Addis_Ababa', weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit', hour: 'numeric', minute: '2-digit', hourCycle: 'h23',
     }).formatToParts(now);
     const part = (type: string) => parts.find((item) => item.type === type)?.value || '';
     const weekday = part('weekday').toUpperCase();
@@ -1298,8 +1306,9 @@ export function getExpiredWeekendRoundKey(game: {
         (targetDay === 'SUN' && !weekday.startsWith('SUN'))) return null;
     const slot = game.weekendSlot || '2PM';
     const hour = parseInt(part('hour'), 10);
-    const endHour = slot === '2PM' ? 15 : 19;
-    if (hour < endHour) return null;
+    const minute = parseInt(part('minute'), 10);
+    const scheduledHour = slot === '2PM' ? 14 : 18;
+    if (hour * 60 + minute < scheduledHour * 60 + WEEKEND_ROUND_SECONDS / 60) return null;
     return `${part('year')}-${part('month')}-${part('day')}-${slot}`;
   } catch {
     return null;
@@ -1409,11 +1418,22 @@ export function getLotteryGameLabel(
   return lang === 'am' ? `ሙሉ ዝግጅት ${entryPrice}` : `Weekend Mega ${entryPrice}`;
 }
 
-export const FETAN_PICK_SECONDS = 30;
+export const FETAN_PICK_SECONDS = 40;
+export const FETAN_ROUND_SECONDS = 4 * 60;
+export const FETAN_BALL_INTERVAL_MS = (FETAN_ROUND_SECONDS * 1000) / 75;
+export const WEEKEND_ROUND_SECONDS = 10 * 60;
+export const WEEKEND_BALL_INTERVAL_MS = (WEEKEND_ROUND_SECONDS * 1000) / 75;
+export const WEEKEND_MAX_PRIZE = 50_000;
+export const WEEKEND_WINNERS_CUT_PCT = 0.8;
 export const SPECIAL_PICK_SECONDS = 4 * 60;
 export const SPECIAL_ROUND_SECONDS = 12 * 60;
 export const SPECIAL_BALL_INTERVAL_MS = (SPECIAL_ROUND_SECONDS * 1000) / 75;
 export const HYPER_SPECIAL_PRICE_CYCLE = [10, 20] as const;
+
+export function computeWeekendPrizePool(entryPrice: number, playerCount: number): number {
+  const totalCollected = Math.max(0, Number(entryPrice || 0) * Math.max(0, Number(playerCount || 0)));
+  return Math.min(WEEKEND_MAX_PRIZE, Math.round(totalCollected * WEEKEND_WINNERS_CUT_PCT));
+}
 
 export function formatCountdownClock(totalSec: number): string {
   const clamped = Math.max(0, Math.floor(totalSec));
@@ -1422,7 +1442,7 @@ export function formatCountdownClock(totalSec: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-/** Shared Hyper Fetan clock: play until a winner, then pick cards for 30 seconds. */
+/** Shared Hyper Fetan clock: play for up to four minutes, then pick cards for 40 seconds. */
 export function getFetanClock(
   nextRoundStartsAt?: number | null,
   status?: string,

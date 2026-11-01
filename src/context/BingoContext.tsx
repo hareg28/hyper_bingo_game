@@ -25,6 +25,7 @@ import {
   formatLotteryCardNumber,
   LOTTERY_NUMBERS_TOTAL,
   isWeekendSlotCurrentlyLive,
+  computeWeekendPrizePool,
   getFetanClock,
   getSpecialPickClock,
 } from '../lib/bingoUtils';
@@ -431,10 +432,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ── REAL-TIME MULTIPLAYER SYNC ─────────────────────────────────────────────
-  // Polls /api/games/state every 3 seconds and merges live DB state into local
+  // Polls /api/games/state and merges live DB state into local
   // game list. This makes all 1,000 concurrent players see the same drawn
   // numbers, player count, winners, and game status in near-real-time.
   const pollActiveRef = React.useRef(true);
+  const fastDrawPollRef = React.useRef(false);
   const lastServerDrawCountsRef = React.useRef<Record<string, number>>({});
   const lastFetanCycleMarkersRef = React.useRef<Record<string, number>>({});
   const lastWeekendRoundKeysRef = React.useRef<Record<string, string>>({});
@@ -482,7 +484,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     let timeoutId: ReturnType<typeof setTimeout>;
     let cancelled = false;
     let polling = false;
-    const scheduleNextPoll = (delay = 2500 + Math.random() * 1500) => {
+    const scheduleNextPoll = (delay = fastDrawPollRef.current ? 800 + Math.random() * 200 : 2500 + Math.random() * 1500) => {
       if (!cancelled && isMiniAppActive()) timeoutId = setTimeout(poll, delay);
     };
 
@@ -500,6 +502,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           return;
         }
         if (json.success && Array.isArray(json.data)) {
+          fastDrawPollRef.current = json.data.some((game: any) =>
+            game.status === 'RUNNING' &&
+            (String(game.id).includes('fetan') || String(game.id).includes('weekend'))
+          );
           const winnerKeys = new Set<string>();
           json.data.forEach((serverGame: any) => {
             const winners = Array.isArray(serverGame.winners) ? serverGame.winners : [];
@@ -1747,7 +1753,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
 
   // 6. CREATE GAME (ADMIN)
-  //    · Weekend/Lottery games → use the prizePool passed in by admin (owner-set fixed prize)
+  //    · Weekend/Lottery games → use the prizePool passed in by admin as the payout cap
   //    · Regular games        → use PrizePool = 0 and compute live at render:
   //                              PrizePool = round(Players × Price × 0.80)
   const createGame = (gameData: Omit<Game, 'id' | 'currentPlayers' | 'drawnNumbers' | 'winners' | 'createdAt'>) => {
@@ -2044,8 +2050,13 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         );
     const totalCollected = Math.max(0, (game.entryPrice || 10) * soldCount);
     const ownerCut = Math.round(totalCollected * OWNER_CUT_PCT); // 20% owner
+    const weekendPlayerCount = Math.max(
+      game.currentPlayers || 0,
+      lotterySoldMap[game.id]?.size || 0,
+      userCards.filter((c) => c.gameId === game.id).length
+    );
     const totalPrizePoolForWinners = isWeekend
-      ? Math.round(game.prizePool || 0)
+      ? computeWeekendPrizePool(game.entryPrice || 0, weekendPlayerCount)
       : Math.round(totalCollected * WINNERS_CUT_PCT); // 80% Derash for winners
 
     const alreadyWonUsernames = new Set(game.winners.map(w => w.username));
@@ -2101,6 +2112,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         if (res.success && res.data?.winRecord) {
           // Sync the server-verified prize (may differ if multiple winners claimed simultaneously)
           const serverPrize: number = res.data.prizeWon ?? calculatedPrize;
+          const serverWinner = res.data.winRecord as WinnerRecord;
+          setGames((prev) => prev.map((g) => g.id !== game.id ? g : {
+            ...g,
+            status: 'COMPLETED',
+            winners: [...g.winners.filter((winner) => winner.cardNumber !== serverWinner.cardNumber), serverWinner],
+          }));
           if (res.data.wallet) {
             setWallet((prev) => ({
               ...prev,

@@ -2,14 +2,14 @@ import {
   User, Wallet, Game, BingoCard, Transaction, 
   WithdrawalRequest, Promotion, AuditLog, Referral 
 } from './types';
-import { createNewBingoCard, generateSoldNumbersForGame } from './bingoUtils';
+import { computeWeekendPrizePool, createNewBingoCard, generateSoldNumbersForGame } from './bingoUtils';
 
 // ------------------------------------------------------------------
 // PRIZE RULE (per business requirement):
 // REGULAR games   → PrizePool = round((Players × EntryPrice) × 0.80)
 //                    (Owner keeps 20%, remaining 80% goes to winner(s).
 //                     If N winners arrive, they split that 80% equally.)
-// WEEKEND games   → Fixed prize (as pre-set by owner for promo/draw).
+// WEEKEND games   → 80% of collected entries, capped at 50,000 ETB.
 // ------------------------------------------------------------------
 export const OWNER_CUT_PCT = 0.20; // 20% Owner Profit
 export const WINNERS_CUT_PCT = 1 - OWNER_CUT_PCT; // 80% Prize Pool for Winners
@@ -21,13 +21,13 @@ export const computeRegularPrizePool = (entryPrice: number, currentPlayers: numb
 
 /**
  * Returns the live prize pool for a game.
- * - Weekend / Lottery specials → use the configured (fixed) prizePool.
+ * - Weekend / Lottery specials → 80% of entries, capped at 50,000 ETB.
  * - All other (regular) games  → derive from (players × price × 80%).
  */
 export const getGameLivePrizePool = (game: Game): number => {
   if (!game) return 0;
-  if (game.isWeekendSpecial || game.gameType === 'WEEKEND_LOTTERY') {
-    return Math.round(game.prizePool || 0);
+  if (game.isWeekendSpecial || game.gameType === 'WEEKEND_LOTTERY' || game.category === 'HYPER_WEEKEND') {
+    return computeWeekendPrizePool(game.entryPrice || 0, game.currentPlayers || 0);
   }
   return computeRegularPrizePool(game.entryPrice || 0, game.currentPlayers || 0);
 };
@@ -91,8 +91,8 @@ export const INITIAL_GAMES: Game[] = [
     currentPlayers: 0,
     startTime: 'Live Round',
     drawInterval: 2,
-    roundDuration: 60,
-    pickDuration: 30,
+    roundDuration: 240,
+    pickDuration: 40,
     prizePool: 0,
     status: 'OPEN',
     drawnNumbers: [],

@@ -742,7 +742,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     };
   }, [isSpecialGame, specialIsIntermission, currentGame.id, startExpiredSpecialRound]);
 
-  // Fetan uses the shared server deadline for its 30-second pick window.
+  // Fetan uses the shared server deadline for its 40-second pick window.
   useEffect(() => {
     if (!isFetanGame) return;
 
@@ -1248,7 +1248,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       );
   const totalGrossMoney = (currentGame.entryPrice || 10) * totalCardsSold;
   const gamePrizeDisplay = (currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY')
-    ? (currentGame.prizePool || 0)
+    ? getGameLivePrizePool(currentGame)
     : Math.round(totalGrossMoney * 0.80);
   const playableBalance = (wallet?.availableBalance || 0) + (wallet?.bonusBalance || 0);
   const hasSufficientBalance = playableBalance >= (currentGame?.entryPrice || 0);

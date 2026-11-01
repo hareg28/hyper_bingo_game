@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 ` +
       `⚡ <b>Hyper Fetan</b> (ሃይፐር ፈጣን)
 ` +
-      `   └ <b>10 ETB ብቻ</b> · 1 ደቂቃ ዙር · 30 ሰከንድ ምርጫ · 500 ካርዶች
+      `   └ <b>10 ETB ብቻ</b> · 4 ደቂቃ ዙር · 40 ሰከንድ ምርጫ · 3.2 ሴኮንድ ቁጥር · 500 ካርዶች
 ` +
       `   └ አሸናፊ ሕግ: 1 መስመር (አግድም/ቀጥታ/ዲያጎናል) ወይም 4 ማዕዘናት
 
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 ` +
       `🌟 <b>Hyper Weekend</b> (ሃይፐር ዊክኤንድ)
 ` +
-      `   └ <b>50 ETB ብቻ</b> · 1500 ካርዶች · 50,000 ETB ጃክፖት
+      `   └ <b>50 ETB በካርድ</b> · 10 ደቂቃ ዙር · ከተሰበሰበው 80% ሽልማት (ከፍተኛ 50,000 ETB)
 ` +
       `   └ አሸናፊ ሕግ: ሙሉ ቤት (Full House 24/24) ብቻ
 ` +

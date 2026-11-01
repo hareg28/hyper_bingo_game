@@ -52,6 +52,30 @@
     {
       "path": "/api/games/state",
       "schedule": "0 16 * * 0"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "10 11 * * 5"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "10 15 * * 5"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "10 11 * * 6"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "10 15 * * 6"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "10 11 * * 0"
+    },
+    {
+      "path": "/api/games/state",
+      "schedule": "10 15 * * 0"
     }
   ]
 }

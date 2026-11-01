@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Plus, Hash, Sparkles, ChevronDown, ChevronUp, Wallet } from 'lucide-react';
 import { useBingo } from '../../context/BingoContext';
+import { FETAN_PICK_SECONDS } from '../../lib/bingoUtils';
 
 interface CardNumberSelectorProps {
   isOpen: boolean;
@@ -48,7 +49,8 @@ export default function CardNumberSelector({
   const [errorMsg, setErrorMsg] = useState('');
   const [purchaseMsg, setPurchaseMsg] = useState<string | null>(null);
   const [showMorePresets, setShowMorePresets] = useState(false);
-  const [pickCountdown, setPickCountdown] = useState(30);
+  const pickWindowSeconds = mode === 'FETAN' ? FETAN_PICK_SECONDS : 30;
+  const [pickCountdown, setPickCountdown] = useState(pickWindowSeconds);
 
   const prevIsOpenRef = React.useRef(false);
 
@@ -62,12 +64,12 @@ export default function CardNumberSelector({
       setInputNumber('');
       setErrorMsg('');
       setPurchaseMsg(null);
-      setPickCountdown(30);
+      setPickCountdown(pickWindowSeconds);
     }
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, initialCards]);
+  }, [isOpen, initialCards, pickWindowSeconds]);
 
-  // 30-second card-picking timer: after finishing 30s, redirect to game if user bought cards
+  // Close the selection window when its countdown ends and enter with picked cards.
   React.useEffect(() => {
     if (!isOpen) return;
     const timer = setInterval(() => {
@@ -78,13 +80,13 @@ export default function CardNumberSelector({
             onConfirm(purchasedNumbers);
           }
           onClose();
-          return 30;
+          return pickWindowSeconds;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [isOpen, purchasedNumbers, onConfirm, onClose]);
+  }, [isOpen, purchasedNumbers, onConfirm, onClose, pickWindowSeconds]);
 
   if (!isOpen) return null;
 
