@@ -176,10 +176,11 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      // Fetan and Special draw automatically after their pick window closes.
+      // Fetan, Special, and live Weekend rounds draw automatically once running.
       // Compare the old draw array and due time in SQL so overlapping polls
       // can commit at most one ball per interval.
-      if ((isFetan || isSpecial) && game.status === 'RUNNING' && drawn.length < 75 && winners.length === 0) {
+      if ((isFetan || isSpecial || (isWeekend && weekendRoundIsLive)) &&
+          game.status === 'RUNNING' && drawn.length < 75 && winners.length === 0) {
         const drawIntervalMs = isSpecial
           ? SPECIAL_BALL_INTERVAL_MS
           : Math.max(1, Number.parseInt(game.draw_interval || '3', 10)) * 1000;
