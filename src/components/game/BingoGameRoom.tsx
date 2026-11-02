@@ -1681,10 +1681,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                           return (
                             <div
                               key={num}
-                              style={{ color: isDrawn ? '#000' : undefined }}
                               className={`h-5 sm:h-6 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-all ${
-                                isCurrent || isDrawn
-                                  ? 'bg-green-500 text-black font-black shadow-xs'
+                                isCurrent
+                                  ? 'bg-amber-400 text-slate-950 font-black scale-105 shadow-xs ring-1 ring-amber-400 z-10'
+                                  : isDrawn
+                                  ? `${row.color} font-black shadow-xs`
                                   : 'bg-white text-slate-950 border border-slate-200'
                               }`}
                             >
@@ -1740,10 +1741,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   return (
                     <div
                       key={num}
-                      style={{ color: isDrawn ? '#000' : undefined }}
                       className={`h-5 sm:h-6 rounded text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-all ${
-                        isCurrent || isDrawn
-                          ? 'bg-green-500 text-black font-black shadow-xs'
+                        isCurrent
+                          ? 'bg-yellow-300 text-slate-950 font-black scale-125 shadow-[0_0_12px_3px_rgba(250,204,21,0.85)] ring-2 ring-yellow-400 animate-pulse z-20 brightness-110'
+                          : isDrawn
+                          ? `${row.color} font-black shadow-xs`
                           : 'bg-white text-slate-950 border border-slate-200'
                       }`}
                     >
@@ -2520,10 +2522,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       return (
                         <div
                           key={num}
-                          style={{ color: isDrawn ? '#000' : undefined }}
                           className={`h-5 rounded-md text-[9px] font-bold flex items-center justify-center transition-all ${
-                            isCurrent || isDrawn
-                              ? 'bg-green-500 text-black font-black'
+                            isCurrent
+                              ? 'bg-yellow-300 text-slate-950 font-black scale-125 shadow-[0_0_12px_3px_rgba(250,204,21,0.85)] ring-2 ring-yellow-400 animate-pulse z-20 brightness-110'
+                              : isDrawn
+                              ? `${row.color} font-black`
                               : 'bg-white text-slate-700 border border-slate-200'
                           }`}
                         >
