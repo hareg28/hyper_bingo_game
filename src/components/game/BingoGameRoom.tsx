@@ -1308,10 +1308,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 : dashboardLaw}
             </div>}
           </div>
-          <div className="shrink-0 text-right">
-            <div className="text-[8px] font-black text-slate-600">{formatETB(currentGame.entryPrice)} · {currentGame.currentPlayers || 0} {language === 'am' ? 'ተጫዋች' : 'players'}</div>
-            {isSpecialGame && <div className="text-[8px] font-bold text-indigo-800">{language === 'am' ? '4/12 ደቂቃ' : 'Pick 4m · Play 12m'}</div>}
-          </div>
         </div>
         <button type="button" onClick={() => setShowGameInfo((visible) => !visible)} aria-expanded={showGameInfo} className="w-full text-center text-[9px] font-bold text-rose-600 leading-4">
           {showGameInfo ? (language === 'am' ? 'ያነሰ አሳይ' : 'Show Less') : (language === 'am' ? 'የጨዋታ ዝርዝር አሳይ' : 'Show More')}
@@ -1319,6 +1315,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         {isSpecialGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && (
           <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700">
             <span>{language === 'am' ? 'የዙሩ ቀሪ ጊዜ' : 'ROUND TIME LEFT'}</span>
+            <span className="text-slate-600">{formatETB(currentGame.entryPrice)}</span>
             <SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + SPECIAL_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" />
           </div>
         )}
