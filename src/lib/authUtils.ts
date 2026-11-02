@@ -22,6 +22,15 @@ export function getAdminWhitelist(): string[] {
   return list;
 }
 
+/** Numeric Telegram chat IDs configured to receive server-side admin notices. */
+export function getAdminTelegramIds(): string[] {
+  const configuredIds = typeof process !== 'undefined' ? process.env?.ADMIN_TELEGRAM_IDS : '';
+  return (configuredIds || '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => /^-?\d+$/.test(id));
+}
+
 export function isAdminTelegramId(telegramIdOrUsername: string | number | undefined | null): boolean {
   if (!telegramIdOrUsername) return false;
   

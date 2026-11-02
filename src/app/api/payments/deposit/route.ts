@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ApiResponse, PaymentProvider } from '@/lib/types';
-import { getAdminWhitelist } from '@/lib/authUtils';
+import { getAdminTelegramIds } from '@/lib/authUtils';
 import { isSupportedLinksEtReceiptUrl, verifyDepositWithLinksEt } from '@/lib/linksEt';
 import { createDepositActionSignature } from '@/lib/adminDepositActions';
 
@@ -79,12 +79,14 @@ async function sendScreenshotToTelegram(
       form.append('reply_markup', JSON.stringify(replyMarkup));
     }
 
-    await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
       method: 'POST',
       body:   form,
+      signal: AbortSignal.timeout(10_000),
     });
+    if (!response.ok) throw new Error(`Telegram sendPhoto returned HTTP ${response.status}`);
   } catch {
-    // Non-critical — ignore failures
+    throw new Error('Could not send deposit receipt to Telegram admin.');
   }
 }
 
@@ -340,10 +342,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Notify admins via Telegram (non-blocking) ────────────────────────────
+    // ── Notify every configured admin via Telegram before returning ──────────
     const botToken     = process.env.TELEGRAM_BOT_TOKEN || '';
-    const adminIds     = getAdminWhitelist();
-    const targetAdmins = adminIds.length > 0 ? adminIds : ['570615212', '7829104'];
+    const targetAdmins = getAdminTelegramIds();
 
     const adminMsg =
       `💰 <b>DEPOSIT REQUEST — ADMIN REVIEW REQUIRED</b>\n\n` +
@@ -372,30 +373,36 @@ export async function POST(req: NextRequest) {
       ],
     };
 
-    if (hasScreenshot) {
-      // Send the screenshot as a photo with the full caption + 1-Click approval buttons
-      Promise.allSettled(
-        targetAdmins.map((id) =>
-          sendScreenshotToTelegram(botToken, id, screenshot!, adminMsg, inlineApprovalKeyboard)
-        )
-      ).catch(() => {});
+    if (!botToken) {
+      console.error('[Deposit notification] TELEGRAM_BOT_TOKEN is not configured.');
+    } else if (targetAdmins.length === 0) {
+      console.error('[Deposit notification] ADMIN_TELEGRAM_IDS has no valid numeric Telegram IDs.');
     } else {
-      // No screenshot — send text message with 1-Click approval buttons
-      Promise.allSettled(
-        targetAdmins.map((id) =>
-          fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: id,
-              text: adminMsg,
-              parse_mode: 'HTML',
-              disable_web_page_preview: true,
-              reply_markup: inlineApprovalKeyboard,
-            }),
-          })
-        )
-      ).catch(() => {});
+      // Await all recipients so serverless runtimes do not stop before Telegram delivery finishes.
+      const results = await Promise.allSettled(targetAdmins.map(async (id) => {
+        if (hasScreenshot) {
+          await sendScreenshotToTelegram(botToken, id, screenshot!, adminMsg, inlineApprovalKeyboard);
+          return;
+        }
+        const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: id,
+            text: adminMsg,
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+            reply_markup: inlineApprovalKeyboard,
+          }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (!response.ok) throw new Error(`Telegram returned HTTP ${response.status}`);
+      }));
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.error(`[Deposit notification] Failed to notify admin ${targetAdmins[index]}:`, result.reason);
+        }
+      });
     }
 
     return NextResponse.json<ApiResponse>({

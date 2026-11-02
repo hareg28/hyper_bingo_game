@@ -4,6 +4,8 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 Manual deposits are checked through [links.et](https://links.et) when `LINKS_API_KEY` (or `LINKS_ET_API_KEY`) is configured in the server environment. Create an API key in the links.et dashboard and add it as a server-only environment variable. Players can submit a Telebirr reference or a receipt URL from any bank or wallet links.et supports. The app checks the returned transaction reference, completed status when provided, amount, and recipient before crediting the wallet. CBE and other providers require a receipt URL; unverifiable receipts remain uncredited for admin review.
 
+Set `TELEGRAM_BOT_TOKEN` and `ADMIN_TELEGRAM_IDS` in the server environment to receive review requests when a deposit cannot be verified automatically. `ADMIN_TELEGRAM_IDS` accepts comma-separated numeric Telegram user IDs, for example `123456789,987654321`. Each admin must start the bot before it can send them a message. The request, including its approval buttons, is sent to every configured ID.
+
 ## Getting Started
 
 First, run the development server:
