@@ -652,7 +652,7 @@ export default function WalletManager() {
             <Copy className="w-3 h-3" /> {isAm ? 'ቅዳ' : 'Copy'}
           </button>
         </div>
-        <p className="text-[10px] text-amber-300/80 font-bold text-center">{isAm ? 'ክፍያው በlinks.et ወይም በአስተዳዳሪ ከተረጋገጠ በኋላ ሂሳብዎ ይሞላል።' : 'Your wallet is credited after links.et or an administrator verifies the transfer.'}</p>
+        <p className="text-[10px] text-amber-300/80 font-bold text-center">{isAm ? 'ክፍያዎ ከተረጋገጠ በኋላ ሂሳብዎ ይሞላል።' : 'Your wallet is credited after your transfer is verified.'}</p>
       </div>
 
       {/* Tab Navigation */}
@@ -780,8 +780,8 @@ export default function WalletManager() {
 
               <p className="text-[11px] text-slate-600 font-medium bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                 {isAm
-                  ? 'ገንዘቡን ካስተላለፉ በኋላ የቴሌብር ግብይት መለያ ቁጥሩን ያስገቡ። links.et በራስ-ሰር ሊያረጋግጠው ይችላል፤ CBE እና ያልተረጋገጡ ክፍያዎች በአስተዳዳሪ ይታያሉ።'
-                  : 'After paying, enter the Telebirr reference or paste a receipt link from CBE or another supported bank/wallet. links.et checks supported receipt links.'}
+                  ? 'ገንዘቡን ካስተላለፉ በኋላ የቴሌብር ግብይት መለያ ቁጥሩን ያስገቡ። ክፍያዎ ለማረጋገጫ ይገመገማል።'
+                  : 'After paying, enter the Telebirr reference or paste a receipt link from CBE or another supported bank/wallet. Your transfer will be reviewed for verification.'}
               </p>
 
               {depositError && (
@@ -1064,7 +1064,7 @@ export default function WalletManager() {
               type="text"
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
-              placeholder="e.g. Yohannes Tsehaye Bayleyegn"
+              placeholder="e.g. Dessalegn Yimam Kebede"
               className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 font-bold focus:bg-white"
             />
           </div>
