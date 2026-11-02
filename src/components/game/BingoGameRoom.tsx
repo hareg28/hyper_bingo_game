@@ -1416,8 +1416,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   style={{width:'52px',height:'52px',border:'3px solid white',boxShadow:'0 4px 15px rgba(0,0,0,0.3)'}}
                 >
                   <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 28%, rgba(255,255,255,0.45) 0%, transparent 60%)'}} />
-                  <span className="text-[9px] font-black uppercase leading-none text-black z-10" style={{ color: '#000' }}>{getBallLetter(currentBallNum)}</span>
-                  <span className="text-[15px] font-black text-black leading-tight z-10" style={{ color: '#000' }}>{currentBallNum}</span>
+                  <span className="text-[12px] font-black uppercase leading-none text-black z-10" style={{ color: '#000' }}>{getBallLetter(currentBallNum)}</span>
+                  <span className="text-[21px] font-black text-black leading-tight z-10" style={{ color: '#000' }}>{currentBallNum}</span>
                 </div>
               ) : (
                 <div className="rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white" style={{width:'52px',height:'52px'}}>
@@ -1462,8 +1462,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     style={{width:'30px',height:'30px',border:'2px solid white'}}
                   >
                     <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35) 0%, transparent 65%)'}} />
-                    <span className="text-[6px] font-black uppercase leading-none text-black z-10" style={{ color: '#000' }}>{pbLetter}</span>
-                    <span className="text-[9px] font-black text-black leading-tight z-10" style={{ color: '#000' }}>{pb}</span>
+                    <span className="text-[8px] font-black uppercase leading-none text-black z-10" style={{ color: '#000' }}>{pbLetter}</span>
+                    <span className="text-[12px] font-black text-black leading-tight z-10" style={{ color: '#000' }}>{pb}</span>
                   </div>
                 );
               }) : null}
@@ -1531,8 +1531,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   style={{width:'38px',height:'38px',border:'2.5px solid rgba(255,255,255,0.8)'}}
                 >
                   <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.4) 0%, transparent 65%)'}} />
-                  <span className="text-[7px] font-black uppercase leading-none text-black z-10" style={{ color: '#000' }}>{pbLetter}</span>
-                  <span className="text-[11px] font-black text-black leading-tight z-10" style={{ color: '#000' }}>{pb}</span>
+                  <span className="text-[10px] font-black uppercase leading-none text-black z-10" style={{ color: '#000' }}>{pbLetter}</span>
+                  <span className="text-[15px] font-black text-black leading-tight z-10" style={{ color: '#000' }}>{pb}</span>
                 </div>
               );
             })}
@@ -1542,8 +1542,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 style={{width:'56px',height:'56px',border:'3px solid white',boxShadow:'0 6px 20px rgba(0,0,0,0.35)'}}
               >
                 <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 28%, rgba(255,255,255,0.5) 0%, transparent 60%)'}} />
-                <span className="text-[9px] font-black uppercase leading-none text-black z-10" style={{ color: '#000' }}>{getBallLetter(currentBallNum)}</span>
-                <span className="text-lg font-black text-black leading-tight z-10" style={{ color: '#000' }}>{currentBallNum}</span>
+                <span className="text-[12px] font-black uppercase leading-none text-black z-10" style={{ color: '#000' }}>{getBallLetter(currentBallNum)}</span>
+                <span className="text-[22px] font-black text-black leading-tight z-10" style={{ color: '#000' }}>{currentBallNum}</span>
               </div>
             ) : (
               <div className="rounded-full border-2 border-dashed border-white/50 flex items-center justify-center bg-white/10" style={{width:'56px',height:'56px'}}>
