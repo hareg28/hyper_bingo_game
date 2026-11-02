@@ -7,7 +7,7 @@ import { formatETB } from '../../lib/bingoUtils';
 import { type OwnerPaymentAccount } from '../../lib/ownerPaymentAccounts';
 import {
   Wallet, ArrowDownRight, ArrowUpRight, ShieldCheck,
-  Smartphone, Landmark, History, Plus, Trash2,
+  Smartphone, Landmark, Plus, Trash2,
   CheckCircle, Clock, XCircle, Star, ChevronRight,
   Copy, Check,
 } from 'lucide-react';
@@ -17,10 +17,10 @@ declare global {
 }
 
 export default function WalletManager() {
-  const { wallet, transactions, depositWallet, submitPendingDeposit, requestWithdrawal, refreshWallet, user, openAuthModal, t, language } = useBingo();
+  const { wallet, depositWallet, submitPendingDeposit, requestWithdrawal, refreshWallet, user, openAuthModal, t, language } = useBingo();
   const isAm = language === 'am';
 
-  const [activeTab, setActiveTab] = useState<'balance' | 'deposit' | 'withdraw' | 'accounts' | 'history'>('balance');
+  const [activeTab, setActiveTab] = useState<'balance' | 'deposit' | 'withdraw' | 'accounts'>('balance');
 
   // ── Direct Pay (CBE / Telebirr / M-Pesa) state ─────────────────────────────
   const [showDirectPay, setShowDirectPay] = useState(false);
@@ -126,11 +126,11 @@ export default function WalletManager() {
     const params = new URLSearchParams(window.location.search);
     const result = params.get('payment');
     if (!result) return;
-    setActiveTab('history');
+    setActiveTab('balance');
     if (result === 'success') {
       showStatus('success', isAm ? 'የቴሌብር ክፍያ ተረጋግጧል።' : 'Telebirr payment confirmed. Your wallet has been credited.');
     } else if (result === 'pending') {
-      showStatus('success', isAm ? 'ክፍያው እየተረጋገጠ ነው፤ ትንሽ ቆይተው ታሪክን ያድሱ።' : 'Payment is still being confirmed. Refresh history in a moment.');
+      showStatus('success', isAm ? 'ክፍያው እየተረጋገጠ ነው፤ ትንሽ ቆይተው የኪስ ቦርሳ ሂሳብዎን ይመልከቱ።' : 'Payment is still being confirmed. Check your wallet balance in a moment.');
     } else {
       showStatus('error', isAm ? 'ክፍያው አልተረጋገጠም።' : 'Telebirr could not confirm this payment.');
     }
@@ -269,7 +269,7 @@ export default function WalletManager() {
         } else if (typeof telegramWebApp?.showAlert === 'function') {
           telegramWebApp.showAlert(successMessage);
         }
-        setActiveTab('history');
+        setActiveTab('balance');
         setDepositStep(1);
         setTransactionCode('');
         setDepositError(null);
@@ -624,42 +624,6 @@ export default function WalletManager() {
         </div>
       </div>
 
-      {activeTab === 'balance' && (
-        <div className="bg-white p-4 rounded-2xl border-2 border-purple-200 shadow-xs space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-            <h3 className="text-xs font-black uppercase tracking-wider text-purple-800 flex items-center gap-1.5">
-              <History className="w-4 h-4 text-purple-600" /> {t('recentTransactions')}
-            </h3>
-            <button
-              type="button"
-              onClick={() => setActiveTab('history')}
-              className="text-[10px] font-bold text-purple-700 hover:text-purple-900 underline underline-offset-2"
-            >
-              {isAm ? 'ሁሉንም እይ' : 'View all'}
-            </button>
-          </div>
-          {transactions.length === 0 ? (
-            <div className="py-4 text-center text-xs text-slate-500">{t('noTransactionsYet')}</div>
-          ) : (
-            <div className="space-y-2">
-              {transactions.slice(0, 3).map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 border border-slate-200 p-2.5">
-                  <div className="min-w-0">
-                    <div className="truncate text-xs font-bold text-slate-900">{tx.description}</div>
-                    <div className="mt-0.5 text-[10px] text-slate-500">
-                      {new Date(tx.createdAt).toLocaleDateString()} · {tx.status.replace('_', ' ')}
-                    </div>
-                  </div>
-                  <div className={`shrink-0 text-sm font-black ${tx.amount > 0 ? 'text-emerald-700' : 'text-slate-800'}`}>
-                    {tx.amount > 0 ? `+${tx.amount}` : tx.amount} ETB
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* ── SELECTED RECEIVING ACCOUNT ────────────────────────────────────── */}
       <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-4 text-white shadow-xl space-y-3 border border-blue-500/30">
         <div className="flex items-center gap-2.5">
@@ -692,12 +656,11 @@ export default function WalletManager() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="grid grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-3 gap-1.5">
         {([
           { id: 'deposit', label: t('depositTab'), icon: ArrowDownRight, color: 'text-emerald-600' },
           { id: 'withdraw', label: t('withdrawTab'), icon: ArrowUpRight, color: 'text-amber-600' },
           { id: 'accounts', label: t('accountsTab'), icon: Landmark, color: 'text-blue-600' },
-          { id: 'history', label: t('historyTab'), icon: History, color: 'text-purple-600' },
         ] as const).map(tab => {
           const Icon = tab.icon;
           return (
@@ -1245,46 +1208,6 @@ export default function WalletManager() {
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── TRANSACTION HISTORY ──────────────────────────────────────────────── */}
-      {activeTab === 'history' && (
-        <div className="bg-white p-4 rounded-2xl space-y-3 border-2 border-purple-300 shadow-xs">
-          <h3 className="text-xs font-black uppercase tracking-wider text-purple-800 flex items-center gap-1.5 border-b border-slate-200 pb-2">
-            <History className="w-4 h-4 text-purple-600" /> {t('recentTransactions')}
-          </h3>
-          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-            {transactions.length === 0 ? (
-              <div className="text-center py-8 text-slate-500 text-xs">{t('noTransactionsYet')}</div>
-            ) : (
-              transactions.map(tx => (
-                <div key={tx.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between text-xs shadow-xs">
-                  <div>
-                    <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                      <span>{tx.description}</span>
-                      <span className={`px-1.5 text-[9px] font-black rounded ${
-                        tx.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
-                        tx.status === 'PENDING' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
-                        'bg-rose-100 text-rose-800 border border-rose-300'
-                      }`}>
-                        {tx.status}
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-slate-600 font-medium mt-0.5">
-                      <span className="font-mono font-bold text-slate-700">{tx.reference}</span> • {new Date(tx.createdAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`font-black font-mono text-sm ${tx.amount > 0 ? 'text-emerald-700' : 'text-slate-800'}`}>
-                      {tx.amount > 0 ? `+${tx.amount}` : tx.amount} ETB
-                    </div>
-                    <div className="text-[10px] text-slate-600 font-semibold">Bal: {formatETB(tx.balanceAfter)}</div>
-                  </div>
                 </div>
               ))
             )}
