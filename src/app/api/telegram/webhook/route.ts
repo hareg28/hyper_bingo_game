@@ -3,6 +3,7 @@ import { isAdminTelegramId } from '@/lib/authUtils';
 import { db } from '@/lib/db';
 import { getNeonSql } from '@/lib/neon';
 import { verifyDepositActionSignature } from '@/lib/adminDepositActions';
+import { notifyAdminsTelegram } from '@/lib/adminNotifications';
 
 function safeTgHtml(str: string): string {
   if (!str) return '';
@@ -112,7 +113,10 @@ export async function POST(req: NextRequest) {
       const { id: callbackQueryId, from, message, data } = update.callback_query;
       const adminTelegramId = from?.id ? String(from.id) : '';
       const adminUsername = from?.username ? `@${from.username}` : (from?.first_name || 'Admin');
-      const isAdmin = isAdminTelegramId(from?.id) || isAdminTelegramId(from?.username);
+      const databaseAdmin = adminTelegramId
+        ? await db.getUserByTelegramId(adminTelegramId).catch(() => null)
+        : null;
+      const isAdmin = isAdminTelegramId(from?.id) || isAdminTelegramId(from?.username) || databaseAdmin?.role === 'admin';
 
       const answerCallback = async (text: string, showAlert = false) => {
         try {
@@ -154,6 +158,12 @@ export async function POST(req: NextRequest) {
           }
 
           await answerCallback(`✅ Deposit of ${approvedTx.amount} ETB Approved!`);
+          await notifyAdminsTelegram(
+            `✅ Deposit approved\n\n` +
+            `💰 Amount: ${approvedTx.amount} ETB\n` +
+            `🧾 Transaction: ${approvedTx.id}\n` +
+            `👮 Approved by: ${adminUsername}`,
+          );
 
           // Notify player on Telegram if available
           try {
@@ -217,6 +227,11 @@ export async function POST(req: NextRequest) {
           // Reject
           await db.rejectPendingDeposit(txId);
           await answerCallback('❌ Deposit Request Rejected.');
+          await notifyAdminsTelegram(
+            `❌ Deposit rejected\n\n` +
+            `🧾 Transaction: ${txId}\n` +
+            `👮 Rejected by: ${adminUsername}`,
+          );
 
           try {
             const ethTime = new Date().toLocaleTimeString('en-US', { timeZone: 'Africa/Addis_Ababa', hour: '2-digit', minute: '2-digit' });
