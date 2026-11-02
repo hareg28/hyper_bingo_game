@@ -61,7 +61,7 @@ export interface Game {
   weekendDay?: 'FRI' | 'SAT' | 'SUN';
   weekendSlot?: '2PM' | '6PM';
   weekendRoundKey?: string; // The date/slot identifier of the last scheduled Weekend run
-  roundDuration?: number;   // In seconds, e.g. 60 for Hyper Fetan
+  roundDuration?: number;   // In seconds; Hyper Fetan uses 525 for 75 calls at 7s each.
   pickDuration?: number;    // In seconds, e.g. 30 for Hyper Fetan intermission
   activeSpecialRuleIndex?: number; // 0..14 index for Hyper Special rotating rule
   nextRoundStartsAt?: number;      // Epoch ms when next round starts (e.g. 4-min card-pick window)

@@ -91,7 +91,7 @@ export const INITIAL_GAMES: Game[] = [
     currentPlayers: 0,
     startTime: 'Live Round',
     drawInterval: 2,
-    roundDuration: 240,
+    roundDuration: 525,
     pickDuration: 40,
     prizePool: 0,
     status: 'OPEN',

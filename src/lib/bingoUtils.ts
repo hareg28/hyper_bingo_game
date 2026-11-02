@@ -1419,7 +1419,7 @@ export function getLotteryGameLabel(
 }
 
 export const FETAN_PICK_SECONDS = 40;
-export const FETAN_ROUND_SECONDS = 4 * 60;
+export const FETAN_ROUND_SECONDS = 75 * 7;
 export const FETAN_BALL_INTERVAL_MS = 7_000;
 export const WEEKEND_ROUND_SECONDS = 10 * 60;
 export const WEEKEND_BALL_INTERVAL_MS = (WEEKEND_ROUND_SECONDS * 1000) / 75;
@@ -1442,7 +1442,7 @@ export function formatCountdownClock(totalSec: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-/** Shared Hyper Fetan clock: play for up to four minutes, then pick cards for 40 seconds. */
+/** Shared Hyper Fetan card-pick clock, synced to the round's server deadline. */
 export function getFetanClock(
   nextRoundStartsAt?: number | null,
   status?: string,
