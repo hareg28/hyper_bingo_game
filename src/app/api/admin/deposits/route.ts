@@ -16,7 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
-import { getAdminWhitelist } from '@/lib/authUtils';
+import { notifyAdminsTelegram } from '@/lib/adminNotifications';
 import { getAuthorizedTelegramAdmin, isAuthorizedTelegramAdmin } from '@/lib/adminRequestAuth';
 
 /** Format a date in Ethiopian local time (UTC+3) */
@@ -30,7 +30,7 @@ function formatEthTime(date: Date): string {
 
 // ── GET — list all recent deposits (any status) ─────────────────────────────
 export async function GET(req: NextRequest) {
-  if (!isAuthorizedTelegramAdmin(req)) {
+  if (!(await isAuthorizedTelegramAdmin(req))) {
     return NextResponse.json<ApiResponse>({ success: false, error: 'Administrator authentication required.' }, { status: 403 });
   }
   try {
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
 // ── POST — approve or reject a pending deposit ──────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const authorizedAdmin = getAuthorizedTelegramAdmin(req);
+    const authorizedAdmin = await getAuthorizedTelegramAdmin(req);
     if (!authorizedAdmin) {
       return NextResponse.json<ApiResponse>({ success: false, error: 'Administrator authentication required.' }, { status: 403 });
     }
@@ -69,9 +69,6 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const botToken     = process.env.TELEGRAM_BOT_TOKEN || '';
-    const adminIds     = getAdminWhitelist();
-    const targetAdmins = adminIds.length > 0 ? adminIds : ['570615212', '7829104'];
     const now          = formatEthTime(new Date());
 
     // ── APPROVE ──────────────────────────────────────────────────────────────
@@ -95,17 +92,10 @@ export async function POST(req: NextRequest) {
         `👮 <b>Approved by:</b> ${adminName ?? 'admin'}\n` +
         `⏰ <b>At:</b> ${now}`;
 
-      Promise.allSettled(
-        targetAdmins.map((id) =>
-          fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: id, text: adminMsg, parse_mode: 'HTML' }),
-          })
-        )
-      ).catch(() => {});
+      await notifyAdminsTelegram(adminMsg, { parseMode: 'HTML' });
 
       // Notify player
+      const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
       const user = await db.getUserById(tx.userId).catch(() => null);
       if (user?.telegramId && !user.telegramId.startsWith('web_')) {
         const playerMsg =
@@ -146,17 +136,10 @@ export async function POST(req: NextRequest) {
         `👮 <b>Rejected by:</b> ${adminName ?? 'admin'}\n` +
         `⏰ <b>At:</b> ${now}`;
 
-      Promise.allSettled(
-        targetAdmins.map((id) =>
-          fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: id, text: adminMsg, parse_mode: 'HTML' }),
-          })
-        )
-      ).catch(() => {});
+      await notifyAdminsTelegram(adminMsg, { parseMode: 'HTML' });
 
       // Notify player
+      const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
       const user = await db.getUserById(tx.userId).catch(() => null);
       if (user?.telegramId && !user.telegramId.startsWith('web_')) {
         const playerMsg =

@@ -4,7 +4,7 @@ import { ApiResponse } from '@/lib/types';
 import { isAuthorizedTelegramAdmin } from '@/lib/adminRequestAuth';
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorizedTelegramAdmin(req)) {
+  if (!(await isAuthorizedTelegramAdmin(req))) {
     return NextResponse.json<ApiResponse>({
       success: false,
       error: 'Administrator authentication required.',

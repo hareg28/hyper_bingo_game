@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { isAdminTelegramId } from '@/lib/authUtils';
+import { notifyAdminsTelegram } from '@/lib/adminNotifications';
 import { ApiResponse, UserRole } from '@/lib/types';
 
 export async function POST(req: NextRequest) {
@@ -62,6 +63,14 @@ export async function POST(req: NextRequest) {
         error: 'Target user not found with provided ID or identifier.',
       }, { status: 404 });
     }
+
+    await notifyAdminsTelegram(
+      `🛡️ Admin access updated\n\n` +
+      `👤 User: ${updatedUser.name} (@${updatedUser.username || 'N/A'})\n` +
+      `🆔 Telegram ID: ${updatedUser.telegramId}\n` +
+      `🔐 New role: ${role.toUpperCase()}\n` +
+      `👮 Changed by: ${adminTelegramId || 'admin'}`,
+    );
 
     return NextResponse.json<ApiResponse>({
       success: true,

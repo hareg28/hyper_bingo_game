@@ -17,7 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ApiResponse, WithdrawResponse, PaymentProvider } from '@/lib/types';
-import { getAdminWhitelist } from '@/lib/authUtils';
+import { notifyAdminsTelegram } from '@/lib/adminNotifications';
 
 export async function POST(req: NextRequest) {
   try {
@@ -72,11 +72,6 @@ export async function POST(req: NextRequest) {
       accountName,
     });
 
-    // ── Notify admins via Telegram (non-blocking, fire-and-forget) ──────────
-    const botToken     = process.env.TELEGRAM_BOT_TOKEN || '';
-    const adminIds     = getAdminWhitelist();
-    const targetAdmins = adminIds.length > 0 ? adminIds : ['570615212', '7829104'];
-
     const adminMessage =
       `🔔 <b>NEW WITHDRAWAL REQUEST — ACTION REQUIRED</b> 🔔\n\n` +
       `👤 <b>Player:</b> ${user.name} (@${user.username || 'N/A'})\n` +
@@ -91,20 +86,7 @@ export async function POST(req: NextRequest) {
         `⏳ <i>Status: PENDING — Visit the admin panel to Approve or Reject.</i>\n\n` +
       `🔗 <a href="${process.env.NEXT_PUBLIC_APP_URL ?? ''}/admin">Open Admin Panel</a>`;
 
-    Promise.allSettled(
-      targetAdmins.map((adminId) =>
-        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: adminId,
-            text: adminMessage,
-            parse_mode: 'HTML',
-            disable_web_page_preview: true,
-          }),
-        })
-      )
-    ).catch((err) => console.error('[Withdraw API] Telegram notify error:', err));
+    await notifyAdminsTelegram(adminMessage, { parseMode: 'HTML', disableWebPagePreview: true });
 
     // ── Respond to player ───────────────────────────────────────────────────
     return NextResponse.json<ApiResponse<WithdrawResponse>>({

@@ -18,7 +18,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
-import { getAdminWhitelist } from '@/lib/authUtils';
+import { notifyAdminsTelegram } from '@/lib/adminNotifications';
 
 // ── GET — list pending withdrawals ─────────────────────────────────────────
 
@@ -58,10 +58,6 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const botToken     = process.env.TELEGRAM_BOT_TOKEN || '';
-    const adminIds     = getAdminWhitelist();
-    const targetAdmins = adminIds.length > 0 ? adminIds : ['570615212', '7829104'];
-
     // ── APPROVE ─────────────────────────────────────────────────────────────
     if (action === 'APPROVE') {
       const wr = await db.approveWithdrawal(withdrawalId, {
@@ -86,17 +82,10 @@ export async function POST(req: NextRequest) {
         `👮 <b>Processed by:</b> ${wr.processedBy ?? adminName ?? 'admin'}\n` +
         `⏰ <b>At:</b> ${new Date().toLocaleString('en-ET', { timeZone: 'Africa/Addis_Ababa', dateStyle: 'short', timeStyle: 'medium' })}`;
 
-      Promise.allSettled(
-        targetAdmins.map((id) =>
-          fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: id, text: successMsg, parse_mode: 'HTML' }),
-          })
-        )
-      ).catch(() => {});
+      await notifyAdminsTelegram(successMsg, { parseMode: 'HTML' });
 
       // Also notify the player
+      const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
       const user = await db.getUserById(wr.userId).catch(() => null);
       if (user?.telegramId && !user.telegramId.startsWith('web_')) {
         const playerMsg =
@@ -139,17 +128,10 @@ export async function POST(req: NextRequest) {
         `📝 <b>Reason:</b> ${rejectionReason}\n` +
         `⏰ <b>At:</b> ${new Date().toLocaleString('en-ET', { timeZone: 'Africa/Addis_Ababa', dateStyle: 'short', timeStyle: 'medium' })}`;
 
-      Promise.allSettled(
-        targetAdmins.map((id) =>
-          fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: id, text: rejectAdminMsg, parse_mode: 'HTML' }),
-          })
-        )
-      ).catch(() => {});
+      await notifyAdminsTelegram(rejectAdminMsg, { parseMode: 'HTML' });
 
       // Notify the player
+      const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
       const user = await db.getUserById(wr.userId).catch(() => null);
       if (user?.telegramId && !user.telegramId.startsWith('web_')) {
         const playerMsg =

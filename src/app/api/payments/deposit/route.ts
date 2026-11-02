@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ApiResponse, PaymentProvider } from '@/lib/types';
-import { getAdminTelegramIds } from '@/lib/authUtils';
+import { getAdminNotificationIds } from '@/lib/adminNotifications';
 import { isSupportedLinksEtReceiptUrl, verifyDepositWithLinksEt } from '@/lib/linksEt';
 import { createDepositActionSignature } from '@/lib/adminDepositActions';
 
@@ -344,7 +344,7 @@ export async function POST(req: NextRequest) {
 
     // ── Notify every configured admin via Telegram before returning ──────────
     const botToken     = process.env.TELEGRAM_BOT_TOKEN || '';
-    const targetAdmins = getAdminTelegramIds();
+    const targetAdmins = await getAdminNotificationIds();
 
     const adminMsg =
       `💰 <b>DEPOSIT REQUEST — ADMIN REVIEW REQUIRED</b>\n\n` +

@@ -235,6 +235,29 @@ const db = {
       .filter((id): id is string => Boolean(id) && !id.startsWith('web_'));
   },
 
+  /** Get Telegram IDs for users promoted to admin in the Admin Panel. */
+  async getAllAdminTelegramIds(): Promise<string[]> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          SELECT DISTINCT telegram_id FROM users
+          WHERE role = 'admin'
+            AND telegram_id IS NOT NULL
+            AND telegram_id NOT LIKE 'web_%'
+          ORDER BY telegram_id
+        `;
+        return (rows as { telegram_id: string }[]).map(row => row.telegram_id).filter(Boolean);
+      } catch (error) {
+        console.error('Neon getAllAdminTelegramIds error:', error);
+      }
+    }
+    return [...usersMap.values()]
+      .filter(user => user.role === 'admin')
+      .map(user => user.telegramId)
+      .filter(id => Boolean(id) && !id.startsWith('web_'));
+  },
+
   async getUserByPhone(phone: string): Promise<User | null> {
     const sql = getNeonSql();
     if (sql) {
