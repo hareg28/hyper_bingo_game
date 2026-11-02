@@ -1310,6 +1310,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 : dashboardLaw}
             </div>}
           </div>
+          {isSpecialGame && <div className="shrink-0 self-start pt-2 text-right text-[8px] font-bold text-indigo-800">{language === 'am' ? '4/12 ደቂቃ' : 'Pick 4m · Play 12m'}</div>}
         </div>
         <button type="button" onClick={() => setShowGameInfo((visible) => !visible)} aria-expanded={showGameInfo} className="w-full text-center text-[9px] font-bold text-rose-600 leading-4">
           {showGameInfo ? (language === 'am' ? 'ያነሰ አሳይ' : 'Show Less') : (language === 'am' ? 'የጨዋታ ዝርዝር አሳይ' : 'Show More')}
