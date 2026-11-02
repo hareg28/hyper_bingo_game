@@ -1420,7 +1420,7 @@ export function getLotteryGameLabel(
 
 export const FETAN_PICK_SECONDS = 40;
 export const FETAN_ROUND_SECONDS = 4 * 60;
-export const FETAN_BALL_INTERVAL_MS = (FETAN_ROUND_SECONDS * 1000) / 75;
+export const FETAN_BALL_INTERVAL_MS = 7_000;
 export const WEEKEND_ROUND_SECONDS = 10 * 60;
 export const WEEKEND_BALL_INTERVAL_MS = (WEEKEND_ROUND_SECONDS * 1000) / 75;
 export const WEEKEND_MAX_PRIZE = 50_000;

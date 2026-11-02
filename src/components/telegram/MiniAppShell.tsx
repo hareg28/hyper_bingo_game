@@ -1377,7 +1377,7 @@ function WeekendLotteryNumberPicker({
               </h3>
               <span className="text-[10px] text-slate-500 font-bold">
                 {mode === 'FETAN' 
-                  ? (isAm ? '40 ሰከንድ ካርድ መምረጫ · 3.2 ሴኮንድ ቁጥር · 500 ካርዶች' : '40s Card Pick · 3.2s per Number · 500 Cards')
+                  ? (isAm ? '40 ሰከንድ ካርድ መምረጫ · 7 ሴኮንድ ቁጥር · 500 ካርዶች' : '40s Card Pick · 7s per Number · 500 Cards')
                   : mode === 'SPECIAL'
                   ? (isAm
                       ? `${entryPrice} ብር · ሕግ #${(Math.abs(selectedGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} · ${selectedSpecialRule?.nameAm || 'ልዩ የማሸነፊያ ሕግ'}`
