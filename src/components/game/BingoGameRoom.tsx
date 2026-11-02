@@ -868,16 +868,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     return 'O';
   };
 
-  const getLetterColor = (letter: string): string => {
-    switch (letter) {
-      case 'B': return 'from-blue-600 to-blue-500 text-white';
-      case 'I': return 'from-red-600 to-red-500 text-white';
-      case 'N': return 'from-amber-400 to-amber-500 text-slate-950';
-      case 'G': return 'from-emerald-600 to-emerald-500 text-white';
-      case 'O': return 'from-purple-600 to-purple-500 text-white';
-      default: return 'from-slate-700 to-slate-600 text-white';
-    }
-  };
+  const getLetterColor = (_letter: string): string => 'from-green-500 to-green-400';
 
   // Pattern Hint Logic - tailored to each game type's exact winning rules
   const computePatternHint = (card: typeof activeGameCards[0]): boolean[][] => {
@@ -1467,7 +1458,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 return (
                   <div
                     key={`mid-prev-${idx}-${pb}`}
-                    className={`rounded-full bg-gradient-to-br ${pbColor} opacity-70 shadow flex flex-col items-center justify-center relative overflow-hidden`}
+                    className={`rounded-full bg-gradient-to-br ${pbColor} shadow flex flex-col items-center justify-center relative overflow-hidden`}
                     style={{width:'30px',height:'30px',border:'2px solid white'}}
                   >
                     <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35) 0%, transparent 65%)'}} />
@@ -1536,7 +1527,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               return (
                 <div
                   key={`prev-sw-${idx}-${pb}`}
-                  className={`rounded-full bg-gradient-to-br ${pbColor} opacity-60 shadow flex flex-col items-center justify-center relative overflow-hidden`}
+                  className={`rounded-full bg-gradient-to-br ${pbColor} shadow flex flex-col items-center justify-center relative overflow-hidden`}
                   style={{width:'38px',height:'38px',border:'2.5px solid rgba(255,255,255,0.8)'}}
                 >
                   <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.4) 0%, transparent 65%)'}} />
@@ -1692,10 +1683,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                               key={num}
                               style={{ color: isDrawn ? '#000' : undefined }}
                               className={`h-5 sm:h-6 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-all ${
-                                isCurrent
-                                  ? 'bg-amber-400 text-slate-950 font-black scale-105 shadow-xs ring-1 ring-amber-400 z-10'
-                                  : isDrawn
-                                  ? `${row.color} font-black shadow-xs`
+                                isCurrent || isDrawn
+                                  ? 'bg-green-500 text-black font-black shadow-xs'
                                   : 'bg-white text-slate-950 border border-slate-200'
                               }`}
                             >
@@ -1753,10 +1742,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       key={num}
                       style={{ color: isDrawn ? '#000' : undefined }}
                       className={`h-5 sm:h-6 rounded text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-all ${
-                        isCurrent
-                          ? 'bg-yellow-300 text-slate-950 font-black scale-125 shadow-[0_0_12px_3px_rgba(250,204,21,0.85)] ring-2 ring-yellow-400 animate-pulse z-20 brightness-110'
-                          : isDrawn
-                          ? `${row.color} font-black shadow-xs`
+                        isCurrent || isDrawn
+                          ? 'bg-green-500 text-black font-black shadow-xs'
                           : 'bg-white text-slate-950 border border-slate-200'
                       }`}
                     >
@@ -2535,10 +2522,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                           key={num}
                           style={{ color: isDrawn ? '#000' : undefined }}
                           className={`h-5 rounded-md text-[9px] font-bold flex items-center justify-center transition-all ${
-                            isCurrent
-                              ? 'bg-yellow-300 text-slate-950 font-black scale-125 shadow-[0_0_12px_3px_rgba(250,204,21,0.85)] ring-2 ring-yellow-400 animate-pulse z-20 brightness-110'
-                              : isDrawn
-                              ? `${row.color} font-black`
+                            isCurrent || isDrawn
+                              ? 'bg-green-500 text-black font-black'
                               : 'bg-white text-slate-700 border border-slate-200'
                           }`}
                         >
