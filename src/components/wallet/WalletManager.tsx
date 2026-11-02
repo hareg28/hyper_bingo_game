@@ -1076,8 +1076,8 @@ export default function WalletManager() {
                 {isAm ? '🔒 የማውጣት ሂደት (ደህንነቱ የተጠበቀ)' : '🔒 Secure Withdrawal Process'}
               </span>
               {isAm
-                ? `ጥያቄ ሲያቀርቡ የተጠየቀው ብር ከቦርሳዎ ላይ ተይዞ ይቆያል (PENDING)። በአስተዳዳሪው ከተረጋገጠ በኋላ ገንዘቡ በአሪፍፔይ በኩል ወደ ${provider} አካውንትዎ ይላካል።`
-                : `Your requested amount is reserved immediately (PENDING). After verification by the admin, funds are disbursed via ArifPay directly to your ${provider} account.`}
+                ? `ጥያቄ ሲያቀርቡ የተጠየቀው ብር ከቦርሳዎ ላይ ተይዞ ይቆያል (PENDING)። ጥያቄዎ በአስተዳዳሪ ከተረጋገጠ በኋላ ወደ ${provider} አካውንትዎ ይላካል።`
+                : `Your requested amount is reserved immediately (PENDING). After your request is verified by the admin, the funds will be sent to your ${provider} account.`}
             </div>
           </div>
 
