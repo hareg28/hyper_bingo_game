@@ -575,7 +575,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const lastSpecialTimerDeadlineRef = React.useRef<number | undefined>(undefined);
   const [fetanOvertime, setFetanOvertime] = useState<boolean>(false);
 
-  const isFetanGame = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.winningRule === 'ONE_LINE_OR_CORNERS';
+  const isFetanGame = currentGame.category === 'HYPER_FETAN' || currentGame.gameType === 'HYPER_FETAN' || currentGame.name?.toLowerCase().includes('fetan') || currentGame.id.toLowerCase().includes('fetan') || currentGame.winningRule === 'ONE_LINE_OR_CORNERS';
   const isSpecialGame = currentGame.category === 'HYPER_SPECIAL' || currentGame.gameType === 'HYPER_SPECIAL';
   // Keep a ref to nextRoundStartsAt so the interval tick always has the latest server value
   const nextRoundStartsAtRef = React.useRef<number | undefined>(currentGame.nextRoundStartsAt);
@@ -1310,7 +1310,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 : dashboardLaw}
             </div>}
           </div>
-          {(isSpecialGame || isFetanGame) && <div className="shrink-0 self-start pt-2 text-right text-[8px] font-bold text-indigo-800">{isSpecialGame ? (language === 'am' ? '4/12 ደቂቃ' : 'Pick 4m · Play 12m') : (language === 'am' ? '40/525 ሰከንድ' : 'Pick 40s · Play 8m 45s')}</div>}
+          {(isSpecialGame || isFetanGame) && <div className="shrink-0 self-start pt-2 text-right text-[8px] font-bold text-indigo-800">{isSpecialGame ? (language === 'am' ? 'Pick 4 · Play 12 ደቂቃ' : 'Pick 4m · Play 12m') : (language === 'am' ? 'Pick 40 ሰከንድ · Play 8 ደቂቃ 45 ሰከንድ' : 'Pick 40s · Play 8m 45s')}</div>}
         </div>
         <button type="button" onClick={() => setShowGameInfo((visible) => !visible)} aria-expanded={showGameInfo} className="w-full text-center text-[9px] font-bold text-rose-600 leading-4">
           {showGameInfo ? (language === 'am' ? 'ያነሰ አሳይ' : 'Show Less') : (language === 'am' ? 'የጨዋታ ዝርዝር አሳይ' : 'Show More')}
