@@ -139,18 +139,18 @@ export default function AuthModal() {
     }
 
     const cleanPhone = phone.trim().replace(/[\s-]/g, '');
+    if (!cleanPhone) {
+      setErrorMsg(language === 'am' ? 'እባክዎ የኢትዮጵያ ስልክ ቁጥር ያስገቡ' : 'Please enter your Ethiopian phone number');
+      return;
+    }
+
     const ethRegex = /^(\+251[79]\d{8}|0[79]\d{8})$/;
-    if (cleanPhone && !ethRegex.test(cleanPhone)) {
+    if (!ethRegex.test(cleanPhone)) {
       setErrorMsg(
         language === 'am'
           ? 'እባክዎ ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ (ለምሳሌ 0911234567 ወይም +251911234567)'
           : 'Please enter a valid Ethiopian phone number (e.g. 0911234567 or +251911234567)'
       );
-      return;
-    }
-
-    if (verificationMethod === 'sms' && !cleanPhone) {
-      setErrorMsg(language === 'am' ? 'ለኤስኤምኤስ ማረጋገጫ ስልክ ቁጥር ያስፈልጋል። ወይም ቴሌግራምን ይምረጡ።' : 'Enter a phone number for SMS verification, or choose Telegram.');
       return;
     }
 
@@ -325,11 +325,12 @@ export default function AuthModal() {
 
               <div>
                 <label className="text-[11px] font-black text-slate-800 block mb-1">
-                  {language === 'am' ? 'የኢትዮጵያ ስልክ ቁጥር (አማራጭ)' : 'Phone Number (Optional)'}
+                  {language === 'am' ? 'የኢትዮጵያ ስልክ ቁጥር *' : 'Phone Number *'}
                 </label>
                 <div className="relative">
                   <input
                     type="tel"
+                    required
                     placeholder="0911234567 or +251911234567"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}

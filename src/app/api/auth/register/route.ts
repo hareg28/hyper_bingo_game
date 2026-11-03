@@ -20,14 +20,32 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const cleanPhone = phone?.trim() || '';
+    const cleanPhone = phone?.trim().replace(/[\s-]/g, '') || '';
+    if (!cleanPhone) {
+      return NextResponse.json<ApiResponse>({ success: false, error: 'Phone number is required' }, { status: 400 });
+    }
     // Validate Ethiopian phone pattern (+2519... or 09... or 07...)
     const ethPhoneRegex = /^(\+251[79]\d{8}|0[79]\d{8})$/;
-    if (cleanPhone && !ethPhoneRegex.test(cleanPhone.replace(/[\s-]/g, ''))) {
+    if (!ethPhoneRegex.test(cleanPhone)) {
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'Please enter a valid Ethiopian phone number (e.g. 0911234567 or +251911234567)',
       }, { status: 400 });
+    }
+
+    const phoneOwner = await db.getUserByPhone(cleanPhone);
+    const telegramOwner = telegramId?.trim() ? await db.getUserByTelegramId(telegramId.trim()) : null;
+    if (phoneOwner && phoneOwner.id !== telegramOwner?.id) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'This phone number is already registered. Each account must use its own phone number.',
+      }, { status: 409 });
+    }
+    if (telegramOwner?.phone && telegramOwner.phone !== cleanPhone) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'This Telegram account is already linked to a different phone number.',
+      }, { status: 409 });
     }
 
     const user = await db.registerUser({

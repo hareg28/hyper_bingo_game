@@ -259,14 +259,15 @@ const db = {
   },
 
   async getUserByPhone(phone: string): Promise<User | null> {
+    const cleanPhone = phone.replace(/[\s-]/g, '');
     const sql = getNeonSql();
     if (sql) {
       try {
-        const rows = await sql`SELECT * FROM users WHERE phone = ${phone} LIMIT 1`;
+        const rows = await sql`SELECT * FROM users WHERE regexp_replace(phone, '[[:space:]-]', '', 'g') = ${cleanPhone} LIMIT 1`;
         return rows.length > 0 ? rowToUser(rows[0]) : null;
       } catch (e) { console.error('Neon getUserByPhone error:', e); }
     }
-    return [...usersMap.values()].find(u => u.phone === phone) ?? null;
+    return [...usersMap.values()].find(u => u.phone.replace(/[\s-]/g, '') === cleanPhone) ?? null;
   },
 
   async getUserByUsername(username: string): Promise<User | null> {
