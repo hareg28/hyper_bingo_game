@@ -35,10 +35,10 @@ export async function POST(req: NextRequest) {
 
     const phoneOwner = await db.getUserByPhone(cleanPhone);
     const telegramOwner = telegramId?.trim() ? await db.getUserByTelegramId(telegramId.trim()) : null;
-    if (phoneOwner && phoneOwner.id !== telegramOwner?.id) {
+    if (phoneOwner) {
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'This phone number is already registered. Each account must use its own phone number.',
+        error: 'This phone number is already used. Please sign in to your existing account or use a new phone number.',
       }, { status: 409 });
     }
     if (telegramOwner?.phone && telegramOwner.phone !== cleanPhone) {
