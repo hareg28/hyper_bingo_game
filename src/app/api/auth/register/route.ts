@@ -20,17 +20,10 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    if (!phone || !phone.trim()) {
-      return NextResponse.json<ApiResponse>({
-        success: false,
-        error: 'Valid Ethiopian phone number is required',
-      }, { status: 400 });
-    }
-
-    const cleanPhone = phone.trim();
+    const cleanPhone = phone?.trim() || '';
     // Validate Ethiopian phone pattern (+2519... or 09... or 07...)
     const ethPhoneRegex = /^(\+251[79]\d{8}|0[79]\d{8})$/;
-    if (!ethPhoneRegex.test(cleanPhone.replace(/[\s-]/g, ''))) {
+    if (cleanPhone && !ethPhoneRegex.test(cleanPhone.replace(/[\s-]/g, ''))) {
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'Please enter a valid Ethiopian phone number (e.g. 0911234567 or +251911234567)',
@@ -82,7 +75,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. SMS Welcome Notification (simulated / gateway dispatch)
-    console.log(`[SMS GATEWAY DISPATCH] Sent to ${cleanPhone}: "Welcome to Hyper Bingo, ${user.name}! Your account is active with 20 ETB game bonus. Play directly on Telegram: https://t.me/${botUser}?start=${user.referralCode}"`);
+    if (cleanPhone) {
+      console.log(`[SMS GATEWAY DISPATCH] Sent to ${cleanPhone}: "Welcome to Hyper Bingo, ${user.name}! Your account is active with 20 ETB game bonus. Play directly on Telegram: https://t.me/${botUser}?start=${user.referralCode}"`);
+    }
 
     return NextResponse.json<ApiResponse>({
       success: true,
@@ -92,12 +87,12 @@ export async function POST(req: NextRequest) {
         linkedAccounts,
         notification: {
           telegram: telegramNotified,
-          sms: true,
+          sms: Boolean(cleanPhone),
           phone: cleanPhone,
           bonusETB: 20
         }
       },
-      message: 'Account created successfully! Welcome notification sent via Telegram & SMS.',
+      message: 'Account created successfully!',
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Server error';

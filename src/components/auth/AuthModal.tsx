@@ -138,19 +138,19 @@ export default function AuthModal() {
       return;
     }
 
-    if (!phone.trim()) {
-      setErrorMsg(language === 'am' ? 'እባክዎ የኢትዮጵያ ስልክ ቁጥር ያስገቡ' : 'Please enter your Ethiopian phone number');
-      return;
-    }
-
     const cleanPhone = phone.trim().replace(/[\s-]/g, '');
     const ethRegex = /^(\+251[79]\d{8}|0[79]\d{8})$/;
-    if (!ethRegex.test(cleanPhone)) {
+    if (cleanPhone && !ethRegex.test(cleanPhone)) {
       setErrorMsg(
         language === 'am'
           ? 'እባክዎ ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ (ለምሳሌ 0911234567 ወይም +251911234567)'
           : 'Please enter a valid Ethiopian phone number (e.g. 0911234567 or +251911234567)'
       );
+      return;
+    }
+
+    if (verificationMethod === 'sms' && !cleanPhone) {
+      setErrorMsg(language === 'am' ? 'ለኤስኤምኤስ ማረጋገጫ ስልክ ቁጥር ያስፈልጋል። ወይም ቴሌግራምን ይምረጡ።' : 'Enter a phone number for SMS verification, or choose Telegram.');
       return;
     }
 
@@ -325,12 +325,11 @@ export default function AuthModal() {
 
               <div>
                 <label className="text-[11px] font-black text-slate-800 block mb-1">
-                  {language === 'am' ? 'የኢትዮጵያ ስልክ ቁጥር (ቴሌብር / ሲቢኢ ብር) *' : 'Ethiopian Phone Number (Telebirr / CBE) *'}
+                  {language === 'am' ? 'የኢትዮጵያ ስልክ ቁጥር (አማራጭ)' : 'Phone Number (Optional)'}
                 </label>
                 <div className="relative">
                   <input
                     type="tel"
-                    required
                     placeholder="0911234567 or +251911234567"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
@@ -338,12 +337,21 @@ export default function AuthModal() {
                   />
                   <Phone className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                 </div>
+                <p className="text-[10px] text-slate-500 mt-1">{language === 'am' ? 'በኋላ ለክፍያ ማከል ይችላሉ።' : 'You can add it later when you need it for payments.'}</p>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-black text-slate-800 block mb-1">{language === 'am' ? 'የቴሌግራም ስም (አማራጭ)' : 'Telegram Username (Optional)'}</label>
+                <div className="relative">
+                  <input type="text" placeholder="e.g. @abebe" value={username} onChange={(e) => setUsername(e.target.value.replace(/^@/, ''))} className="w-full bg-slate-50 border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-amber-500 pl-9" />
+                  <Send className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                </div>
               </div>
 
               {/* 🛡️ Verification Method Choice: Telegram or SMS */}
               <div>
                 <label className="text-[11px] font-black text-slate-800 block mb-1.5">
-                  {language === 'am' ? 'የማረጋገጫ ዘዴ ይምረጡ *' : 'Select Verification Method *'}
+                  {language === 'am' ? 'የማረጋገጫ ዘዴ' : 'Verification method'}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -365,16 +373,17 @@ export default function AuthModal() {
                   <button
                     type="button"
                     onClick={() => setVerificationMethod('sms')}
+                    disabled={!phone.trim()}
                     className={`p-2.5 rounded-xl border-2 flex items-center gap-2 text-left transition cursor-pointer ${
                       verificationMethod === 'sms'
                         ? 'bg-emerald-50 border-emerald-600 shadow-xs ring-1 ring-emerald-500'
                         : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-                    }`}
+                    } ${!phone.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0" />
                     <div>
                       <div className="text-xs font-black text-slate-900">SMS Code</div>
-                      <div className="text-[10px] text-slate-600 font-medium">6-digit OTP code</div>
+                      <div className="text-[10px] text-slate-600 font-medium">{phone.trim() ? '6-digit code' : 'Phone number required'}</div>
                     </div>
                   </button>
                 </div>
@@ -425,7 +434,7 @@ export default function AuthModal() {
                 type="submit"
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:brightness-105 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>{language === 'am' ? 'ቀጥልና አረጋግጥ' : 'Continue to Verification'}</span>
+                <span>{language === 'am' ? 'መለያ ፍጠር' : 'Create Account'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
@@ -561,7 +570,7 @@ export default function AuthModal() {
           <form onSubmit={handleLoginSubmit} className="space-y-3.5">
             <div>
               <label className="text-[11px] font-black text-slate-800 block mb-1">
-                {language === 'am' ? 'የተመዘገበ ስልክ ቁጥር ወይም ቴሌግራም ID' : 'Registered Phone Number or Telegram ID'}
+                {language === 'am' ? 'ስልክ ቁጥር፣ ቴሌግራም ID ወይም የተጠቃሚ ስም' : 'Phone Number, Telegram ID, or Username'}
               </label>
               <div className="relative">
                 <input
@@ -577,7 +586,7 @@ export default function AuthModal() {
               <span className="text-[10px] text-slate-500 mt-1 block">
                 {language === 'am' 
                   ? 'በምዝገባ ወቅት ያስገቡትን ስልክ ቁጥር ወይም ቴሌግራም መታወቂያ ይጠቀሙ'
-                  : 'Use the phone number or Telegram ID provided during registration'}
+                  : 'Use the phone number, Telegram ID, or username you registered with'}
               </span>
             </div>
 

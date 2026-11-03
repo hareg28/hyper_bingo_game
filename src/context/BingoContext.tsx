@@ -120,7 +120,7 @@ interface BingoContextType {
   authModalMode: 'register' | 'login';
   openAuthModal: (mode?: 'register' | 'login') => void;
   closeAuthModal: () => void;
-  registerAccount: (data: { name: string; phone: string; username?: string; telegramId?: string; referralCode?: string }) => Promise<{ success: boolean; message?: string }>;
+  registerAccount: (data: { name: string; phone?: string; username?: string; telegramId?: string; referralCode?: string }) => Promise<{ success: boolean; message?: string }>;
   loginAccount: (identifier: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   verifyAdminAccess: (identifier: string) => Promise<{ success: boolean; isAdmin: boolean; message?: string }>;
@@ -672,7 +672,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
   const registerAccount = async (data: {
     name: string;
-    phone: string;
+    phone?: string;
     username?: string;
     telegramId?: string;
     referralCode?: string;

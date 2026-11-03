@@ -19,6 +19,9 @@ export async function POST(req: NextRequest) {
     if (!user) {
       user = await db.getUserByTelegramId(cleanInput);
     }
+    if (!user) {
+      user = await db.getUserByUsername(cleanInput);
+    }
 
     if (!user) {
       return NextResponse.json<ApiResponse>({

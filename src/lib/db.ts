@@ -309,7 +309,7 @@ const db = {
     const telegramId = params.telegramId ? String(params.telegramId) : `web_${Date.now()}`;
     const isAdmin = isAdminTelegramId(params.telegramId || params.username);
     const role = isAdmin ? 'admin' : 'user';
-    const username = params.username || `user_${params.phone.replace(/\D/g, '').slice(-4)}`;
+    const username = params.username || `player_${Math.random().toString(36).slice(2, 10)}`;
     const referralCode = generateReferralCode();
     const newId = generateId('usr');
     // Normalize: referredBy should be stored as uppercase for consistent lookup
@@ -326,7 +326,7 @@ const db = {
           if (!existing[0].referred_by && normalizedReferredBy) {
             const updated = await sql`
               UPDATE users
-              SET name = ${params.name}, phone = ${params.phone}, username = ${username}, role = ${effectiveRole}, referred_by = ${normalizedReferredBy}
+              SET name = ${params.name}, phone = ${params.phone || existing[0].phone || ''}, username = ${username}, role = ${effectiveRole}, referred_by = ${normalizedReferredBy}
               WHERE id = ${existing[0].id}
               RETURNING *
             `;
@@ -334,7 +334,7 @@ const db = {
           }
           const updated = await sql`
             UPDATE users
-            SET name = ${params.name}, phone = ${params.phone}, username = ${username}, role = ${effectiveRole}
+            SET name = ${params.name}, phone = ${params.phone || existing[0].phone || ''}, username = ${username}, role = ${effectiveRole}
             WHERE id = ${existing[0].id}
             RETURNING *
           `;
@@ -361,7 +361,7 @@ const db = {
       const updated: User = {
         ...existing,
         name: params.name,
-        phone: params.phone,
+        phone: params.phone || existing.phone,
         username,
         role: effectiveRole,
         referredBy: normalizedReferredBy ?? existing.referredBy,
