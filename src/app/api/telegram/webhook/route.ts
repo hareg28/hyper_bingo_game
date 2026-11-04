@@ -143,6 +143,27 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
+      if (data === 'register_account') {
+        const sql = getNeonSql();
+        if (!sql) {
+          await answerCallback('Registration is temporarily unavailable. Please try again later.', true);
+          return NextResponse.json({ ok: true });
+        }
+        await sql`CREATE TABLE IF NOT EXISTS telegram_registration_intents (
+          telegram_id VARCHAR(64) PRIMARY KEY, phone VARCHAR(32), expires_at TIMESTAMPTZ NOT NULL
+        )`;
+        await sql`INSERT INTO telegram_registration_intents (telegram_id, phone, expires_at)
+          VALUES (${String(from.id)}, NULL, NOW() + INTERVAL '15 minutes')
+          ON CONFLICT (telegram_id) DO UPDATE SET phone = NULL, expires_at = EXCLUDED.expires_at`;
+        await answerCallback('Let’s create your account.');
+        await sendMessage({
+          chat_id: message?.chat?.id || from.id,
+          text: 'Create your account: send your Ethiopian phone number, then share your own contact to confirm it. I will send a verification code here.',
+          reply_markup: { keyboard: [[{ text: '📱 Share my contact', request_contact: true }], [{ text: '📝 Register / Create Account' }]], resize_keyboard: true, one_time_keyboard: true },
+        });
+        return NextResponse.json({ ok: true });
+      }
+
       if (data.startsWith('appr_dep:') || data.startsWith('rejc_dep:')) {
         const isApprove = data.startsWith('appr_dep:');
         const actionPrefix = isApprove ? 'appr_dep:' : 'rejc_dep:';
@@ -780,6 +801,19 @@ export async function POST(req: NextRequest) {
       // ── /start [referral_code], /help — OR any first message ─────────────────────────────────
       // Handle referral links: /start ABC123 or start_param from Telegram deep link
       const startPayload = text?.startsWith('/start ') ? text.replace('/start ', '').trim() : null;
+      if (startPayload?.toLowerCase() === 'register' && userId) {
+        if (registrationSql) {
+          await registrationSql`INSERT INTO telegram_registration_intents (telegram_id, phone, expires_at)
+            VALUES (${String(userId)}, NULL, NOW() + INTERVAL '15 minutes')
+            ON CONFLICT (telegram_id) DO UPDATE SET phone = NULL, expires_at = EXCLUDED.expires_at`;
+        }
+        await sendMessage({
+          chat_id: chatId,
+          text: 'Create your account: send your Ethiopian phone number, then share your own contact to confirm it. I will send a verification code here.',
+          reply_markup: { keyboard: [[{ text: '📱 Share my contact', request_contact: true }], [{ text: '📝 Register / Create Account' }]], resize_keyboard: true, one_time_keyboard: true },
+        });
+        return NextResponse.json({ ok: true });
+      }
       const isReferralStart = startPayload && !startPayload.startsWith('gm_') && startPayload !== 'play';
 
       if (isReferralStart && startPayload && userId) {
@@ -794,9 +828,10 @@ export async function POST(req: NextRequest) {
             `Your referral code: <code>${startPayload}</code>\n\n` +
             `<b>👇 Tap below to register and start playing!</b>`,
           reply_markup: {
-            inline_keyboard: [[
-              { text: '🎮 Register & Play Now', web_app: { url: refAppUrl } },
-            ]],
+            inline_keyboard: [
+              [{ text: '📝 Register Account', callback_data: 'register_account' }],
+              [{ text: '🎮 Open Mini App', web_app: { url: refAppUrl } }],
+            ],
           },
         });
         return NextResponse.json({ ok: true });
