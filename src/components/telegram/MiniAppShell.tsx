@@ -180,7 +180,7 @@ export default function MiniAppShell({
           <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl space-y-4">
             <div className="text-4xl">🔐</div>
             <h1 className="text-xl font-black text-slate-950">Register to access Hyper Bingo</h1>
-            <p className="text-sm leading-relaxed text-slate-600">Create your account in the bot: enter your phone number, share your contact, and enter the verification code. Your Telegram profile name will be used automatically, and you can edit it here later.</p>
+            <p className="text-sm leading-relaxed text-slate-600">Create your account in the bot by tapping “Share my contact.” Your account is created immediately using your Telegram profile name, which you can edit here later.</p>
             <a href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot'}?start=register`} target="_blank" rel="noreferrer" className="block w-full rounded-xl bg-amber-500 px-4 py-3 font-black text-slate-950">Register in the bot</a>
             <p className="text-xs text-slate-500">After registration, close and reopen this Mini App.</p>
           </div>
