@@ -49,8 +49,15 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Upsert user in database
-    const user = await db.upsertUserFromTelegram(tgUser);
+    // Opening the Mini App must not silently create an account. Telegram
+    // accounts become eligible only after bot contact verification completed.
+    const user = await db.getUserByTelegramId(String(tgUser.id));
+    if (!user?.phone) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'Register in the Hyper Bingo bot and verify your phone before opening the Mini App.',
+      }, { status: 403 });
+    }
     const wallet = await db.getOrCreateWallet(user.id);
     const linkedAccounts = await db.getLinkedAccounts(user.id);
 

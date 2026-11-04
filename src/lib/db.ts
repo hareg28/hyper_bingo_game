@@ -418,6 +418,27 @@ const db = {
     return null;
   },
 
+  async updateUserName(userId: string, name: string): Promise<User | null> {
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`UPDATE users SET name = ${name} WHERE id = ${userId} RETURNING *`;
+        if (rows.length > 0) {
+          const updatedUser = rowToUser(rows[0]);
+          usersMap.set(updatedUser.id, updatedUser);
+          return updatedUser;
+        }
+      } catch (error) {
+        console.error('Neon updateUserName error:', error);
+      }
+    }
+    const user = usersMap.get(userId);
+    if (!user) return null;
+    const updatedUser = { ...user, name };
+    usersMap.set(userId, updatedUser);
+    return updatedUser;
+  },
+
   /**
    * Add / promote an admin by identifier (telegramId, username, or phone)
    */

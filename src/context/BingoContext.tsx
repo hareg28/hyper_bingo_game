@@ -122,6 +122,7 @@ interface BingoContextType {
   closeAuthModal: () => void;
   registerAccount: (data: { name: string; phone?: string; username?: string; telegramId?: string; referralCode?: string }) => Promise<{ success: boolean; message?: string }>;
   loginAccount: (identifier: string) => Promise<{ success: boolean; message?: string }>;
+  updateProfileName: (name: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   verifyAdminAccess: (identifier: string) => Promise<{ success: boolean; isAdmin: boolean; message?: string }>;
 }
@@ -380,7 +381,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
               const targetRole = isAdm || prev.role === 'admin' ? 'admin' : prev.role;
               const updated = {
                 ...prev,
-                name: `${tgUser.first_name || ''}${tgUser.last_name ? ' ' + tgUser.last_name : ''}`.trim() || prev.name,
+                name: prev.phone ? prev.name : `${tgUser.first_name || ''}${tgUser.last_name ? ' ' + tgUser.last_name : ''}`.trim() || prev.name,
                 username: tgUser.username || prev.username,
                 telegramId: newTgId,
                 role: targetRole,
@@ -390,6 +391,29 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             }
             return prev;
           });
+
+          // Re-check account eligibility when the Mini App opens. Registration
+          // is completed in the bot, so a player returning from registration
+          // should be admitted without needing a separate web sign-in.
+          if (typeof tg.initData === 'string' && tg.initData) {
+            fetch('/api/auth/telegram', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ initData: tg.initData }),
+            })
+              .then((response) => response.json())
+              .then((result) => {
+                if (result.success && result.data?.user) {
+                  setUser(result.data.user);
+                  localStorage.setItem('hyper_bingo_user', JSON.stringify(result.data.user));
+                  if (result.data.wallet) {
+                    setWallet(result.data.wallet);
+                    localStorage.setItem('hyper_bingo_wallet', JSON.stringify(result.data.wallet));
+                  }
+                }
+              })
+              .catch(() => {});
+          }
 
           // Check if user is promoted in DB to admin
           fetch('/api/auth/verify-admin', {
@@ -749,6 +773,24 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Login failed';
       return { success: false, message: msg };
+    }
+  };
+
+  const updateProfileName = async (name: string): Promise<{ success: boolean; message?: string }> => {
+    if (!user) return { success: false, message: 'Please register or sign in first.' };
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
+        body: JSON.stringify({ name }),
+      });
+      const result = await res.json();
+      if (!result.success || !result.data?.user) return { success: false, message: result.error || 'Could not update your name.' };
+      setUser(result.data.user);
+      localStorage.setItem('hyper_bingo_user', JSON.stringify(result.data.user));
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Could not update your name.' };
     }
   };
 
@@ -2711,6 +2753,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         closeAuthModal,
         registerAccount,
         loginAccount,
+        updateProfileName,
         logout,
         verifyAdminAccess,
       }}

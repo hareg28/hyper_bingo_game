@@ -48,6 +48,11 @@ export async function POST(req: NextRequest) {
       }, { status: 409 });
     }
 
+    // Telegram registrations are completed in the bot after contact verification.
+    if (telegramId?.trim()) {
+      return NextResponse.json<ApiResponse>({ success: false, error: 'Please complete Telegram registration through the bot.' }, { status: 403 });
+    }
+
     const user = await db.registerUser({
       name: name.trim(),
       phone: cleanPhone,

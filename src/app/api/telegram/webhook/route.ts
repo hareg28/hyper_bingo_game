@@ -4,10 +4,17 @@ import { db } from '@/lib/db';
 import { getNeonSql } from '@/lib/neon';
 import { verifyDepositActionSignature } from '@/lib/adminDepositActions';
 import { notifyAdminsTelegram } from '@/lib/adminNotifications';
+import { randomInt, createHash } from 'node:crypto';
 
 function safeTgHtml(str: string): string {
   if (!str) return '';
-  return str.replace(/&(?!amp;|lt;|gt;|quot;|#\d+;)/g, '&amp;');
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function normalizeEthiopianPhone(value: string): string | null {
+  const digits = value.replace(/[^\d+]/g, '');
+  const normalized = digits.startsWith('+251') ? digits : digits.startsWith('251') ? `+${digits}` : digits.startsWith('0') ? `+251${digits.slice(1)}` : `+251${digits}`;
+  return /^\+251[79]\d{8}$/.test(normalized) ? normalized : null;
 }
 
 // Keep the function alive for up to 30 seconds on Vercel
@@ -76,6 +83,7 @@ export async function POST(req: NextRequest) {
     // ── Persistent bottom keyboard (ReplyKeyboardMarkup) ───────────────────────
     const buildPersistentKeyboard = (admin: boolean) => ({
       keyboard: [
+        [{ text: '📝 Register / Create Account' }],
         // Row 1 — Three game categories
         [
           { text: '⚡ Hyper Fetan', web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` } },
@@ -303,12 +311,110 @@ export async function POST(req: NextRequest) {
 
     // ── Regular message updates ─────────────────────────────────────────────────
     if (update.message) {
-      const { chat, from, text, photo, document, caption } = update.message;
+      const { chat, from, text, photo, document, caption, contact } = update.message;
       const chatId = chat.id;
       const userId = from?.id;
       const userName = from?.first_name || 'Player';
       const userInDb = userId ? await db.getUserByTelegramId(String(userId)).catch(() => null) : null;
       let isAdmin = isAdminTelegramId(userId) || isAdminTelegramId(from?.username) || userInDb?.role === 'admin';
+
+      // Registration is completed in the bot: Telegram contact sharing proves
+      // the number belongs to this Telegram account, then a short-lived code is
+      // sent to this chat and must be entered before creating the account.
+      const registrationSql = getNeonSql();
+      if (registrationSql) {
+        await registrationSql`CREATE TABLE IF NOT EXISTS telegram_registration_challenges (
+          telegram_id VARCHAR(64) PRIMARY KEY, phone VARCHAR(32) NOT NULL,
+          code_hash VARCHAR(64) NOT NULL, expires_at TIMESTAMPTZ NOT NULL,
+          attempts INTEGER NOT NULL DEFAULT 0
+        )`;
+        await registrationSql`CREATE TABLE IF NOT EXISTS telegram_registration_intents (
+          telegram_id VARCHAR(64) PRIMARY KEY, phone VARCHAR(32), expires_at TIMESTAMPTZ NOT NULL
+        )`;
+      }
+      const contactMatchesSender = Boolean(contact && userId && String(contact.user_id) === String(userId));
+      if (contact) {
+        if (!contactMatchesSender || !contact.phone_number) {
+          await sendMessage({ chat_id: chatId, text: 'Please use the “Share my contact” button so I can verify it belongs to you.' });
+          return NextResponse.json({ ok: true });
+        }
+        if (!registrationSql) {
+          await sendMessage({ chat_id: chatId, text: 'Account registration is temporarily unavailable. Please try again later.' });
+          return NextResponse.json({ ok: true });
+        }
+        const cleanPhone = normalizeEthiopianPhone(contact.phone_number);
+        if (!cleanPhone) {
+          await sendMessage({ chat_id: chatId, text: 'Please share a valid Ethiopian phone contact (+251 9… or +251 7…).' });
+          return NextResponse.json({ ok: true });
+        }
+        const pendingPhoneRows = await registrationSql`SELECT phone FROM telegram_registration_intents WHERE telegram_id = ${String(userId)} AND expires_at > NOW() LIMIT 1`;
+        const pendingPhone = pendingPhoneRows[0] as { phone: string | null } | undefined;
+        if (pendingPhone?.phone && pendingPhone.phone !== cleanPhone) {
+          await sendMessage({ chat_id: chatId, text: 'The shared contact does not match the phone number you entered. Send /register to start again.' });
+          return NextResponse.json({ ok: true });
+        }
+        const existingPhone = await db.getUserByPhone(cleanPhone).catch(() => null);
+        const existingTelegram = await db.getUserByTelegramId(String(userId)).catch(() => null);
+        if (existingPhone || existingTelegram?.phone) {
+          await sendMessage({ chat_id: chatId, text: 'This phone or Telegram account already has an account. Open the mini app and sign in.' });
+          return NextResponse.json({ ok: true });
+        }
+        const code = String(randomInt(100000, 1000000));
+        const codeHash = createHash('sha256').update(`${userId}:${code}:${botToken}`).digest('hex');
+        await registrationSql`INSERT INTO telegram_registration_challenges (telegram_id, phone, code_hash, expires_at, attempts)
+          VALUES (${String(userId)}, ${cleanPhone}, ${codeHash}, NOW() + INTERVAL '10 minutes', 0)
+          ON CONFLICT (telegram_id) DO UPDATE SET phone = EXCLUDED.phone, code_hash = EXCLUDED.code_hash,
+          expires_at = EXCLUDED.expires_at, attempts = 0`;
+        await sendMessage({ chat_id: chatId, parse_mode: 'HTML', text: `Your Hyper Bingo verification code is <code>${code}</code>. Enter it here within 10 minutes.` });
+        return NextResponse.json({ ok: true });
+      }
+
+      const isRegisterCommand = text?.trim().toLowerCase() === '/register' || text?.trim().toLowerCase() === '📝 register / create account';
+      if (isRegisterCommand) {
+        if (userInDb?.phone) {
+          await sendMessage({ chat_id: chatId, text: 'Your account is already registered. Open the mini app to play.', reply_markup: buildPersistentKeyboard(isAdmin) });
+        } else {
+          if (registrationSql) {
+            await registrationSql`INSERT INTO telegram_registration_intents (telegram_id, phone, expires_at)
+              VALUES (${String(userId)}, NULL, NOW() + INTERVAL '15 minutes')
+              ON CONFLICT (telegram_id) DO UPDATE SET phone = NULL, expires_at = EXCLUDED.expires_at`;
+          }
+          await sendMessage({
+            chat_id: chatId,
+            text: 'Create your account: first send your Ethiopian phone number (for example 0912345678), then share your own contact to confirm it. I will send a verification code here.',
+            reply_markup: { keyboard: [[{ text: '📱 Share my contact', request_contact: true }], [{ text: 'Cancel' }]], resize_keyboard: true, one_time_keyboard: true },
+          });
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      if (text && userId && registrationSql && !text.startsWith('/') && normalizeEthiopianPhone(text.trim())) {
+        const intents = await registrationSql`SELECT telegram_id FROM telegram_registration_intents WHERE telegram_id = ${String(userId)} AND expires_at > NOW() LIMIT 1`;
+        if (intents.length) {
+          const phone = normalizeEthiopianPhone(text.trim())!;
+          await registrationSql`UPDATE telegram_registration_intents SET phone = ${phone}, expires_at = NOW() + INTERVAL '15 minutes' WHERE telegram_id = ${String(userId)}`;
+          await sendMessage({ chat_id: chatId, text: 'Thanks. Now tap “Share my contact” below so I can confirm this number belongs to you.', reply_markup: { keyboard: [[{ text: '📱 Share my contact', request_contact: true }], [{ text: 'Cancel' }]], resize_keyboard: true, one_time_keyboard: true } });
+          return NextResponse.json({ ok: true });
+        }
+      }
+
+      if (text && userId && /^\d{6}$/.test(text.trim()) && registrationSql) {
+        const rows = await registrationSql`SELECT phone, code_hash, expires_at, attempts FROM telegram_registration_challenges WHERE telegram_id = ${String(userId)} LIMIT 1`;
+        const challenge = rows[0] as { phone: string; code_hash: string; expires_at: string; attempts: number } | undefined;
+        const submittedHash = createHash('sha256').update(`${userId}:${text.trim()}:${botToken}`).digest('hex');
+        if (!challenge || new Date(challenge.expires_at).getTime() < Date.now() || challenge.attempts >= 5 || submittedHash !== challenge.code_hash) {
+          if (challenge) await registrationSql`UPDATE telegram_registration_challenges SET attempts = attempts + 1 WHERE telegram_id = ${String(userId)}`;
+          await sendMessage({ chat_id: chatId, text: 'That code is invalid or expired. Send /register to request a new one.' });
+          return NextResponse.json({ ok: true });
+        }
+        await registrationSql`DELETE FROM telegram_registration_challenges WHERE telegram_id = ${String(userId)}`;
+        const telegramName = [from?.first_name, from?.last_name].filter(Boolean).join(' ').trim() || from?.username || `Player ${userId}`;
+        const newUser = await db.registerUser({ name: telegramName, phone: challenge.phone, username: from?.username, telegramId: String(userId) });
+        await db.getOrCreateWallet(newUser.id);
+        await registrationSql`DELETE FROM telegram_registration_intents WHERE telegram_id = ${String(userId)}`;
+        await sendMessage({ chat_id: chatId, parse_mode: 'HTML', text: `🎉 Account created for <b>${safeTgHtml(telegramName)}</b>! You can change your name anytime in the Mini App profile. Your 20 ETB game bonus is ready.`, reply_markup: buildPersistentKeyboard(isAdmin) });
+        return NextResponse.json({ ok: true });
+      }
 
       // ── Handle /admin command or admin authorization code ─────────────────────────
       if (text && text.startsWith('/admin')) {

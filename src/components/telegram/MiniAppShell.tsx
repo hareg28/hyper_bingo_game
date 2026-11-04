@@ -53,6 +53,7 @@ export default function MiniAppShell({
   initialGameId?: string;
   embedded?: boolean;
 }) {
+  const [isTelegramMiniApp, setIsTelegramMiniApp] = useState(false);
   const { 
     games, 
     user, 
@@ -69,6 +70,7 @@ export default function MiniAppShell({
     setLanguage,
     t,
     openAuthModal,
+    updateProfileName,
     toggleUserRole,
     userCards,
     getLotterySoldNumbers,
@@ -84,8 +86,16 @@ export default function MiniAppShell({
   const [localGameId, setLocalGameId] = useState<string | null>(initialGameId || activeGameId || null);
   const [showLuckyWheel, setShowLuckyWheel] = useState(false);
   const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profileNameMessage, setProfileNameMessage] = useState('');
+  const [savingProfileName, setSavingProfileName] = useState(false);
 
   useEffect(() => {
+    setProfileName(user?.name || '');
+  }, [user?.name]);
+
+  useEffect(() => {
+    setIsTelegramMiniApp(Boolean((window as any).Telegram?.WebApp?.initData));
     if (activeGameId) {
       setLocalGameId(activeGameId);
     }
@@ -165,6 +175,17 @@ export default function MiniAppShell({
 
   return (
     <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200" style={heightStyle}>
+      {isTelegramMiniApp && !user?.phone && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 p-5 text-center">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl space-y-4">
+            <div className="text-4xl">🔐</div>
+            <h1 className="text-xl font-black text-slate-950">Register to access Hyper Bingo</h1>
+            <p className="text-sm leading-relaxed text-slate-600">Create your account in the bot: enter your phone number, share your contact, and enter the verification code. Your Telegram profile name will be used automatically, and you can edit it here later.</p>
+            <a href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot'}?start=register`} target="_blank" rel="noreferrer" className="block w-full rounded-xl bg-amber-500 px-4 py-3 font-black text-slate-950">Register in the bot</a>
+            <p className="text-xs text-slate-500">After registration, close and reopen this Mini App.</p>
+          </div>
+        </div>
+      )}
       {/* Telegram WebApp Frame Header - Clean White */}
       {activeTab === 'game' && !isGameMenuOpen ? (
         <div className="bg-white border-b border-slate-200 px-3 py-1.5 flex items-center justify-between sticky top-0 z-30 shadow-xs shrink-0">
@@ -745,6 +766,36 @@ export default function MiniAppShell({
                       </span>
                     </div>
                   </div>
+
+                  <form
+                    className="space-y-2 border-t border-slate-100 pt-3"
+                    onSubmit={async (event) => {
+                      event.preventDefault();
+                      setSavingProfileName(true);
+                      setProfileNameMessage('');
+                      const result = await updateProfileName(profileName);
+                      setProfileNameMessage(result.success ? 'Name updated.' : result.message || 'Could not update name.');
+                      setSavingProfileName(false);
+                    }}
+                  >
+                    <label className="block text-xs font-bold text-slate-700" htmlFor="profile-name">Display name</label>
+                    <div className="flex gap-2">
+                      <input
+                        id="profile-name"
+                        type="text"
+                        value={profileName}
+                        onChange={(event) => setProfileName(event.target.value)}
+                        maxLength={100}
+                        minLength={2}
+                        required
+                        className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-amber-500 focus:outline-none"
+                      />
+                      <button type="submit" disabled={savingProfileName || profileName.trim() === user.name} className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">
+                        {savingProfileName ? 'Saving…' : 'Save'}
+                      </button>
+                    </div>
+                    {profileNameMessage && <p className="text-xs text-slate-600" role="status">{profileNameMessage}</p>}
+                  </form>
 
                   {/* Admin Mode Switcher Button inside Profile */}
                   {isUserAdmin && (
