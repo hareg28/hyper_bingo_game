@@ -1329,24 +1329,34 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
       {/* ── Clean & Simple Weekend Bar (No Crowding, Single Slim Row) ── */}
       {isWeekendGame && (
-        <div className="mx-2 mt-1.5 px-3 py-1.5 bg-white rounded-xl border border-amber-300 shadow-2xs flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-xs shrink-0">🎟️</span>
-            <span className="text-[11px] font-black text-slate-900 truncate">
-              {currentGame.weekendDay === 'FRI' ? (language === 'am' ? 'ዓርብ' : 'Friday')
-                : currentGame.weekendDay === 'SAT' ? (language === 'am' ? 'ቅዳሜ' : 'Saturday')
-                : (language === 'am' ? 'እሑድ' : 'Sunday')} · {currentGame.weekendSlot === '2PM' ? '2:00 PM (8:00)' : '6:00 PM (12:00)'} · 50 ETB
-            </span>
+        <div className="mx-2 mt-1.5 space-y-1">
+          <div className="px-3 py-1.5 bg-white rounded-xl border border-amber-300 shadow-2xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-xs shrink-0">🎟️</span>
+              <span className="text-[11px] font-black text-slate-900 truncate">
+                {currentGame.weekendDay === 'FRI' ? (language === 'am' ? 'ዓርብ' : 'Friday')
+                  : currentGame.weekendDay === 'SAT' ? (language === 'am' ? 'ቅዳሜ' : 'Saturday')
+                  : (language === 'am' ? 'እሑድ' : 'Sunday')} · {currentGame.weekendSlot === '2PM' ? '2:00 PM (8:00)' : '6:00 PM (12:00)'} · 50 ETB
+              </span>
+            </div>
+            {onOpenLotteryTab && (
+              <button
+                type="button"
+                onClick={onOpenLotteryTab}
+                className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wider flex items-center gap-1 transition shadow-2xs cursor-pointer"
+              >
+                <span>🎟️</span>
+                <span>{language === 'am' ? 'ካርድ ምረጥ' : 'Pick Cards'}</span>
+              </button>
+            )}
           </div>
-          {onOpenLotteryTab && (
-            <button
-              type="button"
-              onClick={onOpenLotteryTab}
-              className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wider flex items-center gap-1 transition shadow-2xs cursor-pointer"
-            >
-              <span>🎟️</span>
-              <span>{language === 'am' ? 'ካርድ ምረጥ' : 'Pick Cards'}</span>
-            </button>
+          {currentGame.status !== 'RUNNING' && (
+            <div className="flex items-center justify-between px-3 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[10px] font-bold text-amber-900">
+              <span>{language === 'am' ? '📊 የተሸጡ ካርዶች (ተጫዋቾች):' : '📊 Cards Sold (Players Joined):'}</span>
+              <span className="font-mono font-black text-amber-950 bg-amber-200/80 px-2 py-0.5 rounded">
+                {soldNumbers?.size || currentGame.currentPlayers || 0} / 1500
+              </span>
+            </div>
           )}
         </div>
       )}
@@ -1794,8 +1804,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
               <div className="text-xs font-black truncate leading-tight">
                 {language === 'am'
-                  ? `ካርድ #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} (${currentGame.winners[currentGame.winners.length - 1].username}) ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)} አሸንፏል!`
-                  : `Card #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} (${currentGame.winners[currentGame.winners.length - 1].username}) WON ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)}!`}
+                  ? `አሸናፊ: @${currentGame.winners[currentGame.winners.length - 1].username} · የካርድ ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)} አሸንፏል!`
+                  : `Winner: @${currentGame.winners[currentGame.winners.length - 1].username} · Card ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — WON ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)}!`}
               </div>
             </div>
           </div>
@@ -1853,8 +1863,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     <span>
                       {latestWinner
                         ? (language === 'am'
-                          ? `🎉 ቢንጎ አሸናፊ: @${latestWinner.username} (ካርድ #${latestWinner.cardNumber})!`
-                          : `🎉 BINGO WINNER: @${latestWinner.username} (Card #${latestWinner.cardNumber})!`)
+                          ? `🎉 ቢንጎ አሸናፊ: @${latestWinner.username} (ID #${latestWinner.cardNumber || latestWinner.userId.replace(/^bot_/, '')})!`
+                          : `🎉 BINGO WINNER: @${latestWinner.username} (ID #${latestWinner.cardNumber || latestWinner.userId.replace(/^bot_/, '')})!`)
                         : (isSpecialGame
                           ? (language === 'am' ? 'የስፔሻል ዙር ተጠናቋል!' : 'Hyper Special Round Finished!')
                           : (language === 'am' ? 'ዙሩ ተጠናቋል!' : 'Round Finished!'))
@@ -2715,13 +2725,27 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <p className="text-2xl font-black text-white tracking-wide">
                 @{latestWinner.username}
               </p>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-black">
+                <span>{language === 'am' ? 'የተጠቃሚ ID ቁጥር' : 'Winner ID #'}:</span>
+                <span className="text-white">#{latestWinner.cardNumber || latestWinner.userId.replace(/^bot_/, '')}</span>
+              </div>
             </div>
 
             <div className="bg-white/10 rounded-2xl p-3.5 border border-white/15 space-y-2.5 text-left">
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                <span className="text-slate-300 font-bold">{language === 'am' ? 'የአሸናፊ ካርድ ቁጥር:' : 'Winning Card #:'}</span>
+                <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጠቃሚ ስም (Username):' : 'Username:'}</span>
+                <span className="font-black text-amber-300 text-sm">@{latestWinner.username}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                <span className="text-slate-300 font-bold">{language === 'am' ? 'የካርድ ID ቁጥር (Card ID #):' : 'Card ID #:'}</span>
                 <span className="font-mono font-black text-amber-300 text-base">
                   #{latestWinner.cardNumber || ''}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጫዋች ID (Player ID):' : 'Player ID:'}</span>
+                <span className="font-mono text-xs text-slate-300">
+                  {latestWinner.userId}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">

@@ -243,7 +243,8 @@ export async function ensureBotPlayersInDb(
 
     // Generate fresh bot cards
     const botCards = generateBotCards(game.id, category, targetBotCount, takenCardNumbers, roundSeed);
-    const pricePerCard = parseFloat(String(game.entry_price || '10'));
+    const isWeekend = category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY' || String(game.id).includes('weekend');
+    const pricePerCard = parseFloat(String(game.entry_price || (isWeekend ? '50' : '10')));
 
     // Insert bot cards into game_cards
     for (const bot of botCards) {
@@ -365,9 +366,35 @@ export async function checkAndTriggerBotWin(
  * Returns initial bot sold cards for a game to show on initial client load.
  */
 export function getInitialBotSoldCardNumbers(gameId: string, category?: string): number[] {
-  const count = getBotCountForGame(gameId, category, 100);
-  const cards = generateBotCards(gameId, category, count, new Set(), 100);
+  const seed = hashString(gameId);
+  const count = getBotCountForGame(gameId, category, seed);
+  const cards = generateBotCards(gameId, category, count, new Set(), seed);
   return cards
     .map((c) => parseInt(c.cardNumber, 10))
     .filter((n) => Number.isInteger(n) && n > 0);
+}
+
+export interface BotActivityEntry {
+  username: string;
+  cardNumber: string;
+  timeAgoSeconds: number; // how many seconds ago the bot "joined"
+}
+
+/**
+ * Generates a list of recent bot activity entries (joins) for a game,
+ * simulating a live-looking activity feed. Used in the Weekend game lobby
+ * to show sold cards and active player joins before the game starts.
+ */
+export function getBotActivityFeed(gameId: string, category?: string, count = 12): BotActivityEntry[] {
+  const seed = hashString(gameId + '_activity');
+  const botCards = generateBotCards(gameId, category, Math.min(count, 60), new Set(), seed);
+  const entries: BotActivityEntry[] = botCards.map((bot, i) => ({
+    username: bot.username,
+    cardNumber: bot.cardNumber,
+    // Space joins 10–240 seconds apart to look natural
+    timeAgoSeconds: 10 + ((seed + i * 37) % 230),
+  }));
+  // Sort so most recent joins appear first
+  entries.sort((a, b) => a.timeAgoSeconds - b.timeAgoSeconds);
+  return entries;
 }

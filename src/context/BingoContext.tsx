@@ -23,6 +23,7 @@ import {
   SPECIAL_PICK_SECONDS,
   calcLotteryTotalCost,
   formatLotteryCardNumber,
+  formatETB,
   LOTTERY_NUMBERS_TOTAL,
   isWeekendSlotCurrentlyLive,
   computeWeekendPrizePool,
@@ -608,6 +609,18 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 localGame.prizePool === server.prizePool &&
                 localGame.drawInterval === server.drawInterval
               ) return localGame;
+              if (serverWinners.length > 0 && JSON.stringify(localGame.winners) !== JSON.stringify(serverWinners)) {
+                const latest = serverWinners[serverWinners.length - 1];
+                if (latest && latest.username) {
+                  addNotification(
+                    language === 'am' ? '🎉 ቢንጎ አሸናፊ ተገኘ!' : '🎉 Bingo Winner Announced!',
+                    language === 'am'
+                      ? `@${latest.username} (ID #${latest.cardNumber || latest.userId.replace(/^bot_/, '')}) ${formatETB(latest.prizeWon)} አሸነፈ!`
+                      : `@${latest.username} (ID #${latest.cardNumber || latest.userId.replace(/^bot_/, '')}) won ${formatETB(latest.prizeWon)}!`,
+                    'win'
+                  );
+                }
+              }
               // Only overwrite fields that come from the server;
               // keep local-only fields like name, gameType, category etc.
               return {
@@ -649,7 +662,13 @@ export function BingoProvider({ children }: { children: ReactNode }) {
               json.data.forEach((serverGame: any) => {
                 if (Array.isArray(serverGame.soldCards)) {
                   const existing = nextMap[serverGame.id] || new Set<number>();
-                  const authoritative = new Set<number>(serverGame.soldCards);
+                  let authoritative = new Set<number>(serverGame.soldCards);
+                  if (authoritative.size === 0) {
+                    const fallback = getInitialBotSoldCardNumbers(serverGame.id, serverGame.category || serverGame.game_type);
+                    if (fallback.length > 0) {
+                      authoritative = new Set<number>(fallback);
+                    }
+                  }
                   if (
                     authoritative.size !== existing.size ||
                     [...authoritative].some((num) => !existing.has(num)) ||

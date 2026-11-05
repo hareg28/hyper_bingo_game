@@ -160,12 +160,12 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      if (isWeekend && !weekendRoundIsLive) continue;
-
-      // Ensure active bot players are present in the room with varied player counts and unique cards
+      // Ensure active bot players are present in all rooms (including Weekend OPEN games before game starts)
       if (game.status === 'OPEN' || game.status === 'RUNNING') {
         await ensureBotPlayersInDb(sql, game);
       }
+
+      if (isWeekend && !weekendRoundIsLive) continue;
 
       // Start the shared round as soon as its pick deadline expires.
       if (!isWeekend && game.status === 'OPEN' && drawn.length === 0 && game.next_round_starts_at &&
