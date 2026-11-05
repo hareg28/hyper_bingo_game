@@ -1832,6 +1832,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   //                              PrizePool = round(Players × Price × 0.80)
   const createGame = (gameData: Omit<Game, 'id' | 'currentPlayers' | 'drawnNumbers' | 'winners' | 'createdAt'>) => {
     const isWeekend = !!gameData.isWeekendSpecial || gameData.gameType === 'WEEKEND_LOTTERY';
+    if (isWeekend) {
+      addNotification('Weekend Schedule Managed', 'Weekend draws run once per day on Friday, Saturday, and Sunday at 3:00 PM (9:00 Ethiopia clock time).', 'warning');
+      return;
+    }
     const enforcedPrize = isWeekend
       ? Math.round(gameData.prizePool || 0)
       : 0; // Regular games → compute live in getGameLivePrizePool (players × price × 0.80)

@@ -85,11 +85,10 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         `🌟👑 HYPER BINGO ETHIOPIA — WEEKEND MEGA EXTRAVAGANZA! 👑🌟\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `🇪🇹 የሳምንቱ መጨረሻ ታላቅ የቢንጎ እና የሎተሪ ፌስቲቫል!\n` +
-        `💰 የጃክፖት ፈንድ / Total Prize Pool: 100,000+ ETB!\n\n` +
+        `💰 የዕለት የጃክፖት ፈንድ / Daily Jackpot: up to 50,000 ETB!\n\n` +
         `📅 ዕለታት (Draw Days): ዓርብ (Fri) · ቅዳሜ (Sat) · እሑድ (Sun)\n` +
-        `⏰ የቀጥታ ዕጣ ማውጣት ሰዓቶች (Official Draw Times):\n` +
-        `   🏆 2:00 PM (ከሰዓት 8:00 ሰዓት) — ⚡ Mega Afternoon Kickoff\n` +
-        `   🏆 6:00 PM (ምሽት 12:00 ሰዓት) — 👑 Mega Evening Jackpot\n\n` +
+        `⏰ አንድ ጨዋታ በየቀኑ (One draw per day, Ethiopia time):\n` +
+        `   🏆 Friday · Saturday · Sunday at 3:00 PM (9:00 Ethiopia clock time)\n\n` +
         `💎 ልዩ ጥቅሞች (Why Play Now):\n` +
         `   ✅ 80% የተጣራ ክፍያ ለአሸናፊዎች (80% Return to Players)\n` +
         `   ✅ ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር (Instant Cashout)\n` +
@@ -149,11 +148,10 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
       `🌟👑 HYPER BINGO ETHIOPIA — WEEKEND MEGA EXTRAVAGANZA! 👑🌟\n` +
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `🇪🇹 የሳምንቱ መጨረሻ ታላቅ የቢንጎ እና የሎተሪ ፌስቲቫል!\n` +
-      `💰 የጃክፖት ፈንድ / Total Prize Pool: 100,000+ ETB!\n\n` +
+      `💰 የዕለት የጃክፖት ፈንድ / Daily Jackpot: up to 50,000 ETB!\n\n` +
       `📅 ዕለታት (Draw Days): ዓርብ (Fri) · ቅዳሜ (Sat) · እሑድ (Sun)\n` +
-      `⏰ የቀጥታ ዕጣ ማውጣት ሰዓቶች (Official Draw Times):\n` +
-      `   🏆 2:00 PM (ከሰዓት 8:00 ሰዓት) — ⚡ Mega Afternoon Kickoff\n` +
-      `   🏆 6:00 PM (ምሽት 12:00 ሰዓት) — 👑 Mega Evening Jackpot\n\n` +
+      `⏰ One draw per day (Ethiopia time):\n` +
+      `   🏆 Friday · Saturday · Sunday at 3:00 PM (9:00 Ethiopia clock time)\n\n` +
       `💎 ልዩ ጥቅሞች (Why Play Now):\n` +
       `   ✅ 80% የተጣራ ክፍያ ለአሸናፊዎች (80% Return to Players)\n` +
       `   ✅ ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር (Instant Cashout)\n` +
@@ -754,7 +752,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                             {language === 'am' ? 'የሳምንቱ መጨረሻ ጨዋታዎች ማሰራጫ' : 'Weekend Lottery Game Broadcast'}
                           </h3>
                           <span className="text-xs text-slate-500 font-medium">
-                            {language === 'am' ? 'ዕለታት፡ ዓርብ፣ ቅዳሜ፣ እሑድ (2:00 PM & 6:00 PM — 8:00 እና 12:00 ሰዓት)' : 'Draw Times: Fri, Sat, Sun at 2:00 PM & 6:00 PM (Ethio 8:00 & 12:00)'}
+                            {language === 'am' ? 'አንድ ጨዋታ በየቀኑ፡ ዓርብ፣ ቅዳሜ እና እሑድ 3:00 PM (9:00 የኢትዮጵያ ሰዓት)' : 'One draw per day: Friday, Saturday & Sunday at 3:00 PM (9:00 Ethiopia time)'}
                           </span>
                         </div>
                       </div>
@@ -821,30 +819,21 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                           <span>🏆</span> {language === 'am' ? 'የሳምንቱ መጨረሻ የዕጣ ሰዓቶች እና ሽልማቶች' : 'Official Draw Times & Prize Pools'}
                         </span>
                         <span className="text-[10px] font-black bg-amber-200 text-amber-950 border border-amber-400 px-2 py-0.5 rounded-full">
-                          100,000+ ETB Pool
+                          Up to 50,000 ETB per draw
                         </span>
                       </div>
                       
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                      <div className="grid grid-cols-1 gap-2.5 pt-1">
                         <div className="p-3 rounded-xl bg-white border border-amber-200 flex flex-col justify-between shadow-2xs">
                           <div>
-                            <span className="text-[10px] font-black text-amber-700 uppercase block">2:00 PM Draw (ከሰዓት 8:00)</span>
-                            <span className="text-xs font-black text-slate-900 block mt-0.5">⚡ Mega Afternoon Kickoff</span>
+                            <span className="text-[10px] font-black text-amber-700 uppercase block">Friday · Saturday · Sunday at 3:00 PM</span>
+                            <span className="text-xs font-black text-slate-900 block mt-0.5">🌟 9:00 Ethiopia clock time · one afternoon draw per day</span>
                           </div>
                           <span className="text-xs font-mono font-black text-emerald-700 mt-2">
-                            🏆 50,000 ETB
+                            🏆 Up to 50,000 ETB per draw
                           </span>
                         </div>
 
-                        <div className="p-3 rounded-xl bg-white border border-amber-200 flex flex-col justify-between shadow-2xs">
-                          <div>
-                            <span className="text-[10px] font-black text-amber-700 uppercase block">6:00 PM Draw (ምሽት 12:00)</span>
-                            <span className="text-xs font-black text-slate-900 block mt-0.5">👑 Mega Evening Jackpot</span>
-                          </div>
-                          <span className="text-xs font-mono font-black text-emerald-700 mt-2">
-                            🏆 100,000 ETB
-                          </span>
-                        </div>
                       </div>
 
                       <div className="pt-2 text-xs text-slate-700 flex items-center justify-between border-t border-amber-200/80 font-bold">
@@ -1966,7 +1955,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                   <option value="TURBO_EXPRESS">Turbo Express (2s)</option>
                   <option value="CLASSIC_75">Classic 75 (5s)</option>
                   <option value="HIGH_STAKES">High Stakes VIP</option>
-                  <option value="WEEKEND_LOTTERY">🌟 Weekend Mega Lottery (Fri-Sun)</option>
+                  <option value="WEEKEND_LOTTERY" disabled>🌟 Weekend draws: fixed weekly schedule</option>
                 </select>
               </div>
 

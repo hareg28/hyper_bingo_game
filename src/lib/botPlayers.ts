@@ -84,7 +84,7 @@ export function getBotCountForGame(gameId: string, category?: string, roundSeed?
   }
 
   if (isWeekend) {
-    // Weekend games are scheduled events (Fri/Sat/Sun 2PM & 6PM) - no morning/afternoon split.
+    // Weekend games are scheduled events (Fri/Sun 3 PM, Sat 9 PM Ethiopia time).
     // Starting 700 up to 1300 players per scheduled game.
     const weekendSeed = Math.abs(hashString(gameId) + (roundSeed ? Math.floor(roundSeed / 86400000) : 0));
     return 700 + (weekendSeed % 601); // 700..1300 players

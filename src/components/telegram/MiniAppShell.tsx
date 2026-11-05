@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
-import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS, HYPER_SPECIAL_RULES, isWeekendSlotCurrentlyLive, getFetanClock, getSpecialPickClock, formatCountdownClock } from '../../lib/bingoUtils';
+import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS, HYPER_SPECIAL_RULES, isWeekendSlotCurrentlyLive, getFetanClock, getSpecialPickClock, formatCountdownClock, getNextWeekendDrawAt } from '../../lib/bingoUtils';
 import { 
   Wallet, User as UserIcon, Shield, 
   Share2, Copy, Check, LogOut, Sparkles, 
@@ -31,9 +31,7 @@ function getGameDisplayName(g: { entryPrice: number; gameType?: string; isWeeken
       : g.weekendDay === 'SAT' ? (lang === 'am' ? 'ቅዳሜ' : 'Saturday')
       : g.weekendDay === 'SUN' ? (lang === 'am' ? 'እሑድ' : 'Sunday')
       : '';
-    const slot = g.weekendSlot === '2PM' ? (lang === 'am' ? '2:00 PM (8:00)' : '2:00 PM')
-      : g.weekendSlot === '6PM' ? (lang === 'am' ? '6:00 PM (12:00)' : '6:00 PM')
-      : '';
+    const slot = g.weekendSlot === '3PM' ? (lang === 'am' ? '3:00 PM (9:00 የኢትዮጵያ ሰዓት)' : '3:00 PM (9:00 Ethiopia clock time)') : '';
     if (day && slot) {
       return `🌟 ${day} ${slot} · ${g.entryPrice} ETB`;
     }
@@ -423,7 +421,7 @@ export default function MiniAppShell({
                     <span>📅</span> {language === 'am' ? 'የዕለት ንዑስ ክፍል (3 ቀናት):' : 'Weekend Day Subgroups:'}
                   </span>
                   <span className="text-[10px] font-bold text-amber-700">
-                    {language === 'am' ? '2:00 እና 6:00 PM (8:00 እና 12:00 ሰዓት)' : '2:00 PM & 6:00 PM Draws'}
+                    {language === 'am' ? 'በየቀኑ 3:00 PM (9:00 የኢትዮጵያ ሰዓት)' : 'One draw per day: 3:00 PM (9:00 Ethiopia clock time)'}
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-1.5">
@@ -444,7 +442,7 @@ export default function MiniAppShell({
                           : (language === 'am' ? '📅 እሑድ' : '📅 Sunday')}
                       </span>
                       <span className={`text-[9px] ${selectedWeekendDay === day ? 'text-slate-950 font-bold' : 'text-slate-500'}`}>
-                        2 {language === 'am' ? 'ዕጣዎች' : 'Draws'}
+                        1 {language === 'am' ? 'ዕጣ' : 'draw'}
                       </span>
                     </button>
                   ))}
@@ -470,7 +468,6 @@ export default function MiniAppShell({
                   }
                   return true;
                 })
-                .sort((a, b) => (a.weekendSlot === '2PM' ? -1 : 1))
                 .map((g) => (
                   <div
                     key={g.id}
@@ -615,7 +612,7 @@ export default function MiniAppShell({
                 <div className="text-right shrink-0">
                   <p className="text-[9px] text-slate-400 font-bold uppercase leading-none">Weekend Draw</p>
                   <p className="text-[10px] text-amber-300 font-black whitespace-nowrap">Fri, Sat & Sun</p>
-                  <p className="text-[10px] text-white font-bold whitespace-nowrap">2:00 & 6:00 PM (8:00 & 12:00)</p>
+                  <p className="text-[10px] text-white font-bold whitespace-nowrap">Fri, Sat & Sun · 3:00 PM (9:00 Ethiopia time)</p>
                 </div>
               </div>
             </div>
@@ -912,7 +909,7 @@ export default function MiniAppShell({
                     </div>
                     <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
                       <span className="text-slate-400 text-[11px] font-medium">የዊክኤንድ ጨዋታ (Weekend Draw):</span>
-                      <span className="font-bold text-emerald-300 text-[11px]">Fri, Sat, Sun: 2:00 PM & 6:00 PM (8:00 & 12:00)</span>
+                      <span className="font-bold text-emerald-300 text-[11px]">Fri, Sat & Sun · 3:00 PM (9:00 Ethiopia time)</span>
                     </div>
                   </div>
                 </div>
@@ -1215,23 +1212,8 @@ function WeekendLotteryNumberPicker({
     } else {
       const updateCountdown = () => {
         if (isHiddenRef.current) return;
-        const now = new Date();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-        const currentSecond = now.getSeconds();
-        const totalSecToday = currentHour * 3600 + currentMinute * 60 + currentSecond;
-
-        const slot1Sec = 14 * 3600; // 2:00 PM (ከሰዓት 8:00)
-        const slot2Sec = 18 * 3600; // 6:00 PM (ምሽት 12:00)
-
-        let diffSec = 0;
-        if (totalSecToday < slot1Sec) {
-          diffSec = slot1Sec - totalSecToday;
-        } else if (totalSecToday < slot2Sec) {
-          diffSec = slot2Sec - totalSecToday;
-        } else {
-          diffSec = (24 * 3600 - totalSecToday) + slot1Sec;
-        }
+        const nextDrawAt = getNextWeekendDrawAt(selectedGame || { weekendDay: 'FRI', weekendSlot: '3PM' });
+        const diffSec = Math.max(0, Math.ceil((nextDrawAt - Date.now()) / 1000));
 
         const h = Math.floor(diffSec / 3600);
         const m = Math.floor((diffSec % 3600) / 60);
@@ -1433,7 +1415,7 @@ function WeekendLotteryNumberPicker({
                   ? (isAm
                       ? `${entryPrice} ብር · ሕግ #${(Math.abs(selectedGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} · ${selectedSpecialRule?.nameAm || 'ልዩ የማሸነፊያ ሕግ'}`
                       : `${entryPrice} ETB · Law #${(Math.abs(selectedGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} · ${selectedSpecialRule?.nameEn || 'Special Law'}`)
-                  : (isAm ? '50 ብር · 2:00 እና 6:00 PM · ሙሉ ቤት ብቻ (24/24)' : '50 ETB · 2:00 PM & 6:00 PM · Full House Only')}
+                  : (isAm ? '50 ብር · አንድ ዕጣ በየቀኑ · ሙሉ ቤት ብቻ (24/24)' : '50 ETB · One scheduled draw per day · Full House Only')}
               </span>
             </div>
           </div>
@@ -1452,7 +1434,7 @@ function WeekendLotteryNumberPicker({
             ) : (
               <button
                 type="button"
-                onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_fri_2pm', [])}
+            onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_fri_2pm', [])}
                 className="px-2 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer border border-slate-300"
                 title={isAm ? 'ጨዋታውን በቀጥታ ይመልከቱ' : 'Watch live game'}
               >
@@ -1528,37 +1510,8 @@ function WeekendLotteryNumberPicker({
               </span>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {(['2PM', '6PM'] as const).map((slot) => {
-              const currentDay = selectedGame?.weekendDay || 'FRI';
-              const isSlotSelected = (selectedGame?.weekendSlot || '2PM') === slot;
-              const match = targetGames.find(g => (g.weekendDay || 'FRI') === currentDay && g.weekendSlot === slot) ||
-                            targetGames.find(g => g.weekendSlot === slot);
-              return (
-                <button
-                  key={slot}
-                  type="button"
-                  onClick={() => {
-                    if (match) {
-                      const idx = targetGames.findIndex(g => g.id === match.id);
-                      if (idx >= 0) setSelectedGameIdx(idx);
-                      if (onChangeGameId) onChangeGameId(match.id);
-                    }
-                  }}
-                  className={`py-2 px-2.5 rounded-xl text-xs font-black transition cursor-pointer border-2 text-center flex items-center justify-center gap-1.5 ${
-                    isSlotSelected
-                      ? 'bg-amber-500 border-amber-600 text-slate-950 shadow-sm'
-                      : 'bg-white border-amber-200 text-slate-700 hover:border-amber-300 hover:bg-amber-50'
-                  }`}
-                >
-                  <span className="text-xs font-black">
-                    {slot === '2PM' ? (isAm ? '⏰ 2:00 PM (ከሰዓት 8:00)' : '⏰ 2:00 PM (Ethio 8:00)')
-                      : (isAm ? '⏰ 6:00 PM (ምሽት 12:00)' : '⏰ 6:00 PM (Ethio 12:00)')}
-                  </span>
-                  {isSlotSelected && <span className="text-[9px] bg-amber-950 text-amber-300 px-1 py-0.5 rounded font-black">ACTIVE</span>}
-                </button>
-              );
-            })}
+          <div className="rounded-xl border-2 border-amber-500 bg-amber-100 py-2 px-2.5 text-center text-xs font-black text-slate-950">
+            ⏰ 3:00 PM (9:00 Ethiopia time) · One draw for this day
           </div>
         </div>
       ) : null}
@@ -1827,7 +1780,7 @@ function WeekendLotteryNumberPicker({
         {slotCountFilled > 0 && (
           <button
             type="button"
-            onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_50_2pm', [])}
+                onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_fri_2pm', [])}
             className="w-full py-2 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 transition flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200"
           >
             <Eye className="w-3.5 h-3.5 text-blue-600" />

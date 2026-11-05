@@ -59,7 +59,7 @@ export interface Game {
   blockedPlayers?: string[]; // Player ids blocked for the rest of this round after a false Bingo claim
   isWeekendSpecial?: boolean;
   weekendDay?: 'FRI' | 'SAT' | 'SUN';
-  weekendSlot?: '2PM' | '6PM';
+  weekendSlot?: '3PM';
   weekendRoundKey?: string; // The date/slot identifier of the last scheduled Weekend run
   roundDuration?: number;   // In seconds; Hyper Fetan uses 525 for 75 calls at 7s each.
   pickDuration?: number;    // In seconds, e.g. 30 for Hyper Fetan intermission
@@ -91,6 +91,7 @@ export type TransactionType =
   | 'DEPOSIT' 
   | 'WITHDRAWAL' 
   | 'GAME_ENTRY' 
+  | 'GAME_ENTRY_REFUND'
   | 'GAME_WIN' 
   | 'REFERRAL_REWARD' 
   | 'REFERRAL_BONUS'

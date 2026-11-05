@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
 import { FETAN_PICK_SECONDS, SPECIAL_PICK_SECONDS } from '@/lib/bingoUtils';
+import { INITIAL_GAMES } from '@/lib/store';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -46,6 +47,10 @@ export async function POST(req: NextRequest) {
     const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN';
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL';
     const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY' || gameId.includes('weekend');
+    const isScheduledWeekendGame = INITIAL_GAMES.some((candidate) => candidate.id === gameId && (candidate.category === 'HYPER_WEEKEND' || candidate.gameType === 'WEEKEND_LOTTERY'));
+    if (isWeekend && (!isScheduledWeekendGame || game.status === 'CANCELLED')) {
+      return NextResponse.json({ success: false, error: 'This weekend draw is no longer available. Choose one of the current scheduled draws.' }, { status: 409 });
+    }
     const gameDrawn = parseIntegerArray(game.drawn_numbers);
     let pickDeadline = Number(game.next_round_starts_at || 0);
     if ((isFetan || isSpecial) && game.status === 'OPEN' && gameDrawn.length === 0 && !pickDeadline) {

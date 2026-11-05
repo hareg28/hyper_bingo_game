@@ -1,8 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
-import { FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getWeekendRoundKey, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
+import { FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getWeekendRoundKey, getWeekendScheduledStartAt, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
 import { ensureBotPlayersInDb, checkAndTriggerBotWin, getBotCountForGame, getInitialBotSoldCardNumbers } from '@/lib/botPlayers';
+
+let weekendScheduleMigration: Promise<void> | null = null;
+
+async function ensureSingleDrawWeekendMigration(sql: NonNullable<ReturnType<typeof getNeonSql>>): Promise<void> {
+  if (!weekendScheduleMigration) {
+    weekendScheduleMigration = (async () => {
+      await sql`CREATE TABLE IF NOT EXISTS weekend_schedule_migrations (
+        migration_key VARCHAR(100) PRIMARY KEY,
+        completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`;
+      const [completed] = await sql`SELECT migration_key FROM weekend_schedule_migrations WHERE migration_key = 'one_draw_per_weekend_day_v1' LIMIT 1`;
+      if (completed) return;
+
+      // Retire the three removed draws and return their paid card costs to the
+      // purchasers' available balances. The migration is idempotent because
+      // refunds are calculated only from cards this statement actually deletes.
+      await sql`
+        WITH removed_cards AS (
+          DELETE FROM game_cards
+          WHERE game_id IN ('gm_weekend_fri_6pm', 'gm_weekend_sat_2pm', 'gm_weekend_sun_6pm')
+          RETURNING game_id, card_number, user_id, username, cost, is_paid
+        ), refund_totals AS (
+          SELECT user_id, MAX(username) AS username, SUM(COALESCE(cost, 0)) AS amount,
+                 COUNT(*)::integer AS card_count
+          FROM removed_cards
+          WHERE is_paid IS DISTINCT FROM FALSE
+          GROUP BY user_id
+        ), wallet_refunds AS (
+          UPDATE wallets AS wallet
+          SET available_balance = wallet.available_balance + refunds.amount,
+              updated_at = NOW()
+          FROM refund_totals AS refunds
+          WHERE wallet.user_id = refunds.user_id
+          RETURNING wallet.user_id, wallet.available_balance
+        ), recorded_refunds AS (
+          INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
+          SELECT 'TX_WEEKEND_SCHEDULE_' || SUBSTRING(MD5(refunds.user_id), 1, 24),
+                 refunds.user_id, refunds.username, 'GAME_ENTRY_REFUND', refunds.amount,
+                 wallet_refunds.available_balance, 'System', 'COMPLETED',
+                 'REFUND-WEEKEND-SCHEDULE-' || SUBSTRING(MD5(refunds.user_id), 1, 24),
+                 'Refund for ' || refunds.card_count || ' paid card(s) from the retired weekend draw schedule'
+          FROM refund_totals AS refunds
+          JOIN wallet_refunds USING (user_id)
+          ON CONFLICT (id) DO NOTHING
+          RETURNING id
+        ), archived_games AS (
+          UPDATE games
+          SET status = 'CANCELLED', drawn_numbers = '{}', current_ball = NULL,
+              round_started_at = NULL, last_ball_drawn_at = NULL, current_players = 0,
+              winners = '[]'::jsonb, blocked_cards = '{}', blocked_players = '{}',
+              weekend_round_key = NULL, updated_at = NOW()
+          WHERE id IN ('gm_weekend_fri_6pm', 'gm_weekend_sat_2pm', 'gm_weekend_sun_6pm')
+          RETURNING id
+        )
+        SELECT COUNT(*)::integer AS refunded_groups FROM recorded_refunds
+      `;
+      await sql`INSERT INTO weekend_schedule_migrations (migration_key) VALUES ('one_draw_per_weekend_day_v1') ON CONFLICT DO NOTHING`;
+    })().catch((error) => {
+      weekendScheduleMigration = null;
+      throw error;
+    });
+  }
+  await weekendScheduleMigration;
+}
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -30,6 +94,7 @@ export async function GET(req: NextRequest) {
     await ensureWeekendRoundKeyColumn(sql);
     await ensureBlockedPlayersColumn(sql);
     await ensureBuiltinGameRows(sql);
+    await ensureSingleDrawWeekendMigration(sql);
 
     // First Hyper rounds get a shared, server-timed card-pick window. Fetan
     // opens for 40 seconds after a winner; Special opens for four minutes.
@@ -46,6 +111,7 @@ export async function GET(req: NextRequest) {
     // cron invocation at the slot boundary can start the round immediately.
     for (const weekendGame of INITIAL_GAMES.filter((game) => game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY')) {
       const weekendRoundKey = getWeekendRoundKey(weekendGame);
+      const scheduledStartAt = getWeekendScheduledStartAt(weekendGame);
       if (!weekendRoundKey) {
         await sql`
           WITH old_round AS (
@@ -80,7 +146,7 @@ export async function GET(req: NextRequest) {
           RETURNING id
         )
         UPDATE games
-        SET status = 'RUNNING', round_started_at = NOW(), drawn_numbers = '{}', current_ball = NULL,
+        SET status = 'RUNNING', round_started_at = TO_TIMESTAMP(${(scheduledStartAt || Date.now()) / 1000}), drawn_numbers = '{}', current_ball = NULL,
             last_ball_drawn_at = NULL, winners = '[]'::jsonb,
             blocked_cards = '{}', blocked_players = '{}',
             current_players = (SELECT COUNT(*)::integer FROM game_cards WHERE game_id = ${weekendGame.id} AND is_paid IS DISTINCT FROM FALSE),
@@ -206,7 +272,9 @@ export async function GET(req: NextRequest) {
           ? roundStartedAt > 0 && Date.now() >= nextSpecialDrawAt
           : isFetan
             ? roundStartedAt > 0 && Date.now() >= roundStartedAt + drawn.length * FETAN_BALL_INTERVAL_MS
-          : !lastDrawAt || Date.now() >= lastDrawAt + drawIntervalMs;
+          : isWeekend
+            ? roundStartedAt > 0 && Date.now() >= roundStartedAt + drawn.length * drawIntervalMs
+            : !lastDrawAt || Date.now() >= lastDrawAt + drawIntervalMs;
         if (drawIsDue) {
           const drawnSet = new Set(drawn);
           const remaining: number[] = [];
@@ -215,7 +283,9 @@ export async function GET(req: NextRequest) {
             ? Math.max(1, Math.floor((Date.now() - roundStartedAt) / SPECIAL_BALL_INTERVAL_MS) + 1 - drawn.length)
             : isFetan
               ? Math.max(1, Math.floor((Date.now() - roundStartedAt) / FETAN_BALL_INTERVAL_MS) + 1 - drawn.length)
-              : 1;
+              : isWeekend
+                ? Math.max(1, Math.floor((Date.now() - roundStartedAt) / drawIntervalMs) + 1 - drawn.length)
+                : 1;
           const ballsToDraw = Math.min(remaining.length, dueDrawCount);
           for (let i = 0; i < ballsToDraw; i++) {
             const swapIndex = i + Math.floor(Math.random() * (remaining.length - i));
@@ -273,6 +343,8 @@ export async function GET(req: NextRequest) {
     let rows = await sql`
       SELECT
         id,
+        category,
+        game_type,
         status,
         drawn_numbers,
         current_ball,
@@ -291,6 +363,12 @@ export async function GET(req: NextRequest) {
       FROM games
       ORDER BY created_at ASC
     `;
+    const activeWeekendIds = new Set(INITIAL_GAMES
+      .filter((candidate) => candidate.category === 'HYPER_WEEKEND' || candidate.gameType === 'WEEKEND_LOTTERY')
+      .map((candidate) => candidate.id));
+    rows = rows.filter((row: any) =>
+      (row.category !== 'HYPER_WEEKEND' && row.game_type !== 'WEEKEND_LOTTERY') || activeWeekendIds.has(row.id)
+    );
 
     if (!rows || rows.length === 0) {
       // Auto-seed INITIAL_GAMES so DB is populated
@@ -311,6 +389,8 @@ export async function GET(req: NextRequest) {
       rows = await sql`
         SELECT
           id,
+          category,
+          game_type,
           status,
           drawn_numbers,
           current_ball,
@@ -344,6 +424,8 @@ export async function GET(req: NextRequest) {
       rows = await sql`
         SELECT
           id,
+          category,
+          game_type,
           status,
           drawn_numbers,
           current_ball,
@@ -363,6 +445,11 @@ export async function GET(req: NextRequest) {
         ORDER BY created_at ASC
       `;
     }
+
+    // Reapply after the seed path too, so retired database draws never show in the mini app.
+    rows = rows.filter((row: any) =>
+      (row.category !== 'HYPER_WEEKEND' && row.game_type !== 'WEEKEND_LOTTERY') || activeWeekendIds.has(row.id)
+    );
 
     // Fetch sold cards by game so clients can show live sold cards & left cards on the board
     const soldCardsByGame: Record<string, number[]> = {};

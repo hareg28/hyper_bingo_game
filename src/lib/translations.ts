@@ -527,30 +527,10 @@ export function localizeGameTime(time: string, lang: Language): string {
     const t = time.replace('Tomorrow ', '');
     return `ነገ ${t}`;
   }
-  if (time.includes('Friday 2:00 PM') || (time.includes('Fri') && time.includes('2:00 PM'))) {
-    return 'ዓርብ ከሰዓት 8:00 (2:00 PM)';
-  }
-  if (time.includes('Friday 6:00 PM') || (time.includes('Fri') && time.includes('6:00 PM'))) {
-    return 'ዓርብ ምሽት 12:00 (6:00 PM)';
-  }
-  if (time.includes('Saturday 2:00 PM') || (time.includes('Sat') && time.includes('2:00 PM'))) {
-    return 'ቅዳሜ ከሰዓት 8:00 (2:00 PM)';
-  }
-  if (time.includes('Saturday 6:00 PM') || (time.includes('Sat') && time.includes('6:00 PM'))) {
-    return 'ቅዳሜ ምሽት 12:00 (6:00 PM)';
-  }
-  if (time.includes('Sunday 2:00 PM') || (time.includes('Sun') && time.includes('2:00 PM'))) {
-    return 'እሑድ ከሰዓት 8:00 (2:00 PM)';
-  }
-  if (time.includes('Sunday 6:00 PM') || (time.includes('Sun') && time.includes('6:00 PM'))) {
-    return 'እሑድ ምሽት 12:00 (6:00 PM)';
-  }
-  if (time.includes('2:00 PM')) {
-    return 'ከሰዓት 8:00 (2:00 PM)';
-  }
-  if (time.includes('6:00 PM')) {
-    return 'ምሽት 12:00 (6:00 PM)';
-  }
+  if (time.includes('Friday 3:00 PM') || (time.includes('Fri') && time.includes('3:00 PM'))) return 'ዓርብ ከሰዓት 9:00 (3:00 PM)';
+  if (time.includes('Saturday 3:00 PM') || (time.includes('Sat') && time.includes('3:00 PM'))) return 'ቅዳሜ ከሰዓት 9:00 (3:00 PM)';
+  if (time.includes('Sunday 3:00 PM') || (time.includes('Sun') && time.includes('3:00 PM'))) return 'እሑድ ከሰዓት 9:00 (3:00 PM)';
+  if (time.includes('3:00 PM')) return 'ከሰዓት 9:00 (3:00 PM)';
   if (time.startsWith('Opens ')) {
     return time.replace('Opens ', 'የሚከፈተው ');
   }
