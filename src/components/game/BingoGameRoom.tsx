@@ -610,7 +610,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     if (currentGame.status === 'OPEN' && currentGame.drawnNumbers.length === 0 && (!currentGame.winners || currentGame.winners.length === 0)) return true;
     return false;
   });
-  const hasGameWinner = Boolean((currentGame.winners && currentGame.winners.length > 0) || currentGame.status === 'COMPLETED');
+  const hasGameWinner = Boolean(
+    (currentGame.drawnNumbers?.length || 0) >= 15 &&
+    ((currentGame.winners && currentGame.winners.length > 0) || currentGame.status === 'COMPLETED')
+  );
 
   // Sync specialIsIntermission whenever the server's nextRoundStartsAt or game status changes
   useEffect(() => {
@@ -694,15 +697,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     };
   }, [hasGameWinner, currentGame.id, currentGame.winners, isSpecialGame]);
 
-  // Auto-show winner announcement celebration modal to EVERYONE when a winner claims Bingo!
+  // Auto-show winner announcement celebration modal to EVERYONE when a winner claims Bingo during live play
   const prevWinnersCountRef = React.useRef(currentGame.winners?.length || 0);
   useEffect(() => {
     const count = currentGame.winners?.length || 0;
-    if (count > 0 && count !== prevWinnersCountRef.current) {
+    const drawnCount = currentGame.drawnNumbers?.length || 0;
+    if (count > 0 && count !== prevWinnersCountRef.current && drawnCount >= 15) {
       setShowWinnerModal(true);
     }
     prevWinnersCountRef.current = count;
-  }, [currentGame.winners?.length]);
+  }, [currentGame.winners?.length, currentGame.drawnNumbers?.length]);
 
   useEffect(() => {
     if (!isSpecialGame || !specialIsIntermission) return;
@@ -841,15 +845,24 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeGameCards, currentGame.winningRule, currentGame.activeSpecialRuleIndex, currentGame.category, language]);
 
-  // Automatically trigger Winner Celebration Modal when game ends or a winner is registered
+  // Automatically trigger Winner Celebration Modal ONLY when a running game genuinely ends with drawn balls
   useEffect(() => {
-    if (currentGame && ((currentGame.winners && currentGame.winners.length > 0) || currentGame.status === 'COMPLETED')) {
-      setShowWinnerModal(true);
-      try {
-        confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
-      } catch {}
+    const drawnCount = currentGame?.drawnNumbers?.length || 0;
+    const hasWinners = Boolean(currentGame?.winners && currentGame.winners.length > 0);
+    const isCompleted = currentGame?.status === 'COMPLETED';
+
+    if (drawnCount >= 15 && (hasWinners || isCompleted)) {
+      const latestWinner = currentGame.winners?.[currentGame.winners.length - 1];
+      const claimedAt = latestWinner?.claimedAt ? Date.parse(latestWinner.claimedAt) : 0;
+      const isRecent = claimedAt > 0 ? (Date.now() - claimedAt < 12_000) : true;
+      if (isRecent) {
+        setShowWinnerModal(true);
+        try {
+          confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+        } catch {}
+      }
     }
-  }, [currentGame?.winners?.length, currentGame?.status]);
+  }, [currentGame?.winners?.length, currentGame?.status, currentGame?.drawnNumbers?.length]);
 
   // Auto-dismiss claim alerts after 4 seconds
   useEffect(() => {
@@ -1792,7 +1805,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       {/* ================================================================
           5. WINNER ANNOUNCEMENT BANNER + TOAST ALERTS
           ================================================================ */}
-      {currentGame.winners && currentGame.winners.length > 0 && (
+      {currentGame.winners && currentGame.winners.length > 0 && (currentGame.drawnNumbers?.length || 0) >= 15 && (
         <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 shadow-md border-2 border-yellow-200 flex items-center justify-between gap-2 animate-in slide-in-from-top-2 duration-300">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center font-black shrink-0 text-base shadow-xs">

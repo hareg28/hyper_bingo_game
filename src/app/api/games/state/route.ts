@@ -242,8 +242,8 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Check bot win on ongoing running round
-      if (game.status === 'RUNNING' && drawn.length >= 14 && winners.length === 0 && game.current_ball) {
+      // Check bot win on ongoing running round (realistic ball threshold: never announce early)
+      if (game.status === 'RUNNING' && drawn.length >= 32 && winners.length === 0 && game.current_ball) {
         await checkAndTriggerBotWin(sql, game, drawn, Number(game.current_ball));
       }
     }

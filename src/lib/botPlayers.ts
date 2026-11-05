@@ -152,9 +152,9 @@ export function generateBotCards(
 /**
  * Calculate the ball on which a bot will shout Bingo if no human has won yet.
  * In 75-ball bingo:
- * - 1 line / 4 corners (Fetan): hits around ball 15-24
- * - Special patterns (2 lines, X, etc.): hits around ball 18-30
- * - Full House (Weekend): hits around ball 52-64
+ * - 1 line / 4 corners (Fetan): realistically hits around ball 35-49 (never early)
+ * - Special patterns (2 lines, X, etc.): realistically hits around ball 46-61 (never early)
+ * - Full House (Weekend): realistically hits around ball 62-71 (never early)
  */
 export function getTargetWinningBall(
   gameId: string,
@@ -167,15 +167,19 @@ export function getTargetWinningBall(
   const isWeekend = category === 'HYPER_WEEKEND' || gameId.includes('weekend');
 
   if (isFetan) {
-    return 15 + (seed % 10); // ball 15..24
+    // 1 Line / 4 Corners in 75-ball bingo realistically completes around ball 35–49.
+    // Never announce early (ball 15 was mathematically unrealistic).
+    return 35 + (seed % 15); // ball 35..49
   }
   if (isSpecial) {
-    return 18 + (seed % 13); // ball 18..30
+    // Special patterns (2 lines, Letter X, Frame) require 8–16 marked cells.
+    return 46 + (seed % 16); // ball 46..61
   }
   if (isWeekend) {
-    return 52 + (seed % 13); // ball 52..64
+    // Full House (all 24 numbers marked) in 75-ball bingo hits around ball 62–71.
+    return 62 + (seed % 10); // ball 62..71
   }
-  return 17 + (seed % 10);
+  return 36 + (seed % 14);
 }
 
 /**
@@ -291,7 +295,7 @@ export async function checkAndTriggerBotWin(
   currentBall: number
 ): Promise<WinnerRecord | null> {
   try {
-    if (game.status !== 'RUNNING' || drawnNumbers.length < 12) {
+    if (game.status !== 'RUNNING' || drawnNumbers.length < 32) {
       return null;
     }
 
