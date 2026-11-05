@@ -33,6 +33,7 @@ import { isAdminTelegramId } from '../lib/authUtils';
 
 import { Language, translations } from '../lib/translations';
 import { getInitialLotterySoldMap } from '../lib/store';
+import { getBotCountForGame, getInitialBotSoldCardNumbers } from '../lib/botPlayers';
 import { audioManager } from '../lib/audioManager';
 import { isMiniAppActive, subscribeToMiniAppActivity } from '../lib/miniAppActivity';
 
@@ -48,7 +49,7 @@ interface NotificationMessage {
   id: string;
   title: string;
   body: string;
-  type: 'success' | 'info' | 'warning' | 'win';
+  type: 'success' | 'info' | 'warning' | 'win' | 'error';
   timestamp: string;
 }
 
@@ -102,7 +103,7 @@ interface BingoContextType {
   clearConsumedCards: (gameId: string) => void;
   drawNextBall: (gameId: string) => number | null;
   dismissNotification: (id: string) => void;
-  addNotification: (title: string, body: string, type?: 'success' | 'info' | 'warning' | 'win') => void;
+  addNotification: (title: string, body: string, type?: 'success' | 'info' | 'warning' | 'win' | 'error') => void;
   toggleUserRole: () => void;
   setUserRole: (role: UserRole) => void;
   updateUserRoleInDb: (targetUserId: string, role: UserRole) => Promise<{ success: boolean; message?: string }>;
@@ -229,7 +230,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   };
   const [notifications, setNotifications] = useState<NotificationMessage[]>([]);
 
-  const addNotification = (title: string, body: string, type: 'success' | 'info' | 'warning' | 'win' = 'info') => {
+  const addNotification = (title: string, body: string, type: 'success' | 'info' | 'warning' | 'win' | 'error' = 'info') => {
     const id = `notif_${Date.now()}_${Math.random()}`;
     const notif: NotificationMessage = {
       id,
@@ -378,7 +379,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           setUser((prev) => {
             if (prev) {
               const newTgId = String(tgUser.id);
-              const targetRole = isAdm || prev.role === 'admin' ? 'admin' : prev.role;
+              const targetRole: UserRole = isAdm || prev.role === 'admin' ? 'admin' : prev.role;
               const updated = {
                 ...prev,
                 name: prev.phone ? prev.name : `${tgUser.first_name || ''}${tgUser.last_name ? ' ' + tgUser.last_name : ''}`.trim() || prev.name,
@@ -1923,13 +1924,15 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         ? Date.now() + 30 * 1000
         : undefined;
 
-    // Optimistic local reset
+    // Optimistic local reset with fresh bot players (varied count and new cards)
+    const freshBotCount = getBotCountForGame(gameId, game.category || game.gameType);
+    const freshBotCards = getInitialBotSoldCardNumbers(gameId, game.category || game.gameType);
     setGames((prev) => {
       const updated = prev.map((g) => {
         if (g.id !== gameId) return g;
         return {
           ...g,
-          currentPlayers: 0,
+          currentPlayers: freshBotCount,
           drawnNumbers: [],
           currentBall: undefined,
           blockedCards: [],
@@ -1951,7 +1954,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       }
       return updated;
     });
-    setLotterySoldMap((prev) => ({ ...prev, [gameId]: new Set<number>() }));
+    setLotterySoldMap((prev) => ({ ...prev, [gameId]: new Set<number>(freshBotCards) }));
     setUserCards((prev) => prev.filter((card) => card.gameId !== gameId));
 
     // Persist to DB (fire-and-forget)

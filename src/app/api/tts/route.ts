@@ -13,7 +13,7 @@ const amharicNumbers = [
   'ሰባ አንድ', 'ሰባ ሁለት', 'ሰባ ሶስት', 'ሰባ አራት', 'ሰባ አምስት'
 ];
 
-export function getAmharicCallPhrase(num: number): string {
+function getAmharicCallPhrase(num: number): string {
   const letter = num <= 15 ? 'ቢ' : num <= 30 ? 'አይ' : num <= 45 ? 'ኤን' : num <= 60 ? 'ጂ' : 'ኦ';
   const amWord = amharicNumbers[num] || String(num);
   return `${letter}! ${amWord}!`;

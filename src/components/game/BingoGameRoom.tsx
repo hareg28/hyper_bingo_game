@@ -1233,7 +1233,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const soldNumbers = getLotterySoldNumbers(currentGame.id);
   const registeredCardsCount = activeGameCards.filter((c) => c.isRegistered).length;
   const totalCardsSold = isSpecialGame
-    ? Math.max(soldNumbers?.size || 0, registeredCardsCount)
+    ? Math.max(currentGame.currentPlayers || 0, soldNumbers?.size || 0, registeredCardsCount)
     : Math.max(
         currentGame.currentPlayers || 0,
         soldNumbers?.size || 0,
@@ -2749,8 +2749,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     ))}
                   </div>
                 ) : (
-                  <span className="text-slate-400 font-mono text-[10px]">
-                    {language === 'am' ? 'ሙሉ ካርቴላ — 24 ቁጥሮች ተሟልተዋል' : 'Full House — All 24 numbers daubed'}
+                  <span className="text-amber-300 font-mono font-bold text-xs">
+                    {latestWinner.pattern || (language === 'am' ? 'ሙሉ ካርቴላ — 24 ቁጥሮች ተሟልተዋል' : 'Full House — All 24 numbers daubed')}
                   </span>
                 )}
               </div>

@@ -236,7 +236,7 @@ export interface NotificationMessage {
   id: string;
   title: string;
   body: string;
-  type: 'success' | 'info' | 'warning' | 'win';
+  type: 'success' | 'info' | 'warning' | 'win' | 'error';
   timestamp: string;
 }
 

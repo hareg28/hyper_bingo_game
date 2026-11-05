@@ -3,6 +3,7 @@ import { ensureBlockedPlayersColumn, ensureGameDrawTimestampColumn, getNeonSql }
 import { isAdminTelegramId } from '@/lib/authUtils';
 import { HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_PICK_SECONDS } from '@/lib/bingoUtils';
 import { INITIAL_GAMES } from '@/lib/store';
+import { ensureBotPlayersInDb } from '@/lib/botPlayers';
 
 /**
  * POST /api/games/reset
@@ -125,6 +126,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Round has already been reset.' }, { status: 409 });
     }
 
+    // Immediately seed fresh bot players for the newly reset round
+    await ensureBotPlayersInDb(sql, {
+      id: gameId,
+      category: game.category,
+      game_type: game.game_type,
+      status: 'OPEN',
+      entry_price: nextPrice,
+      round_started_at: null,
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -132,8 +143,6 @@ export async function POST(req: NextRequest) {
         nextPrice,
         nextRoundStartsAt,
         isSpecial,
-        isFetan,
-        isWeekend,
       },
     });
   } catch (err: any) {

@@ -3,6 +3,7 @@ import {
   WithdrawalRequest, Promotion, AuditLog, Referral 
 } from './types';
 import { computeWeekendPrizePool, createNewBingoCard, generateSoldNumbersForGame } from './bingoUtils';
+import { getInitialBotSoldCardNumbers } from './botPlayers';
 
 // ------------------------------------------------------------------
 // PRIZE RULE (per business requirement):
@@ -39,8 +40,9 @@ export const getInitialLotterySoldMap = (games: Game[]): Record<string, Set<numb
   const map: Record<string, Set<number>> = {};
   games.forEach((g) => {
     if (g.category === 'HYPER_FETAN' || g.category === 'HYPER_WEEKEND' || g.category === 'HYPER_SPECIAL' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) {
-      // Real flow: no pre-sold cards initially; cards show as available and turn gray when bought
-      map[g.id] = new Set<number>();
+      // Pre-seed initial bot player sold cards so rooms display active players and sold cards immediately
+      const initialCards = getInitialBotSoldCardNumbers(g.id, g.category || g.gameType);
+      map[g.id] = new Set<number>(initialCards);
     }
   });
   return map;
@@ -88,12 +90,12 @@ export const INITIAL_GAMES: Game[] = [
     winningRule: 'ONE_LINE_OR_CORNERS',
     entryPrice: 10,
     maxPlayers: 500,
-    currentPlayers: 0,
+    currentPlayers: 19,
     startTime: 'Live Round',
     drawInterval: 2,
     roundDuration: 525,
     pickDuration: 40,
-    prizePool: 0,
+    prizePool: 152,
     status: 'OPEN',
     drawnNumbers: [],
     winners: [],
@@ -117,10 +119,10 @@ export const INITIAL_GAMES: Game[] = [
     pickDuration: 240,
     roundDuration: 720,
     maxPlayers: 1000,
-    currentPlayers: 0,
+    currentPlayers: 27,
     startTime: 'Live Round',
     drawInterval: 3,
-    prizePool: 0,
+    prizePool: 216,
     status: 'OPEN',
     drawnNumbers: [],
     winners: [],
@@ -144,7 +146,7 @@ export const INITIAL_GAMES: Game[] = [
     entryPrice: 50,
     minPlayers: 10,
     maxPlayers: 1500,
-    currentPlayers: 0,
+    currentPlayers: 54,
     startTime: 'Friday 2:00 PM (ከሰዓት 8:00)',
     drawInterval: 2,
     prizePool: 50000,
@@ -166,7 +168,7 @@ export const INITIAL_GAMES: Game[] = [
     entryPrice: 50,
     minPlayers: 10,
     maxPlayers: 1500,
-    currentPlayers: 0,
+    currentPlayers: 48,
     startTime: 'Friday 6:00 PM (ምሽት 12:00)',
     drawInterval: 2,
     prizePool: 50000,
@@ -188,7 +190,7 @@ export const INITIAL_GAMES: Game[] = [
     entryPrice: 50,
     minPlayers: 10,
     maxPlayers: 1500,
-    currentPlayers: 0,
+    currentPlayers: 62,
     startTime: 'Saturday 2:00 PM (ከሰዓት 8:00)',
     drawInterval: 2,
     prizePool: 50000,
@@ -210,7 +212,7 @@ export const INITIAL_GAMES: Game[] = [
     entryPrice: 50,
     minPlayers: 10,
     maxPlayers: 1500,
-    currentPlayers: 0,
+    currentPlayers: 58,
     startTime: 'Saturday 6:00 PM (ምሽት 12:00)',
     drawInterval: 2,
     prizePool: 50000,
@@ -232,7 +234,7 @@ export const INITIAL_GAMES: Game[] = [
     entryPrice: 50,
     minPlayers: 10,
     maxPlayers: 1500,
-    currentPlayers: 0,
+    currentPlayers: 67,
     startTime: 'Sunday 2:00 PM (ከሰዓት 8:00)',
     drawInterval: 2,
     prizePool: 50000,
@@ -254,7 +256,7 @@ export const INITIAL_GAMES: Game[] = [
     entryPrice: 50,
     minPlayers: 10,
     maxPlayers: 1500,
-    currentPlayers: 0,
+    currentPlayers: 72,
     startTime: 'Sunday 6:00 PM (ምሽት 12:00)',
     drawInterval: 2,
     prizePool: 50000,

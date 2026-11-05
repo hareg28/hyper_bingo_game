@@ -21,6 +21,8 @@ export default function NotificationToast() {
               ? 'bg-slate-900/95 border-emerald-500/40 text-emerald-300'
               : n.type === 'warning'
               ? 'bg-slate-900/95 border-amber-500/40 text-amber-300'
+              : n.type === 'error'
+              ? 'bg-slate-900/95 border-rose-500/40 text-rose-300'
               : 'bg-slate-900/95 border-blue-500/40 text-blue-300'
           }`}
         >
@@ -29,8 +31,8 @@ export default function NotificationToast() {
               <Trophy className="w-5 h-5 text-amber-400 animate-bounce" />
             ) : n.type === 'success' ? (
               <CheckCircle className="w-5 h-5 text-emerald-400" />
-            ) : n.type === 'warning' ? (
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
+            ) : n.type === 'warning' || n.type === 'error' ? (
+              <AlertTriangle className={`w-5 h-5 ${n.type === 'error' ? 'text-rose-400' : 'text-amber-400'}`} />
             ) : (
               <Info className="w-5 h-5 text-blue-400" />
             )}

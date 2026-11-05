@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 import { FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getWeekendRoundKey, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
+import { ensureBotPlayersInDb, checkAndTriggerBotWin } from '@/lib/botPlayers';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -153,10 +154,18 @@ export async function GET(req: NextRequest) {
           )
           SELECT id FROM reset_game
         `;
-        if (resetRows.length > 0) continue;
+        if (resetRows.length > 0) {
+          await ensureBotPlayersInDb(sql, { ...game, status: 'OPEN', entry_price: nextPrice, round_started_at: null });
+          continue;
+        }
       }
 
       if (isWeekend && !weekendRoundIsLive) continue;
+
+      // Ensure active bot players are present in the room with varied player counts and unique cards
+      if (game.status === 'OPEN' || game.status === 'RUNNING') {
+        await ensureBotPlayersInDb(sql, game);
+      }
 
       // Start the shared round as soon as its pick deadline expires.
       if (!isWeekend && game.status === 'OPEN' && drawn.length === 0 && game.next_round_starts_at &&
@@ -226,8 +235,16 @@ export async function GET(req: NextRequest) {
                 AND drawn_numbers = ${`{${drawn.join(',')}}`}::int4[]
                 AND (${isSpecial || isFetan} OR last_ball_drawn_at IS NULL OR last_ball_drawn_at <= NOW() - (${drawIntervalMs} * INTERVAL '1 millisecond'))
             `;
+
+            // Most of the time, bot player wins the game if no human has won yet
+            await checkAndTriggerBotWin(sql, game, nextDrawn, nextBall);
           }
         }
+      }
+
+      // Check bot win on ongoing running round
+      if (game.status === 'RUNNING' && drawn.length >= 14 && winners.length === 0 && game.current_ball) {
+        await checkAndTriggerBotWin(sql, game, drawn, Number(game.current_ball));
       }
     }
     await sql`
