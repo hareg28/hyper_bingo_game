@@ -53,8 +53,15 @@ export function getEthiopianHour(): number {
 
 /**
  * Generates realistic player counts:
- * - Fetan: starts 150; morning up to lunch (6am-1pm): 150-200; afternoon: up to 300 and more
- * - Special: 800 players (morning 680-800, afternoon 800-950)
+ * - Night / after midnight up to morning (0:00 - 6:00 AM): small players (people sleeping)
+ *   - Fetan: 25..50 players
+ *   - Special: 75..130 players
+ * - Morning up to lunch (6:00 AM - 1:00 PM):
+ *   - Fetan: 150..200 players
+ *   - Special: 680..800 players
+ * - Afternoon & Evening (1:00 PM - 12:00 AM midnight):
+ *   - Fetan: 250..330+ players
+ *   - Special: 800..950 players
  * - Weekend: scheduled games (no morning/afternoon split) - starting 700 up to 1300 players
  */
 export function getBotCountForGame(gameId: string, category?: string, roundSeed?: number): number {
@@ -63,11 +70,13 @@ export function getBotCountForGame(gameId: string, category?: string, roundSeed?
   const isSpecial = category === 'HYPER_SPECIAL' || gameId.includes('special');
   const isWeekend = category === 'HYPER_WEEKEND' || gameId.includes('weekend');
   const hour = getEthiopianHour();
+  const isNight = hour >= 0 && hour < 6; // 12:00 AM midnight to 6:00 AM (sleeping hours)
   const isMorning = hour >= 6 && hour < 13; // 6:00 AM to 1:00 PM (lunch time)
 
   if (isFetan) {
-    // Fetan: starting 150, morning up to lunch 150-200, afternoon up to 300+
-    if (isMorning) {
+    if (isNight) {
+      return 25 + (seed % 26); // 25..50 players (small during sleeping hours)
+    } else if (isMorning) {
       return 150 + (seed % 51); // 150..200 players
     } else {
       return 250 + (seed % 81); // 250..330 players (up to 300 and more)
@@ -75,8 +84,9 @@ export function getBotCountForGame(gameId: string, category?: string, roundSeed?
   }
 
   if (isSpecial) {
-    // Special: around 800 players (morning 680-800, afternoon 800-950)
-    if (isMorning) {
+    if (isNight) {
+      return 75 + (seed % 56); // 75..130 players (smaller during sleeping hours)
+    } else if (isMorning) {
       return 680 + (seed % 121); // 680..800 players
     } else {
       return 800 + (seed % 151); // 800..950 players (~800 average)
@@ -90,7 +100,7 @@ export function getBotCountForGame(gameId: string, category?: string, roundSeed?
     return 700 + (weekendSeed % 601); // 700..1300 players
   }
 
-  return 150 + (seed % 51);
+  return 25 + (seed % 26);
 }
 
 export interface BotCardInfo {

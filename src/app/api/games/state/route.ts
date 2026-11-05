@@ -471,11 +471,11 @@ export async function GET() {
       // Gracefully ignore if table empty or not yet migrated
     }
 
-    const paidCardCountsByGame: Record<string, number> = {};
+    const humanPaidCardCountsByGame: Record<string, number> = {};
     try {
       for (const row of soldRows) {
-        if (row.is_paid !== false) {
-          paidCardCountsByGame[row.game_id] = (paidCardCountsByGame[row.game_id] || 0) + 1;
+        if (row.is_paid !== false && !String(row.user_id || '').startsWith('bot_')) {
+          humanPaidCardCountsByGame[row.game_id] = (humanPaidCardCountsByGame[row.game_id] || 0) + 1;
         }
       }
     } catch {
@@ -488,11 +488,13 @@ export async function GET() {
       drawnNumbers: parseIntegerArray(r.drawn_numbers),
       currentBall: r.current_ball == null ? null : Number(r.current_ball),
       roundStartedAt: r.round_started_at ? new Date(r.round_started_at).getTime() : undefined,
-      currentPlayers: Math.max(
-        Number(r.current_players || 0),
-        (paidCardCountsByGame[r.id] || 0),
-        getBotCountForGame(r.id, r.category || r.game_type, r.round_started_at ? new Date(r.round_started_at).getTime() : undefined)
-      ),
+      currentPlayers:
+        (humanPaidCardCountsByGame[r.id] || 0) +
+        getBotCountForGame(
+          r.id,
+          r.category || r.game_type,
+          r.round_started_at ? new Date(r.round_started_at).getTime() : undefined
+        ),
       winners: Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : []),
       blockedCards: Array.isArray(r.blocked_cards) ? r.blocked_cards : [],
       blockedPlayers: Array.isArray(r.blocked_players) ? r.blocked_players : [],

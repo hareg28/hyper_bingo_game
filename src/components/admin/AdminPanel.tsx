@@ -528,9 +528,13 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     .filter((t) => t.type === 'GAME_ENTRY')
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
-  const totalDeposits = transactions
+  // Calculate ONLY verified/completed deposits (status === 'COMPLETED')
+  const verifiedDepositsSum = transactions
     .filter((t) => t.type === 'DEPOSIT' && t.status === 'COMPLETED')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const totalDeposits = dbStats?.totalDeposited != null && dbStats.totalDeposited > 0
+    ? dbStats.totalDeposited
+    : verifiedDepositsSum;
 
   const handleCreateGameSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1302,14 +1306,11 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
             </div>
 
             {/* KPI Summary Cards - Clean Light Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-xs">
-                <div className="text-slate-500 text-xs font-black uppercase tracking-wider">{t('totalRevenue')}</div>
-                <div className="text-xl sm:text-2xl font-black text-amber-600 mt-1">{formatETB(totalRevenue)}</div>
-              </div>
-
-              <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-xs">
-                <div className="text-slate-500 text-xs font-black uppercase tracking-wider">{t('totalDeposits')}</div>
+                <div className="text-slate-500 text-xs font-black uppercase tracking-wider">
+                  {language === 'am' ? 'የተረጋገጠ ጠቅላላ ተቀማጭ' : 'Total Deposits (Verified)'}
+                </div>
                 <div className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">{formatETB(totalDeposits)}</div>
               </div>
 
@@ -1326,7 +1327,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                 <div className="text-slate-500 text-xs font-black uppercase tracking-wider">
                   {language === 'am' ? 'ጠቅላላ ወጪዎች' : 'Total Withdrawals'}
                 </div>
-                <div className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">{withdrawals.length}</div>
+                <div className="text-xl sm:text-2xl font-black text-amber-600 mt-1">{withdrawals.length}</div>
               </div>
 
               <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-xs">
