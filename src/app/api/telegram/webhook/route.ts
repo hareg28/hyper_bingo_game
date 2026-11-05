@@ -143,6 +143,12 @@ export async function POST(req: NextRequest) {
       }
 
       if (data === 'register_account') {
+        const existingAccount = await db.getUserByTelegramId(String(from.id)).catch(() => null);
+        if (existingAccount?.phone) {
+          await answerCallback('Your account is already registered.');
+          await sendMessage({ chat_id: message?.chat?.id || from.id, text: 'Your account is ready. Open the Mini App to play.', reply_markup: { inline_keyboard: [[{ text: '🎮 Open Mini App', web_app: { url: appUrl } }]] } });
+          return NextResponse.json({ ok: true });
+        }
         await answerCallback('Let’s create your account.');
         await sendMessage({
           chat_id: message?.chat?.id || from.id,
@@ -351,8 +357,11 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ ok: true });
         }
         const telegramName = [from?.first_name, from?.last_name].filter(Boolean).join(' ').trim() || from?.username || `Player ${userId}`;
-        const newUser = await db.registerUser({ name: telegramName, phone: cleanPhone, username: from?.username, telegramId: String(userId) });
+        const referralRows = await registrationSql`SELECT referred_by FROM telegram_registration_intents WHERE telegram_id = ${String(userId)} AND expires_at > NOW() LIMIT 1`;
+        const referredBy = (referralRows[0] as { referred_by: string | null } | undefined)?.referred_by || undefined;
+        const newUser = await db.registerUser({ name: telegramName, phone: cleanPhone, username: from?.username, telegramId: String(userId), referredBy });
         await db.getOrCreateWallet(newUser.id);
+        await registrationSql`DELETE FROM telegram_registration_intents WHERE telegram_id = ${String(userId)}`;
         await sendMessage({ chat_id: chatId, parse_mode: 'HTML', text: `🎉 Account created for <b>${safeTgHtml(telegramName)}</b>! You can change your name anytime in the Mini App profile. Your 20 ETB game bonus is ready.`, reply_markup: buildPersistentKeyboard(isAdmin) });
         return NextResponse.json({ ok: true });
       }
@@ -362,6 +371,15 @@ export async function POST(req: NextRequest) {
         if (userInDb?.phone) {
           await sendMessage({ chat_id: chatId, text: 'Your account is already registered. Open the mini app to play.', reply_markup: buildPersistentKeyboard(isAdmin) });
         } else {
+          if (registrationSql) {
+            await registrationSql`CREATE TABLE IF NOT EXISTS telegram_registration_intents (
+              telegram_id VARCHAR(64) PRIMARY KEY, referred_by VARCHAR(64), expires_at TIMESTAMPTZ NOT NULL
+            )`;
+            await registrationSql`ALTER TABLE telegram_registration_intents ADD COLUMN IF NOT EXISTS referred_by VARCHAR(64)`;
+            await registrationSql`INSERT INTO telegram_registration_intents (telegram_id, referred_by, expires_at)
+              VALUES (${String(userId)}, NULL, NOW() + INTERVAL '15 minutes')
+              ON CONFLICT (telegram_id) DO UPDATE SET referred_by = NULL, expires_at = EXCLUDED.expires_at`;
+          }
           await sendMessage({
             chat_id: chatId,
             text: 'Tap “Share my contact” below to create your account immediately. Your Telegram profile name will be used; you can change it in the Mini App profile.',
@@ -736,6 +754,15 @@ export async function POST(req: NextRequest) {
       // Handle referral links: /start ABC123 or start_param from Telegram deep link
       const startPayload = text?.startsWith('/start ') ? text.replace('/start ', '').trim() : null;
       if (startPayload?.toLowerCase() === 'register' && userId) {
+        if (registrationSql) {
+          await registrationSql`CREATE TABLE IF NOT EXISTS telegram_registration_intents (
+            telegram_id VARCHAR(64) PRIMARY KEY, referred_by VARCHAR(64), expires_at TIMESTAMPTZ NOT NULL
+          )`;
+          await registrationSql`ALTER TABLE telegram_registration_intents ADD COLUMN IF NOT EXISTS referred_by VARCHAR(64)`;
+          await registrationSql`INSERT INTO telegram_registration_intents (telegram_id, referred_by, expires_at)
+            VALUES (${String(userId)}, NULL, NOW() + INTERVAL '15 minutes')
+            ON CONFLICT (telegram_id) DO UPDATE SET referred_by = NULL, expires_at = EXCLUDED.expires_at`;
+        }
         await sendMessage({
           chat_id: chatId,
           text: 'Tap “Share my contact” below to create your account immediately. Your Telegram profile name will be used; you can change it in the Mini App profile.',
@@ -746,21 +773,30 @@ export async function POST(req: NextRequest) {
       const isReferralStart = startPayload && !startPayload.startsWith('gm_') && startPayload !== 'play';
 
       if (isReferralStart && startPayload && userId) {
-        // Send the welcome message AND open the mini app with the referral code pre-filled
-        const refAppUrl = `${appUrl}?ref=${encodeURIComponent(startPayload)}`;
+        if (registrationSql) {
+          await registrationSql`CREATE TABLE IF NOT EXISTS telegram_registration_intents (
+            telegram_id VARCHAR(64) PRIMARY KEY, referred_by VARCHAR(64), expires_at TIMESTAMPTZ NOT NULL
+          )`;
+          await registrationSql`ALTER TABLE telegram_registration_intents ADD COLUMN IF NOT EXISTS referred_by VARCHAR(64)`;
+          const inviter = await db.getUserByReferralCode(startPayload);
+          const referredBy = inviter && inviter.telegramId !== String(userId) ? startPayload.toUpperCase() : null;
+          await registrationSql`INSERT INTO telegram_registration_intents (telegram_id, referred_by, expires_at)
+            VALUES (${String(userId)}, ${referredBy}, NOW() + INTERVAL '15 minutes')
+            ON CONFLICT (telegram_id) DO UPDATE SET referred_by = EXCLUDED.referred_by, expires_at = EXCLUDED.expires_at`;
+        }
+        const alreadyRegistered = Boolean(userInDb?.phone);
         await sendMessage({
           chat_id: chatId,
           parse_mode: 'HTML',
           text:
             `${announcementHeader}🎉 <b>Welcome to Hyper Bingo!</b>\n\n` +
-            `🔗 You were invited by a friend! Create your account and get <b>20 ETB Welcome Bonus</b>!\n\n` +
+            `${alreadyRegistered ? 'You already have a Hyper Bingo account.' : '🔗 You were invited by a friend! Create your account and get <b>20 ETB Welcome Bonus</b>!'}\n\n` +
             `Your referral code: <code>${startPayload}</code>\n\n` +
-            `<b>👇 Tap below to register and start playing!</b>`,
+            `<b>👇 ${alreadyRegistered ? 'Open the Mini App to play.' : 'Tap Register Account and share your contact to join.'}</b>`,
           reply_markup: {
-            inline_keyboard: [
-              [{ text: '📝 Register Account', callback_data: 'register_account' }],
-              [{ text: '🎮 Open Mini App', web_app: { url: refAppUrl } }],
-            ],
+            inline_keyboard: alreadyRegistered
+              ? [[{ text: '🎮 Open Mini App', web_app: { url: appUrl } }]]
+              : [[{ text: '📝 Register Account', callback_data: 'register_account' }]],
           },
         });
         return NextResponse.json({ ok: true });
