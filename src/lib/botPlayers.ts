@@ -52,10 +52,10 @@ export function getEthiopianHour(): number {
 }
 
 /**
- * Generates realistic player counts based on time of day:
+ * Generates realistic player counts:
  * - Fetan: starts 150; morning up to lunch (6am-1pm): 150-200; afternoon: up to 300 and more
  * - Special: 800 players (morning 680-800, afternoon 800-950)
- * - Weekend: starts 700 up to 1300 players (morning 700-950, afternoon 950-1300)
+ * - Weekend: scheduled games (no morning/afternoon split) - starting 700 up to 1300 players
  */
 export function getBotCountForGame(gameId: string, category?: string, roundSeed?: number): number {
   const seed = Math.abs(roundSeed ?? (Math.floor(Date.now() / 60000) * 17 + hashString(gameId)));
@@ -84,12 +84,10 @@ export function getBotCountForGame(gameId: string, category?: string, roundSeed?
   }
 
   if (isWeekend) {
-    // Weekend: starting 700 up to 1300 players
-    if (isMorning) {
-      return 700 + (seed % 251); // 700..950 players
-    } else {
-      return 950 + (seed % 351); // 950..1300 players
-    }
+    // Weekend games are scheduled events (Fri/Sat/Sun 2PM & 6PM) - no morning/afternoon split.
+    // Starting 700 up to 1300 players per scheduled game.
+    const weekendSeed = Math.abs(hashString(gameId) + (roundSeed ? Math.floor(roundSeed / 86400000) : 0));
+    return 700 + (weekendSeed % 601); // 700..1300 players
   }
 
   return 150 + (seed % 51);
