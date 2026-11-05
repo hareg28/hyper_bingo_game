@@ -44,29 +44,55 @@ function hashString(str: string): number {
 }
 
 /**
- * Generates a randomized bot count for a game round.
- * Different games and different rounds always receive a different count
- * so rooms look natural and varied.
+ * Returns current hour in Ethiopia (UTC+3 / East Africa Time, 0..23).
+ */
+export function getEthiopianHour(): number {
+  const now = new Date();
+  return (now.getUTCHours() + 3) % 24;
+}
+
+/**
+ * Generates realistic player counts based on time of day:
+ * - Fetan: starts 150; morning up to lunch (6am-1pm): 150-200; afternoon: up to 300 and more
+ * - Special: 800 players (morning 680-800, afternoon 800-950)
+ * - Weekend: starts 700 up to 1300 players (morning 700-950, afternoon 950-1300)
  */
 export function getBotCountForGame(gameId: string, category?: string, roundSeed?: number): number {
-  const seed = roundSeed ?? (Math.floor(Date.now() / 60000) * 17 + hashString(gameId));
+  const seed = Math.abs(roundSeed ?? (Math.floor(Date.now() / 60000) * 17 + hashString(gameId)));
   const isFetan = category === 'HYPER_FETAN' || gameId.includes('fetan');
   const isSpecial = category === 'HYPER_SPECIAL' || gameId.includes('special');
   const isWeekend = category === 'HYPER_WEEKEND' || gameId.includes('weekend');
+  const hour = getEthiopianHour();
+  const isMorning = hour >= 6 && hour < 13; // 6:00 AM to 1:00 PM (lunch time)
 
   if (isFetan) {
-    // 12 to 26 bots (e.g. 14, 21, 18, 25, 13)
-    return 12 + (seed % 15);
+    // Fetan: starting 150, morning up to lunch 150-200, afternoon up to 300+
+    if (isMorning) {
+      return 150 + (seed % 51); // 150..200 players
+    } else {
+      return 250 + (seed % 81); // 250..330 players (up to 300 and more)
+    }
   }
+
   if (isSpecial) {
-    // 18 to 38 bots (e.g. 22, 34, 27, 37, 19)
-    return 18 + (seed % 21);
+    // Special: around 800 players (morning 680-800, afternoon 800-950)
+    if (isMorning) {
+      return 680 + (seed % 121); // 680..800 players
+    } else {
+      return 800 + (seed % 151); // 800..950 players (~800 average)
+    }
   }
+
   if (isWeekend) {
-    // 35 to 75 bots (e.g. 42, 68, 55, 73, 49)
-    return 35 + (seed % 41);
+    // Weekend: starting 700 up to 1300 players
+    if (isMorning) {
+      return 700 + (seed % 251); // 700..950 players
+    } else {
+      return 950 + (seed % 351); // 950..1300 players
+    }
   }
-  return 10 + (seed % 12);
+
+  return 150 + (seed % 51);
 }
 
 export interface BotCardInfo {
@@ -150,16 +176,46 @@ export function generateBotCards(
 }
 
 /**
+ * Checks whether a Hyper Special rule is considered hard.
+ * Hard rules (Full House, 3 Lines, Letter X, Frame, Stamps, Pyramid, etc.)
+ * require 8+ marked cells.
+ */
+export function isSpecialRuleHard(specialRuleIndex?: number): boolean {
+  if (typeof specialRuleIndex !== 'number') return false;
+  const rule = HYPER_SPECIAL_RULES[Math.abs(specialRuleIndex) % HYPER_SPECIAL_RULES.length];
+  if (!rule) return false;
+  if (
+    rule.id === 'FULL_HOUSE' ||
+    rule.id === 'THREE_NON_INTERSECTING_LINES' ||
+    rule.id === 'LETTER_X' ||
+    rule.id === 'FOUR_POSTAGE_STAMPS' ||
+    rule.id === 'PYRAMID'
+  ) {
+    return true;
+  }
+  let cellCount = 0;
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      if (rule.pattern[r][c] && !(r === 2 && c === 2)) {
+        cellCount++;
+      }
+    }
+  }
+  return cellCount >= 8;
+}
+
+/**
  * Calculate the ball on which a bot will shout Bingo if no human has won yet.
- * In 75-ball bingo:
- * - 1 line / 4 corners (Fetan): realistically hits around ball 35-49 (never early)
- * - Special patterns (2 lines, X, etc.): realistically hits around ball 46-61 (never early)
- * - Full House (Weekend): realistically hits around ball 62-71 (never early)
+ * User requirement:
+ * - Fetan: win ball called 19–25 ball
+ * - Special: if rule is hard 30–40 ball; if not 25–30 ball
+ * - Weekend: win ball called 45–55 ball
  */
 export function getTargetWinningBall(
   gameId: string,
   roundStartedAt: number,
-  category?: string
+  category?: string,
+  specialRuleIndex?: number
 ): number {
   const seed = Math.abs(hashString(`${gameId}_${roundStartedAt}`));
   const isFetan = category === 'HYPER_FETAN' || gameId.includes('fetan');
@@ -167,19 +223,19 @@ export function getTargetWinningBall(
   const isWeekend = category === 'HYPER_WEEKEND' || gameId.includes('weekend');
 
   if (isFetan) {
-    // 1 Line / 4 Corners in 75-ball bingo realistically completes around ball 35–49.
-    // Never announce early (ball 15 was mathematically unrealistic).
-    return 35 + (seed % 15); // ball 35..49
+    // Hyper Fetan: win ball called 19–25
+    return 19 + (seed % 7); // 19..25
   }
   if (isSpecial) {
-    // Special patterns (2 lines, Letter X, Frame) require 8–16 marked cells.
-    return 46 + (seed % 16); // ball 46..61
+    // Hyper Special: hard rules 30–40, non-hard rules 25–30
+    const hard = isSpecialRuleHard(specialRuleIndex);
+    return hard ? 30 + (seed % 11) : 25 + (seed % 6);
   }
   if (isWeekend) {
-    // Full House (all 24 numbers marked) in 75-ball bingo hits around ball 62–71.
-    return 62 + (seed % 10); // ball 62..71
+    // Hyper Weekend: win ball called 45–55
+    return 45 + (seed % 11); // 45..55
   }
-  return 36 + (seed % 14);
+  return 19 + (seed % 7);
 }
 
 /**
@@ -250,8 +306,9 @@ export async function ensureBotPlayersInDb(
     const isWeekend = category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY' || String(game.id).includes('weekend');
     const pricePerCard = parseFloat(String(game.entry_price || (isWeekend ? '50' : '10')));
 
-    // Insert bot cards into game_cards
-    for (const bot of botCards) {
+    // Insert bot cards into game_cards (capped at 60 to prevent serverless DB timeouts)
+    const cardsToInsert = botCards.slice(0, Math.min(targetBotCount, 60));
+    for (const bot of cardsToInsert) {
       await sql`
         INSERT INTO game_cards (id, game_id, card_number, user_id, username, cost, is_registered, is_paid)
         VALUES (
@@ -268,16 +325,21 @@ export async function ensureBotPlayersInDb(
       `;
     }
 
-    // Update game's current_players count
+    // Count human cards and update game's authoritative current_players count in DB
+    const humanCountRows = await sql`
+      SELECT COUNT(*)::int AS count FROM game_cards
+      WHERE game_id = ${game.id} AND (user_id NOT LIKE 'bot_%' OR user_id IS NULL)
+    `;
+    const humanCount = humanCountRows[0]?.count ?? 0;
+    const totalPlayers = targetBotCount + humanCount;
+
     await sql`
       UPDATE games
-      SET current_players = (
-        SELECT COUNT(*)::integer FROM game_cards WHERE game_id = ${game.id} AND is_paid IS DISTINCT FROM FALSE
-      ), updated_at = NOW()
+      SET current_players = ${totalPlayers}, updated_at = NOW()
       WHERE id = ${game.id}
     `;
 
-    return botCards.length;
+    return targetBotCount;
   } catch (err) {
     console.error(`[ensureBotPlayersInDb] Error seeding bots for ${game.id}:`, err);
     return 0;
@@ -295,7 +357,7 @@ export async function checkAndTriggerBotWin(
   currentBall: number
 ): Promise<WinnerRecord | null> {
   try {
-    if (game.status !== 'RUNNING' || drawnNumbers.length < 32) {
+    if (game.status !== 'RUNNING' || drawnNumbers.length < 18) {
       return null;
     }
 
@@ -310,7 +372,7 @@ export async function checkAndTriggerBotWin(
     // Calculate target winning ball count for this round
     const roundStartedAt = game.round_started_at ? new Date(game.round_started_at).getTime() : Date.now();
     const category = game.category || game.game_type;
-    const targetBall = getTargetWinningBall(game.id, roundStartedAt, category);
+    const targetBall = getTargetWinningBall(game.id, roundStartedAt, category, game.active_special_rule_index);
 
     // If drawn balls haven't reached the target winning ball yet, continue drawing
     if (drawnNumbers.length < targetBall) {
@@ -330,7 +392,8 @@ export async function checkAndTriggerBotWin(
     const winningBot = botRows[Math.abs(hashString(String(roundStartedAt))) % botRows.length];
 
     // Calculate total prize pool
-    const totalPlayers = Math.max(botRows.length, Number(game.current_players || botRows.length));
+    const targetBotCount = getBotCountForGame(game.id, category, roundStartedAt);
+    const totalPlayers = Math.max(botRows.length, Number(game.current_players || 0), targetBotCount);
     const entryPrice = parseFloat(String(game.entry_price || '10'));
     const isWeekend = category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY';
     const prizeWon = isWeekend

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 import { FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getWeekendRoundKey, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
-import { ensureBotPlayersInDb, checkAndTriggerBotWin } from '@/lib/botPlayers';
+import { ensureBotPlayersInDb, checkAndTriggerBotWin, getBotCountForGame, getInitialBotSoldCardNumbers } from '@/lib/botPlayers';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -243,7 +243,7 @@ export async function GET(req: NextRequest) {
       }
 
       // Check bot win on ongoing running round (realistic ball threshold: never announce early)
-      if (game.status === 'RUNNING' && drawn.length >= 32 && winners.length === 0 && game.current_ball) {
+      if (game.status === 'RUNNING' && drawn.length >= 18 && winners.length === 0 && game.current_ball) {
         await checkAndTriggerBotWin(sql, game, drawn, Number(game.current_ball));
       }
     }
@@ -401,7 +401,11 @@ export async function GET(req: NextRequest) {
       drawnNumbers: parseIntegerArray(r.drawn_numbers),
       currentBall: r.current_ball == null ? null : Number(r.current_ball),
       roundStartedAt: r.round_started_at ? new Date(r.round_started_at).getTime() : undefined,
-      currentPlayers: paidCardCountsByGame[r.id] ?? 0,
+      currentPlayers: Math.max(
+        Number(r.current_players || 0),
+        (paidCardCountsByGame[r.id] || 0),
+        getBotCountForGame(r.id, r.category || r.game_type, r.round_started_at ? new Date(r.round_started_at).getTime() : undefined)
+      ),
       winners: Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : []),
       blockedCards: Array.isArray(r.blocked_cards) ? r.blocked_cards : [],
       blockedPlayers: Array.isArray(r.blocked_players) ? r.blocked_players : [],
@@ -411,7 +415,10 @@ export async function GET(req: NextRequest) {
       entryPrice: parseFloat(r.entry_price),
       prizePool: parseFloat(r.prize_pool),
       drawInterval: parseInt(r.draw_interval ?? '3', 10),
-      soldCards: soldCardsByGame[r.id] || [],
+      soldCards: Array.from(new Set([
+        ...(soldCardsByGame[r.id] || []),
+        ...getInitialBotSoldCardNumbers(r.id, r.category || r.game_type)
+      ])),
       updatedAt: r.updated_at,
     }));
 
