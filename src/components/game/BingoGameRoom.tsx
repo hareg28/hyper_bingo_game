@@ -36,6 +36,14 @@ import { getGameLivePrizePool } from '../../lib/store';
 import { audioManager } from '../../lib/audioManager';
 import { isMiniAppActive, subscribeToMiniAppActivity } from '../../lib/miniAppActivity';
 
+function formatEthiopiaTime(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Africa/Addis_Ababa',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(now);
+}
+
 const amharicNumbers = [
   '', 'አንድ', 'ሁለት', 'ሶስት', 'አራት', 'አምስት', 'ስድስት', 'ሰባት', 'ስምንት', 'ዘጠኝ', 'አሰር',
   'አስራአንድ', 'አስራሁለት', 'አስራሶስት', 'አስራአራት', 'አስራአምስት', 'አስራስድስት', 'አስራሰባት', 'አስራስምንት', 'አስራዘጠኝ', 'ሃያ',
@@ -303,8 +311,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         // Also cancel any stacked SpeechSynthesis utterances
         try { window.speechSynthesis?.cancel(); } catch {}
       } else {
-        const now = new Date();
-        setCurrentTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`);
+        setCurrentTime(formatEthiopiaTime());
         audioManager.resume(); // wakes AudioContext back up
       }
     };
@@ -420,10 +427,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   useEffect(() => {
     const updateTime = () => {
       if (isHiddenRef.current) return;
-      const now = new Date();
-      const h = now.getHours().toString().padStart(2, '0');
-      const m = now.getMinutes().toString().padStart(2, '0');
-      setCurrentTime(`${h}:${m}`);
+      setCurrentTime(formatEthiopiaTime());
     };
     updateTime();
     // The header displays only hours/minutes. Updating once a second rerendered
@@ -1640,7 +1644,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     <span className="text-[10px] font-bold text-slate-500 shrink-0">
                       {language === 'am' ? 'ሰዓት' : 'Time'}
                     </span>
-                    <span className="text-[11px] font-mono font-black text-slate-800">{currentTime || '21:53'}</span>
+                    <span className="text-[11px] font-mono font-black text-slate-800">{currentTime ? `${currentTime} EAT` : '--:-- EAT'}</span>
                   </div>
                   <div className="flex items-center gap-1.5 min-w-0 justify-end">
                     <div className="w-3 h-3 rounded-full bg-slate-100 flex items-center justify-center shrink-0">

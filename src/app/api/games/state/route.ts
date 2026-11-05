@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 import { FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getWeekendRoundKey, getWeekendScheduledStartAt, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
@@ -82,7 +82,7 @@ function parseIntegerArray(value: unknown): number[] {
  * Called every 3 seconds by every connected client for real-time multiplayer sync.
  * Lightweight: only fetches fields that change during gameplay.
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   const sql = getNeonSql();
   if (!sql) {
     return NextResponse.json({ success: false, error: 'DB not configured' }, { status: 503 });
@@ -509,10 +509,11 @@ export async function GET(req: NextRequest) {
       updatedAt: r.updated_at,
     }));
 
-    const isScheduledCron = req.headers.get('user-agent')?.includes('vercel-cron/1.0') ?? false;
     return NextResponse.json({ success: true, data: games }, {
       headers: {
-        'Cache-Control': isScheduledCron ? 'no-store, max-age=0' : 'public, s-maxage=1, stale-while-revalidate=2',
+        // This endpoint also advances scheduled games and returns the called ball.
+        // CDN caching could delay the exact start or leave players on an old ball.
+        'Cache-Control': 'no-store, max-age=0',
       },
     });
   } catch (err: any) {
