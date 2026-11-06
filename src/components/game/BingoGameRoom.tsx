@@ -22,6 +22,7 @@ import {
   checkOneAwayStatus,
   getGameHitRequirement,
   getFetanClock,
+  computeWeekendPrizePool,
   SPECIAL_PICK_SECONDS,
   SPECIAL_ROUND_SECONDS,
   FETAN_ROUND_SECONDS,
@@ -31,7 +32,6 @@ import confetti from 'canvas-confetti';
 import SharedCountdownText from './SharedCountdownText';
 import CardNumberSelector from './CardNumberSelector';
 import { isAdminTelegramId } from '../../lib/authUtils';
-import { getGameLivePrizePool } from '../../lib/store';
 import { audioManager } from '../../lib/audioManager';
 import { isMiniAppActive, subscribeToMiniAppActivity } from '../../lib/miniAppActivity';
 
@@ -1256,8 +1256,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         activeGameCards.length
       );
   const totalGrossMoney = (currentGame.entryPrice || 10) * totalCardsSold;
-  const gamePrizeDisplay = (currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY')
-    ? getGameLivePrizePool(currentGame)
+  const gamePrizeDisplay = (currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.category === 'HYPER_WEEKEND')
+    ? computeWeekendPrizePool(currentGame.entryPrice || 0, totalCardsSold)
     : Math.round(totalGrossMoney * 0.80);
   const playableBalance = (wallet?.availableBalance || 0) + (wallet?.bonusBalance || 0) + (wallet?.winningBalance || 0);
   const hasSufficientBalance = playableBalance >= (currentGame?.entryPrice || 0);
@@ -1547,6 +1547,36 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </span>
             </div>
           </div>
+
+          {/* Live Weekend dashboard stats — match Fetan/Special while the draw is running. */}
+          {isWeekendLive && (
+            <div className="grid grid-cols-3 gap-1.5 px-1">
+              <div className="rounded-xl bg-white border border-emerald-200 px-2 py-1.5 text-center shadow-xs">
+                <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                  {language === 'am' ? 'ደርሻ' : 'DERASH'}
+                </div>
+                <div className="text-base sm:text-lg font-black text-emerald-700 font-mono leading-tight">
+                  {formatETB(gamePrizeDisplay)}
+                </div>
+              </div>
+              <div className="rounded-xl bg-white border border-blue-200 px-2 py-1.5 text-center shadow-xs">
+                <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                  {language === 'am' ? 'ኳሶች' : 'BALLS'}
+                </div>
+                <div className="text-base sm:text-lg font-black text-blue-700 font-mono leading-tight">
+                  {currentGame.drawnNumbers.length}<span className="text-xs text-slate-400">/75</span>
+                </div>
+              </div>
+              <div className="rounded-xl bg-white border border-amber-200 px-2 py-1.5 text-center shadow-xs">
+                <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                  {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
+                </div>
+                <div className="text-base sm:text-lg font-black text-amber-700 font-mono leading-tight">
+                  {totalCardsSold}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Current Ball with 3 Previous Balls — Bingo Ball Style */}
           <div className={`flex items-center justify-center gap-2 py-1 ${showMoreNumbers ? 'flex-wrap max-h-24 overflow-y-auto' : ''}`}>

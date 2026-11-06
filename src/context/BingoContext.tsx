@@ -30,6 +30,7 @@ import {
   computeWeekendPrizePool,
   getFetanClock,
   getSpecialPickClock,
+  getNextWeekendDrawAt,
 } from '../lib/bingoUtils';
 import { isAdminTelegramId } from '../lib/authUtils';
 
@@ -756,12 +757,16 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
       const interval = setInterval(() => {
         if (Date.now() >= deadline || currentIndex >= allBotCards.length) {
-          // Pick window over — ensure ALL cards are shown
+          // Pick window over — ensure ALL cards are shown and players count reaches full
           setLotterySoldMap((prev) => {
             const existing = prev[game.id] || new Set<number>();
             if (existing.size >= allBotCards.length) return prev;
             return { ...prev, [game.id]: new Set<number>(allBotCards) };
           });
+          setGames((prev) => prev.map((g) => {
+            if (g.id !== game.id) return g;
+            return { ...g, currentPlayers: Math.max(g.currentPlayers || 0, allBotCards.length) };
+          }));
           clearInterval(interval);
           return;
         }
@@ -773,6 +778,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           batch.forEach((n) => next.add(n));
           return { ...prev, [game.id]: next };
         });
+        setGames((prev) => prev.map((g) => {
+          if (g.id !== game.id) return g;
+          return { ...g, currentPlayers: Math.max(g.currentPlayers || 0, currentIndex) };
+        }));
       }, TICK_MS);
 
       intervals.push(interval);
@@ -783,6 +792,62 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [games.map((g) => `${g.id}:${g.status}:${g.nextRoundStartsAt ?? ''}`).join('|')]);
   // ── End gradual bot card reveal ────────────────────────────────────────────
+
+  // ── Weekend time-based bot card reveal ───────────────────────────────────
+  // Weekend games have a 7-day selling window. Bot sold cards grow from 0 to
+  // the full count linearly as time advances toward the weekly draw.
+  // The server already returns the time-proportional slice; this effect keeps
+  // the client display accurate between polls (updates every 60 seconds).
+  useEffect(() => {
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+    const updateWeekendCards = () => {
+      setLotterySoldMap((prev) => {
+        let changed = false;
+        const nextMap = { ...prev };
+        games.forEach((g) => {
+          const id = String(g.id);
+          if (!id.includes('weekend') || g.status !== 'OPEN') return;
+          const allBotCards = getInitialBotSoldCardNumbers(g.id, (g as any).category || (g as any).gameType);
+          if (allBotCards.length === 0) return;
+          const drawAt = getNextWeekendDrawAt(g as any);
+          const windowStart = drawAt - WEEK_MS;
+          const progress = Math.min(1, Math.max(0, (Date.now() - windowStart) / WEEK_MS));
+          const visibleCount = Math.floor(allBotCards.length * progress);
+          // Also include any real human-bought cards already in the set
+          const existing = prev[g.id] || new Set<number>();
+          const target = new Set<number>(allBotCards.slice(0, visibleCount));
+          // Merge human-bought cards (numbers above bot range) with bot slice
+          existing.forEach((n) => target.add(n));
+          if (target.size !== existing.size || [...allBotCards.slice(0, visibleCount)].some((n) => !existing.has(n))) {
+            nextMap[g.id] = target;
+            changed = true;
+          }
+        });
+        return changed ? nextMap : prev;
+      });
+
+      setGames((prev) => prev.map((g) => {
+        const id = String(g.id);
+        if (!id.includes('weekend') || g.status !== 'OPEN') return g;
+        const allBotCards = getInitialBotSoldCardNumbers(g.id, (g as any).category || (g as any).gameType);
+        if (allBotCards.length === 0) return g;
+        const drawAt = getNextWeekendDrawAt(g as any);
+        const windowStart = drawAt - WEEK_MS;
+        const progress = Math.min(1, Math.max(0, (Date.now() - windowStart) / WEEK_MS));
+        const visibleCount = Math.floor(allBotCards.length * progress);
+        if (g.currentPlayers === visibleCount) return g;
+        return { ...g, currentPlayers: visibleCount };
+      }));
+    };
+
+    // Run immediately on mount / game change, then refresh every 60 seconds
+    updateWeekendCards();
+    const timer = setInterval(updateWeekendCards, 60_000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [games.filter((g) => String(g.id).includes('weekend')).map((g) => `${g.id}:${g.status}`).join('|')]);
+  // ── End weekend time-based reveal ─────────────────────────────────────────
 
   const openAuthModal = React.useCallback((mode: 'register' | 'login' = 'register') => {
     setAuthModalMode(mode);
@@ -2029,12 +2094,24 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     // Optimistic local reset with fresh bot players (varied count and new cards)
     const freshBotCount = getBotCountForGame(gameId, game.category || game.gameType);
     const freshBotCards = getInitialBotSoldCardNumbers(gameId, game.category || game.gameType);
+    const isGradualReveal = isFetan || isSpecial;
+    const initialPlayersCount = isGradualReveal
+      ? Math.ceil(freshBotCount * 0.08)
+      : (game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY' || gameId.includes('weekend'))
+        ? (() => {
+            const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+            const drawAt = getNextWeekendDrawAt(game);
+            const progress = Math.min(1, Math.max(0, (Date.now() - (drawAt - WEEK_MS)) / WEEK_MS));
+            return Math.floor(freshBotCount * progress);
+          })()
+        : freshBotCount;
+
     setGames((prev) => {
       const updated = prev.map((g) => {
         if (g.id !== gameId) return g;
         return {
           ...g,
-          currentPlayers: freshBotCount,
+          currentPlayers: initialPlayersCount,
           drawnNumbers: [],
           currentBall: undefined,
           blockedCards: [],
@@ -2057,7 +2134,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       return updated;
     });
     // For Fetan AND Special games, only seed a small initial batch so the gradual reveal effect can fill the rest
-    const isGradualReveal = isFetan || isSpecial;
     if (isGradualReveal) {
       const initialSeed = freshBotCards.slice(0, Math.ceil(freshBotCards.length * 0.08));
       setLotterySoldMap((prev) => ({ ...prev, [gameId]: new Set<number>(initialSeed) }));
@@ -2403,8 +2479,11 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (!game) return null;
     if (game.status === 'COMPLETED' || (game.winners && game.winners.length > 0)) return null;
 
-    const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL';
-    if (isSpecial && game.nextRoundStartsAt && Date.now() < game.nextRoundStartsAt) return null;
+    const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL' || gameId.includes('special');
+    const isFetan = game.category === 'HYPER_FETAN' || game.gameType === 'HYPER_FETAN' || gameId.includes('fetan');
+    const isWeekend = game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY' || gameId.includes('weekend');
+    if ((isSpecial || isFetan) && game.nextRoundStartsAt && Date.now() < game.nextRoundStartsAt) return null;
+    if (isWeekend && !isWeekendSlotCurrentlyLive(game)) return null;
 
     if (game.drawnNumbers.length >= 75) return null;
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
 import { isAdminTelegramId } from '@/lib/authUtils';
-import { HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_PICK_SECONDS } from '@/lib/bingoUtils';
+import { FETAN_PICK_SECONDS, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_PICK_SECONDS } from '@/lib/bingoUtils';
 import { INITIAL_GAMES } from '@/lib/store';
 import { ensureBotPlayersInDb } from '@/lib/botPlayers';
 
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     const nextRoundStartsAt = isSpecial
       ? Date.now() + SPECIAL_PICK_SECONDS * 1000
       : isFetan
-        ? Date.now() + 30 * 1000
+        ? Date.now() + FETAN_PICK_SECONDS * 1000
         : null;
 
     // Reset the game and clear its one-round cards atomically. This prevents

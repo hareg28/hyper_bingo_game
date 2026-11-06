@@ -2,7 +2,7 @@ import {
   User, Wallet, Game, BingoCard, Transaction, 
   WithdrawalRequest, Promotion, AuditLog, Referral 
 } from './types';
-import { computeWeekendPrizePool, createNewBingoCard, generateSoldNumbersForGame } from './bingoUtils';
+import { computeWeekendPrizePool, createNewBingoCard, generateSoldNumbersForGame, getNextWeekendDrawAt } from './bingoUtils';
 import { getInitialBotSoldCardNumbers } from './botPlayers';
 
 // ------------------------------------------------------------------
@@ -38,11 +38,24 @@ export const getGameLivePrizePool = (game: Game): number => {
 // ================================================================
 export const getInitialLotterySoldMap = (games: Game[]): Record<string, Set<number>> => {
   const map: Record<string, Set<number>> = {};
+  const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
   games.forEach((g) => {
     if (g.category === 'HYPER_FETAN' || g.category === 'HYPER_WEEKEND' || g.category === 'HYPER_SPECIAL' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial) {
-      // Pre-seed initial bot player sold cards so rooms display active players and sold cards immediately
-      const initialCards = getInitialBotSoldCardNumbers(g.id, g.category || g.gameType);
-      map[g.id] = new Set<number>(initialCards);
+      const allCards = getInitialBotSoldCardNumbers(g.id, g.category || g.gameType);
+      // Weekend games: seed only the time-proportional slice so bots appear to
+      // accumulate over the 7-day selling window (matches the server-side logic).
+      const isWeekend = g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || !!g.isWeekendSpecial;
+      if (isWeekend) {
+        const drawAt = getNextWeekendDrawAt(g);
+        const windowStart = drawAt - WEEK_MS;
+        const progress = Math.min(1, Math.max(0, (Date.now() - windowStart) / WEEK_MS));
+        const visibleCount = Math.floor(allCards.length * progress);
+        map[g.id] = new Set<number>(allCards.slice(0, visibleCount));
+      } else {
+        // Fetan / Special: start with empty set — the gradual reveal effect in
+        // BingoContext populates them during the pick window.
+        map[g.id] = new Set<number>();
+      }
     }
   });
   return map;

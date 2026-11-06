@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
-import { FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getWeekendRoundKey, getWeekendScheduledStartAt, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
+import { FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getNextWeekendDrawAt, getWeekendRoundKey, getWeekendScheduledStartAt, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
 import { ensureBotPlayersInDb, checkAndTriggerBotWin, getBotCountForGame, getInitialBotSoldCardNumbers } from '@/lib/botPlayers';
 
 let weekendScheduleMigration: Promise<void> | null = null;
@@ -449,73 +449,99 @@ export async function GET() {
       (row.category !== 'HYPER_WEEKEND' && row.game_type !== 'WEEKEND_LOTTERY') || activeWeekendIds.has(row.id)
     );
 
-    // Fetch sold cards by game so clients can show live sold cards & left cards on the board
-    const soldCardsByGame: Record<string, number[]> = {};
-    let soldRows: any[] = [];
+    // Fetch human sold cards by game so clients can show live sold cards & left cards on the board
+    const humanSoldCardsByGame: Record<string, number[]> = {};
+    const humanPaidCardCountsByGame: Record<string, number> = {};
     try {
-      soldRows = await sql`
+      const soldRows = await sql`
         SELECT game_id, card_number, user_id, is_paid FROM game_cards
       `;
       for (const row of soldRows) {
-        if (!soldCardsByGame[row.game_id]) {
-          soldCardsByGame[row.game_id] = [];
-        }
-        const num = parseInt(row.card_number, 10);
-        if (!Number.isNaN(num)) {
-          soldCardsByGame[row.game_id].push(num);
+        const isBot = String(row.user_id || '').startsWith('bot_');
+        if (!isBot) {
+          if (!humanSoldCardsByGame[row.game_id]) {
+            humanSoldCardsByGame[row.game_id] = [];
+          }
+          const num = parseInt(row.card_number, 10);
+          if (!Number.isNaN(num)) {
+            humanSoldCardsByGame[row.game_id].push(num);
+          }
+          if (row.is_paid !== false) {
+            humanPaidCardCountsByGame[row.game_id] = (humanPaidCardCountsByGame[row.game_id] || 0) + 1;
+          }
         }
       }
     } catch {
       // Gracefully ignore if table empty or not yet migrated
     }
 
-    const humanPaidCardCountsByGame: Record<string, number> = {};
-    try {
-      for (const row of soldRows) {
-        if (row.is_paid !== false && !String(row.user_id || '').startsWith('bot_')) {
-          humanPaidCardCountsByGame[row.game_id] = (humanPaidCardCountsByGame[row.game_id] || 0) + 1;
+    const games = rows.map((r: any) => {
+      const id = String(r.id);
+      const isFetan = id.includes('fetan');
+      const isSpecial = id.includes('special');
+      const isWeekend = id.includes('weekend');
+      const targetBotCount = getBotCountForGame(
+        r.id,
+        r.category || r.game_type,
+        r.round_started_at ? new Date(r.round_started_at).getTime() : undefined
+      );
+      const allBotCards = getInitialBotSoldCardNumbers(r.id, r.category || r.game_type);
+
+      // Realistic progressive bot participation during the card-picking / selling window
+      let visibleBotCount = targetBotCount;
+      if (r.status === 'OPEN') {
+        if (isFetan) {
+          const pickDeadline = r.next_round_starts_at ? Number(r.next_round_starts_at) : 0;
+          if (pickDeadline > Date.now()) {
+            const timeLeftMs = Math.max(0, pickDeadline - Date.now());
+            const progress = Math.min(1, Math.max(0, (FETAN_PICK_SECONDS * 1000 - timeLeftMs) / (FETAN_PICK_SECONDS * 1000)));
+            visibleBotCount = Math.floor(targetBotCount * (0.08 + 0.92 * progress));
+          }
+        } else if (isSpecial) {
+          const pickDeadline = r.next_round_starts_at ? Number(r.next_round_starts_at) : 0;
+          if (pickDeadline > Date.now()) {
+            const timeLeftMs = Math.max(0, pickDeadline - Date.now());
+            const progress = Math.min(1, Math.max(0, (SPECIAL_PICK_SECONDS * 1000 - timeLeftMs) / (SPECIAL_PICK_SECONDS * 1000)));
+            visibleBotCount = Math.floor(targetBotCount * (0.08 + 0.92 * progress));
+          }
+        } else if (isWeekend) {
+          const initGame = INITIAL_GAMES.find((g) => g.id === r.id);
+          const drawAt = initGame ? getNextWeekendDrawAt(initGame) : 0;
+          if (drawAt > 0) {
+            const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+            const progress = Math.min(1, Math.max(0, (Date.now() - (drawAt - WEEK_MS)) / WEEK_MS));
+            visibleBotCount = Math.floor(targetBotCount * progress);
+          }
         }
       }
-    } catch {
-      // Player totals remain zero if card data is unavailable.
-    }
 
-    const games = rows.map((r: any) => ({
-      id: r.id,
-      status: r.status,
-      drawnNumbers: parseIntegerArray(r.drawn_numbers),
-      currentBall: r.current_ball == null ? null : Number(r.current_ball),
-      roundStartedAt: r.round_started_at ? new Date(r.round_started_at).getTime() : undefined,
-      currentPlayers:
-        (humanPaidCardCountsByGame[r.id] || 0) +
-        getBotCountForGame(
-          r.id,
-          r.category || r.game_type,
-          r.round_started_at ? new Date(r.round_started_at).getTime() : undefined
-        ),
-      winners: Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : []),
-      blockedCards: Array.isArray(r.blocked_cards) ? r.blocked_cards : [],
-      blockedPlayers: Array.isArray(r.blocked_players) ? r.blocked_players : [],
-      activeSpecialRuleIndex: parseInt(r.active_special_rule_index ?? '0', 10),
-      nextRoundStartsAt: r.next_round_starts_at ? Number(r.next_round_starts_at) : undefined,
-      weekendRoundKey: r.weekend_round_key || undefined,
-      entryPrice: parseFloat(r.entry_price),
-      prizePool: parseFloat(r.prize_pool),
-      drawInterval: parseInt(r.draw_interval ?? '3', 10),
-      soldCards: Array.from(new Set([
-        ...(soldCardsByGame[r.id] || []),
-        // For Fetan AND Special games in the pick window, skip bot cards here —
-        // the client's gradual-reveal effect adds them incrementally over the countdown.
-        // For Weekend games always include the full bot card set.
-        ...(() => {
-          const isGradualGame = String(r.id).includes('fetan') || String(r.id).includes('special');
-          const pickDeadline = r.next_round_starts_at ? Number(r.next_round_starts_at) : 0;
-          const inPickWindow = isGradualGame && r.status === 'OPEN' && pickDeadline > Date.now();
-          return inPickWindow ? [] : getInitialBotSoldCardNumbers(r.id, r.category || r.game_type);
-        })(),
-      ])),
-      updatedAt: r.updated_at,
-    }));
+      const visibleBotCards = allBotCards.slice(0, Math.min(visibleBotCount, allBotCards.length));
+      const humanCount = humanPaidCardCountsByGame[r.id] || 0;
+      const currentPlayers = humanCount + visibleBotCount;
+
+      return {
+        id: r.id,
+        status: r.status,
+        drawnNumbers: parseIntegerArray(r.drawn_numbers),
+        currentBall: r.current_ball == null ? null : Number(r.current_ball),
+        roundStartedAt: r.round_started_at ? new Date(r.round_started_at).getTime() : undefined,
+        currentPlayers,
+        winners: Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : []),
+        blockedCards: Array.isArray(r.blocked_cards) ? r.blocked_cards : [],
+        blockedPlayers: Array.isArray(r.blocked_players) ? r.blocked_players : [],
+        activeSpecialRuleIndex: parseInt(r.active_special_rule_index ?? '0', 10),
+        nextRoundStartsAt: r.next_round_starts_at ? Number(r.next_round_starts_at) : undefined,
+        weekendRoundKey: r.weekend_round_key || undefined,
+        entryPrice: parseFloat(r.entry_price),
+        prizePool: parseFloat(r.prize_pool),
+        drawInterval: parseInt(r.draw_interval ?? '3', 10),
+        soldCards: Array.from(new Set([
+          ...(humanSoldCardsByGame[r.id] || []),
+          ...visibleBotCards,
+        ])),
+        updatedAt: r.updated_at,
+      };
+    });
 
     return NextResponse.json({ success: true, data: games }, {
       headers: {
