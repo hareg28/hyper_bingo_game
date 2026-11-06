@@ -1086,41 +1086,36 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    // Simulate backend payment verification API delay
-    await new Promise((res) => setTimeout(res, 800));
-
-    const newTxId = `TX_${Date.now().toString().slice(-6)}`;
-    const newBalance = wallet.availableBalance + amount;
-
-    const newTx: Transaction = {
-      id: newTxId,
-      userId: user.id,
-      username: user.username,
-      type: 'DEPOSIT',
-      amount,
-      balanceAfter: newBalance,
-      reference,
-      paymentProvider: provider,
-      status: 'COMPLETED',
-      description: `${provider} Instant Deposit Verified`,
-      createdAt: new Date().toISOString(),
-    };
-
-    setWallet((prev) => ({
-      ...prev,
-      availableBalance: prev.availableBalance + amount,
-      totalDeposited: prev.totalDeposited + amount,
-    }));
-
-    setTransactions((prev) => [newTx, ...prev]);
-
-    addNotification(
-      '💳 Deposit Confirmed!',
-      `Successfully credited ${amount} ETB via ${provider}. Ref: ${reference}`,
-      'success'
-    );
-
-    return true;
+    // Never credit the client-side wallet directly. Every deposit must pass
+    // through the server verifier or remain pending for administrator review.
+    try {
+      const response = await fetch('/api/payments/deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          amount,
+          mode: 'manual',
+          provider,
+          transactionCode: reference,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        addNotification('❌ Deposit Failed', data.error || 'The payment could not be verified.', 'error');
+        return false;
+      }
+      await refreshWallet();
+      addNotification(
+        data.data?.status === 'COMPLETED' ? '💳 Deposit Confirmed!' : '⏳ Deposit Submitted',
+        data.message || `Your ${amount} ETB deposit is being verified.`,
+        data.data?.status === 'COMPLETED' ? 'success' : 'info'
+      );
+      return true;
+    } catch {
+      addNotification('❌ Deposit Error', 'The payment could not be verified. Please try again.', 'error');
+      return false;
+    }
   };
 
   // 1b. SUBMIT PENDING DEPOSIT (Secure deposit request awaiting owner approval)
@@ -1136,32 +1131,35 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
 
     const code = transactionCode || reference;
-    const newTxId = `TX_${Date.now().toString().slice(-6)}`;
-
-    const newTx: Transaction = {
-      id: newTxId,
-      userId: user.id,
-      username: user.username,
-      type: 'DEPOSIT',
-      amount,
-      balanceAfter: wallet.availableBalance, // NOT credited yet!
-      reference: code,
-      paymentProvider: provider,
-      status: 'PENDING',
-      description: `Deposit via ${provider} (Ref: ${code})`,
-      createdAt: new Date().toISOString(),
-    };
-
-    setTransactions((prev) => [newTx, ...prev]);
-
-    addNotification(
-      '⏳ Deposit Submitted for Verification',
-      `Your deposit of ${amount} ETB via ${provider} (Code: ${code}) has been submitted. The owner has been notified to verify your transaction code and credit your balance shortly.`,
-      'info'
-    );
-    audioManager.playApprovalRequestChime();
-
-    return true;
+    try {
+      const response = await fetch('/api/payments/deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          amount,
+          mode: 'manual',
+          provider,
+          transactionCode: code,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        addNotification('❌ Deposit Failed', data.error || 'The payment could not be verified.', 'error');
+        return false;
+      }
+      await refreshWallet();
+      addNotification(
+        data.data?.status === 'COMPLETED' ? '💳 Deposit Confirmed!' : '⏳ Deposit Submitted for Verification',
+        data.message || `Your deposit of ${amount} ETB is being verified.`,
+        data.data?.status === 'COMPLETED' ? 'success' : 'info'
+      );
+      audioManager.playApprovalRequestChime();
+      return true;
+    } catch {
+      addNotification('❌ Deposit Error', 'The payment could not be verified. Please try again.', 'error');
+      return false;
+    }
   };
 
   // 2. WITHDRAWAL — submit a pending request; debit only after admin approval.
@@ -1227,7 +1225,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
       addNotification(
         '✅ Withdrawal submitted',
-        `${amount} ETB requested for payout to ${provider} (${accountNumber}). Your wallet is debited after approval.`,
+        `${amount} ETB requested for payout to ${provider} (${accountNumber}). Your withdrawable winnings are reserved until approval or rejection.`,
         'success'
       );
       audioManager.playApprovalRequestChime();

@@ -1201,45 +1201,90 @@ const db = {
 
     if (sql) {
       try {
-        // ── Balance check ──────────────────────────────────────────────────
-        const walletRows = await sql`SELECT * FROM wallets WHERE user_id = ${params.userId} LIMIT 1`;
-        if (walletRows.length === 0) throw new Error('Wallet not found');
-        const currentWinning  = parseFloat(walletRows[0].winning_balance)  || 0;
-        const totalWithdrawable = currentWinning;
-        if (totalWithdrawable < params.amount) throw new Error('Insufficient withdrawable balance');
-
-        // Requests do not debit the wallet. Approval performs the debit.
-        const newBalance = currentWinning;
-
-        // ── Insert PENDING transaction ─────────────────────────────────────
         const txId  = generateId('tx');
         const wdrRef = generateId('WDR');
-        const txRows = await sql`
-          INSERT INTO transactions
-            (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
-          VALUES (
-            ${txId}, ${params.userId}, ${username},
-            'WITHDRAWAL', ${-params.amount}, ${newBalance},
-            ${params.paymentMethod}, 'PENDING', ${wdrRef},
-            ${'Pending withdrawal to ' + params.paymentMethod + ' ' + params.accountNumber}
-          )
-          RETURNING *
-        `;
-        const tx = rowToTransaction(txRows[0]);
-
-        // ── Insert PENDING withdrawal request ──────────────────────────────
         const wdrId = generateId('wdr');
-        const wdrRows = await sql`
-          INSERT INTO withdrawal_requests
-            (id, user_id, username, amount, provider, account_number, account_holder, transaction_id, status)
-          VALUES (
-            ${wdrId}, ${params.userId}, ${username}, ${params.amount},
-            ${params.paymentMethod}, ${params.accountNumber}, ${params.accountName},
-            ${txId}, 'PENDING'
+        const rows = await sql`
+          WITH reserved AS (
+            UPDATE wallets
+            SET winning_balance = winning_balance - ${params.amount}, updated_at = NOW()
+            WHERE user_id = ${params.userId} AND winning_balance >= ${params.amount}
+            RETURNING user_id, winning_balance
+          ), inserted_tx AS (
+            INSERT INTO transactions
+              (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
+            SELECT
+              ${txId}, reserved.user_id, ${username}, 'WITHDRAWAL', ${-params.amount}, reserved.winning_balance,
+              ${params.paymentMethod}, 'PENDING', ${wdrRef},
+              ${'Pending withdrawal to ' + params.paymentMethod + ' ' + params.accountNumber}
+            FROM reserved
+            RETURNING *
+          ), inserted_request AS (
+            INSERT INTO withdrawal_requests
+              (id, user_id, username, amount, provider, account_number, account_holder, transaction_id, status, reserved_at)
+            SELECT
+              ${wdrId}, inserted_tx.user_id, ${username}, ${params.amount},
+              ${params.paymentMethod}, ${params.accountNumber}, ${params.accountName},
+              inserted_tx.id, 'PENDING', NOW()
+            FROM inserted_tx
+            RETURNING *
           )
-          RETURNING *
+          SELECT
+            inserted_request.id AS withdrawal_id,
+            inserted_request.transaction_id AS withdrawal_transaction_id,
+            inserted_request.user_id AS withdrawal_user_id,
+            inserted_request.username AS withdrawal_username,
+            inserted_request.amount AS withdrawal_amount,
+            inserted_request.provider AS withdrawal_provider,
+            inserted_request.account_number AS withdrawal_account_number,
+            inserted_request.account_holder AS withdrawal_account_holder,
+            inserted_request.status AS withdrawal_status,
+            inserted_request.created_at AS withdrawal_created_at,
+            inserted_request.reserved_at AS withdrawal_reserved_at,
+            inserted_tx.id AS tx_id,
+            inserted_tx.user_id AS tx_user_id,
+            inserted_tx.username AS tx_username,
+            inserted_tx.type AS tx_type,
+            inserted_tx.amount AS tx_amount,
+            inserted_tx.balance_after AS tx_balance_after,
+            inserted_tx.provider AS tx_provider,
+            inserted_tx.status AS tx_status,
+            inserted_tx.reference AS tx_reference,
+            inserted_tx.description AS tx_description,
+            inserted_tx.created_at AS tx_created_at,
+            inserted_tx.verified_by AS tx_verified_by
+          FROM inserted_request
+          JOIN inserted_tx ON inserted_tx.id = inserted_request.transaction_id
         `;
-        const withdrawal = rowToWithdrawal(wdrRows[0]);
+        if (rows.length === 0) throw new Error('Insufficient withdrawable balance');
+        const row = rows[0];
+        const tx = rowToTransaction({
+          id: row.tx_id,
+          user_id: row.tx_user_id,
+          username: row.tx_username,
+          type: row.tx_type,
+          amount: row.tx_amount,
+          balance_after: row.tx_balance_after,
+          provider: row.tx_provider,
+          status: row.tx_status,
+          reference: row.tx_reference,
+          description: row.tx_description,
+          created_at: row.tx_created_at,
+          verified_by: row.tx_verified_by,
+        });
+        const withdrawal = rowToWithdrawal({
+          id: row.withdrawal_id,
+          transaction_id: row.withdrawal_transaction_id,
+          user_id: row.withdrawal_user_id,
+          username: row.withdrawal_username,
+          amount: row.withdrawal_amount,
+          provider: row.withdrawal_provider,
+          account_number: row.withdrawal_account_number,
+          account_holder: row.withdrawal_account_holder,
+          status: row.withdrawal_status,
+          created_at: row.withdrawal_created_at,
+          reserved_at: row.withdrawal_reserved_at,
+        });
         return { withdrawal, transaction: tx };
       } catch (e: any) {
         if (e.message === 'Insufficient withdrawable balance') throw e;
@@ -1252,6 +1297,11 @@ const db = {
     const wallet = await this.getOrCreateWallet(params.userId);
     const totalWithdrawable = wallet.winningBalance || 0;
     if (totalWithdrawable < params.amount) throw new Error('Insufficient withdrawable balance');
+
+    // Reserve winnings immediately so multiple pending requests cannot spend
+    // the same balance. Rejection refunds this reservation.
+    wallet.winningBalance -= params.amount;
+    walletsMap.set(params.userId, wallet);
 
     const tx: Transaction = {
       id: generateId('tx'),
@@ -1279,6 +1329,7 @@ const db = {
       accountName: params.accountName,
       status: 'PENDING',
       createdAt: new Date().toISOString(),
+      reservedAt: new Date().toISOString(),
     };
     withdrawalsMap.set(withdrawal.id, withdrawal);
     return { withdrawal, transaction: tx };
@@ -1315,14 +1366,21 @@ const db = {
         `;
         if (claimedRows.length === 0) return null;
         const pending = rowToWithdrawal(claimedRows[0]);
-        const debited = await sql`
-          UPDATE wallets
-          SET winning_balance = winning_balance - ${pending.amount},
-              total_withdrawn = total_withdrawn + ${pending.amount}, updated_at = NOW()
-          WHERE user_id = ${pending.userId} AND winning_balance >= ${pending.amount}
-          RETURNING user_id
-        `;
-        if (debited.length === 0) {
+        const settledWallet = pending.reservedAt
+          ? await sql`
+              UPDATE wallets
+              SET total_withdrawn = total_withdrawn + ${pending.amount}, updated_at = NOW()
+              WHERE user_id = ${pending.userId}
+              RETURNING user_id
+            `
+          : await sql`
+              UPDATE wallets
+              SET winning_balance = winning_balance - ${pending.amount},
+                  total_withdrawn = total_withdrawn + ${pending.amount}, updated_at = NOW()
+              WHERE user_id = ${pending.userId} AND winning_balance >= ${pending.amount}
+              RETURNING user_id
+            `;
+        if (settledWallet.length === 0) {
           await sql`UPDATE withdrawal_requests SET status = 'PENDING' WHERE id = ${withdrawalId} AND status = 'PROCESSING'`;
           throw new Error('Insufficient withdrawable balance');
         }
@@ -1349,8 +1407,11 @@ const db = {
     const wr = withdrawalsMap.get(withdrawalId);
     if (!wr || wr.status !== 'PENDING') return null;
     const wallet = walletsMap.get(wr.userId);
-    if (!wallet || wallet.winningBalance < wr.amount) throw new Error('Insufficient withdrawable balance');
-    wallet.winningBalance -= wr.amount;
+    if (!wallet) throw new Error('Insufficient withdrawable balance');
+    if (!wr.reservedAt) {
+      if (wallet.winningBalance < wr.amount) throw new Error('Insufficient withdrawable balance');
+      wallet.winningBalance -= wr.amount;
+    }
     wallet.totalWithdrawn += wr.amount;
     walletsMap.set(wr.userId, wallet);
     wr.status = 'COMPLETED';
@@ -1380,6 +1441,14 @@ const db = {
         if (rows.length === 0) return null;
         const wr = rowToWithdrawal(rows[0]);
 
+        if (wr.reservedAt) {
+          await sql`
+            UPDATE wallets
+            SET winning_balance = winning_balance + ${wr.amount}, updated_at = NOW()
+            WHERE user_id = ${wr.userId}
+          `;
+        }
+
         // Mark linked transaction FAILED
         await sql`
           UPDATE transactions
@@ -1392,6 +1461,13 @@ const db = {
 
     const wr = withdrawalsMap.get(withdrawalId);
     if (!wr || wr.status !== 'PENDING') return null;
+    if (wr.reservedAt) {
+      const wallet = walletsMap.get(wr.userId);
+      if (wallet) {
+        wallet.winningBalance += wr.amount;
+        walletsMap.set(wr.userId, wallet);
+      }
+    }
     wr.status = 'FAILED';
     withdrawalsMap.set(withdrawalId, wr);
     const tx = transactionsMap.get(wr.transactionId);

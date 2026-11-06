@@ -3,15 +3,15 @@
  *
  * Withdrawal Flow (correct architecture):
  *   1. Validate request + check balance
- *   2. Reserve the amount (deduct from wallet immediately → PENDING)
+ *   2. Reserve the winnings amount (deduct from wallet immediately → PENDING)
  *   3. Create PENDING withdrawal_request + PENDING transaction in DB
  *   4. Notify admins via Telegram — they must approve/reject in the admin panel
  *   5. On admin approval → admin route calls disburse() → gateway sends money
  *   6. On gateway confirmation → withdrawal marked COMPLETED
  *   7. On admin rejection → balance refunded, withdrawal marked FAILED
  *
- * Key principle: the player's Bingo balance is debited right away (reservation)
- * so they cannot double-spend while the request is pending admin review.
+ * Key principle: the player's withdrawable winnings are reserved right away so
+ * they cannot submit multiple requests against the same balance.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
-    // Create the pending request. The wallet is debited only after approval.
+    // Create the pending request and reserve winnings atomically.
     const { withdrawal, transaction } = await db.createPendingWithdrawal({
       userId,
       amount,
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       },
       message:
         `✅ Withdrawal request of ${amount} ETB submitted successfully!\n` +
-        `Your wallet will be debited after the request is approved and paid to ${accountNumber} ` +
+        `Your winnings are reserved now and will be paid to ${accountNumber} ` +
         `(${paymentMethod}) — usually within a few hours.`,
     });
 

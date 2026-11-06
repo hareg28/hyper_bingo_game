@@ -12,8 +12,6 @@ export interface User {
   referralCode: string;
   referredBy?: string;
   createdAt: string;
-  /** Timestamp when winnings were reserved for this pending request. */
-  reservedAt?: string;
 }
 
 export interface Wallet {
@@ -147,6 +145,8 @@ export interface WithdrawalRequest {
   accountName: string;
   status: TransactionStatus;
   createdAt: string;
+  /** Timestamp when winnings were reserved for this pending request. */
+  reservedAt?: string;
   /** Outgoing Telebirr/CBE reference after admin sends payout */
   payoutReference?: string;
   processedBy?: string;
