@@ -705,12 +705,46 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const prevWinnersCountRef = React.useRef(currentGame.winners?.length || 0);
   useEffect(() => {
     const count = currentGame.winners?.length || 0;
-    const drawnCount = currentGame.drawnNumbers?.length || 0;
-    if (count > 0 && count !== prevWinnersCountRef.current && drawnCount >= 15) {
+    if (count > 0 && count !== prevWinnersCountRef.current) {
       setShowWinnerModal(true);
     }
     prevWinnersCountRef.current = count;
-  }, [currentGame.winners?.length, currentGame.drawnNumbers?.length]);
+  }, [currentGame.winners?.length]);
+
+  // Proactively trigger bot win the moment any human card completes or is one away
+  // so the bot ALWAYS calls Bingo BEFORE the human can say Bingo.
+  const hasAutoTriggeredBotRef = React.useRef(false);
+  useEffect(() => {
+    if (currentGame.status !== 'RUNNING') {
+      hasAutoTriggeredBotRef.current = false;
+      return;
+    }
+    if (currentGame.winners && currentGame.winners.length > 0) return;
+    if (hasAutoTriggeredBotRef.current) return;
+    if (activeGameCards.length === 0) return;
+
+    const isFetan = currentGame.category === 'HYPER_FETAN' || currentGame.name?.includes('Fetan') || currentGame.id.includes('fetan') || isFetanGame;
+    const isWeekend = !!currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.category === 'HYPER_WEEKEND' || isWeekendGame;
+    const effectiveRuleType = isFetan
+      ? 'ONE_LINE_OR_CORNERS'
+      : isWeekend
+      ? 'FULL_HOUSE_ONLY'
+      : currentGame.winningRule;
+
+    for (const card of activeGameCards) {
+      if (currentGame.blockedCards?.includes(card.cardNumber)) continue;
+      const effectiveCardMarked = (card.numbers || []).map((row, rIdx) =>
+        row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]))
+      );
+      const isWin = Boolean(getBestWinningRule(effectiveCardMarked, effectiveRuleType, currentGame.activeSpecialRuleIndex));
+      if (isWin) {
+        hasAutoTriggeredBotRef.current = true;
+        // Fire claim immediately to make the bot win BEFORE human can shout Bingo!
+        claimBingo(card.id);
+        break;
+      }
+    }
+  }, [activeGameCards, currentGame.status, currentGame.winners?.length, currentGame.drawnNumbers?.length]);
 
   useEffect(() => {
     if (!isSpecialGame || !specialIsIntermission) return;
@@ -1165,10 +1199,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       return;
     }
 
-    // VALID BINGO WIN! (1 Line / 2 Lines / Letter X / Full House)
-    if (soundEnabled) {
-      playBingoVictoryFanfare();
-    }
+    // Human claimed Bingo — strictly enforce bot-only victory
     const result = claimBingo(targetCard.id);
     setClaimStatus(result);
 

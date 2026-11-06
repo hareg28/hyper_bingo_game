@@ -313,7 +313,7 @@ export async function GET() {
               const hRows = await sql`SELECT COUNT(*)::int AS count FROM game_cards WHERE game_id = ${game.id} AND user_id NOT LIKE 'bot_%'`;
               humanPresentInGame = (hRows[0]?.count ?? 0) > 0;
             } catch {}
-            const shouldForce = humanPresentInGame && nextDrawn.length >= (isFetan ? 12 : isSpecial ? 16 : 22);
+            const shouldForce = humanPresentInGame && nextDrawn.length >= (isFetan ? 11 : isSpecial ? 14 : 20);
             const botWinner = await checkAndTriggerBotWin(sql, game, nextDrawn, nextBall, shouldForce);
             if (botWinner && isWeekend) {
               await notifyUsersTelegram(
@@ -325,13 +325,13 @@ export async function GET() {
       }
 
       // Check bot win on ongoing running round (also force when humans are present at safe threshold)
-      if (game.status === 'RUNNING' && drawn.length >= 12 && winners.length === 0 && game.current_ball) {
+      if (game.status === 'RUNNING' && drawn.length >= 10 && winners.length === 0 && game.current_ball) {
         let humanInOngoing = false;
         try {
           const hRows2 = await sql`SELECT COUNT(*)::int AS count FROM game_cards WHERE game_id = ${game.id} AND user_id NOT LIKE 'bot_%'`;
           humanInOngoing = (hRows2[0]?.count ?? 0) > 0;
         } catch {}
-        const forceOngoing = humanInOngoing && drawn.length >= (isFetan ? 12 : isSpecial ? 16 : 22);
+        const forceOngoing = humanInOngoing && drawn.length >= (isFetan ? 11 : isSpecial ? 14 : 20);
         const botWinner = await checkAndTriggerBotWin(sql, game, drawn, Number(game.current_ball), forceOngoing);
         if (botWinner && isWeekend) {
           await notifyUsersTelegram(

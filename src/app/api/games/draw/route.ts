@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
         const hRows = await sql`SELECT COUNT(*)::int AS count FROM game_cards WHERE game_id = ${gameId} AND user_id NOT LIKE 'bot_%'`;
         humanPresent = (hRows[0]?.count ?? 0) > 0;
       } catch {}
-      const forceNow = humanPresent && updatedDrawn.length >= (isFetan ? 12 : isSpecial ? 16 : isWeekend ? 22 : 12);
+      const forceNow = humanPresent && updatedDrawn.length >= (isFetan ? 11 : isSpecial ? 14 : isWeekend ? 20 : 11);
       botWinner = await checkAndTriggerBotWin(
         sql,
         { ...game, drawn_numbers: updatedDrawn, current_ball: nextBall },

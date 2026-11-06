@@ -465,9 +465,6 @@ export async function checkAndTriggerBotWin(
     if (game.status !== 'RUNNING') {
       return null;
     }
-    if (!forceImmediate && drawnNumbers.length < 15) {
-      return null;
-    }
 
     // Check if there are already winners
     const winners = Array.isArray(game.winners)
@@ -485,14 +482,16 @@ export async function checkAndTriggerBotWin(
     const isWeekendGame = category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY';
     const targetBall = getTargetWinningBall(game.id, roundStartedAt, category, game.active_special_rule_index);
 
+    // Minimum ball check (unless forced immediately, e.g. when human is about to say Bingo)
+    const minSafeBalls = isFetanGame ? 10 : isSpecialGame ? 13 : isWeekendGame ? 18 : 10;
+    if (!forceImmediate && drawnNumbers.length < minSafeBalls) {
+      return null;
+    }
+
     // If drawn balls haven't reached the target winning ball yet, check if any human
     // players exist in the game — if so, use a stricter (earlier) threshold to ensure
     // bot always wins before a human can complete a pattern.
     if (!forceImmediate && drawnNumbers.length < targetBall) {
-      // Minimum balls before checking human presence (saves DB query on early draws)
-      const earlyCheckMin = isFetanGame ? 10 : isSpecialGame ? 13 : isWeekendGame ? 18 : 10;
-      if (drawnNumbers.length < earlyCheckMin) return null;
-
       // Check if any human cards exist in this game
       try {
         const humanRows = await sql`
@@ -501,12 +500,12 @@ export async function checkAndTriggerBotWin(
         `;
         const humanCount = humanRows[0]?.count ?? 0;
         if (humanCount > 0) {
-          // Humans present — use reduced safe threshold to guarantee bot wins first
-          const safeThreshold = isFetanGame ? 12 : isSpecialGame ? 16 : isWeekendGame ? 22 : 12;
+          // Humans present — bot MUST win before human can complete a pattern!
+          const safeThreshold = isFetanGame ? 11 : isSpecialGame ? 14 : isWeekendGame ? 20 : 11;
           if (drawnNumbers.length < safeThreshold) return null;
           // Fall through to trigger bot win at reduced threshold
         } else {
-          // No humans — keep standard threshold
+          // No humans — keep standard targetBall threshold
           return null;
         }
       } catch {
