@@ -504,7 +504,15 @@ export async function GET() {
       drawInterval: parseInt(r.draw_interval ?? '3', 10),
       soldCards: Array.from(new Set([
         ...(soldCardsByGame[r.id] || []),
-        ...getInitialBotSoldCardNumbers(r.id, r.category || r.game_type)
+        // For Fetan games in the pick window, skip bot cards here — the client's
+        // gradual-reveal effect adds them incrementally during the 40-second countdown.
+        // For all other games (Special, Weekend) always include the full bot card set.
+        ...(() => {
+          const isFetanGame = String(r.id).includes('fetan');
+          const pickDeadline = r.next_round_starts_at ? Number(r.next_round_starts_at) : 0;
+          const inPickWindow = isFetanGame && r.status === 'OPEN' && pickDeadline > Date.now();
+          return inPickWindow ? [] : getInitialBotSoldCardNumbers(r.id, r.category || r.game_type);
+        })(),
       ])),
       updatedAt: r.updated_at,
     }));

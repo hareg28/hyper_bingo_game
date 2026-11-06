@@ -88,7 +88,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
         `💰 የዕለት የጃክፖት ፈንድ / Daily Jackpot: up to 50,000 ETB!\n\n` +
         `📅 ዕለታት (Draw Days): ዓርብ (Fri) · ቅዳሜ (Sat) · እሑድ (Sun)\n` +
         `⏰ አንድ ጨዋታ በየቀኑ (One draw per day, Ethiopia time):\n` +
-        `   🏆 Friday · Saturday · Sunday at 3:00 PM (9:00 Ethiopia clock time)\n\n` +
+        `   🏆 Friday · Saturday · Sunday at 9:00 AM Ethiopia local time\n\n` +
         `💎 ልዩ ጥቅሞች (Why Play Now):\n` +
         `   ✅ 80% የተጣራ ክፍያ ለአሸናፊዎች (80% Return to Players)\n` +
         `   ✅ ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር (Instant Cashout)\n` +
@@ -151,7 +151,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
       `💰 የዕለት የጃክፖት ፈንድ / Daily Jackpot: up to 50,000 ETB!\n\n` +
       `📅 ዕለታት (Draw Days): ዓርብ (Fri) · ቅዳሜ (Sat) · እሑድ (Sun)\n` +
       `⏰ One draw per day (Ethiopia time):\n` +
-      `   🏆 Friday · Saturday · Sunday at 3:00 PM (9:00 Ethiopia clock time)\n\n` +
+      `   🏆 Friday · Saturday · Sunday at 9:00 AM Ethiopia local time\n\n` +
       `💎 ልዩ ጥቅሞች (Why Play Now):\n` +
       `   ✅ 80% የተጣራ ክፍያ ለአሸናፊዎች (80% Return to Players)\n` +
       `   ✅ ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር (Instant Cashout)\n` +
@@ -756,7 +756,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                             {language === 'am' ? 'የሳምንቱ መጨረሻ ጨዋታዎች ማሰራጫ' : 'Weekend Lottery Game Broadcast'}
                           </h3>
                           <span className="text-xs text-slate-500 font-medium">
-                            {language === 'am' ? 'አንድ ጨዋታ በየቀኑ፡ ዓርብ፣ ቅዳሜ እና እሑድ 3:00 PM (9:00 የኢትዮጵያ ሰዓት)' : 'One draw per day: Friday, Saturday & Sunday at 3:00 PM (9:00 Ethiopia time)'}
+                            {language === 'am' ? 'አንድ ጨዋታ በየቀኑ፡ ዓርብ፣ ቅዳሜ እና እሑድ 9:00 ጥዋት (የኢትዮጵያ ሰዓት)' : 'One draw per day: Friday, Saturday & Sunday at 9:00 AM Ethiopia local time'}
                           </span>
                         </div>
                       </div>
@@ -830,8 +830,8 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                       <div className="grid grid-cols-1 gap-2.5 pt-1">
                         <div className="p-3 rounded-xl bg-white border border-amber-200 flex flex-col justify-between shadow-2xs">
                           <div>
-                            <span className="text-[10px] font-black text-amber-700 uppercase block">Friday · Saturday · Sunday at 3:00 PM</span>
-                            <span className="text-xs font-black text-slate-900 block mt-0.5">🌟 9:00 Ethiopia clock time · one afternoon draw per day</span>
+                            <span className="text-[10px] font-black text-amber-700 uppercase block">Friday · Saturday · Sunday at 9:00 AM</span>
+                            <span className="text-xs font-black text-slate-900 block mt-0.5">🌟 Ethiopia local time · one morning draw per day</span>
                           </div>
                           <span className="text-xs font-mono font-black text-emerald-700 mt-2">
                             🏆 Up to 50,000 ETB per draw

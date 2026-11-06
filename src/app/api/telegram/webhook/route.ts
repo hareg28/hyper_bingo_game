@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 ` +
       `   └ አሸናፊ ሕግ: ሙሉ ቤት (Full House 24/24) ብቻ
 ` +
-      `   └ አንድ ጨዋታ በየቀኑ: Friday · Saturday · Sunday at 3:00 PM (9:00 Ethiopia clock time)
+      `   └ አንድ ጨዋታ በየቀኑ: Friday · Saturday · Sunday at 9:00 AM Ethiopia local time
 ` +
       `━━━━━━━━━━━━━━━━━━━━━
 ` +
@@ -744,7 +744,7 @@ export async function POST(req: NextRequest) {
           text:
             `🎉 <b>50 ሺ : በ 50 ብር — Hyper Weekend Lottery</b> 🎉\n\n` +
             `🗓️ <b>ዕለቶች:</b> ዓርብ · ቅዳሜ · እሑድ (Fri, Sat, Sun)\n` +
-            `🕒 <b>አንድ ጨዋታ በየቀኑ:</b> Friday · Saturday · Sunday at 3:00 PM (9:00 Ethiopia clock time)\n` +
+            `🕒 <b>አንድ ጨዋታ በየቀኑ:</b> Friday · Saturday · Sunday at 9:00 AM Ethiopia local time\n` +
             `🏆 <b>የአሸናፊነት ሕግ:</b> Full House Only (24/24 ቁጥሮች)\n` +
             `💰 <b>የካርድ ዋጋ:</b> 50 ETB | <b>የጃክፖት ሽልማት:</b> 50,000 ETB\n` +
             `🎫 <i>ካርቴላ ሳያልቅ ቀድመው ይያዙ!</i>\n\n` +

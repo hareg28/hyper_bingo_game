@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
         `💰 <b>የዕለት የጃክፖት ፈንድ / Daily Jackpot: up to 50,000 ETB!</b>\n\n` +
         `📅 <b>ዕለታት (Draw Days):</b> ዓርብ (Fri) · ቅዳሜ (Sat) · እሑድ (Sun)\n` +
         `⏰ <b>አንድ ጨዋታ በየቀኑ (One draw per day, Ethiopia time):</b>\n` +
-        `   🏆 <b>Friday · Saturday · Sunday at 3:00 PM (9:00 Ethiopia clock time)</b>\n\n` +
+        `   🏆 <b>Friday · Saturday · Sunday at 9:00 AM Ethiopia local time</b>\n\n` +
         `💎 <b>ልዩ ጥቅሞች (Why Play Now):</b>\n` +
         `   ✅ <b>80% የተጣራ ክፍያ ለአሸናፊዎች</b> (80% Return to Players)\n` +
         `   ✅ <b>ፈጣን ክፍያ በቴሌብር እና ሲቢኢ ብር</b> (Instant Cashout)\n` +

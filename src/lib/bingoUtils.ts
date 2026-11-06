@@ -1187,11 +1187,11 @@ export function isWeekendLotteryDay(): boolean {
 }
 
 export type WeekendDrawDay = 'FRI' | 'SAT' | 'SUN';
-export type WeekendDrawSlot = '3PM';
+export type WeekendDrawSlot = '9AM';
 export const WEEKEND_DRAW_SCHEDULE: Record<WeekendDrawDay, { slot: WeekendDrawSlot; hour: number }> = {
-  FRI: { slot: '3PM', hour: 15 },
-  SAT: { slot: '3PM', hour: 15 },
-  SUN: { slot: '3PM', hour: 15 },
+  FRI: { slot: '9AM', hour: 9 },
+  SAT: { slot: '9AM', hour: 9 },
+  SUN: { slot: '9AM', hour: 9 },
 };
 const WEEKEND_DAY_NUMBERS: Record<WeekendDrawDay, number> = { FRI: 5, SAT: 6, SUN: 0 };
 const WEEKEND_TIME_ZONE = 'Africa/Addis_Ababa';
@@ -1222,7 +1222,7 @@ export function getWeekendScheduledStartAt(game: { weekendDay?: string; weekendS
   const day = (game.weekendDay || 'FRI') as WeekendDrawDay;
   if (local.day !== day || !(day in WEEKEND_DRAW_SCHEDULE)) return null;
   const schedule = WEEKEND_DRAW_SCHEDULE[day];
-  if (game.weekendSlot && game.weekendSlot !== schedule.slot) return null;
+  if (game.weekendSlot && game.weekendSlot !== schedule.slot && game.weekendSlot !== '3PM') return null;
   // Ethiopia stays at UTC+3. Convert the local wall-clock schedule to UTC.
   return Date.UTC(local.year, local.month - 1, local.date, schedule.hour - 3, 0, 0, 0);
 }
@@ -1247,7 +1247,7 @@ export function getNextWeekendDrawAt(game: { weekendDay?: string; weekendSlot?: 
  * Checks if a specific weekend game slot is currently LIVE right now.
  * A weekend game is LIVE ONLY for the first 10 minutes of its scheduled slot:
  * - Friday, Saturday, or Sunday
- * - Friday, Saturday, and Sunday at 3:00 PM (9:00 Ethiopia clock time, UTC+3)
+ * - Friday, Saturday, and Sunday at 9:00 AM Ethiopia local time (UTC+3)
  * On all other days (Mon-Thu) and at all other hours, it is NOT live (strictly SCHEDULED).
  */
 export function isWeekendSlotCurrentlyLive(game: {
@@ -1255,7 +1255,7 @@ export function isWeekendSlotCurrentlyLive(game: {
   category?: string;
   isWeekendSpecial?: boolean;
   weekendDay?: 'FRI' | 'SAT' | 'SUN' | string;
-  weekendSlot?: '3PM' | string;
+  weekendSlot?: '9AM' | '3PM' | string;
 }): boolean {
   const isWknd = game.gameType === 'WEEKEND_LOTTERY' || game.category === 'HYPER_WEEKEND' || game.isWeekendSpecial;
   if (!isWknd) return false;
@@ -1271,7 +1271,7 @@ export function getWeekendRoundKey(game: {
   category?: string;
   isWeekendSpecial?: boolean;
   weekendDay?: 'FRI' | 'SAT' | 'SUN' | string;
-  weekendSlot?: '3PM' | string;
+  weekendSlot?: '9AM' | '3PM' | string;
 }, now = new Date()): string | null {
   const isWeekend = game.gameType === 'WEEKEND_LOTTERY' || game.category === 'HYPER_WEEKEND' || game.isWeekendSpecial;
   if (!isWeekend) return null;
@@ -1279,7 +1279,8 @@ export function getWeekendRoundKey(game: {
   const elapsed = start === null ? -1 : now.getTime() - start;
   if (elapsed < 0 || elapsed >= WEEKEND_ROUND_SECONDS * 1000) return null;
   const local = weekendLocalParts(now);
-  return `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.date).padStart(2, '0')}-${game.weekendSlot || WEEKEND_DRAW_SCHEDULE[(game.weekendDay || 'FRI') as WeekendDrawDay].slot}`;
+  const schedule = WEEKEND_DRAW_SCHEDULE[(game.weekendDay || 'FRI') as WeekendDrawDay];
+  return `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.date).padStart(2, '0')}-${schedule.slot}`;
 }
 
 /** Returns this slot's occurrence key once its scheduled 10-minute round has ended. */
@@ -1288,7 +1289,7 @@ export function getExpiredWeekendRoundKey(game: {
   category?: string;
   isWeekendSpecial?: boolean;
   weekendDay?: 'FRI' | 'SAT' | 'SUN' | string;
-  weekendSlot?: '3PM' | string;
+  weekendSlot?: '9AM' | '3PM' | string;
 }, now = new Date()): string | null {
   const isWeekend = game.gameType === 'WEEKEND_LOTTERY' || game.category === 'HYPER_WEEKEND' || game.isWeekendSpecial;
   if (!isWeekend) return null;
@@ -1296,7 +1297,7 @@ export function getExpiredWeekendRoundKey(game: {
     const start = getWeekendScheduledStartAt(game, now);
     if (start === null || now.getTime() < start + WEEKEND_ROUND_SECONDS * 1000) return null;
     const local = weekendLocalParts(now);
-    return `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.date).padStart(2, '0')}-${game.weekendSlot || '3PM'}`;
+    return `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.date).padStart(2, '0')}-${WEEKEND_DRAW_SCHEDULE[(game.weekendDay || 'FRI') as WeekendDrawDay].slot}`;
   } catch {
     return null;
   }
@@ -1394,8 +1395,8 @@ export function canAffordLottery(
 
 export function getLotteryWeekendDaysText(lang: 'en' | 'am' = 'en'): string {
   return lang === 'am'
-    ? 'ዓርብ · ቅዳሜ · እሑድ 3:00 PM (የኢትዮጵያ ሰዓት 9:00)'
-    : 'Fri · Sat · Sun 3:00 PM (9:00 Ethiopia clock time)';
+    ? 'ዓርብ · ቅዳሜ · እሑድ 9:00 ጥዋት (የኢትዮጵያ ሰዓት)'
+    : 'Fri · Sat · Sun 9:00 AM Ethiopia local time';
 }
 
 export function getLotteryGameLabel(

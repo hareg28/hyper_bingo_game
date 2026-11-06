@@ -20,6 +20,7 @@ import {
   WinningRuleMatch,
   HYPER_SPECIAL_RULES,
   HYPER_SPECIAL_PRICE_CYCLE,
+  FETAN_PICK_SECONDS,
   SPECIAL_PICK_SECONDS,
   calcLotteryTotalCost,
   formatLotteryCardNumber,
@@ -1908,7 +1909,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const createGame = (gameData: Omit<Game, 'id' | 'currentPlayers' | 'drawnNumbers' | 'winners' | 'createdAt'>) => {
     const isWeekend = !!gameData.isWeekendSpecial || gameData.gameType === 'WEEKEND_LOTTERY';
     if (isWeekend) {
-      addNotification('Weekend Schedule Managed', 'Weekend draws run once per day on Friday, Saturday, and Sunday at 3:00 PM (9:00 Ethiopia clock time).', 'warning');
+      addNotification('Weekend Schedule Managed', 'Weekend draws run once per day on Friday, Saturday, and Sunday at 9:00 AM Ethiopia local time.', 'warning');
       return;
     }
     const enforcedPrize = isWeekend
@@ -2019,7 +2020,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const nextRoundStartsAt = isSpecial
       ? Date.now() + SPECIAL_PICK_SECONDS * 1000
       : isFetan
-        ? Date.now() + 30 * 1000
+        ? Date.now() + FETAN_PICK_SECONDS * 1000
         : undefined;
 
     // Optimistic local reset with fresh bot players (varied count and new cards)
