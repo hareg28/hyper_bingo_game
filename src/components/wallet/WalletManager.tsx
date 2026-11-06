@@ -1083,12 +1083,8 @@ export default function WalletManager() {
 
           <button
             type="submit"
-            disabled={isProcessing || Number(amount) < 50 || Number(amount) > wallet.winningBalance}
-            className={`w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer ${
-              Number(amount) >= 50 && Number(amount) <= wallet.winningBalance
-                ? 'bg-gradient-to-r from-amber-500 to-yellow-400 hover:brightness-105 text-slate-950 shadow-md active:scale-95'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
-            }`}
+            disabled={isProcessing}
+            className="w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-sm cursor-pointer bg-gradient-to-r from-amber-500 to-yellow-400 hover:brightness-105 text-slate-950 shadow-md active:scale-95"
           >
             {isProcessing ? (
               <span className="flex items-center justify-center gap-1.5">

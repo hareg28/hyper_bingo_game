@@ -35,7 +35,7 @@ import { isAdminTelegramId } from '../lib/authUtils';
 
 import { Language, translations } from '../lib/translations';
 import { getInitialLotterySoldMap } from '../lib/store';
-import { getBotCountForGame, getInitialBotSoldCardNumbers } from '../lib/botPlayers';
+import { getBotCountForGame, getInitialBotSoldCardNumbers, formatDisplayPlayerId } from '../lib/botPlayers';
 import { audioManager } from '../lib/audioManager';
 import { isMiniAppActive, subscribeToMiniAppActivity } from '../lib/miniAppActivity';
 
@@ -1172,6 +1172,15 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (!user) {
       openAuthModal('register');
       addNotification('Account Required', 'Please open an account or sign in to withdraw funds.', 'warning');
+      return false;
+    }
+
+    if (!Number.isFinite(amount) || amount < 50) {
+      addNotification(
+        '⚠️ Minimum Withdrawal',
+        'Withdrawals below 50 ETB cannot be submitted. Please enter at least 50 ETB.',
+        'warning'
+      );
       return false;
     }
 

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 import { FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getNextWeekendDrawAt, getWeekendRoundKey, getWeekendScheduledStartAt, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
-import { ensureBotPlayersInDb, checkAndTriggerBotWin, getBotCountForGame, getInitialBotSoldCardNumbers } from '@/lib/botPlayers';
+import { ensureBotPlayersInDb, checkAndTriggerBotWin, getBotCountForGame, getInitialBotSoldCardNumbers, formatDisplayPlayerId } from '@/lib/botPlayers';
 import { notifyUsersTelegram } from '@/lib/adminNotifications';
 
 let weekendScheduleMigration: Promise<void> | null = null;
@@ -537,7 +537,10 @@ export async function GET() {
         currentBall: r.current_ball == null ? null : Number(r.current_ball),
         roundStartedAt: r.round_started_at ? new Date(r.round_started_at).getTime() : undefined,
         currentPlayers,
-        winners: Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : []),
+        winners: (Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : [])).map((w: any) => ({
+          ...w,
+          userId: formatDisplayPlayerId(w.userId),
+        })),
         blockedCards: Array.isArray(r.blocked_cards) ? r.blocked_cards : [],
         blockedPlayers: Array.isArray(r.blocked_players) ? r.blocked_players : [],
         activeSpecialRuleIndex: parseInt(r.active_special_rule_index ?? '0', 10),

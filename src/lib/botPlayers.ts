@@ -79,6 +79,25 @@ export function generateRealisticBotUsername(index: number, seed: number): strin
   }
 }
 
+/**
+ * Formats a player or bot user ID for public display, ensuring bot IDs
+ * look like realistic 9-digit numeric Telegram user IDs (e.g. 682914023)
+ * without ever exposing internal 'bot_' prefixes.
+ */
+export function formatDisplayPlayerId(userId?: string | null): string {
+  if (!userId) return '100000000';
+  const clean = String(userId).trim();
+  if (clean.startsWith('bot_')) {
+    let hash = 0;
+    for (let i = 0; i < clean.length; i++) {
+      hash = ((hash << 5) - hash) + clean.charCodeAt(i);
+      hash |= 0;
+    }
+    return String(500000000 + (Math.abs(hash) % 499999999));
+  }
+  return clean;
+}
+
 export const ETHIOPIAN_BOT_NAMES: string[] = [
   'abebe_21', 'yonas_99', 'selam_07', 'dani_77', 'dawit_24',
   'samuel_11', 'meron_23', 'henok_88', 'biruk_12', 'natnael_04',
@@ -494,7 +513,7 @@ export async function checkAndTriggerBotWin(
     const pattern = getBotWinningPattern(category, game.id, game.active_special_rule_index);
 
     const botWinner: WinnerRecord = {
-      userId: winningBot.user_id,
+      userId: formatDisplayPlayerId(winningBot.user_id),
       username: winningBot.username,
       cardNumber: winningBot.card_number,
       winningBall: currentBall,

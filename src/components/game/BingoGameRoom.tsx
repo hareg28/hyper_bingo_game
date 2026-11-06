@@ -32,6 +32,7 @@ import confetti from 'canvas-confetti';
 import SharedCountdownText from './SharedCountdownText';
 import CardNumberSelector from './CardNumberSelector';
 import { isAdminTelegramId } from '../../lib/authUtils';
+import { formatDisplayPlayerId } from '../../lib/botPlayers';
 import { audioManager } from '../../lib/audioManager';
 import { isMiniAppActive, subscribeToMiniAppActivity } from '../../lib/miniAppActivity';
 
@@ -1909,8 +1910,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     <span>
                       {latestWinner
                         ? (language === 'am'
-                          ? `🎉 ቢንጎ አሸናፊ: @${latestWinner.username} (ID #${latestWinner.cardNumber || latestWinner.userId.replace(/^bot_/, '')})!`
-                          : `🎉 BINGO WINNER: @${latestWinner.username} (ID #${latestWinner.cardNumber || latestWinner.userId.replace(/^bot_/, '')})!`)
+                          ? `🎉 ቢንጎ አሸናፊ: @${latestWinner.username} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`
+                          : `🎉 BINGO WINNER: @${latestWinner.username} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`)
                         : (isSpecialGame
                           ? (language === 'am' ? 'የስፔሻል ዙር ተጠናቋል!' : 'Hyper Special Round Finished!')
                           : (language === 'am' ? 'ዙሩ ተጠናቋል!' : 'Round Finished!'))
@@ -2773,7 +2774,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </p>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-black">
                 <span>{language === 'am' ? 'የተጠቃሚ ID ቁጥር' : 'Winner ID #'}:</span>
-                <span className="text-white">#{latestWinner.cardNumber || latestWinner.userId.replace(/^bot_/, '')}</span>
+                <span className="text-white">#{latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)}</span>
               </div>
             </div>
 
@@ -2791,7 +2792,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                 <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጫዋች ID (Player ID):' : 'Player ID:'}</span>
                 <span className="font-mono text-xs text-slate-300">
-                  {latestWinner.userId}
+                  {formatDisplayPlayerId(latestWinner.userId)}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
