@@ -31,7 +31,7 @@ function getGameDisplayName(g: { entryPrice: number; gameType?: string; isWeeken
       : g.weekendDay === 'SAT' ? (lang === 'am' ? 'ቅዳሜ' : 'Saturday')
       : g.weekendDay === 'SUN' ? (lang === 'am' ? 'እሑድ' : 'Sunday')
       : '';
-    const slot = g.weekendSlot ? (lang === 'am' ? '9:00 ጥዋት (የኢትዮጵያ ሰዓት)' : '9:00 AM Ethiopia local time') : '';
+    const slot = g.weekendSlot === '3PM' ? (lang === 'am' ? '3:00 PM (9:00 የኢትዮጵያ ሰዓት)' : '3:00 PM (9:00 Ethiopia clock time)') : '';
     if (day && slot) {
       return `🌟 ${day} ${slot} · ${g.entryPrice} ETB`;
     }
@@ -421,7 +421,7 @@ export default function MiniAppShell({
                     <span>📅</span> {language === 'am' ? 'የዕለት ንዑስ ክፍል (3 ቀናት):' : 'Weekend Day Subgroups:'}
                   </span>
                   <span className="text-[10px] font-bold text-amber-700">
-                    {language === 'am' ? 'በየቀኑ 9:00 ጥዋት (የኢትዮጵያ ሰዓት)' : 'One draw per day: 9:00 AM Ethiopia local time'}
+                    {language === 'am' ? 'በየቀኑ 3:00 PM (9:00 የኢትዮጵያ ሰዓት)' : 'One draw per day: 3:00 PM (9:00 Ethiopia clock time)'}
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-1.5">
@@ -612,7 +612,7 @@ export default function MiniAppShell({
                 <div className="text-right shrink-0">
                   <p className="text-[9px] text-slate-400 font-bold uppercase leading-none">Weekend Draw</p>
                   <p className="text-[10px] text-amber-300 font-black whitespace-nowrap">Fri, Sat & Sun</p>
-                  <p className="text-[10px] text-white font-bold whitespace-nowrap">Fri, Sat & Sun · 9:00 AM Ethiopia local time</p>
+                  <p className="text-[10px] text-white font-bold whitespace-nowrap">Fri, Sat & Sun · 3:00 PM (9:00 Ethiopia clock time)</p>
                 </div>
               </div>
             </div>
@@ -909,7 +909,7 @@ export default function MiniAppShell({
                     </div>
                     <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
                       <span className="text-slate-400 text-[11px] font-medium">የዊክኤንድ ጨዋታ (Weekend Draw):</span>
-                      <span className="font-bold text-emerald-300 text-[11px]">Fri, Sat & Sun · 9:00 AM Ethiopia local time</span>
+                      <span className="font-bold text-emerald-300 text-[11px]">Fri, Sat & Sun · 3:00 PM (9:00 Ethiopia clock time)</span>
                     </div>
                   </div>
                 </div>
@@ -1212,7 +1212,7 @@ function WeekendLotteryNumberPicker({
     } else {
       const updateCountdown = () => {
         if (isHiddenRef.current) return;
-        const nextDrawAt = getNextWeekendDrawAt(selectedGame || { weekendDay: 'FRI', weekendSlot: '9AM' });
+        const nextDrawAt = getNextWeekendDrawAt(selectedGame || { weekendDay: 'FRI', weekendSlot: '3PM' });
         const diffSec = Math.max(0, Math.ceil((nextDrawAt - Date.now()) / 1000));
 
         const h = Math.floor(diffSec / 3600);
@@ -1514,7 +1514,7 @@ function WeekendLotteryNumberPicker({
             </div>
           </div>
           <div className="rounded-xl border-2 border-amber-500 bg-amber-100 py-2 px-2.5 text-center text-xs font-black text-slate-950">
-            ⏰ 9:00 AM Ethiopia local time · One draw for this day
+            ⏰ 3:00 PM (9:00 Ethiopia clock time) · One draw for this day
           </div>
         </div>
       ) : null}

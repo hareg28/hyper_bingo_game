@@ -656,16 +656,16 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             }
           }
           // Sync lotterySoldMap from server buy-card data so all clients see real sold cards
-          // Skip overwriting Fetan games that are in their pick window — the gradual reveal effect handles those
+          // Skip overwriting Fetan/Special games in their pick window — the gradual reveal effect handles those
           if (Array.isArray(json.data)) {
             const now = Date.now();
             setLotterySoldMap((prev) => {
               let changed = false;
               const nextMap = { ...prev };
               json.data.forEach((serverGame: any) => {
-                // If this is a Fetan game currently in the pick window, don't stomp the gradual reveal
-                const isFetanGame = String(serverGame.id).includes('fetan');
-                const inPickWindow = isFetanGame &&
+                // Don't stomp the gradual reveal for Fetan OR Special games while in their pick window
+                const isGradualGame = String(serverGame.id).includes('fetan') || String(serverGame.id).includes('special');
+                const inPickWindow = isGradualGame &&
                   serverGame.status === 'OPEN' &&
                   typeof serverGame.nextRoundStartsAt === 'number' &&
                   serverGame.nextRoundStartsAt > now;
@@ -716,35 +716,38 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // ── Gradual bot card reveal during Fetan pick window ──────────────────────
+  // ── Gradual bot card reveal during Fetan (40s) and Special (4-min) pick windows ──
   // Bot cards are seeded at ~8% when the round resets; this effect incrementally
-  // adds the remaining cards across the full 40-second pick window so the sold
-  // counter visibly climbs rather than jumping all at once.
+  // adds the remaining cards across the full pick window so the sold counter
+  // visibly climbs rather than jumping all at once.
   useEffect(() => {
     const now = Date.now();
-    const fetanOpenGames = games.filter((g) => {
+    // Match both Fetan and Special games that are OPEN with a future deadline
+    const openPickGames = games.filter((g) => {
       const id = String(g.id);
       return (
-        id.includes('fetan') &&
+        (id.includes('fetan') || id.includes('special')) &&
         g.status === 'OPEN' &&
         typeof g.nextRoundStartsAt === 'number' &&
         g.nextRoundStartsAt > now
       );
     });
 
-    if (fetanOpenGames.length === 0) return;
+    if (openPickGames.length === 0) return;
 
     const intervals: ReturnType<typeof setInterval>[] = [];
 
-    fetanOpenGames.forEach((game) => {
+    openPickGames.forEach((game) => {
       const allBotCards = getInitialBotSoldCardNumbers(game.id, (game as any).category || (game as any).gameType);
       if (allBotCards.length === 0) return;
 
       const deadline = game.nextRoundStartsAt as number;
       const timeLeftMs = Math.max(0, deadline - Date.now());
-      const TICK_MS = 1200; // add a batch every 1.2 s
+      // Fetan: ~1.2 s tick fits 40 s window; Special: ~2 s tick fits 240 s window
+      const isSpecialGame = String(game.id).includes('special');
+      const TICK_MS = isSpecialGame ? 2000 : 1200;
       const totalTicks = Math.max(1, Math.floor(timeLeftMs / TICK_MS));
-      // 8% already seeded in the reset handler; spread the remaining 92% over ticks
+      // 8% already seeded in the reset handler; spread the remaining 92% over all ticks
       const seedCount = Math.ceil(allBotCards.length * 0.08);
       const remaining = allBotCards.length - seedCount;
       const cardsPerTick = Math.max(1, Math.ceil(remaining / totalTicks));
@@ -776,7 +779,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     });
 
     return () => intervals.forEach(clearInterval);
-    // Re-run whenever a Fetan game flips to OPEN with a new deadline
+    // Re-run whenever a Fetan/Special game flips to OPEN with a new deadline
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [games.map((g) => `${g.id}:${g.status}:${g.nextRoundStartsAt ?? ''}`).join('|')]);
   // ── End gradual bot card reveal ────────────────────────────────────────────
@@ -1909,7 +1912,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const createGame = (gameData: Omit<Game, 'id' | 'currentPlayers' | 'drawnNumbers' | 'winners' | 'createdAt'>) => {
     const isWeekend = !!gameData.isWeekendSpecial || gameData.gameType === 'WEEKEND_LOTTERY';
     if (isWeekend) {
-      addNotification('Weekend Schedule Managed', 'Weekend draws run once per day on Friday, Saturday, and Sunday at 9:00 AM Ethiopia local time.', 'warning');
+      addNotification('Weekend Schedule Managed', 'Weekend draws run once per day on Friday, Saturday, and Sunday at 3:00 PM (9:00 Ethiopia clock time).', 'warning');
       return;
     }
     const enforcedPrize = isWeekend
@@ -2053,9 +2056,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       }
       return updated;
     });
-    // For Fetan games, only seed a small initial batch so the gradual reveal effect can fill the rest
-    const isFetanGameReset = isFetan;
-    if (isFetanGameReset) {
+    // For Fetan AND Special games, only seed a small initial batch so the gradual reveal effect can fill the rest
+    const isGradualReveal = isFetan || isSpecial;
+    if (isGradualReveal) {
       const initialSeed = freshBotCards.slice(0, Math.ceil(freshBotCards.length * 0.08));
       setLotterySoldMap((prev) => ({ ...prev, [gameId]: new Set<number>(initialSeed) }));
     } else {
