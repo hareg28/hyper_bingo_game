@@ -7,6 +7,17 @@ export type LinksEtVerificationResult =
   | { matched: true; reference: string }
   | { matched: false; reason: string };
 
+type LinksEtResponse = {
+  ok?: unknown;
+  error?: unknown;
+  message?: unknown;
+  providerKey?: unknown;
+  receipt?: Record<string, unknown>;
+  requestId?: unknown;
+  statusUrl?: unknown;
+  processingStatus?: unknown;
+};
+
 function normalize(value: unknown): string {
   return typeof value === 'string'
     ? value.normalize('NFKC').trim().replace(/[_\s]+/g, ' ').toLowerCase()
@@ -58,6 +69,58 @@ function getReceiptField(receipt: Record<string, unknown>, ...keys: string[]): u
   return undefined;
 }
 
+function getResponseError(result: LinksEtResponse): string {
+  for (const value of [result.error, result.message]) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (value && typeof value === 'object') {
+      const nested = value as Record<string, unknown>;
+      for (const key of ['message', 'detail', 'code']) {
+        if (typeof nested[key] === 'string' && nested[key].trim()) return nested[key].trim();
+      }
+    }
+  }
+  return '';
+}
+
+async function pollLinksEtVerification(
+  statusUrl: string,
+  apiKey: string,
+  signal: AbortSignal,
+): Promise<LinksEtResponse> {
+  const url = new URL(statusUrl, 'https://links.et');
+  if (url.origin !== 'https://links.et') throw new Error('links.et returned an invalid status URL.');
+
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(resolve, 1_500);
+      if (signal.aborted) {
+        clearTimeout(timer);
+        reject(new DOMException('The operation was aborted.', 'AbortError'));
+      } else {
+        signal.addEventListener('abort', () => {
+          clearTimeout(timer);
+          reject(new DOMException('The operation was aborted.', 'AbortError'));
+        }, { once: true });
+      }
+    });
+
+    const response = await fetch(url, {
+      headers: { 'x-api-key': apiKey, Accept: 'application/json' },
+      signal,
+      cache: 'no-store',
+    });
+    const result = await response.json() as LinksEtResponse;
+    if (!response.ok && response.status !== 202) {
+      return result;
+    }
+    const status = typeof result.processingStatus === 'string' ? result.processingStatus.toLowerCase() : '';
+    if (result.ok === true || status === 'completed' || status === 'failed') return result;
+  }
+
+  return { ok: false, error: 'links.et verification remained queued until the server timeout.' };
+}
+
 export async function verifyDepositWithLinksEt(
   transactionId: string,
   amount: number,
@@ -69,7 +132,9 @@ export async function verifyDepositWithLinksEt(
   if (!inputIsUrl && provider !== 'Telebirr') return { matched: false, reason: 'Paste the bank or wallet receipt URL to verify this payment.' };
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
+  // links.et may return 202 after the initial wait while a slow provider is
+  // still being checked. Allow the follow-up polling window to complete too.
+  const timeout = setTimeout(() => controller.abort(), 60_000);
   try {
     const response = await fetch('https://links.et/api/verify', {
       method: 'POST',
@@ -88,17 +153,23 @@ export async function verifyDepositWithLinksEt(
     if (response.status === 401 || response.status === 403) {
       return { matched: false, reason: `links.et denied API access (HTTP ${response.status}); check LINKS_API_KEY.` };
     }
-    if (!response.ok) return { matched: false, reason: `links.et returned HTTP ${response.status}.` };
+    const initialResult = await response.json() as LinksEtResponse;
+    let result = initialResult;
+    if (response.status === 202) {
+      const statusUrl = typeof initialResult.statusUrl === 'string' ? initialResult.statusUrl : '';
+      if (!statusUrl) return { matched: false, reason: 'links.et queued the receipt but did not provide a status URL.' };
+      result = await pollLinksEtVerification(statusUrl, apiKey, controller.signal);
+    }
+    if (!response.ok && response.status !== 202) {
+      const detail = getResponseError(result);
+      return { matched: false, reason: detail ? `links.et could not verify this receipt: ${detail}` : `links.et returned HTTP ${response.status}.` };
+    }
 
-    const result = await response.json() as {
-      ok?: unknown;
-      providerKey?: unknown;
-      receipt?: Record<string, unknown>;
-    };
     const receipt = result.receipt;
     const providerKey = typeof result.providerKey === 'string' ? result.providerKey.toLowerCase() : '';
     if (result.ok !== true || !providerKey || !receipt) {
-      return { matched: false, reason: 'links.et could not confirm this receipt.' };
+      const detail = getResponseError(result);
+      return { matched: false, reason: detail ? `links.et could not verify this receipt: ${detail}` : 'links.et could not confirm this receipt.' };
     }
     if (provider === 'Telebirr' && providerKey !== 'telebirr') {
       return { matched: false, reason: 'The receipt is not from Telebirr. Choose the matching payment method.' };
