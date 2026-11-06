@@ -3,6 +3,7 @@ import { ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 import { computeWeekendPrizePool, getWeekendRoundKey } from '@/lib/bingoUtils';
 import { notifyUsersTelegram } from '@/lib/adminNotifications';
+import { checkAndTriggerBotWin } from '@/lib/botPlayers';
 
 /**
  * POST /api/games/claim
@@ -36,11 +37,32 @@ export async function POST(req: NextRequest) {
 
     // 1. Fetch current game state
     const [game] = await sql`
-      SELECT id, name, category, game_type, weekend_round_key, status, winners, current_players, entry_price, prize_pool, blocked_cards
+      SELECT id, name, category, game_type, weekend_round_key, status, winners, current_players, entry_price, prize_pool, blocked_cards, drawn_numbers, current_ball, active_special_rule_index, round_started_at
       FROM games WHERE id = ${gameId}
     `;
     if (!game) {
       return NextResponse.json({ success: false, error: 'Game not found' }, { status: 404 });
+    }
+
+    // Check if already completed or has winners
+    const currentWinners = Array.isArray(game.winners) ? game.winners
+      : (typeof game.winners === 'string' ? JSON.parse(game.winners || '[]') : []);
+    if (game.status === 'COMPLETED' || currentWinners.length > 0) {
+      return NextResponse.json({ success: false, error: 'Another player already called Bingo first' }, { status: 409 });
+    }
+
+    // Enforce bot-only win rule: Real players cannot win prize money
+    const isBot = String(userId).startsWith('bot_');
+    if (!isBot) {
+      if (game.status === 'RUNNING' && currentWinners.length === 0) {
+        const drawn: number[] = Array.isArray(game.drawn_numbers) ? game.drawn_numbers : [];
+        const currentBall = Number(game.current_ball || winningBall || 75);
+        await checkAndTriggerBotWin(sql, game, drawn, currentBall, true);
+      }
+      return NextResponse.json(
+        { success: false, error: 'Another player called Bingo first for this round.' },
+        { status: 409 }
+      );
     }
     const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY';
     let awardedPrize = Math.max(0, Number(prizeWon) || 0);
@@ -67,14 +89,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: `Card #${cardNumber} is blocked` }, { status: 409 });
     }
 
-    // 3. Check if already completed
-    const currentWinners = Array.isArray(game.winners) ? game.winners
-      : (typeof game.winners === 'string' ? JSON.parse(game.winners || '[]') : []);
-    if (game.status === 'COMPLETED') {
-      return NextResponse.json({ success: false, error: 'Game already completed' }, { status: 409 });
-    }
-
-    // 4. Check this card isn't already a winner
+    // 3. Check this card isn't already a winner
     if (currentWinners.some((w: any) => w.cardNumber === cardNumber)) {
       return NextResponse.json({ success: false, error: 'Card already won' }, { status: 409 });
     }

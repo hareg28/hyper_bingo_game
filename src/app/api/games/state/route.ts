@@ -317,7 +317,7 @@ export async function GET() {
       }
 
       // Check bot win on ongoing running round (realistic ball threshold: never announce early)
-      if (game.status === 'RUNNING' && drawn.length >= 18 && winners.length === 0 && game.current_ball) {
+      if (game.status === 'RUNNING' && drawn.length >= 15 && winners.length === 0 && game.current_ball) {
         const botWinner = await checkAndTriggerBotWin(sql, game, drawn, Number(game.current_ball));
         if (botWinner && isWeekend) {
           await notifyUsersTelegram(

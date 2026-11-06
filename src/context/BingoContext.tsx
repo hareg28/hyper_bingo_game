@@ -2193,6 +2193,13 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const game = games.find((g) => g.id === card.gameId);
     if (!game) return { success: false, message: 'Game not found' };
 
+    if (game.status === 'COMPLETED' || (game.winners && game.winners.length > 0)) {
+      return {
+        success: false,
+        message: 'ይቅርታ! ሌላ ተጫዋች ቀድሞ ቢንጎ ብሏል (Another player already called Bingo first)',
+      };
+    }
+
     // Check if card is already blocked
     if (game.blockedCards?.includes(card.cardNumber)) {
       return {
@@ -2327,7 +2334,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       .then((r) => r.json())
       .then((res) => {
         if (res.success && res.data?.winRecord) {
-          // Sync the server-verified prize (may differ if multiple winners claimed simultaneously)
+          // Sync the server-verified prize
           const serverPrize: number = res.data.prizeWon ?? calculatedPrize;
           const serverWinner = res.data.winRecord as WinnerRecord;
           setGames((prev) => prev.map((g) => g.id !== game.id ? g : {
@@ -2341,11 +2348,80 @@ export function BingoProvider({ children }: { children: ReactNode }) {
               availableBalance: res.data.wallet.availableBalance ?? prev.availableBalance,
               winningBalance: res.data.wallet.winningBalance ?? prev.winningBalance,
             }));
-          } else if (serverPrize !== calculatedPrize) {
+          } else {
             setWallet((prev) => ({
               ...prev,
-              winningBalance: prev.winningBalance - calculatedPrize + serverPrize,
+              winningBalance: prev.winningBalance + serverPrize,
             }));
+          }
+
+          const tx: Transaction = {
+            id: `TX_WIN_${Date.now().toString().slice(-5)}`,
+            userId: user.id,
+            username: user.username,
+            type: 'GAME_WIN',
+            amount: serverPrize,
+            balanceAfter: wallet.availableBalance,
+            reference: `WIN-${patternName.toUpperCase()}`,
+            status: 'COMPLETED',
+            description:
+              `BINGO Winner! ${patternName} with Card #${card.cardNumber} in ${game.name}.` +
+              (winnersN > 1 ? ` Split ${winnersN} ways.` : ''),
+            createdAt: new Date().toISOString(),
+          };
+          setTransactions((prev) => [tx, ...prev]);
+
+          // ── REFERRAL WIN COMMISSION (1% of Owner Profit to Inviter) ──
+          const ownerProfit = Math.max(0, totalCollected - totalPrizePoolForWinners) || Math.round(ownerCut || 0);
+          const inviterCommission = Math.max(1, Math.round(ownerProfit * 0.01 * 100) / 100);
+
+          if (user.referredBy) {
+            const referrerCode = user.referredBy;
+            const refTx: Transaction = {
+              id: `TX_REF_WIN_${Date.now().toString().slice(-5)}`,
+              userId: `ref_${referrerCode}`,
+              username: `Referrer (${referrerCode})`,
+              type: 'REFERRAL_BONUS',
+              amount: inviterCommission,
+              balanceAfter: inviterCommission,
+              reference: `REF-WIN-${game.id}`,
+              status: 'COMPLETED',
+              description: `1% Owner Profit Commission from referral @${user.username} win in ${game.name} (Playable Bonus Only)`,
+              createdAt: new Date().toISOString(),
+            };
+            setTransactions((prev) => [refTx, ...prev]);
+
+            fetch('/api/referrals/reward', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                referrerCode,
+                referredUsername: user.username,
+                gameName: game.name,
+                ownerProfit,
+                commissionAmount: inviterCommission,
+              }),
+            }).catch((e) => console.error('[Referral Commission API] Error:', e));
+
+            addNotification(
+              '🎁 Inviter Commission Awarded!',
+              `Your inviter (${referrerCode}) received ${inviterCommission} ETB (1% of house profit) into their play-only bonus wallet!`,
+              'success'
+            );
+          }
+
+          addNotification(
+            '🏆 BINGO WINNER! 🏆',
+            (winnersN > 1
+              ? `🎉 Split win with ${winnersN} winners! You get `
+              : `🎉 Congratulations! `) +
+            `${serverPrize} ETB with Card #${card.cardNumber} (${patternName}).`,
+            'win'
+          );
+        } else {
+          // Server rejected claim (e.g. another player called Bingo first)
+          if (res?.error) {
+            addNotification('Bingo Claim', res.error, 'warning');
           }
         }
       })
@@ -2364,79 +2440,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     // 1-Game Card Rule: All cards played in this game are now marked used for this round
     setUserCards((prev) =>
       prev.map((c) => (c.gameId === game.id ? { ...c, isUsed: true, roundCompleted: true } : c))
-    );
-
-    // Update user wallet & transaction record
-    const newWinningBalance = wallet.winningBalance + calculatedPrize;
-    const newAvailableBalance = wallet.availableBalance;
-
-    setWallet((prev) => ({
-      ...prev,
-      winningBalance: newWinningBalance,
-    }));
-
-    const tx: Transaction = {
-      id: `TX_WIN_${Date.now().toString().slice(-5)}`,
-      userId: user.id,
-      username: user.username,
-      type: 'GAME_WIN',
-      amount: calculatedPrize,
-      balanceAfter: newAvailableBalance,
-      reference: `WIN-${patternName.toUpperCase()}`,
-      status: 'COMPLETED',
-      description:
-        `BINGO Winner! ${patternName} with Card #${card.cardNumber} in ${game.name}.` +
-        (winnersN > 1 ? ` Split ${winnersN} ways.` : ''),
-      createdAt: new Date().toISOString(),
-    };
-    setTransactions((prev) => [tx, ...prev]);
-
-    // ── REFERRAL WIN COMMISSION (1% of Owner Profit to Inviter) ──
-    const ownerProfit = Math.max(0, totalCollected - totalPrizePoolForWinners) || Math.round(ownerCut || 0);
-    const inviterCommission = Math.max(1, Math.round(ownerProfit * 0.01 * 100) / 100);
-
-    if (user.referredBy) {
-      const referrerCode = user.referredBy;
-      const refTx: Transaction = {
-        id: `TX_REF_WIN_${Date.now().toString().slice(-5)}`,
-        userId: `ref_${referrerCode}`,
-        username: `Referrer (${referrerCode})`,
-        type: 'REFERRAL_BONUS',
-        amount: inviterCommission,
-        balanceAfter: inviterCommission,
-        reference: `REF-WIN-${game.id}`,
-        status: 'COMPLETED',
-        description: `1% Owner Profit Commission from referral @${user.username} win in ${game.name} (Playable Bonus Only)`,
-        createdAt: new Date().toISOString(),
-      };
-      setTransactions((prev) => [refTx, ...prev]);
-
-      fetch('/api/referrals/reward', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          referrerCode,
-          referredUsername: user.username,
-          gameName: game.name,
-          ownerProfit,
-          commissionAmount: inviterCommission,
-        }),
-      }).catch((e) => console.error('[Referral Commission API] Error:', e));
-
-      addNotification(
-        '🎁 Inviter Commission Awarded!',
-        `Your inviter (${referrerCode}) received ${inviterCommission} ETB (1% of house profit) into their play-only bonus wallet!`,
-        'success'
-      );
-    }
-
-    addNotification(
-      '🏆 BINGO WINNER! 🏆',
-      (winnersN > 1
-        ? `🎉 Split win with ${winnersN} winners! You get `
-        : `🎉 Congratulations! `) +
-      `${calculatedPrize} ETB with Card #${card.cardNumber} (${patternName}).`,
-      'win'
     );
 
     return {

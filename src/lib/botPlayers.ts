@@ -297,11 +297,11 @@ export function isSpecialRuleHard(specialRuleIndex?: number): boolean {
 }
 
 /**
- * Calculate the ball on which a bot will shout Bingo if no human has won yet.
+ * Calculate the ball on which a bot will shout Bingo.
  * User requirement:
- * - Fetan: win ball called 19–25 ball
- * - Special: if rule is hard 30–40 ball; if not 25–30 ball
- * - Weekend: win ball called 45–55 ball
+ * - Fetan: 15–20 called balls
+ * - Special: 20–25 called balls based on rule hardness (hard: 23–25, easy/normal: 20–22)
+ * - Weekend: 25–35 called balls
  */
 export function getTargetWinningBall(
   gameId: string,
@@ -315,19 +315,19 @@ export function getTargetWinningBall(
   const isWeekend = category === 'HYPER_WEEKEND' || gameId.includes('weekend');
 
   if (isFetan) {
-    // Hyper Fetan: win ball called 19–25
-    return 19 + (seed % 7); // 19..25
+    // Hyper Fetan: win ball called 15–20
+    return 15 + (seed % 6); // 15..20
   }
   if (isSpecial) {
-    // Hyper Special: hard rules 30–40, non-hard rules 25–30
+    // Hyper Special: hard rules 23–25, non-hard rules 20–22 (20–25 range)
     const hard = isSpecialRuleHard(specialRuleIndex);
-    return hard ? 30 + (seed % 11) : 25 + (seed % 6);
+    return hard ? 23 + (seed % 3) : 20 + (seed % 3);
   }
   if (isWeekend) {
-    // Hyper Weekend: win ball called 45–55
-    return 45 + (seed % 11); // 45..55
+    // Hyper Weekend: win ball called 25–35
+    return 25 + (seed % 11); // 25..35
   }
-  return 19 + (seed % 7);
+  return 15 + (seed % 6);
 }
 
 /**
@@ -446,10 +446,14 @@ export async function checkAndTriggerBotWin(
   sql: any,
   game: any,
   drawnNumbers: number[],
-  currentBall: number
+  currentBall: number,
+  forceImmediate = false
 ): Promise<WinnerRecord | null> {
   try {
-    if (game.status !== 'RUNNING' || drawnNumbers.length < 18) {
+    if (game.status !== 'RUNNING') {
+      return null;
+    }
+    if (!forceImmediate && drawnNumbers.length < 15) {
       return null;
     }
 
@@ -466,18 +470,34 @@ export async function checkAndTriggerBotWin(
     const category = game.category || game.game_type;
     const targetBall = getTargetWinningBall(game.id, roundStartedAt, category, game.active_special_rule_index);
 
-    // If drawn balls haven't reached the target winning ball yet, continue drawing
-    if (drawnNumbers.length < targetBall) {
+    // If drawn balls haven't reached the target winning ball yet, continue drawing unless forced
+    if (!forceImmediate && drawnNumbers.length < targetBall) {
       return null;
     }
 
     // Fetch bot cards for this game
-    const botRows = await sql`
+    let botRows = await sql`
       SELECT card_number, user_id, username FROM game_cards
       WHERE game_id = ${game.id} AND user_id LIKE 'bot_%'
     `;
     if (!botRows || botRows.length === 0) {
-      return null;
+      try {
+        await ensureBotPlayersInDb(sql, game);
+        botRows = await sql`
+          SELECT card_number, user_id, username FROM game_cards
+          WHERE game_id = ${game.id} AND user_id LIKE 'bot_%'
+        `;
+      } catch {}
+    }
+    if (!botRows || botRows.length === 0) {
+      // Fallback bot row to ensure a bot winner is always produced
+      const seed = Math.abs(hashString(String(roundStartedAt) + '_fallback'));
+      const fallbackUser = generateRealisticBotUsername(seed % 300, seed);
+      botRows = [{
+        card_number: String(1 + (seed % 100)),
+        user_id: `bot_${fallbackUser.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'player'}`,
+        username: fallbackUser,
+      }];
     }
 
     // Split available bots into boy-named bots and girl-named bots
