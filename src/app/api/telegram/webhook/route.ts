@@ -80,9 +80,9 @@ export async function POST(req: NextRequest) {
       `🎁 <i>አካውንት ሲፈጥሩ 20 ETB ቦነስ ወዲያው ይጨምርልዎታል! (ለጨዋታ ብቻ)</i>`;
 
     // ── Persistent bottom keyboard (ReplyKeyboardMarkup) ───────────────────────
-    const buildPersistentKeyboard = (admin: boolean) => ({
+    const buildPersistentKeyboard = (admin: boolean, registered = false) => ({
       keyboard: [
-        [{ text: '📝 Register / Create Account' }],
+        ...(registered ? [] : [[{ text: '📝 Register / Create Account' }]]),
         // Row 1 — Three game categories
         [
           { text: '⚡ Hyper Fetan', web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` } },
@@ -308,7 +308,8 @@ export async function POST(req: NextRequest) {
       const newStatus = member.new_chat_member?.status;
 
       if (chatId && (newStatus === 'member' || newStatus === 'administrator')) {
-        const isAdmin = isAdminTelegramId(userId);
+        const existingUser = userId ? await db.getUserByTelegramId(String(userId)).catch(() => null) : null;
+        const isAdmin = isAdminTelegramId(userId) || existingUser?.role === 'admin';
         await sendMessage({
           chat_id: chatId,
           parse_mode: 'HTML',
@@ -318,7 +319,7 @@ export async function POST(req: NextRequest) {
             `80% Prize Pool · 20% House\n\n` +
             `${gameListText}\n\n` +
             `<b>👇 Tap any game to start playing instantly!</b>`,
-          reply_markup: buildPersistentKeyboard(isAdmin),
+          reply_markup: buildPersistentKeyboard(isAdmin, Boolean(existingUser?.phone)),
         });
       }
       return NextResponse.json({ ok: true });
@@ -331,6 +332,7 @@ export async function POST(req: NextRequest) {
       const userId = from?.id;
       const userName = from?.first_name || 'Player';
       const userInDb = userId ? await db.getUserByTelegramId(String(userId)).catch(() => null) : null;
+      const isRegistered = Boolean(userInDb?.phone);
       let isAdmin = isAdminTelegramId(userId) || isAdminTelegramId(from?.username) || userInDb?.role === 'admin';
 
       // Sharing the user's own Telegram contact is sufficient to register.
@@ -362,14 +364,14 @@ export async function POST(req: NextRequest) {
         const newUser = await db.registerUser({ name: telegramName, phone: cleanPhone, username: from?.username, telegramId: String(userId), referredBy });
         await db.getOrCreateWallet(newUser.id);
         await registrationSql`DELETE FROM telegram_registration_intents WHERE telegram_id = ${String(userId)}`;
-        await sendMessage({ chat_id: chatId, parse_mode: 'HTML', text: `🎉 Account created for <b>${safeTgHtml(telegramName)}</b>! You can change your name anytime in the Mini App profile. Your 20 ETB game bonus is ready.`, reply_markup: buildPersistentKeyboard(isAdmin) });
+        await sendMessage({ chat_id: chatId, parse_mode: 'HTML', text: `🎉 Account created for <b>${safeTgHtml(telegramName)}</b>! You can change your name anytime in the Mini App profile. Your 20 ETB game bonus is ready.`, reply_markup: buildPersistentKeyboard(isAdmin, true) });
         return NextResponse.json({ ok: true });
       }
 
       const isRegisterCommand = text?.trim().toLowerCase() === '/register' || text?.trim().toLowerCase() === '📝 register / create account';
       if (isRegisterCommand) {
         if (userInDb?.phone) {
-          await sendMessage({ chat_id: chatId, text: 'Your account is already registered. Open the mini app to play.', reply_markup: buildPersistentKeyboard(isAdmin) });
+          await sendMessage({ chat_id: chatId, text: 'Your account is already registered. Open the mini app to play.', reply_markup: buildPersistentKeyboard(isAdmin, true) });
         } else {
           if (registrationSql) {
             await registrationSql`CREATE TABLE IF NOT EXISTS telegram_registration_intents (
@@ -408,7 +410,7 @@ export async function POST(req: NextRequest) {
             chat_id: chatId,
             parse_mode: 'HTML',
             text: `👑 <b>Admin Privileges Activated!</b>\nYour Telegram ID <code>${userId}</code> is now recognized as an Administrator.`,
-            reply_markup: buildPersistentKeyboard(true),
+            reply_markup: buildPersistentKeyboard(true, isRegistered),
           });
         }
 
@@ -421,7 +423,7 @@ export async function POST(req: NextRequest) {
               `Your Telegram ID is <code>${userId}</code>.\n\n` +
               `<i>To activate admin mode, send:</i> <code>/admin hyperadmin</code>\n` +
               `<i>Or add your ID to ADMIN_TELEGRAM_IDS in your configuration.</i>`,
-            reply_markup: buildPersistentKeyboard(false),
+            reply_markup: buildPersistentKeyboard(false, isRegistered),
           });
           return NextResponse.json({ ok: true });
         }
@@ -439,7 +441,7 @@ export async function POST(req: NextRequest) {
             `🗑️ <b>/clear</b> — Clear the active announcement\n` +
             `📋 <b>/games</b> — Show all available games\n` +
             `🛡️ <b>Admin Panel:</b> Tap the Admin button in the keyboard below`,
-          reply_markup: buildPersistentKeyboard(true),
+          reply_markup: buildPersistentKeyboard(true, isRegistered),
         });
         return NextResponse.json({ ok: true });
       }
@@ -454,7 +456,7 @@ export async function POST(req: NextRequest) {
               `ℹ️ <b>Hyper Bingo Bot</b>\n` +
               `Only administrators can broadcast pictures or flyers.\n` +
               `<i>If you are an admin, send <code>/admin hyperadmin</code> first.</i>`,
-            reply_markup: buildPersistentKeyboard(false),
+            reply_markup: buildPersistentKeyboard(false, isRegistered),
           });
           return NextResponse.json({ ok: true });
         }
@@ -509,7 +511,7 @@ export async function POST(req: NextRequest) {
               (caption ? `📝 <b>Caption:</b>\n${captionTruncated}\n\n` : '\n') +
               `<i>✨ This picture announcement is now live for all users opening the bot or mini app! Use /clear to remove it.</i>`,
             parse_mode: 'HTML',
-            reply_markup: buildPersistentKeyboard(true),
+            reply_markup: buildPersistentKeyboard(true, isRegistered),
           }),
         });
         const replyData = await replyRes.json();
@@ -530,7 +532,7 @@ export async function POST(req: NextRequest) {
               `ℹ️ <b>Hyper Bingo Bot</b>\n` +
               `Only administrators can broadcast documents.\n` +
               `<i>If you are an admin, send <code>/admin hyperadmin</code> first.</i>`,
-            reply_markup: buildPersistentKeyboard(false),
+            reply_markup: buildPersistentKeyboard(false, isRegistered),
           });
           return NextResponse.json({ ok: true });
         }
@@ -586,7 +588,7 @@ export async function POST(req: NextRequest) {
               (caption ? `📝 <b>Caption:</b>\n${captionTruncated}\n\n` : '\n') +
               `<i>✨ This document announcement is now active for all players! Use /clear to remove it.</i>`,
             parse_mode: 'HTML',
-            reply_markup: buildPersistentKeyboard(true),
+            reply_markup: buildPersistentKeyboard(true, isRegistered),
           }),
         });
         const replyDocData = await replyDocRes.json();
@@ -604,7 +606,7 @@ export async function POST(req: NextRequest) {
             chat_id: chatId,
             parse_mode: 'HTML',
             text: `⛔ <b>Access Restricted</b>\nOnly admins can use /post.`,
-            reply_markup: buildPersistentKeyboard(false),
+            reply_markup: buildPersistentKeyboard(false, isRegistered),
           });
           return NextResponse.json({ ok: true });
         }
@@ -618,7 +620,7 @@ export async function POST(req: NextRequest) {
               `📢 <b>How to use /post:</b>\n\n` +
               `<code>/post Your announcement message here</code>\n\n` +
               `<i>This will be saved as an active announcement and shown to all users who open the bot or the mini app.</i>`,
-            reply_markup: buildPersistentKeyboard(true),
+          reply_markup: buildPersistentKeyboard(true, isRegistered),
           });
           return NextResponse.json({ ok: true });
         }
@@ -638,7 +640,7 @@ export async function POST(req: NextRequest) {
             `✅ <b>Announcement Posted!</b>\n\n` +
             `📢 <b>Your message:</b>\n${postContent}\n\n` +
             `<i>Broadcasting to all registered users now...</i>`,
-          reply_markup: buildPersistentKeyboard(true),
+          reply_markup: buildPersistentKeyboard(true, isRegistered),
         });
 
         // Broadcast to ALL registered Telegram users (fire-and-forget)
@@ -681,7 +683,7 @@ export async function POST(req: NextRequest) {
             chat_id: chatId,
             parse_mode: 'HTML',
             text: `⛔ <b>Access Restricted</b>\nOnly admins can use /clear.`,
-            reply_markup: buildPersistentKeyboard(false),
+            reply_markup: buildPersistentKeyboard(false, isRegistered),
           });
           return NextResponse.json({ ok: true });
         }
@@ -699,7 +701,7 @@ export async function POST(req: NextRequest) {
           chat_id: chatId,
           parse_mode: 'HTML',
           text: `✅ <b>Announcement cleared!</b>\nUsers will no longer see the announcement banner.`,
-          reply_markup: buildPersistentKeyboard(true),
+          reply_markup: buildPersistentKeyboard(true, isRegistered),
         });
         return NextResponse.json({ ok: true });
       }
@@ -712,7 +714,7 @@ export async function POST(req: NextRequest) {
           text:
             `${gameListText}\n\n` +
             `<b>👇 Tap a game button below to start playing!</b>`,
-          reply_markup: buildPersistentKeyboard(isAdmin),
+          reply_markup: buildPersistentKeyboard(isAdmin, isRegistered),
         });
         return NextResponse.json({ ok: true });
       }
@@ -754,6 +756,18 @@ export async function POST(req: NextRequest) {
       // Handle referral links: /start ABC123 or start_param from Telegram deep link
       const startPayload = text?.startsWith('/start ') ? text.replace('/start ', '').trim() : null;
       if (startPayload?.toLowerCase() === 'register' && userId) {
+        if (isRegistered) {
+          await sendMessage({
+            chat_id: chatId,
+            parse_mode: 'HTML',
+            text:
+              `${announcementHeader}🎮 <b>Welcome back to Hyper Bingo Ethiopia</b>\n\n` +
+              `${gameListText}\n\n` +
+              `<b>👇 Tap a game button below to start playing!</b>`,
+            reply_markup: buildPersistentKeyboard(isAdmin, true),
+          });
+          return NextResponse.json({ ok: true });
+        }
         if (registrationSql) {
           await registrationSql`CREATE TABLE IF NOT EXISTS telegram_registration_intents (
             telegram_id VARCHAR(64) PRIMARY KEY, referred_by VARCHAR(64), expires_at TIMESTAMPTZ NOT NULL
@@ -813,7 +827,7 @@ export async function POST(req: NextRequest) {
         chat_id: chatId,
         parse_mode: 'HTML',
         text: welcomeText,
-        reply_markup: buildPersistentKeyboard(isAdmin),
+        reply_markup: buildPersistentKeyboard(isAdmin, isRegistered),
       });
     }
 
