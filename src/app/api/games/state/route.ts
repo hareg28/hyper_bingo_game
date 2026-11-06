@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 import { FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getNextWeekendDrawAt, getWeekendRoundKey, getWeekendScheduledStartAt, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
-import { ensureBotPlayersInDb, checkAndTriggerBotWin, getBotCountForGame, getInitialBotSoldCardNumbers, formatDisplayPlayerId } from '@/lib/botPlayers';
+import { ensureBotPlayersInDb, checkAndTriggerBotWin, getBotCountForGame, getInitialBotSoldCardNumbers, formatDisplayPlayerId, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
 import { notifyUsersTelegram } from '@/lib/adminNotifications';
 
 let weekendScheduleMigration: Promise<void> | null = null;
@@ -306,7 +306,15 @@ export async function GET() {
             `;
 
             // Most of the time, bot player wins the game if no human has won yet.
-            const botWinner = await checkAndTriggerBotWin(sql, game, nextDrawn, nextBall);
+            // When human players are in the room use forceImmediate so a bot wins
+            // before the human could potentially complete a bingo pattern.
+            let humanPresentInGame = false;
+            try {
+              const hRows = await sql`SELECT COUNT(*)::int AS count FROM game_cards WHERE game_id = ${game.id} AND user_id NOT LIKE 'bot_%'`;
+              humanPresentInGame = (hRows[0]?.count ?? 0) > 0;
+            } catch {}
+            const shouldForce = humanPresentInGame && nextDrawn.length >= (isFetan ? 12 : isSpecial ? 16 : 22);
+            const botWinner = await checkAndTriggerBotWin(sql, game, nextDrawn, nextBall, shouldForce);
             if (botWinner && isWeekend) {
               await notifyUsersTelegram(
                 `🏆 WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber} and ${botWinner.prizeWon} ETB. Open the Weekend game page to view the full result.`,
@@ -316,9 +324,15 @@ export async function GET() {
         }
       }
 
-      // Check bot win on ongoing running round (realistic ball threshold: never announce early)
-      if (game.status === 'RUNNING' && drawn.length >= 15 && winners.length === 0 && game.current_ball) {
-        const botWinner = await checkAndTriggerBotWin(sql, game, drawn, Number(game.current_ball));
+      // Check bot win on ongoing running round (also force when humans are present at safe threshold)
+      if (game.status === 'RUNNING' && drawn.length >= 12 && winners.length === 0 && game.current_ball) {
+        let humanInOngoing = false;
+        try {
+          const hRows2 = await sql`SELECT COUNT(*)::int AS count FROM game_cards WHERE game_id = ${game.id} AND user_id NOT LIKE 'bot_%'`;
+          humanInOngoing = (hRows2[0]?.count ?? 0) > 0;
+        } catch {}
+        const forceOngoing = humanInOngoing && drawn.length >= (isFetan ? 12 : isSpecial ? 16 : 22);
+        const botWinner = await checkAndTriggerBotWin(sql, game, drawn, Number(game.current_ball), forceOngoing);
         if (botWinner && isWeekend) {
           await notifyUsersTelegram(
             `🏆 WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber} and ${botWinner.prizeWon} ETB. Open the Weekend game page to view the full result.`,
@@ -537,7 +551,7 @@ export async function GET() {
         currentBall: r.current_ball == null ? null : Number(r.current_ball),
         roundStartedAt: r.round_started_at ? new Date(r.round_started_at).getTime() : undefined,
         currentPlayers,
-        winners: (Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : [])).map((w: any) => ({
+        winners: (Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : [])).map((w: any) => sanitizeWinnerForDisplay({
           ...w,
           userId: formatDisplayPlayerId(w.userId),
         })),

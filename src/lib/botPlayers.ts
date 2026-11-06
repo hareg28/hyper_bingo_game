@@ -98,6 +98,18 @@ export function formatDisplayPlayerId(userId?: string | null): string {
   return clean;
 }
 
+/**
+ * Sanitizes a winner record so it is safe to send to clients:
+ * - Strips any internal `bot_` prefix from userId
+ * - Ensures username never contains the raw `bot_` userId
+ */
+export function sanitizeWinnerForDisplay(winner: WinnerRecord): WinnerRecord {
+  return {
+    ...winner,
+    userId: formatDisplayPlayerId(winner.userId),
+  };
+}
+
 export const ETHIOPIAN_BOT_NAMES: string[] = [
   'abebe_21', 'yonas_99', 'selam_07', 'dani_77', 'dawit_24',
   'samuel_11', 'meron_23', 'henok_88', 'biruk_12', 'natnael_04',
@@ -468,11 +480,38 @@ export async function checkAndTriggerBotWin(
     // Calculate target winning ball count for this round
     const roundStartedAt = game.round_started_at ? new Date(game.round_started_at).getTime() : Date.now();
     const category = game.category || game.game_type;
+    const isFetanGame = category === 'HYPER_FETAN' || String(game.id).includes('fetan');
+    const isSpecialGame = category === 'HYPER_SPECIAL' || String(game.id).includes('special');
+    const isWeekendGame = category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY';
     const targetBall = getTargetWinningBall(game.id, roundStartedAt, category, game.active_special_rule_index);
 
-    // If drawn balls haven't reached the target winning ball yet, continue drawing unless forced
+    // If drawn balls haven't reached the target winning ball yet, check if any human
+    // players exist in the game — if so, use a stricter (earlier) threshold to ensure
+    // bot always wins before a human can complete a pattern.
     if (!forceImmediate && drawnNumbers.length < targetBall) {
-      return null;
+      // Minimum balls before checking human presence (saves DB query on early draws)
+      const earlyCheckMin = isFetanGame ? 10 : isSpecialGame ? 13 : isWeekendGame ? 18 : 10;
+      if (drawnNumbers.length < earlyCheckMin) return null;
+
+      // Check if any human cards exist in this game
+      try {
+        const humanRows = await sql`
+          SELECT COUNT(*)::int AS count FROM game_cards
+          WHERE game_id = ${game.id} AND user_id NOT LIKE 'bot_%'
+        `;
+        const humanCount = humanRows[0]?.count ?? 0;
+        if (humanCount > 0) {
+          // Humans present — use reduced safe threshold to guarantee bot wins first
+          const safeThreshold = isFetanGame ? 12 : isSpecialGame ? 16 : isWeekendGame ? 22 : 12;
+          if (drawnNumbers.length < safeThreshold) return null;
+          // Fall through to trigger bot win at reduced threshold
+        } else {
+          // No humans — keep standard threshold
+          return null;
+        }
+      } catch {
+        return null;
+      }
     }
 
     // Fetch bot cards for this game

@@ -3,7 +3,7 @@ import { ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 import { computeWeekendPrizePool, getWeekendRoundKey } from '@/lib/bingoUtils';
 import { notifyUsersTelegram } from '@/lib/adminNotifications';
-import { checkAndTriggerBotWin } from '@/lib/botPlayers';
+import { checkAndTriggerBotWin, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
 
 /**
  * POST /api/games/claim
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           error: 'ይቅርታ! ሌላ ተጫዋች ቀድሞ ቢንጎ ብሏል (Another player already called Bingo first)',
-          botWinner,
+          botWinner: botWinner ? sanitizeWinnerForDisplay(botWinner) : null,
         },
         { status: 409 }
       );

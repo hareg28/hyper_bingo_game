@@ -4,7 +4,7 @@ import { isAdminTelegramId } from '@/lib/authUtils';
 import { INITIAL_GAMES } from '@/lib/store';
 import { getWeekendRoundKey } from '@/lib/bingoUtils';
 import { FETAN_BALL_INTERVAL_MS, SPECIAL_BALL_INTERVAL_MS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
-import { checkAndTriggerBotWin } from '@/lib/botPlayers';
+import { checkAndTriggerBotWin, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
 import { notifyUsersTelegram } from '@/lib/adminNotifications';
 
 function parseIntegerArray(value: unknown): number[] {
@@ -158,14 +158,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Game state changed; sync before drawing again.' }, { status: 409 });
     }
 
-    // Check if a bot should win immediately on this drawn ball
+    // Check if a bot should win immediately on this drawn ball.
+    // If human players are present in the game, force an earlier bot win
+    // to guarantee no human can complete a pattern first.
     let botWinner = null;
-    if (updatedDrawn.length >= 15) {
+    if (updatedDrawn.length >= 10) {
+      let humanPresent = false;
+      try {
+        const hRows = await sql`SELECT COUNT(*)::int AS count FROM game_cards WHERE game_id = ${gameId} AND user_id NOT LIKE 'bot_%'`;
+        humanPresent = (hRows[0]?.count ?? 0) > 0;
+      } catch {}
+      const forceNow = humanPresent && updatedDrawn.length >= (isFetan ? 12 : isSpecial ? 16 : isWeekend ? 22 : 12);
       botWinner = await checkAndTriggerBotWin(
         sql,
         { ...game, drawn_numbers: updatedDrawn, current_ball: nextBall },
         updatedDrawn,
-        nextBall
+        nextBall,
+        forceNow
       );
       if (botWinner && isWeekend) {
         await notifyUsersTelegram(
@@ -180,7 +189,7 @@ export async function POST(req: NextRequest) {
         ball: nextBall,
         drawnNumbers: updatedDrawn,
         isCompleted: isCompleted || !!botWinner,
-        winner: botWinner || undefined,
+        winner: botWinner ? sanitizeWinnerForDisplay(botWinner) : undefined,
       },
     });
   } catch (err: any) {

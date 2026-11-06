@@ -2792,7 +2792,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                 <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጫዋች ID (Player ID):' : 'Player ID:'}</span>
                 <span className="font-mono text-xs text-slate-300">
-                  {formatDisplayPlayerId(latestWinner.userId)}
+                  {(() => { const pid = formatDisplayPlayerId(latestWinner.userId); return pid.startsWith('bot_') ? formatDisplayPlayerId('bot_' + pid) : pid; })()}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
