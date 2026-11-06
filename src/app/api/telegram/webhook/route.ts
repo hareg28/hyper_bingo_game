@@ -355,7 +355,15 @@ export async function POST(req: NextRequest) {
         const existingPhone = await db.getUserByPhone(cleanPhone).catch(() => null);
         const existingTelegram = await db.getUserByTelegramId(String(userId)).catch(() => null);
         if (existingPhone || existingTelegram?.phone) {
-          await sendMessage({ chat_id: chatId, text: 'This phone or Telegram account already has an account. Open the mini app and sign in.' });
+          await sendMessage({
+            chat_id: chatId,
+            parse_mode: 'HTML',
+            text:
+              `${announcementHeader}🎮 <b>Welcome back to Hyper Bingo Ethiopia</b>\n\n` +
+              `${gameListText}\n\n` +
+              `<b>👇 Tap a game button below to start playing!</b>`,
+            reply_markup: buildPersistentKeyboard(isAdmin, true),
+          });
           return NextResponse.json({ ok: true });
         }
         const telegramName = [from?.first_name, from?.last_name].filter(Boolean).join(' ').trim() || from?.username || `Player ${userId}`;
