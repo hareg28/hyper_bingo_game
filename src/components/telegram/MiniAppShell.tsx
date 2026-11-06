@@ -1336,11 +1336,8 @@ function WeekendLotteryNumberPicker({
 
     // Check playable balance
     if (playableBalance < entryPrice) {
-      setPurchaseFeedback(
-        isAm 
-          ? `ካርዱን ለመግዛት በቂ ሂሳብ የለዎትም። (${entryPrice} ETB ያስፈልጋል፣ ያለዎት ${Math.floor(playableBalance)} ETB)`
-          : `Insufficient balance. Need ${entryPrice} ETB; you have ${Math.floor(playableBalance)} ETB.`
-      );
+      const result = purchaseLotteryNumbers(selectedGame.id, [num]);
+      setPurchaseFeedback(result.message);
       setTimeout(() => setPurchaseFeedback(null), 3500);
       return;
     }
