@@ -1570,7 +1570,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     // ── Server-side purchase (async — validates uniqueness & deducts wallet in DB) ──
     fetch('/api/games/buy-card', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
       body: JSON.stringify({
         gameId,
         cardNumbers: cardsToCreate,
@@ -1623,6 +1623,13 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           setTransactions((prev) => [tx, ...prev]);
         } else {
           // Server rejected — rollback local card state
+          if (res.data?.wallet) {
+            setWallet((prev) => {
+              const updated = { ...prev, ...res.data.wallet };
+              try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
+              return updated;
+            });
+          }
           addNotification('❌ Purchase Failed', res.error || 'Card purchase failed on server.', 'warning');
           setUserCards((prev) => prev.filter((c) =>
             !(c.gameId === gameId && cardsToCreate.includes(c.cardNumber))
@@ -1812,7 +1819,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       if (user?.id) {
         fetch('/api/games/buy-card', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
           body: JSON.stringify({ gameId: card.gameId, userId: user.id, cardNumber: card.cardNumber }),
         }).then(async (response) => {
           const result = await response.json();
@@ -1906,7 +1913,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       if (user?.id) {
         fetch('/api/games/buy-card', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
           body: JSON.stringify({
             gameId: card.gameId,
             cardNumbers: [card.cardNumber],
@@ -2554,7 +2561,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const winningSpent = Math.max(0, totalCost - bonusSpent - availableSpent);
     const purchasePromise = fetch('/api/games/buy-card', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
       body: JSON.stringify({ gameId, cardNumbers: purchasedLabels, userId: user.id, cost: totalCost }),
     })
       .then(async (response) => ({ response, body: await response.json() }))
@@ -2594,8 +2601,15 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           return updated;
         });
         const isInsufficientBalance = /insufficient balance/i.test(String(body.error || ''));
+        if (body.data?.wallet) {
+          setWallet((prev) => {
+            const updated = { ...prev, ...body.data.wallet };
+            try { localStorage.setItem('hyper_bingo_wallet', JSON.stringify(updated)); } catch {}
+            return updated;
+          });
+        }
         const failureMessage = isInsufficientBalance
-          ? 'Insufficient balance.'
+          ? (body.error || 'Insufficient balance.')
           : (body.error || 'This card could not be reserved. Please try another number.');
         addNotification(isInsufficientBalance ? '⚠️ Insufficient Balance' : 'Card purchase failed', failureMessage, 'warning');
         if (typeof window !== 'undefined') {
@@ -2704,7 +2718,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       try {
         const response = await fetch('/api/games/buy-card', {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
           body: JSON.stringify({ gameId, userId: user.id, cardNumber: label }),
         });
         const result = await response.json();

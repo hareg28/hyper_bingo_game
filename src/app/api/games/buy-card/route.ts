@@ -2,12 +2,36 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, getNeonSql } from '@/lib/neon';
 import { FETAN_PICK_SECONDS, SPECIAL_PICK_SECONDS } from '@/lib/bingoUtils';
 import { INITIAL_GAMES } from '@/lib/store';
+import { isTelegramInitDataFresh, parseTelegramUser, verifyTelegramInitData } from '@/lib/telegramAuth';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
   if (typeof value !== 'string') return [];
   const contents = value.trim().replace(/^\{|\}$/g, '');
   return contents ? contents.split(',').map((item) => Number(item.trim())).filter(Number.isFinite) : [];
+}
+
+/**
+ * Telegram Mini Apps can retain an older local user record after an account
+ * is linked or repaired. When a signed Telegram session is available, use its
+ * database user as the wallet owner instead of trusting a stale client id.
+ * Browser sign-ins without Telegram init data keep using their supplied id.
+ */
+async function resolveWalletUserId(req: NextRequest, sql: ReturnType<typeof getNeonSql>, requestedUserId: string): Promise<string> {
+  const initData = req.headers.get('x-telegram-init-data') ?? '';
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!sql || !initData || !botToken || !verifyTelegramInitData(initData, botToken) || !isTelegramInitDataFresh(initData)) {
+    return requestedUserId;
+  }
+
+  const telegramUser = parseTelegramUser(initData);
+  if (!telegramUser?.id) return requestedUserId;
+  try {
+    const [row] = await sql`SELECT id FROM users WHERE telegram_id = ${String(telegramUser.id)} LIMIT 1`;
+    return row?.id ? String(row.id) : requestedUserId;
+  } catch {
+    return requestedUserId;
+  }
 }
 
 /**
@@ -37,6 +61,7 @@ export async function POST(req: NextRequest) {
     if (!gameId || !cardNumbers?.length || !userId) {
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
     }
+    const walletUserId = await resolveWalletUserId(req, sql, userId);
 
     // 1. Load the current shared round and ensure first-round pick deadlines
     // exist before accepting purchases.
@@ -69,7 +94,7 @@ export async function POST(req: NextRequest) {
     const existingPaid = new Set<string>();
     for (const cardNumber of cardNumbers) {
       const [existing] = await sql`SELECT user_id, is_paid FROM game_cards WHERE game_id = ${gameId} AND card_number = ${cardNumber}`;
-      if (existing?.user_id === userId) {
+      if (existing?.user_id === walletUserId) {
         existingOwned.add(cardNumber);
         if (existing.is_paid !== false) existingPaid.add(cardNumber);
       }
@@ -90,7 +115,7 @@ export async function POST(req: NextRequest) {
     }
     const requiredCost = pricePerCard * chargeableCount;
 
-    const [wallet] = await sql`SELECT available_balance, bonus_balance, winning_balance FROM wallets WHERE user_id = ${userId}`;
+    const [wallet] = await sql`SELECT available_balance, bonus_balance, winning_balance FROM wallets WHERE user_id = ${walletUserId}`;
     if (!wallet) {
       return NextResponse.json({ success: false, error: 'Wallet not found' }, { status: 404 });
     }
@@ -103,12 +128,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: false,
         error: `Insufficient balance. Need ${requiredCost} ETB, have ${playable.toFixed(2)} ETB.`,
+        data: { wallet: { availableBalance: available, bonusBalance: bonus, winningBalance: winning } },
       }, { status: 402 });
     }
 
     // 3. Fetch user info for logging
-    const [userRow] = await sql`SELECT username FROM users WHERE id = ${userId}`;
-    const username = userRow?.username || userId;
+    const [userRow] = await sql`SELECT username FROM users WHERE id = ${walletUserId}`;
+    const username = userRow?.username || walletUserId;
     // 4. Try inserting each card — ON CONFLICT DO NOTHING means already-sold cards are skipped
     const purchased: string[] = [];
     const alreadySold: string[] = [];
@@ -117,7 +143,7 @@ export async function POST(req: NextRequest) {
     for (const cardNumber of cardNumbers) {
       if (existingOwned.has(cardNumber)) {
         if (isRegistered) {
-          await sql`UPDATE game_cards SET is_registered = TRUE, is_paid = TRUE, cost = ${pricePerCard} WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND user_id = ${userId}`;
+          await sql`UPDATE game_cards SET is_registered = TRUE, is_paid = TRUE, cost = ${pricePerCard} WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND user_id = ${walletUserId}`;
           purchased.push(cardNumber);
           if (!existingPaid.has(cardNumber)) newlyPurchased.push(cardNumber);
         } else {
@@ -128,7 +154,7 @@ export async function POST(req: NextRequest) {
       const cardId = `gc_${gameId}_${cardNumber}`;
       const rows = await sql`
         INSERT INTO game_cards (id, game_id, card_number, user_id, username, cost, is_registered, is_paid)
-        VALUES (${cardId}, ${gameId}, ${cardNumber}, ${userId}, ${username}, ${pricePerCard}, ${Boolean(isRegistered)}, TRUE)
+        VALUES (${cardId}, ${gameId}, ${cardNumber}, ${walletUserId}, ${username}, ${pricePerCard}, ${Boolean(isRegistered)}, TRUE)
         ON CONFLICT (game_id, card_number) DO NOTHING
         RETURNING card_number
       `;
@@ -169,7 +195,7 @@ export async function POST(req: NextRequest) {
     await sql`
       UPDATE wallets
       SET available_balance = ${newAvailable}, bonus_balance = ${newBonus}, winning_balance = ${newWinning}, updated_at = NOW()
-      WHERE user_id = ${userId}
+      WHERE user_id = ${walletUserId}
     `;
 
     // The displayed player total is the number of paid cards, including
@@ -189,7 +215,7 @@ export async function POST(req: NextRequest) {
       await sql`
         INSERT INTO transactions (id, user_id, username, type, amount, balance_after, provider, status, reference, description)
         VALUES (
-          ${txId}, ${userId}, ${username}, 'GAME_ENTRY', ${-actualCost}, ${balanceAfter},
+          ${txId}, ${walletUserId}, ${username}, 'GAME_ENTRY', ${-actualCost}, ${balanceAfter},
           'System', 'COMPLETED', ${'GM-' + gameId},
           ${`${game.category === 'HYPER_FETAN' ? 'Hyper Fetan entry fee' : game.category === 'HYPER_SPECIAL' ? 'Hyper Special entry fee' : game.game_type === 'WEEKEND_LOTTERY' ? 'Weekend entry fee' : 'Bingo entry fee'}: ${newlyPurchased.length} card(s) in ${game.name} (card price ${pricePerCard} ETB each)`}
         )
