@@ -1275,6 +1275,9 @@ function WeekendLotteryNumberPicker({
   const derash = mode === 'WEEKEND'
     ? computeWeekendPrizePool(entryPrice, soldSet.size)
     : Math.round(soldSet.size * entryPrice * WINNERS_CUT_PCT);
+  const showDerash = mode !== 'WEEKEND' || (
+    selectedGame?.status === 'RUNNING' && Boolean(selectedGame.weekendRoundKey)
+  );
   const firstEmptySlotIdx = slotNumbers.findIndex((n) => n === null);
 
   const userPurchasedNumbers = React.useMemo(() => {
@@ -1542,14 +1545,16 @@ function WeekendLotteryNumberPicker({
             {entryPrice} ETB
           </span>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center py-2 px-1">
-          <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 leading-none">
-            {isAm ? 'ደርሻ' : 'Derash'}
-          </span>
-          <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-amber-800">
-            {formatETB(derash)}
-          </span>
-        </div>
+        {showDerash && (
+          <div className="flex-1 flex flex-col items-center justify-center py-2 px-1">
+            <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 leading-none">
+              {isAm ? 'ደርሻ' : 'Derash'}
+            </span>
+            <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-amber-800">
+              {formatETB(derash)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Selected Slots Card: 2 slots per visible page with horizontal scrolling */}
