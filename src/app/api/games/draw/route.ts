@@ -4,6 +4,8 @@ import { isAdminTelegramId } from '@/lib/authUtils';
 import { INITIAL_GAMES } from '@/lib/store';
 import { getWeekendRoundKey } from '@/lib/bingoUtils';
 import { FETAN_BALL_INTERVAL_MS, SPECIAL_BALL_INTERVAL_MS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
+import { checkAndTriggerBotWin } from '@/lib/botPlayers';
+import { notifyUsersTelegram } from '@/lib/adminNotifications';
 
 function parseIntegerArray(value: unknown): number[] {
   if (Array.isArray(value)) return value.map(Number).filter(Number.isFinite);
@@ -156,9 +158,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Game state changed; sync before drawing again.' }, { status: 409 });
     }
 
+    // Check if a bot should win immediately on this drawn ball
+    let botWinner = null;
+    if (updatedDrawn.length >= 15) {
+      botWinner = await checkAndTriggerBotWin(
+        sql,
+        { ...game, drawn_numbers: updatedDrawn, current_ball: nextBall },
+        updatedDrawn,
+        nextBall
+      );
+      if (botWinner && isWeekend) {
+        await notifyUsersTelegram(
+          `🏆 WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber} and ${botWinner.prizeWon} ETB. Open the Weekend game page to view the full result.`,
+        );
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      data: { ball: nextBall, drawnNumbers: updatedDrawn, isCompleted },
+      data: {
+        ball: nextBall,
+        drawnNumbers: updatedDrawn,
+        isCompleted: isCompleted || !!botWinner,
+        winner: botWinner || undefined,
+      },
     });
   } catch (err: any) {
     console.error('[draw]', err);

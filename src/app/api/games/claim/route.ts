@@ -54,13 +54,20 @@ export async function POST(req: NextRequest) {
     // Enforce bot-only win rule: Real players cannot win prize money
     const isBot = String(userId).startsWith('bot_');
     if (!isBot) {
+      let botWinner = null;
       if (game.status === 'RUNNING' && currentWinners.length === 0) {
         const drawn: number[] = Array.isArray(game.drawn_numbers) ? game.drawn_numbers : [];
         const currentBall = Number(game.current_ball || winningBall || 75);
-        await checkAndTriggerBotWin(sql, game, drawn, currentBall, true);
+        botWinner = await checkAndTriggerBotWin(sql, game, drawn, currentBall, true);
+      } else if (currentWinners.length > 0) {
+        botWinner = currentWinners[0];
       }
       return NextResponse.json(
-        { success: false, error: 'Another player called Bingo first for this round.' },
+        {
+          success: false,
+          error: 'ይቅርታ! ሌላ ተጫዋች ቀድሞ ቢንጎ ብሏል (Another player already called Bingo first)',
+          botWinner,
+        },
         { status: 409 }
       );
     }
