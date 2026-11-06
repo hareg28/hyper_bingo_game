@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 import { computeWeekendPrizePool, getWeekendRoundKey } from '@/lib/bingoUtils';
+import { notifyUsersTelegram } from '@/lib/adminNotifications';
 
 /**
  * POST /api/games/claim
@@ -122,6 +123,12 @@ export async function POST(req: NextRequest) {
         ${`${game.name}: Bingo prize for ${pattern} with Card #${cardNumber}`}
       )
     `;
+
+    if (isWeekend) {
+      await notifyUsersTelegram(
+        `🏆 WEEKEND BINGO WINNER! ${username || 'A player'} won Card #${cardNumber} and ${awardedPrize} ETB. Open the Weekend game page to view the full result.`,
+      );
+    }
 
     return NextResponse.json({
       success: true,

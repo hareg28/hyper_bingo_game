@@ -54,3 +54,39 @@ export async function notifyAdminsTelegram(
     }
   });
 }
+
+/** Send a player-facing announcement to every real Telegram user. */
+export async function notifyUsersTelegram(
+  text: string,
+  options: { parseMode?: 'HTML'; disableWebPagePreview?: boolean } = {},
+): Promise<void> {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    console.error('[User notification] TELEGRAM_BOT_TOKEN is not configured.');
+    return;
+  }
+
+  const userIds = await db.getAllUserTelegramIds();
+  if (userIds.length === 0) return;
+
+  const results = await Promise.allSettled(userIds.map(async chatId => {
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        ...(options.parseMode ? { parse_mode: options.parseMode } : {}),
+        ...(options.disableWebPagePreview ? { disable_web_page_preview: true } : {}),
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) throw new Error(`Telegram returned HTTP ${response.status}`);
+  }));
+
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      console.error(`[User notification] Failed to notify ${userIds[index]}:`, result.reason);
+    }
+  });
+}

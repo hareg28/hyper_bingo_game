@@ -24,7 +24,6 @@ import {
   SPECIAL_PICK_SECONDS,
   calcLotteryTotalCost,
   formatLotteryCardNumber,
-  formatETB,
   LOTTERY_NUMBERS_TOTAL,
   isWeekendSlotCurrentlyLive,
   computeWeekendPrizePool,
@@ -468,9 +467,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const lastServerDrawCountsRef = React.useRef<Record<string, number>>({});
   const lastFetanCycleMarkersRef = React.useRef<Record<string, number>>({});
   const lastWeekendRoundKeysRef = React.useRef<Record<string, string>>({});
-  const announcedWinnerKeysRef = React.useRef<Set<string> | null>(null);
-  const currentUserIdRef = React.useRef(user?.id);
-  currentUserIdRef.current = user?.id;
   React.useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
@@ -534,26 +530,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             game.status === 'RUNNING' &&
             (String(game.id).includes('fetan') || String(game.id).includes('weekend'))
           );
-          const winnerKeys = new Set<string>();
-          json.data.forEach((serverGame: any) => {
-            const winners = Array.isArray(serverGame.winners) ? serverGame.winners : [];
-            winners.forEach((winner: any) => {
-              const key = `${serverGame.id}:${winner.userId}:${winner.cardNumber ?? ''}:${winner.claimedAt ?? ''}`;
-              winnerKeys.add(key);
-              if (
-                announcedWinnerKeysRef.current !== null &&
-                !announcedWinnerKeysRef.current.has(key) &&
-                winner.userId !== currentUserIdRef.current
-              ) {
-                addNotification(
-                  '🏆 BINGO WINNER!',
-                  `${winner.username || 'A player'} won${winner.cardNumber ? ` with Card #${winner.cardNumber}` : ''}.`,
-                  'win'
-                );
-              }
-            });
-          });
-          announcedWinnerKeysRef.current = winnerKeys;
           const resetGameIds = json.data
             .filter((serverGame: any) => {
               const drawReset = (lastServerDrawCountsRef.current[serverGame.id] ?? 0) > 0 &&
@@ -612,16 +588,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 localGame.drawInterval === server.drawInterval
               ) return localGame;
               if (serverWinners.length > 0 && JSON.stringify(localGame.winners) !== JSON.stringify(serverWinners)) {
-                const latest = serverWinners[serverWinners.length - 1];
-                if (latest && latest.username) {
-                  addNotification(
-                    language === 'am' ? '🎉 ቢንጎ አሸናፊ ተገኘ!' : '🎉 Bingo Winner Announced!',
-                    language === 'am'
-                      ? `@${latest.username} (ID #${latest.cardNumber || latest.userId.replace(/^bot_/, '')}) ${formatETB(latest.prizeWon)} አሸነፈ!`
-                      : `@${latest.username} (ID #${latest.cardNumber || latest.userId.replace(/^bot_/, '')}) won ${formatETB(latest.prizeWon)}!`,
-                    'win'
-                  );
-                }
+                // Winner announcements are rendered by the active game room so
+                // Fetan, Special, and Weekend results never bleed across pages.
               }
               // Only overwrite fields that come from the server;
               // keep local-only fields like name, gameType, category etc.

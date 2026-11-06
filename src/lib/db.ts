@@ -96,6 +96,7 @@ function rowToWithdrawal(row: any): WithdrawalRequest {
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
     payoutReference: row.payout_reference || undefined,
     processedBy: row.processed_by || undefined,
+    reservedAt: row.reserved_at ? new Date(row.reserved_at).toISOString() : undefined,
   };
 }
 

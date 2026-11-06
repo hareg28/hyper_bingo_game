@@ -207,6 +207,7 @@ export async function initDatabaseSchema() {
         account_number VARCHAR(128) NOT NULL,
         account_holder VARCHAR(255) NOT NULL,
         status VARCHAR(64) DEFAULT 'PENDING',
+        reserved_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `;
@@ -215,6 +216,7 @@ export async function initDatabaseSchema() {
       await sql`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(64)`;
       await sql`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS payout_reference VARCHAR(255)`;
       await sql`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS processed_by VARCHAR(255)`;
+      await sql`ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS reserved_at TIMESTAMPTZ`;
     } catch {}
 
     // 5. Linked Payment Accounts Table

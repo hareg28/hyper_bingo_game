@@ -10,19 +10,88 @@
 import { WinnerRecord } from './types';
 import { HYPER_SPECIAL_RULES, computeWeekendPrizePool } from './bingoUtils';
 
+// Predominantly Ethiopian boy names (~75%) mixed with Ethiopian girl names (~25%)
+export const ETHIOPIAN_BOY_NAMES: string[] = [
+  'Abebe', 'Yonas', 'Dani', 'Dawit', 'Samuel', 'Henok', 'Natnael', 'Biruk',
+  'Eyob', 'Fitsum', 'Robel', 'Ermias', 'Kidus', 'Solomon', 'Binyam', 'Desta',
+  'Girma', 'Tamirat', 'Nebiyu', 'Yared', 'Berhanu', 'Kassahun', 'Ashenafi', 'Tesfaye',
+  'Zelalem', 'Surafel', 'Alemayehu', 'Tewodros', 'Getachew', 'Tadele', 'Yohannes', 'Kirubel',
+  'Bereket', 'Tariku', 'Mikael', 'Abel', 'Nahom', 'Kalab', 'Dagim', 'Leul',
+  'Habtamu', 'Tedros', 'Bekele', 'Alemu', 'Kebede', 'Muluken', 'Fasil', 'Abiy',
+  'Amanuel', 'Mikiyas', 'Tadesse', 'Sisay', 'Haile', 'Anteneh', 'Mengistu', 'Aman'
+];
+
+export const ETHIOPIAN_GIRL_NAMES: string[] = [
+  'Selam', 'Tigist', 'Meron', 'Bethel', 'Almaz', 'Kalkidan', 'Sara', 'Hanna',
+  'Blen', 'Marta', 'Lidya', 'Rahel', 'Ruth', 'Tsion', 'Fikirte', 'Eden',
+  'Mulu', 'Hiwot', 'Beza', 'Tsige', 'Aster', 'Senait', 'Meseret', 'Genet',
+  'Netsanet', 'Fasika', 'Worknesh', 'Lemlem', 'Helen', 'Hawani'
+];
+
+export const REALISTIC_NUMBER_SUFFIXES: string[] = [
+  '7', '9', '10', '11', '12', '14', '17', '19', '21', '22', '23', '24',
+  '25', '27', '33', '44', '55', '77', '80', '88', '89', '90', '95', '98', '99',
+  '01', '04', '07', '08', '2024', '2025'
+];
+
+export const INITIAL_LETTERS: string[] = ['k', 't', 'g', 'm', 'b', 'h', 'a', 'd', 's', 'w', 'r', 'e', 'y', 'f', 'l'];
+
+const GIRL_NAME_PREFIXES: string[] = [
+  'selam', 'tigist', 'meron', 'bethel', 'almaz', 'kalkidan', 'sara', 'hanna',
+  'blen', 'marta', 'lidya', 'rahel', 'ruth', 'tsion', 'fikirte', 'eden',
+  'mulu', 'hiwot', 'beza', 'tsige', 'aster', 'senait', 'meseret', 'genet',
+  'netsanet', 'fasika', 'worknesh', 'lemlem', 'helen', 'hawani', 'tsehay',
+  'beti', 'lidu', 'tigi', 'seli'
+];
+
+export function isGirlBotUsername(username: string): boolean {
+  const clean = username.toLowerCase().replace(/^@/, '').replace(/^bot_/, '');
+  return GIRL_NAME_PREFIXES.some((prefix) => clean.startsWith(prefix));
+}
+
+/**
+ * Generates realistic Telegram-style usernames mixed with numbers.
+ * Enforces ~75% boy names and ~25% girl names.
+ */
+export function generateRealisticBotUsername(index: number, seed: number): string {
+  // 75% boy names, 25% girl names
+  const isBoy = ((index * 37 + Math.abs(seed)) % 100) < 75;
+  const nameBase = isBoy
+    ? ETHIOPIAN_BOY_NAMES[(index * 13 + Math.abs(seed % 97)) % ETHIOPIAN_BOY_NAMES.length].toLowerCase()
+    : ETHIOPIAN_GIRL_NAMES[(index * 17 + Math.abs(seed % 53)) % ETHIOPIAN_GIRL_NAMES.length].toLowerCase();
+
+  const num = REALISTIC_NUMBER_SUFFIXES[(index * 7 + Math.abs(seed % 31)) % REALISTIC_NUMBER_SUFFIXES.length];
+  const letter = INITIAL_LETTERS[(index * 11 + Math.abs(seed % 17)) % INITIAL_LETTERS.length];
+  const style = (index + Math.abs(seed)) % 4;
+
+  if (style === 0) {
+    // e.g. abebe_21, yonas_99
+    return `${nameBase}_${num}`;
+  } else if (style === 1) {
+    // e.g. dani77, samuel24
+    return `${nameBase}${num}`;
+  } else if (style === 2) {
+    // e.g. dawit_g24, henok_k7
+    return `${nameBase}_${letter}${num}`;
+  } else {
+    // e.g. robel_07, selam_23
+    return `${nameBase}_${num}`;
+  }
+}
+
 export const ETHIOPIAN_BOT_NAMES: string[] = [
-  'Abebe_K', 'Selam_T', 'Dawit_G', 'Tigist_M', 'Natnael_B',
-  'Meron_H', 'Yonas_A', 'Biruk_D', 'Bethel_S', 'Henok_T',
-  'Almaz_W', 'Eyob_S', 'Kalkidan_R', 'Fitsum_E', 'Sara_M',
-  'Robel_T', 'Hanna_B', 'Ermias_K', 'Blen_A', 'Kidus_N',
-  'Marta_Y', 'Solomon_D', 'Lidya_T', 'Samuel_G', 'Rahel_M',
-  'Daniel_A', 'Ruth_K', 'Abel_F', 'Tsion_H', 'Binyam_S',
-  'Fikirte_Z', 'Desta_B', 'Girma_T', 'Eden_M', 'Mulu_K',
-  'Tamirat_D', 'Hiwot_A', 'Nebiyu_S', 'Beza_W', 'Yared_L',
-  'Tsige_R', 'Berhanu_K', 'Aster_G', 'Kassahun_M', 'Senait_T',
-  'Ashenafi_B', 'Meseret_Y', 'Tesfaye_H', 'Genet_A', 'Zelalem_D',
-  'Surafel_M', 'Netsanet_E', 'Alemayehu_P', 'Fasika_B', 'Tewodros_K',
-  'Worknesh_T', 'Getachew_L', 'Tadele_M', 'Senait_G', 'Yohannes_A'
+  'abebe_21', 'yonas_99', 'selam_07', 'dani_77', 'dawit_24',
+  'samuel_11', 'meron_23', 'henok_88', 'biruk_12', 'natnael_04',
+  'tigist_19', 'eyob_7', 'fitsum_14', 'robel_27', 'sara_33',
+  'ermias_55', 'kidus_01', 'solomon_44', 'lidya_80', 'binyam_25',
+  'yared_95', 'ashenafi_17', 'zelalem_89', 'surafel_08', 'rahel_10',
+  'tewodros_24', 'kirubel_90', 'nahom_33', 'abel_07', 'kalab_55',
+  'leul_98', 'bereket_21', 'tariku_14', 'mikael_77', 'ruth_11',
+  'dagim_02', 'tedros_2024', 'alemu_88', 'kebede_44', 'bethel_25',
+  'muluken_99', 'fasil_17', 'abiy_01', 'amanuel_12', 'mikiyas_7',
+  'tadesse_23', 'sisay_80', 'haile_95', 'anteneh_33', 'eden_22',
+  'mengistu_55', 'kassahun_10', 'getachew_89', 'tadele_04', 'tsion_14',
+  'yohannes_27', 'desta_77', 'girma_19', 'tamirat_90', 'hiwot_08'
 ];
 
 const SPECIAL_PRESET_CARDS = [
@@ -132,17 +201,13 @@ export function generateBotCards(
   const usedNumbers = new Set<string>(existingCards);
   const usedNames = new Set<string>();
 
-  // Shuffle name pool based on seed
   const seed = roundSeed ?? Date.now();
-  const namePool = [...ETHIOPIAN_BOT_NAMES].sort((a, b) => {
-    return (hashString(a + seed) % 100) - (hashString(b + seed) % 100);
-  });
 
   for (let i = 0; i < count; i++) {
-    // Pick bot username
-    let botName = namePool[i % namePool.length];
+    // Pick realistic Telegram bot username mixed with numbers (~75% boy names, ~25% girl names)
+    let botName = generateRealisticBotUsername(i, seed);
     if (usedNames.has(botName)) {
-      botName = `${botName}_${(i % 9) + 1}`;
+      botName = `${botName}_${(i % 89) + 10}`;
     }
     usedNames.add(botName);
     const botUserId = `bot_${botName.toLowerCase().replace(/[^a-z0-9_]/g, '')}`;
@@ -396,8 +461,26 @@ export async function checkAndTriggerBotWin(
       return null;
     }
 
-    // Pick winning bot (deterministic based on roundStartedAt)
-    const winningBot = botRows[Math.abs(hashString(String(roundStartedAt))) % botRows.length];
+    // Split available bots into boy-named bots and girl-named bots
+    const boyBots: typeof botRows = [];
+    const girlBots: typeof botRows = [];
+    for (const b of botRows) {
+      if (isGirlBotUsername(String(b.username || b.user_id || ''))) {
+        girlBots.push(b);
+      } else {
+        boyBots.push(b);
+      }
+    }
+
+    // Determine target winner gender: ~75% boys, ~25% girls (mixed, but mostly boys as requested)
+    const seedNum = Math.abs(hashString(String(roundStartedAt) + '_winner'));
+    const wantsBoy = (seedNum % 100) < 75;
+
+    let pool = wantsBoy && boyBots.length > 0 ? boyBots : (girlBots.length > 0 ? girlBots : botRows);
+    if (!wantsBoy && girlBots.length > 0) {
+      pool = girlBots;
+    }
+    const winningBot = pool[seedNum % pool.length];
 
     // Calculate total prize pool
     const targetBotCount = getBotCountForGame(game.id, category, roundStartedAt);
@@ -421,14 +504,19 @@ export async function checkAndTriggerBotWin(
     };
 
     // Update game status to COMPLETED and append bot winner
-    await sql`
+    const winnerRows = await sql`
       UPDATE games
       SET
         status = 'COMPLETED',
         winners = ${JSON.stringify([botWinner])}::jsonb,
         updated_at = NOW()
       WHERE id = ${game.id} AND status = 'RUNNING' AND (winners = '[]'::jsonb OR winners IS NULL)
+      RETURNING id
     `;
+
+    // Only the request that successfully changed the game may announce the
+    // winner. This prevents duplicate Telegram announcements from overlapping polls.
+    if (winnerRows.length === 0) return null;
 
     return botWinner;
   } catch (err) {

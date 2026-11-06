@@ -12,6 +12,8 @@ export interface User {
   referralCode: string;
   referredBy?: string;
   createdAt: string;
+  /** Timestamp when winnings were reserved for this pending request. */
+  reservedAt?: string;
 }
 
 export interface Wallet {

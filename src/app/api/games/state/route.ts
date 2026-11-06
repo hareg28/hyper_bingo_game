@@ -3,6 +3,7 @@ import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameCardPaidCo
 import { INITIAL_GAMES } from '@/lib/store';
 import { FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getNextWeekendDrawAt, getWeekendRoundKey, getWeekendScheduledStartAt, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
 import { ensureBotPlayersInDb, checkAndTriggerBotWin, getBotCountForGame, getInitialBotSoldCardNumbers } from '@/lib/botPlayers';
+import { notifyUsersTelegram } from '@/lib/adminNotifications';
 
 let weekendScheduleMigration: Promise<void> | null = null;
 
@@ -304,15 +305,25 @@ export async function GET() {
                 AND (${isSpecial || isFetan} OR last_ball_drawn_at IS NULL OR last_ball_drawn_at <= NOW() - (${drawIntervalMs} * INTERVAL '1 millisecond'))
             `;
 
-            // Most of the time, bot player wins the game if no human has won yet
-            await checkAndTriggerBotWin(sql, game, nextDrawn, nextBall);
+            // Most of the time, bot player wins the game if no human has won yet.
+            const botWinner = await checkAndTriggerBotWin(sql, game, nextDrawn, nextBall);
+            if (botWinner && isWeekend) {
+              await notifyUsersTelegram(
+                `🏆 WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber} and ${botWinner.prizeWon} ETB. Open the Weekend game page to view the full result.`,
+              );
+            }
           }
         }
       }
 
       // Check bot win on ongoing running round (realistic ball threshold: never announce early)
       if (game.status === 'RUNNING' && drawn.length >= 18 && winners.length === 0 && game.current_ball) {
-        await checkAndTriggerBotWin(sql, game, drawn, Number(game.current_ball));
+        const botWinner = await checkAndTriggerBotWin(sql, game, drawn, Number(game.current_ball));
+        if (botWinner && isWeekend) {
+          await notifyUsersTelegram(
+            `🏆 WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber} and ${botWinner.prizeWon} ETB. Open the Weekend game page to view the full result.`,
+          );
+        }
       }
     }
     await sql`
