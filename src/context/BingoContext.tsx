@@ -2417,10 +2417,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (playable < totalCost) {
       addNotification(
         '⚠️ Insufficient Balance',
-        `You don't have enough balance to buy this card. Need ${totalCost} ETB; you have ${playable.toFixed(0)} ETB.`,
+        `Insufficient balance. Need ${totalCost} ETB; you have ${playable.toFixed(0)} ETB.`,
         'warning'
       );
-      return { success: false, message: `You don't have enough balance to buy this card. Need ${totalCost} ETB; you have ${playable.toFixed(0)} ETB.` };
+      return { success: false, message: `Insufficient balance. Need ${totalCost} ETB; you have ${playable.toFixed(0)} ETB.` };
     }
 
     // Spend bonus, then available balance, then winnings.
@@ -2542,7 +2542,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         });
         const isInsufficientBalance = /insufficient balance/i.test(String(body.error || ''));
         const failureMessage = isInsufficientBalance
-          ? "You don't have enough balance to buy this card."
+          ? 'Insufficient balance.'
           : (body.error || 'This card could not be reserved. Please try another number.');
         addNotification(isInsufficientBalance ? '⚠️ Insufficient Balance' : 'Card purchase failed', failureMessage, 'warning');
         if (typeof window !== 'undefined') {

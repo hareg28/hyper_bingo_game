@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
-import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS, HYPER_SPECIAL_RULES, getFetanClock, getSpecialPickClock, formatCountdownClock, getNextWeekendDrawAt } from '../../lib/bingoUtils';
+import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS, HYPER_SPECIAL_RULES, computeWeekendPrizePool, getFetanClock, getSpecialPickClock, formatCountdownClock, getNextWeekendDrawAt } from '../../lib/bingoUtils';
 import { 
   Wallet, User as UserIcon, Shield, 
   Share2, Copy, Check, LogOut, Sparkles, 
@@ -15,7 +15,7 @@ import WalletManager from '../wallet/WalletManager';
 import AdminPanel from '../admin/AdminPanel';
 import DailyLuckyWheelModal from '../rewards/DailyLuckyWheelModal';
 import { isAdminTelegramId } from '../../lib/authUtils';
-import { getGameLivePrizePool } from '../../lib/store';
+import { getGameLivePrizePool, WINNERS_CUT_PCT } from '../../lib/store';
 import { subscribeToMiniAppActivity } from '../../lib/miniAppActivity';
 
 const SUPPORT_PHONE_1 = process.env.NEXT_PUBLIC_SUPPORT_PHONE_1 || '0912738543';
@@ -1272,6 +1272,9 @@ function WeekendLotteryNumberPicker({
   const totalCost = slotCountFilled * entryPrice;
   const playableBalance = (wallet?.availableBalance ?? 0) + (wallet?.bonusBalance ?? 0) + (wallet?.winningBalance ?? 0);
   const canAfford = playableBalance >= totalCost;
+  const derash = mode === 'WEEKEND'
+    ? computeWeekendPrizePool(entryPrice, soldSet.size)
+    : Math.round(soldSet.size * entryPrice * WINNERS_CUT_PCT);
   const firstEmptySlotIdx = slotNumbers.findIndex((n) => n === null);
 
   const userPurchasedNumbers = React.useMemo(() => {
@@ -1336,7 +1339,7 @@ function WeekendLotteryNumberPicker({
       setPurchaseFeedback(
         isAm 
           ? `ካርዱን ለመግዛት በቂ ሂሳብ የለዎትም። (${entryPrice} ETB ያስፈልጋል፣ ያለዎት ${Math.floor(playableBalance)} ETB)`
-          : `You don't have enough balance to buy this card. Need ${entryPrice} ETB; you have ${Math.floor(playableBalance)} ETB.`
+          : `Insufficient balance. Need ${entryPrice} ETB; you have ${Math.floor(playableBalance)} ETB.`
       );
       setTimeout(() => setPurchaseFeedback(null), 3500);
       return;
@@ -1516,7 +1519,7 @@ function WeekendLotteryNumberPicker({
         </div>
       ) : null}
 
-      {/* Light top stats card: SOLD | AVAILABLE | STAKE | REG CODE */}
+      {/* Light top stats card: SOLD | AVAILABLE | STAKE | DERASH */}
       <div className="mx-2 mt-2 flex items-stretch rounded-2xl overflow-hidden bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100 text-slate-900 shadow-xs border border-amber-200 shrink-0">
         <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-200">
           <span className="text-[9px] font-black uppercase tracking-widest text-rose-600 leading-none">
@@ -1543,11 +1546,11 @@ function WeekendLotteryNumberPicker({
           </span>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center py-2 px-1">
-          <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 leading-none">
-            {isAm ? 'ቀሪ' : 'Balance'}
+          <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 leading-none">
+            {isAm ? 'ደርሻ' : 'Derash'}
           </span>
-          <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-emerald-800">
-            {wallet?.availableBalance ?? 0} ETB
+          <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-amber-800">
+            {formatETB(derash)}
           </span>
         </div>
       </div>
