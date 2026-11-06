@@ -520,7 +520,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       if (!isMiniAppActive()) return;
       polling = true;
       try {
-        const res = await fetch('/api/games/state', { cache: 'no-cache' });
+        const res = await fetch('/api/games/state', { cache: 'no-store' });
         if (!res.ok) throw new Error('state fetch failed');
         const json = await res.json();
         if (!isMiniAppActive()) {

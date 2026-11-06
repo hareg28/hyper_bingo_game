@@ -273,7 +273,7 @@ export async function GET() {
           : isFetan
             ? roundStartedAt > 0 && Date.now() >= roundStartedAt + drawn.length * FETAN_BALL_INTERVAL_MS
           : isWeekend
-            ? roundStartedAt > 0 && Date.now() >= roundStartedAt + drawn.length * drawIntervalMs
+            ? !lastDrawAt || Date.now() >= lastDrawAt + drawIntervalMs
             : !lastDrawAt || Date.now() >= lastDrawAt + drawIntervalMs;
         if (drawIsDue) {
           const drawnSet = new Set(drawn);
@@ -283,9 +283,7 @@ export async function GET() {
             ? Math.max(1, Math.floor((Date.now() - roundStartedAt) / SPECIAL_BALL_INTERVAL_MS) + 1 - drawn.length)
             : isFetan
               ? Math.max(1, Math.floor((Date.now() - roundStartedAt) / FETAN_BALL_INTERVAL_MS) + 1 - drawn.length)
-              : isWeekend
-                ? Math.max(1, Math.floor((Date.now() - roundStartedAt) / drawIntervalMs) + 1 - drawn.length)
-                : 1;
+              : 1;
           const ballsToDraw = Math.min(remaining.length, dueDrawCount);
           for (let i = 0; i < ballsToDraw; i++) {
             const swapIndex = i + Math.floor(Math.random() * (remaining.length - i));

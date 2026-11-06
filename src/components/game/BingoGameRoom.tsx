@@ -21,7 +21,6 @@ import {
   WinningRuleMatch,
   checkOneAwayStatus,
   getGameHitRequirement,
-  isWeekendSlotCurrentlyLive,
   getFetanClock,
   SPECIAL_PICK_SECONDS,
   SPECIAL_ROUND_SECONDS,
@@ -389,7 +388,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   // Plain function — NOT a hook — so it can be called inside useState initializer
   const computeIsWeekendLive = (game: typeof currentGame) => {
-    return isWeekendSlotCurrentlyLive(game);
+    return game.status === 'RUNNING' && Boolean(game.weekendRoundKey);
   };
 
   const isWeekendLive = computeIsWeekendLive(currentGame);
