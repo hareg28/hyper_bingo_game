@@ -31,9 +31,8 @@ function getGameDisplayName(g: { entryPrice: number; gameType?: string; isWeeken
       : g.weekendDay === 'SAT' ? (lang === 'am' ? 'ቅዳሜ' : 'Saturday')
       : g.weekendDay === 'SUN' ? (lang === 'am' ? 'እሑድ' : 'Sunday')
       : '';
-    const slot = g.weekendSlot === '3PM' ? (lang === 'am' ? '3:00 PM (9:00 የኢትዮጵያ ሰዓት)' : '3:00 PM (9:00 Ethiopia clock time)') : '';
-    if (day && slot) {
-      return `🌟 ${day} ${slot} · ${g.entryPrice} ETB`;
+    if (day) {
+      return `🌟 ${day} · ${g.entryPrice} ETB`;
     }
     return lang === 'am' ? `🌟 ሃይፐር ዊክኤንድ ${g.entryPrice} ብር` : `🌟 Hyper Weekend ${g.entryPrice} ETB`;
   }
@@ -468,8 +467,13 @@ export default function MiniAppShell({
                 .map((g) => (
                   <div
                     key={g.id}
-                    className="bg-white p-3.5 rounded-2xl flex items-center justify-between border border-slate-200 shadow-xs hover:border-amber-400 transition"
+                    className={`bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs hover:border-amber-400 transition ${categoryTab === 'WEEKEND' ? 'flex flex-col items-stretch gap-2' : 'flex items-center justify-between'}`}
                   >
+                    {categoryTab === 'WEEKEND' && (
+                      <div className="w-full whitespace-nowrap text-[11px] font-bold text-amber-800">
+                        {language === 'am' ? '9:00 የኢትዮጵያ ሰዓት' : '9:00 Ethiopia clock time'}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-black text-sm text-slate-900">{getGameDisplayName(g, language)}</span>
@@ -609,7 +613,7 @@ export default function MiniAppShell({
                 <div className="text-right shrink-0">
                   <p className="text-[9px] text-slate-400 font-bold uppercase leading-none">Weekend Draw</p>
                   <p className="text-[10px] text-amber-300 font-black whitespace-nowrap">Fri, Sat & Sun</p>
-                  <p className="text-[10px] text-white font-bold whitespace-nowrap">Fri, Sat & Sun · 3:00 PM (9:00 Ethiopia clock time)</p>
+                  <p className="text-[10px] text-white font-bold whitespace-nowrap">9:00 Ethiopia clock time</p>
                 </div>
               </div>
             </div>
@@ -906,7 +910,7 @@ export default function MiniAppShell({
                     </div>
                     <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-xl">
                       <span className="text-slate-400 text-[11px] font-medium">የዊክኤንድ ጨዋታ (Weekend Draw):</span>
-                      <span className="font-bold text-emerald-300 text-[11px]">Fri, Sat & Sun · 3:00 PM (9:00 Ethiopia clock time)</span>
+                      <span className="font-bold text-emerald-300 text-[11px] whitespace-nowrap">9:00 Ethiopia clock time</span>
                     </div>
                   </div>
                 </div>

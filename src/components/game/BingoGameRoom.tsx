@@ -1404,7 +1404,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <span className="text-[11px] font-black text-slate-900 truncate">
                 {currentGame.weekendDay === 'FRI' ? (language === 'am' ? 'ዓርብ' : 'Friday')
                   : currentGame.weekendDay === 'SAT' ? (language === 'am' ? 'ቅዳሜ' : 'Saturday')
-                  : (language === 'am' ? 'እሑድ' : 'Sunday')} · 3:00 PM (9:00 Ethiopia time) · 50 ETB
+                  : (language === 'am' ? 'እሑድ' : 'Sunday')} · {language === 'am' ? '9:00 የኢትዮጵያ ሰዓት' : '9:00 Ethiopia clock time'} · 50 ETB
               </span>
             </div>
             {onOpenLotteryTab && (

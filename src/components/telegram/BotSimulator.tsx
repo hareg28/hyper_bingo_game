@@ -45,7 +45,7 @@ export default function BotSimulator({
       text: `🎉 50 ሺ : በ 50 ብር 🎉
 
 🗓️ ዓርብ | ቅዳሜ | እሑድ
-🕒 Friday, Saturday & Sunday · 3:00 PM (9:00 Ethiopia clock time)
+🕒 Friday, Saturday & Sunday · 9:00 Ethiopia clock time
 🏆 የዕጣው ዓይነት: Full House Only (24/24 ቁጥሮች)
 🎫 ካርቴላ ሳያልቅ ⌛ ቀድመው ይያዙ 🏃
 
@@ -293,7 +293,7 @@ Play Bingo quickly and easily through Telegram. Deposit ETB via Telebirr, CBE Bi
       botResponseText = `🎉 50 ሺ : በ 50 ብር 🎉
 
 🗓️ ዓርብ | ቅዳሜ | እሑድ
-🕒 Friday, Saturday & Sunday · 3:00 PM (9:00 Ethiopia clock time)
+🕒 Friday, Saturday & Sunday · 9:00 Ethiopia clock time
 🏆 የዕጣው ዓይነት: Full House Only (24/24 ቁጥሮች)
 🎫 ካርቴላ ሳያልቅ ⌛ ቀድመው ይያዙ 🏃
 
