@@ -1825,7 +1825,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                             {formatETB(u.balance ?? 0)}
                           </td>
                           <td className="p-2.5 font-black text-amber-700 font-mono text-xs">
-                            {formatETB(u.bonusBalance ?? 20)}
+                            {formatETB(u.bonusBalance ?? 0)}
                           </td>
                           <td className="p-2.5 font-mono text-xs text-purple-700 font-black">
                             {u.referralCode || '—'}

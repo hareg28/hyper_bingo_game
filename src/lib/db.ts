@@ -455,7 +455,7 @@ const db = {
   /**
    * Get or create a wallet for a user.
    */
-  async getOrCreateWallet(userId: string): Promise<Wallet> {
+  async getOrCreateWallet(userId: string, grantWelcomeBonus = false): Promise<Wallet> {
     const sql = getNeonSql();
     if (sql) {
       try {
@@ -463,7 +463,7 @@ const db = {
         if (rows.length > 0) return rowToWallet(rows[0]);
         const inserted = await sql`
           INSERT INTO wallets (user_id, available_balance, bonus_balance, winning_balance, total_deposited, total_withdrawn)
-          VALUES (${userId}, 0.00, 20.00, 0.00, 0.00, 0.00)
+          VALUES (${userId}, 0.00, ${grantWelcomeBonus ? 20 : 0}, 0.00, 0.00, 0.00)
           ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
           RETURNING *
         `;
@@ -474,7 +474,7 @@ const db = {
     const wallet: Wallet = {
       userId,
       availableBalance: 0,
-      bonusBalance: 20, // 20 ETB welcome bonus — play-only, cannot be withdrawn
+      bonusBalance: grantWelcomeBonus ? 20 : 0,
       winningBalance: 0,
       totalDeposited: 0,
       totalWithdrawn: 0,
@@ -856,7 +856,7 @@ const db = {
             RETURNING *
           ), wallet_update AS (
             INSERT INTO wallets (user_id, available_balance, bonus_balance, winning_balance, total_deposited, total_withdrawn)
-            SELECT user_id, amount, 20.00, 0.00, amount, 0.00 FROM claimed
+            SELECT user_id, amount, 0.00, 0.00, amount, 0.00 FROM claimed
             ON CONFLICT (user_id) DO UPDATE SET
               available_balance = wallets.available_balance + EXCLUDED.available_balance,
               total_deposited = wallets.total_deposited + EXCLUDED.total_deposited,
@@ -911,7 +911,7 @@ const db = {
       if (!user) return null;
       const wallet = await sql`
         INSERT INTO wallets (user_id, available_balance, bonus_balance, winning_balance, total_deposited, total_withdrawn)
-        VALUES (${params.userId}, 0.00, 20.00, 0.00, 0.00, 0.00)
+        VALUES (${params.userId}, 0.00, 0.00, 0.00, 0.00, 0.00)
         ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
         RETURNING available_balance
       `;
@@ -953,7 +953,7 @@ const db = {
 
         const ensuredWallet = await sql`
           INSERT INTO wallets (user_id, available_balance, bonus_balance, winning_balance, total_deposited, total_withdrawn)
-          VALUES (${current.userId}, 0.00, 20.00, 0.00, 0.00, 0.00)
+          VALUES (${current.userId}, 0.00, 0.00, 0.00, 0.00, 0.00)
           ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
           RETURNING user_id
         `;
@@ -1063,7 +1063,7 @@ const db = {
             RETURNING *
           ), wallet_update AS (
             INSERT INTO wallets (user_id, available_balance, bonus_balance, winning_balance, total_deposited, total_withdrawn)
-            SELECT user_id, amount, 20.00, 0.00, amount, 0.00 FROM claimed
+            SELECT user_id, amount, 0.00, 0.00, amount, 0.00 FROM claimed
             ON CONFLICT (user_id) DO UPDATE SET
               available_balance = wallets.available_balance + EXCLUDED.available_balance,
               total_deposited = wallets.total_deposited + EXCLUDED.total_deposited,

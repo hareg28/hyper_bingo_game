@@ -17,7 +17,7 @@ declare global {
 }
 
 export default function WalletManager() {
-  const { wallet, depositWallet, submitPendingDeposit, requestWithdrawal, refreshWallet, user, openAuthModal, t, language } = useBingo();
+  const { wallet, depositWallet, submitPendingDeposit, requestWithdrawal, refreshWallet, refreshTelegramSession, user, openAuthModal, t, language } = useBingo();
   const isAm = language === 'am';
 
   const [activeTab, setActiveTab] = useState<'balance' | 'deposit' | 'withdraw' | 'accounts'>('balance');
@@ -78,6 +78,12 @@ export default function WalletManager() {
   const [transactionCode, setTransactionCode] = useState<string>('');
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [depositError, setDepositError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if ((!user || user.id === 'usr_guest') && window.Telegram?.WebApp?.initData) {
+      void refreshTelegramSession();
+    }
+  }, [user?.id, refreshTelegramSession]);
 
   const [copiedRef, setCopiedRef] = useState<boolean>(false);
   const [ownerAccounts, setOwnerAccounts] = useState<OwnerPaymentAccount[]>([]);
@@ -148,7 +154,11 @@ export default function WalletManager() {
     }
     setDepositError(null);
 
-    if (!user || user.id === 'usr_guest') {
+    let depositUser = user;
+    if ((!depositUser || depositUser.id === 'usr_guest') && window.Telegram?.WebApp?.initData) {
+      depositUser = await refreshTelegramSession();
+    }
+    if (!depositUser || depositUser.id === 'usr_guest') {
       openAuthModal('register');
       return;
     }
@@ -162,7 +172,7 @@ export default function WalletManager() {
 
     if (depositStep === 1) {
       setDepositStep(2);
-      setDepositReference(`HBINGO_${user.id}_${Date.now()}`);
+      setDepositReference(`HBINGO_${depositUser.id}_${Date.now()}`);
       return;
     }
 
@@ -232,13 +242,13 @@ export default function WalletManager() {
             : {}),
         },
         body: JSON.stringify({
-          userId:          user?.id,
+          userId:          depositUser.id,
           amount:          depositAmt,
           mode:            'manual',
           provider,
           depositReference,
           transactionCode: cleanCode,
-          senderPhone:     user.phone || phoneOrAccount,
+          senderPhone:     depositUser.phone || phoneOrAccount,
         }),
         signal: controller.signal,
       });

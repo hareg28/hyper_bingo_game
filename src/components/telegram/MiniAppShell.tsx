@@ -1273,8 +1273,8 @@ function WeekendLotteryNumberPicker({
   const playableBalance = (wallet?.availableBalance ?? 0) + (wallet?.bonusBalance ?? 0) + (wallet?.winningBalance ?? 0);
   const canAfford = playableBalance >= totalCost;
   const derash = mode === 'WEEKEND'
-    ? computeWeekendPrizePool(entryPrice, soldSet.size)
-    : Math.round(soldSet.size * entryPrice * WINNERS_CUT_PCT);
+    ? computeWeekendPrizePool(entryPrice, selectedGame?.currentPlayers || 0)
+    : Math.round((selectedGame?.currentPlayers || 0) * entryPrice * WINNERS_CUT_PCT);
   const showDerash = mode !== 'WEEKEND' || (
     selectedGame?.status === 'RUNNING' && Boolean(selectedGame.weekendRoundKey)
   );

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
-import { INITIAL_GAMES } from '@/lib/store';
+import { computeRegularPrizePool, INITIAL_GAMES } from '@/lib/store';
 import { computeWeekendPrizePool, getWeekendRoundKey } from '@/lib/bingoUtils';
 import { notifyUsersTelegram } from '@/lib/adminNotifications';
 import { checkAndTriggerBotWin, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
@@ -73,21 +73,25 @@ export async function POST(req: NextRequest) {
     }
     const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY';
     let awardedPrize = Math.max(0, Number(prizeWon) || 0);
+    const [playerCountRow] = await sql`
+      SELECT COUNT(*)::integer AS player_count
+      FROM game_cards
+      WHERE game_id = ${gameId} AND is_paid IS DISTINCT FROM FALSE
+    `;
+    const paidPlayerCount = Number(playerCountRow?.player_count || 0);
+    const prizePlayerCount = Math.max(paidPlayerCount, Number(game.current_players || 0));
     if (isWeekend) {
       const scheduledGame = INITIAL_GAMES.find((candidate) => candidate.id === gameId);
       const activeScheduleKey = scheduledGame ? getWeekendRoundKey(scheduledGame) : null;
       if (!activeScheduleKey || game.weekend_round_key !== activeScheduleKey || game.status !== 'RUNNING') {
         return NextResponse.json({ success: false, error: 'Weekend winner claims are accepted only during the scheduled live draw.' }, { status: 409 });
       }
-      const [playerCountRow] = await sql`
-        SELECT COUNT(*)::integer AS player_count
-        FROM game_cards
-        WHERE game_id = ${gameId} AND is_paid IS DISTINCT FROM FALSE
-      `;
       awardedPrize = computeWeekendPrizePool(
         Number(game.entry_price || 0),
-        Number(playerCountRow?.player_count || 0)
+        prizePlayerCount
       );
+    } else {
+      awardedPrize = computeRegularPrizePool(Number(game.entry_price || 0), prizePlayerCount);
     }
 
     // 2. Check if card is blocked

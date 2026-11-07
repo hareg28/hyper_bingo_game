@@ -58,7 +58,7 @@ interface NotificationMessage {
 export const EMPTY_WALLET: Wallet = {
   userId: '',
   availableBalance: 0,
-  bonusBalance: 20, // 20 ETB welcome bonus for new players
+  bonusBalance: 0,
   winningBalance: 0,
   totalDeposited: 0,
   totalWithdrawn: 0,
@@ -125,6 +125,7 @@ interface BingoContextType {
   closeAuthModal: () => void;
   registerAccount: (data: { name: string; phone?: string; username?: string; telegramId?: string; referralCode?: string }) => Promise<{ success: boolean; message?: string }>;
   loginAccount: (identifier: string) => Promise<{ success: boolean; message?: string }>;
+  refreshTelegramSession: () => Promise<User | null>;
   updateProfileName: (name: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   verifyAdminAccess: (identifier: string) => Promise<{ success: boolean; isAdmin: boolean; message?: string }>;
@@ -316,7 +317,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return;
 
     try {
-      // Clear legacy mock test balances (250 ETB, etc.) so all user accounts start with real 20 ETB welcome bonus
+      // Clear known legacy mock test balances without issuing a new welcome bonus.
       const cleanRealBalanceV3 = localStorage.getItem('hyper_bingo_clean_balance_v3');
       if (!cleanRealBalanceV3) {
         localStorage.removeItem('hyper_bingo_wallet');
@@ -342,7 +343,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
           ) {
             parsedWallet.availableBalance = 0;
             parsedWallet.winningBalance = 0;
-            parsedWallet.bonusBalance = 20;
+            parsedWallet.bonusBalance = 0;
             localStorage.setItem('hyper_bingo_wallet', JSON.stringify(parsedWallet));
           }
           setWallet(parsedWallet);
@@ -885,7 +886,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         const loggedWallet: Wallet = result.data.wallet || {
           userId: loggedUser.id,
           availableBalance: 0,
-          bonusBalance: 20, // 20 ETB welcome bonus
+          bonusBalance: 0,
           winningBalance: 0,
           totalDeposited: 0,
           totalWithdrawn: 0,
@@ -1402,6 +1403,31 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       /* Keep the current balance if the refresh request fails. */
     }
   };
+
+  const refreshTelegramSession = React.useCallback(async (): Promise<User | null> => {
+    if (typeof window === 'undefined') return null;
+    const initData = (window as any).Telegram?.WebApp?.initData;
+    if (typeof initData !== 'string' || !initData) return null;
+    try {
+      const response = await fetch('/api/auth/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData }),
+      });
+      const result = await response.json();
+      const authenticatedUser = result.success ? result.data?.user as User | undefined : undefined;
+      if (!authenticatedUser) return null;
+      setUser(authenticatedUser);
+      localStorage.setItem('hyper_bingo_user', JSON.stringify(authenticatedUser));
+      if (result.data?.wallet) {
+        setWallet(result.data.wallet);
+        localStorage.setItem('hyper_bingo_wallet', JSON.stringify(result.data.wallet));
+      }
+      return authenticatedUser;
+    } catch {
+      return null;
+    }
+  }, []);
 
   // 4b. ADMIN APPROVE DEPOSIT
   const approveDeposit = async (transactionId: string, adminName: string) => {
@@ -2269,27 +2295,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
 
     // ---- PRIZE LOGIC: 80% to winners (Derash) & 20% to owner ----
-    const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL';
-    const specialRegisteredCards = userCards.filter(c => c.gameId === game.id && c.isRegistered);
-    const soldCount = isSpecial
-      ? Math.max(
-          lotterySoldMap[game.id]?.size || 0,
-          specialRegisteredCards.length,
-          1
-        )
-      : Math.max(
-          game.currentPlayers || 0,
-          (lotterySoldMap[game.id]?.size || 0),
-          userCards.filter(c => c.gameId === game.id).length,
-          1
-        );
+    const soldCount = Math.max(0, game.currentPlayers || 0);
     const totalCollected = Math.max(0, (game.entryPrice || 10) * soldCount);
     const ownerCut = Math.round(totalCollected * OWNER_CUT_PCT); // 20% owner
-    const weekendPlayerCount = Math.max(
-      game.currentPlayers || 0,
-      lotterySoldMap[game.id]?.size || 0,
-      userCards.filter((c) => c.gameId === game.id).length
-    );
+    const weekendPlayerCount = soldCount;
     const totalPrizePoolForWinners = isWeekend
       ? computeWeekendPrizePool(game.entryPrice || 0, weekendPlayerCount)
       : Math.round(totalCollected * WINNERS_CUT_PCT); // 80% Derash for winners
@@ -2850,6 +2859,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         closeAuthModal,
         registerAccount,
         loginAccount,
+        refreshTelegramSession,
         updateProfileName,
         logout,
         verifyAdminAccess,

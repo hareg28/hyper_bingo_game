@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       referredBy: referralCode?.trim().toUpperCase() || undefined,
     });
 
-    const wallet = await db.getOrCreateWallet(user.id);
+    const wallet = await db.getOrCreateWallet(user.id, true);
     const linkedAccounts = await db.getLinkedAccounts(user.id);
 
     // ── NOTIFICATIONS ON REGISTRATION (Telegram & SMS) ──

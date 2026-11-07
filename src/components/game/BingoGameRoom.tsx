@@ -1305,14 +1305,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
   const gameShortId = (currentGame.id || 'game').slice(0, 8);
   const soldNumbers = getLotterySoldNumbers(currentGame.id);
-  const registeredCardsCount = activeGameCards.filter((c) => c.isRegistered).length;
-  const totalCardsSold = isSpecialGame
-    ? Math.max(currentGame.currentPlayers || 0, soldNumbers?.size || 0, registeredCardsCount)
-    : Math.max(
-        currentGame.currentPlayers || 0,
-        soldNumbers?.size || 0,
-        activeGameCards.length
-      );
+  const totalCardsSold = Math.max(0, currentGame.currentPlayers || 0);
   const totalGrossMoney = (currentGame.entryPrice || 10) * totalCardsSold;
   const gamePrizeDisplay = (currentGame.isWeekendSpecial || currentGame.gameType === 'WEEKEND_LOTTERY' || currentGame.category === 'HYPER_WEEKEND')
     ? computeWeekendPrizePool(currentGame.entryPrice || 0, totalCardsSold)

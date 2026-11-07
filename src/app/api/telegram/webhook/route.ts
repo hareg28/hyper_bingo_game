@@ -370,7 +370,7 @@ export async function POST(req: NextRequest) {
         const referralRows = await registrationSql`SELECT referred_by FROM telegram_registration_intents WHERE telegram_id = ${String(userId)} AND expires_at > NOW() LIMIT 1`;
         const referredBy = (referralRows[0] as { referred_by: string | null } | undefined)?.referred_by || undefined;
         const newUser = await db.registerUser({ name: telegramName, phone: cleanPhone, username: from?.username, telegramId: String(userId), referredBy });
-        await db.getOrCreateWallet(newUser.id);
+        await db.getOrCreateWallet(newUser.id, true);
         await registrationSql`DELETE FROM telegram_registration_intents WHERE telegram_id = ${String(userId)}`;
         await sendMessage({ chat_id: chatId, parse_mode: 'HTML', text: `🎉 Account created for <b>${safeTgHtml(telegramName)}</b>! You can change your name anytime in the Mini App profile. Your 20 ETB game bonus is ready.`, reply_markup: buildPersistentKeyboard(isAdmin, true) });
         return NextResponse.json({ ok: true });

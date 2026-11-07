@@ -155,13 +155,14 @@ export async function initDatabaseSchema() {
       CREATE TABLE IF NOT EXISTS wallets (
         user_id VARCHAR(64) PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
         available_balance NUMERIC(12, 2) DEFAULT 0.00,
-        bonus_balance NUMERIC(12, 2) DEFAULT 20.00,
+        bonus_balance NUMERIC(12, 2) DEFAULT 0.00,
         winning_balance NUMERIC(12, 2) DEFAULT 0.00,
         total_deposited NUMERIC(12, 2) DEFAULT 0.00,
         total_withdrawn NUMERIC(12, 2) DEFAULT 0.00,
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
     `;
+    await sql`ALTER TABLE wallets ALTER COLUMN bonus_balance SET DEFAULT 0.00`;
 
     // 3. Transactions Ledger
     await sql`
