@@ -11,6 +11,7 @@ import { db } from '@/lib/db';
 import { ApiResponse, PaymentProvider } from '@/lib/types';
 import { getAdminNotificationIds } from '@/lib/adminNotifications';
 import { isSupportedLinksEtReceiptUrl, verifyDepositWithLinksEt } from '@/lib/linksEt';
+import { extractDepositInput } from '@/lib/depositInput';
 import { createDepositActionSignature } from '@/lib/adminDepositActions';
 import { isTelegramInitDataFresh, parseTelegramUser, verifyTelegramInitData } from '@/lib/telegramAuth';
 
@@ -160,8 +161,8 @@ export async function POST(req: NextRequest) {
 
     // ── Manual Telebirr / CBE deposit (admin-reviewed) ───────────────────────
     const rawCode       = (transactionCode ?? '').trim();
-    const isReceiptUrl  = /^https:\/\//i.test(rawCode);
-    const cleanCode     = isReceiptUrl ? rawCode : rawCode.toUpperCase().replace(/[\s-_]/g, '');
+    const cleanCode     = extractDepositInput(rawCode, provider ?? 'Telebirr');
+    const isReceiptUrl  = /^https:\/\//i.test(cleanCode);
     const hasCode       = cleanCode.length >= 3;
     const hasScreenshot = Boolean(screenshot && screenshot.trim().length > 0);
 

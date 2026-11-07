@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
 import { PaymentProvider, LinkedPaymentAccount, LinkedAccountType } from '../../lib/types';
 import { formatETB } from '../../lib/bingoUtils';
+import { extractDepositInput } from '../../lib/depositInput';
 import { type OwnerPaymentAccount } from '../../lib/ownerPaymentAccounts';
 import {
   Wallet, ArrowDownRight, ArrowUpRight, ShieldCheck,
@@ -176,22 +177,7 @@ export default function WalletManager() {
       return;
     }
 
-    // Helper: intelligently extract code if user pasted bank/Telebirr SMS
-    const extractCleanCode = (input: string): string => {
-      const trimmed = input.trim();
-      if (/^https:\/\//i.test(trimmed)) return trimmed;
-      // Look for FT reference anywhere in the input
-      const ftMatch = trimmed.match(/FT[0-9A-Za-z]{6,16}/i);
-      if (ftMatch) return ftMatch[0].toUpperCase();
-      // Look for 10-char alphanumeric word (Telebirr style)
-      const tbMatch = trimmed.match(/\b([A-Za-z0-9]{8,14})\b/);
-      if (trimmed.includes(' ') || trimmed.includes('\n')) {
-        return tbMatch ? tbMatch[1].toUpperCase() : trimmed.toUpperCase().replace(/[\s-_]/g, '');
-      }
-      return trimmed.toUpperCase().replace(/[\s-_]/g, '');
-    };
-
-    const cleanCode = extractCleanCode(transactionCode);
+    const cleanCode = extractDepositInput(transactionCode, provider);
     if (!cleanCode) {
       const err = isAm
         ? 'እባክዎ የግብይት መለያ ቁጥር ያስገቡ።'
