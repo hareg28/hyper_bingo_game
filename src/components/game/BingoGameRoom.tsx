@@ -737,10 +737,34 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]))
       );
       const isWin = Boolean(getBestWinningRule(effectiveCardMarked, effectiveRuleType, currentGame.activeSpecialRuleIndex));
+      const oneAway = checkOneAwayStatus(effectiveCardMarked, card.numbers || [], effectiveRuleType, currentGame.activeSpecialRuleIndex);
+      const drawnCount = currentGame.drawnNumbers?.length || 0;
+
+      // 1. Proactively trigger bot win if human has completed a pattern
       if (isWin) {
         hasAutoTriggeredBotRef.current = true;
-        // Fire claim immediately to make the bot win BEFORE human can shout Bingo!
         claimBingo(card.id);
+        break;
+      }
+
+      // 2. Preemptively trigger bot win if human is only 1 number away from winning
+      // (at least 9 balls drawn for Fetan/Special or 15 for Weekend) so the bot shouts Bingo first!
+      const minDrawnForOneAway = isWeekend ? 15 : 9;
+      if (oneAway.isOneAway && drawnCount >= minDrawnForOneAway) {
+        hasAutoTriggeredBotRef.current = true;
+        fetch('/api/games/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gameId: currentGame.id,
+            userId: user?.id || 'usr_human',
+            username: user?.username || 'player',
+            cardNumber: card.cardNumber,
+            pattern: oneAway.ruleLabel || 'One Away Line',
+            prizeWon: 0,
+            winningBall: currentGame.currentBall || (currentGame.drawnNumbers?.[currentGame.drawnNumbers.length - 1]) || 75,
+          }),
+        }).catch(() => {});
         break;
       }
     }
