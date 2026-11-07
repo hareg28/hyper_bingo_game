@@ -478,19 +478,17 @@ export default function MiniAppShell({
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-black text-sm text-slate-900">{getGameDisplayName(g, language)}</span>
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                        {categoryTab !== 'WEEKEND' && <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
                           categoryTab === 'FETAN' ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                          : categoryTab === 'WEEKEND' ? 'bg-purple-100 text-purple-900 border border-purple-300'
                           : 'bg-indigo-100 text-indigo-900 border border-indigo-300'
                         }`}>
                           {categoryTab === 'FETAN' ? (language === 'am' ? '1 መስመር/ማዕዘን' : '1 Line / Corners')
-                            : categoryTab === 'WEEKEND' ? (language === 'am' ? 'ሙሉ ቤት' : 'Full House Only')
                             : (() => {
                                 const rule = HYPER_SPECIAL_RULES[Math.abs(g.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
                                 return language === 'am' ? rule.nameAm : rule.nameEn;
                               })()}
-                        </span>
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                        </span>}
+                        {(categoryTab !== 'WEEKEND' || (g.status === 'RUNNING' && Boolean(g.weekendRoundKey))) && <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
                           (g.category === 'HYPER_WEEKEND' || g.gameType === 'WEEKEND_LOTTERY' || g.isWeekendSpecial)
                             ? (g.status === 'RUNNING' && Boolean(g.weekendRoundKey)
                                 ? 'bg-rose-100 text-rose-700 border border-rose-200 animate-pulse'
@@ -504,13 +502,13 @@ export default function MiniAppShell({
                                 ? '● LIVE'
                                 : (language === 'am' ? '📅 የተያዘለት (ክፍት)' : '📅 SCHEDULED'))
                             : g.status === 'RUNNING' ? '● LIVE' : g.status === 'STARTING' ? 'STARTING' : 'OPEN'}
-                        </span>
+                        </span>}
                       </div>
 
 
                       <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                         <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
-                        {(categoryTab !== 'WEEKEND' || (g.status === 'RUNNING' && Boolean(g.weekendRoundKey))) && (
+                        {categoryTab !== 'WEEKEND' && (
                           <span className="flex items-center gap-1 text-amber-700 font-black">
                             🏆 {language === 'am' ? 'ሽልማት' : 'Prize'}: <strong className="text-amber-900">{formatETB(getGameLivePrizePool(g))}</strong>
                           </span>
