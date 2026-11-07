@@ -29,6 +29,7 @@ import {
   WEEKEND_ROUND_SECONDS,
   generateSeededBingoCardMatrix,
   generateBingoCardMatrix,
+  getWinningPatternCells,
 } from '../../lib/bingoUtils';
 import confetti from 'canvas-confetti';
 import SharedCountdownText from './SharedCountdownText';
@@ -2794,14 +2795,27 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               : generateBingoCardMatrix());
 
         const drawnSet = new Set(currentGame.drawnNumbers || []);
+        // Determine the effective winning rule type for this game
+        const effectiveRuleType = isFetanGame
+          ? 'ONE_LINE_OR_CORNERS'
+          : isWeekendGame
+          ? 'FULL_HOUSE_ONLY'
+          : (currentGame.winningRule || 'STANDARD');
+        // Build marked grid based on drawn numbers
+        const markedGrid = winningGrid.map((row, rIdx) =>
+          row.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || drawnSet.has(val))
+        );
+        // Get the actual winning rule match and pattern cells
+        const winningRule = getBestWinningRule(markedGrid, effectiveRuleType, currentGame.activeSpecialRuleIndex ?? 0);
+        const patternCells = getWinningPatternCells(markedGrid, effectiveRuleType, currentGame.activeSpecialRuleIndex ?? 0);
+        const patternCellSet = new Set(patternCells.map(([r, c]) => `${r}-${c}`));
+        // Only show the numbers that are part of the winning pattern
         const winningNumbers: number[] = [];
-        for (let r = 0; r < 5; r++) {
-          for (let c = 0; c < 5; c++) {
-            const num = winningGrid[r]?.[c] ?? 0;
-            const isFree = (r === 2 && c === 2);
-            if (!isFree && num > 0 && drawnSet.has(num)) {
-              winningNumbers.push(num);
-            }
+        for (const [r, c] of patternCells) {
+          const isFree = (r === 2 && c === 2);
+          const num = winningGrid[r]?.[c] ?? 0;
+          if (!isFree && num > 0) {
+            winningNumbers.push(num);
           }
         }
         winningNumbers.sort((a, b) => a - b);
@@ -2865,7 +2879,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               </div>
               <div className="text-xs">
                 <span className="text-slate-300 font-bold block mb-1.5">
-                  {language === 'am' ? 'የአሸናፊ ቁጥሮች (Winning Numbers):' : 'Winning Numbers on Card:'}
+                  {winningRule
+                    ? (language === 'am'
+                      ? `🏅 ያሸነፈበት ህግ: ${winningRule.labelAm}`
+                      : `🏅 Winning Pattern: ${winningRule.label}`)
+                    : (language === 'am' ? 'የአሸናፊ ቁጥሮች (Winning Numbers):' : 'Winning Numbers on Card:')}
                 </span>
                 {winningNumbers.length > 0 ? (
                   <div className="flex flex-wrap gap-1 justify-start">
@@ -2882,20 +2900,20 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 )}
               </div>
 
-              {/* 🎯 WINNING BOARD DISPLAY (5x5 GRID) */}
-              <div className="pt-2 border-t border-white/10 space-y-1.5">
+              {/* 🎯 WINNING BOARD DISPLAY (compact 5x5 GRID) */}
+              <div className="pt-2 border-t border-white/10 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-300 font-bold text-xs flex items-center gap-1">
-                    🎯 {language === 'am' ? 'የአሸናፊው ቦርድ (Winning Board):' : 'Winner Board:'}
+                  <span className="text-slate-300 font-bold text-[10px] flex items-center gap-1">
+                    🎯 {language === 'am' ? 'የአሸናፊው ቦርድ:' : 'Winner Board:'}
                   </span>
-                  <span className="text-[10px] font-mono font-bold text-amber-300 px-2 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/30">
+                  <span className="text-[9px] font-mono font-bold text-amber-300 px-1.5 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/30">
                     Card #{latestWinner.cardNumber}
                   </span>
                 </div>
 
-                <div className="bg-slate-900/95 p-2 rounded-2xl border border-amber-400/40 shadow-inner">
+                <div className="bg-slate-900/95 p-1.5 rounded-xl border border-amber-400/40 shadow-inner max-w-[200px] mx-auto">
                   {/* B - I - N - G - O Header */}
-                  <div className="grid grid-cols-5 gap-1 text-center font-black text-[11px] mb-1">
+                  <div className="grid grid-cols-5 gap-0.5 text-center font-black text-[9px] mb-0.5">
                     <span className="text-blue-400">B</span>
                     <span className="text-purple-400">I</span>
                     <span className="text-amber-400">N</span>
@@ -2903,23 +2921,26 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     <span className="text-rose-400">O</span>
                   </div>
                   {/* 5x5 Grid Cells */}
-                  <div className="grid grid-cols-5 gap-1">
+                  <div className="grid grid-cols-5 gap-0.5">
                     {winningGrid.map((row, rIdx) =>
                       row.map((val, cIdx) => {
                         const isFree = rIdx === 2 && cIdx === 2;
-                        const isMarked = isFree || drawnSet.has(val);
+                        const isPatternCell = patternCellSet.has(`${rIdx}-${cIdx}`);
+                        const isDrawn = !isFree && drawnSet.has(val);
                         return (
                           <div
                             key={`win-board-cell-${rIdx}-${cIdx}`}
-                            className={`aspect-square rounded-lg flex items-center justify-center font-mono font-black text-[10px] sm:text-[11px] select-none transition-all ${
+                            className={`aspect-square rounded flex items-center justify-center font-mono font-black text-[8px] select-none ${
                               isFree
-                                ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white ring-1 ring-emerald-400 shadow-xs'
-                                : isMarked
-                                ? 'bg-gradient-to-br from-amber-400 to-yellow-400 text-slate-950 ring-1 ring-amber-300 shadow-xs font-black'
-                                : 'bg-slate-800/80 text-slate-400 border border-slate-700/60'
+                                ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white ring-1 ring-emerald-400'
+                                : isPatternCell
+                                ? 'bg-gradient-to-br from-amber-400 to-yellow-400 text-slate-950 ring-1 ring-amber-300 font-black'
+                                : isDrawn
+                                ? 'bg-slate-700/60 text-slate-300 border border-slate-600/50'
+                                : 'bg-slate-800/80 text-slate-500 border border-slate-700/40'
                             }`}
                           >
-                            {isFree ? 'FREE' : val}
+                            {isFree ? '★' : val}
                           </div>
                         );
                       })

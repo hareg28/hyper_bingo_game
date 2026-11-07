@@ -864,6 +864,78 @@ export function getBestWinningRule(
   return matches.length > 0 ? matches[0] : null;
 }
 
+/**
+ * Returns the [row, col] coordinates of the cells that form the winning pattern.
+ * For Fetan (ONE_LINE_OR_CORNERS): only the line or corners that won.
+ * For Weekend (FULL_HOUSE_ONLY): all 25 cells.
+ * For Special: the specific pattern cells.
+ */
+export function getWinningPatternCells(
+  marked: boolean[][],
+  ruleType?: 'ONE_LINE_OR_CORNERS' | 'STANDARD' | 'FULL_HOUSE_ONLY' | string,
+  specialRuleIndex: number = 0
+): [number, number][] {
+  const bestRule = getBestWinningRule(marked, ruleType, specialRuleIndex);
+  if (!bestRule) return [];
+
+  // Fetan: identify the exact pattern
+  if (ruleType === 'ONE_LINE_OR_CORNERS') {
+    if (bestRule.id === 'FOUR_CORNERS') {
+      return [[0, 0], [0, 4], [4, 0], [4, 4]];
+    }
+    if (bestRule.id === 'DIAGONAL_LINE') {
+      // Main diagonal
+      if (isDiag1Complete(marked)) {
+        return [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4]];
+      }
+      // Anti-diagonal
+      return [[0, 4], [1, 3], [2, 2], [3, 1], [4, 0]];
+    }
+    if (bestRule.id === 'VERTICAL_LINE') {
+      const cols = getCompletedCols(marked);
+      if (cols.length > 0) {
+        const c = cols[0];
+        return [[0, c], [1, c], [2, c], [3, c], [4, c]];
+      }
+    }
+    if (bestRule.id === 'HORIZONTAL_LINE') {
+      const rows = getCompletedRows(marked);
+      if (rows.length > 0) {
+        const r = rows[0];
+        return [[r, 0], [r, 1], [r, 2], [r, 3], [r, 4]];
+      }
+    }
+    return [];
+  }
+
+  // Full House: all cells
+  if (ruleType === 'FULL_HOUSE_ONLY') {
+    const cells: [number, number][] = [];
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        cells.push([r, c]);
+      }
+    }
+    return cells;
+  }
+
+  // Special rules: use the pattern from the active rule
+  const activeRule = HYPER_SPECIAL_RULES[Math.abs(specialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
+  if (activeRule && activeRule.pattern) {
+    const cells: [number, number][] = [];
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        if (activeRule.pattern[r][c]) {
+          cells.push([r, c]);
+        }
+      }
+    }
+    return cells;
+  }
+
+  return [];
+}
+
 export interface OneAwayStatus {
   isOneAway: boolean;
   neededNumber: number | null;
