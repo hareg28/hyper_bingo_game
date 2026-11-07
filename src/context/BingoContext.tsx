@@ -2011,14 +2011,18 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const daubCell = (cardId: string, row: number, col: number) => {
     const card = userCards.find((item) => item.id === cardId);
     const game = card && games.find((item) => item.id === card.gameId);
-    if (!card || !game || (row === 2 && col === 2) || !game.drawnNumbers.includes(card.numbers[row]?.[col])) return;
+    const number = card?.numbers[row]?.[col];
+    if (!card || !game || number === undefined || (row === 2 && col === 2) || !game.drawnNumbers.includes(number)) return;
+    const marked = !card.marked[row]?.[col];
     setUserCards((prev) =>
-      prev.map((card) => {
-        if (card.id !== cardId) return card;
-        const newMarked = card.marked.map((r, rIdx) =>
-          r.map((val, cIdx) => (rIdx === row && cIdx === col ? !val : val))
+      prev.map((gameCard) => {
+        if (gameCard.gameId !== card.gameId) return gameCard;
+        const newMarked = gameCard.marked.map((r, rIdx) =>
+          r.map((val, cIdx) =>
+            gameCard.numbers[rIdx]?.[cIdx] === number ? marked : val
+          )
         );
-        return { ...card, marked: newMarked };
+        return { ...gameCard, marked: newMarked };
       })
     );
   };
