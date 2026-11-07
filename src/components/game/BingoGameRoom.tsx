@@ -2900,7 +2900,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 )}
               </div>
 
-              {/* 🎯 WINNING BOARD DISPLAY (compact 5x5 GRID) */}
+              {/* 🎯 WINNING BOARD DISPLAY — Fetan only */}
+              {isFetanGame && (
               <div className="pt-2 border-t border-white/10 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-300 font-bold text-[10px] flex items-center gap-1">
@@ -2948,6 +2949,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Single-Game Card Rule Notice */}
               <div className="bg-amber-400/20 border border-amber-400/40 rounded-xl p-2 text-center text-[10px] text-amber-200 font-bold leading-tight">
