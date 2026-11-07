@@ -115,14 +115,31 @@ export async function POST(req: NextRequest) {
     }
     const requiredCost = pricePerCard * chargeableCount;
 
-    const [wallet] = await sql`SELECT available_balance, bonus_balance, winning_balance FROM wallets WHERE user_id = ${walletUserId}`;
-    if (!wallet) {
-      return NextResponse.json({ success: false, error: 'Wallet not found' }, { status: 404 });
+    // Check primary wallet (walletUserId) first, then fallback to requested userId if it has more balance
+    let activeUserId = walletUserId;
+    let [wallet] = await sql`SELECT available_balance, bonus_balance, winning_balance FROM wallets WHERE user_id = ${activeUserId}`;
+    let available = wallet ? parseFloat(wallet.available_balance) : 0;
+    let bonus = wallet ? parseFloat(wallet.bonus_balance) : 0;
+    let winning = wallet ? parseFloat(wallet.winning_balance) : 0;
+    let playable = available + bonus + winning;
+
+    if (playable < requiredCost && walletUserId !== userId) {
+      const [altWallet] = await sql`SELECT available_balance, bonus_balance, winning_balance FROM wallets WHERE user_id = ${userId}`;
+      if (altWallet) {
+        const altAvailable = parseFloat(altWallet.available_balance);
+        const altBonus = parseFloat(altWallet.bonus_balance);
+        const altWinning = parseFloat(altWallet.winning_balance);
+        const altPlayable = altAvailable + altBonus + altWinning;
+        if (altPlayable >= requiredCost || altPlayable > playable) {
+          activeUserId = userId;
+          wallet = altWallet;
+          available = altAvailable;
+          bonus = altBonus;
+          winning = altWinning;
+          playable = altPlayable;
+        }
+      }
     }
-    const available = parseFloat(wallet.available_balance);
-    const bonus = parseFloat(wallet.bonus_balance);
-    const winning = parseFloat(wallet.winning_balance);
-    const playable = available + bonus + winning;
 
     if (playable < requiredCost) {
       return NextResponse.json({
@@ -133,8 +150,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Fetch user info for logging
-    const [userRow] = await sql`SELECT username FROM users WHERE id = ${walletUserId}`;
-    const username = userRow?.username || walletUserId;
+    const [userRow] = await sql`SELECT username FROM users WHERE id = ${activeUserId}`;
+    const username = userRow?.username || activeUserId;
     // 4. Try inserting each card — ON CONFLICT DO NOTHING means already-sold cards are skipped
     const purchased: string[] = [];
     const alreadySold: string[] = [];
@@ -143,7 +160,7 @@ export async function POST(req: NextRequest) {
     for (const cardNumber of cardNumbers) {
       if (existingOwned.has(cardNumber)) {
         if (isRegistered) {
-          await sql`UPDATE game_cards SET is_registered = TRUE, is_paid = TRUE, cost = ${pricePerCard} WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND user_id = ${walletUserId}`;
+          await sql`UPDATE game_cards SET is_registered = TRUE, is_paid = TRUE, cost = ${pricePerCard} WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND (user_id = ${activeUserId} OR user_id = ${userId})`;
           purchased.push(cardNumber);
           if (!existingPaid.has(cardNumber)) newlyPurchased.push(cardNumber);
         } else {
@@ -154,7 +171,7 @@ export async function POST(req: NextRequest) {
       const cardId = `gc_${gameId}_${cardNumber}`;
       const rows = await sql`
         INSERT INTO game_cards (id, game_id, card_number, user_id, username, cost, is_registered, is_paid)
-        VALUES (${cardId}, ${gameId}, ${cardNumber}, ${walletUserId}, ${username}, ${pricePerCard}, ${Boolean(isRegistered)}, TRUE)
+        VALUES (${cardId}, ${gameId}, ${cardNumber}, ${activeUserId}, ${username}, ${pricePerCard}, ${Boolean(isRegistered)}, TRUE)
         ON CONFLICT (game_id, card_number) DO NOTHING
         RETURNING card_number
       `;
@@ -247,11 +264,12 @@ export async function PATCH(req: NextRequest) {
     if (!gameId || !userId || !cardNumber) {
       return NextResponse.json({ success: false, error: 'gameId, userId and cardNumber required' }, { status: 400 });
     }
+    const walletUserId = await resolveWalletUserId(req, sql, userId);
     const [owned] = await sql`
       SELECT gc.cost, gc.is_paid, g.name, g.category, g.game_type, g.status,
              g.next_round_starts_at, g.drawn_numbers
       FROM game_cards gc JOIN games g ON g.id = gc.game_id
-      WHERE gc.game_id = ${gameId} AND gc.card_number = ${cardNumber} AND gc.user_id = ${userId}
+      WHERE gc.game_id = ${gameId} AND gc.card_number = ${cardNumber} AND (gc.user_id = ${userId} OR gc.user_id = ${walletUserId})
     `;
     if (!owned || (owned.category !== 'HYPER_SPECIAL' && owned.game_type !== 'HYPER_SPECIAL')) {
       return NextResponse.json({ success: false, error: 'Card could not be unregistered for the current round.' }, { status: 409 });
@@ -267,7 +285,7 @@ export async function PATCH(req: NextRequest) {
     await sql`
       UPDATE game_cards
       SET is_registered = FALSE, is_paid = CASE WHEN ${refund > 0} THEN FALSE ELSE is_paid END
-      WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND user_id = ${userId}
+      WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND (user_id = ${userId} OR user_id = ${walletUserId})
     `;
 
     let walletAfter;
@@ -362,12 +380,13 @@ export async function DELETE(req: NextRequest) {
     if (!gameId || !userId || !cardNumber) {
       return NextResponse.json({ success: false, error: 'gameId, userId and cardNumber required' }, { status: 400 });
     }
+    const walletUserId = await resolveWalletUserId(req, sql, userId);
 
     const [ownedCard] = await sql`
       SELECT gc.cost, gc.is_paid, g.category, g.game_type, g.status, g.next_round_starts_at, g.drawn_numbers
       FROM game_cards gc
       JOIN games g ON g.id = gc.game_id
-      WHERE gc.game_id = ${gameId} AND gc.card_number = ${cardNumber} AND gc.user_id = ${userId}
+      WHERE gc.game_id = ${gameId} AND gc.card_number = ${cardNumber} AND (gc.user_id = ${userId} OR gc.user_id = ${walletUserId})
     `;
     if (!ownedCard) return NextResponse.json({ success: false, error: 'Owned card not found' }, { status: 404 });
 
@@ -393,7 +412,7 @@ export async function DELETE(req: NextRequest) {
       ? await sql`SELECT available_balance, bonus_balance FROM wallets WHERE user_id = ${userId}`
       : [null];
     if (refund > 0 && !wallet) return NextResponse.json({ success: false, error: 'Wallet not found; card was not removed.' }, { status: 404 });
-    await sql`DELETE FROM game_cards WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND user_id = ${userId}`;
+    await sql`DELETE FROM game_cards WHERE game_id = ${gameId} AND card_number = ${cardNumber} AND (user_id = ${userId} OR user_id = ${walletUserId})`;
     await sql`
       UPDATE games
       SET current_players = (

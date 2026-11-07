@@ -1941,8 +1941,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     <span>
                       {latestWinner
                         ? (language === 'am'
-                          ? `🎉 ቢንጎ አሸናፊ: @${latestWinner.username} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`
-                          : `🎉 BINGO WINNER: @${latestWinner.username} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`)
+                          ? `🎉 ቢንጎ አሸናፊ: @${latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`
+                          : `🎉 BINGO WINNER: @${latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`)
                         : (isSpecialGame
                           ? (language === 'am' ? 'የስፔሻል ዙር ተጠናቋል!' : 'Hyper Special Round Finished!')
                           : (language === 'am' ? 'ዙሩ ተጠናቋል!' : 'Round Finished!'))
@@ -2801,7 +2801,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 {language === 'am' ? '🎉 ቢንጎ አሸናፊ ይፋ ሆነ! 🎉' : '🎉 BINGO WINNER ANNOUNCED! 🎉'}
               </h3>
               <p className="text-2xl font-black text-white tracking-wide">
-                @{latestWinner.username}
+                @{latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
               </p>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-black">
                 <span>{language === 'am' ? 'የተጠቃሚ ID ቁጥር' : 'Winner ID #'}:</span>
@@ -2812,7 +2812,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             <div className="bg-white/10 rounded-2xl p-3.5 border border-white/15 space-y-2.5 text-left">
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                 <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጠቃሚ ስም (Username):' : 'Username:'}</span>
-                <span className="font-black text-amber-300 text-sm">@{latestWinner.username}</span>
+                <span className="font-black text-amber-300 text-sm">@{latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}</span>
               </div>
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                 <span className="text-slate-300 font-bold">{language === 'am' ? 'የካርድ ID ቁጥር (Card ID #):' : 'Card ID #:'}</span>

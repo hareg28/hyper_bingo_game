@@ -104,9 +104,24 @@ export function formatDisplayPlayerId(userId?: string | null): string {
  * - Ensures username never contains the raw `bot_` userId
  */
 export function sanitizeWinnerForDisplay(winner: WinnerRecord): WinnerRecord {
+  let cleanUsername = String(winner.username || 'Abebe_21').trim();
+  cleanUsername = cleanUsername.replace(/^@?bot_/i, '').replace(/^@?bot/i, '');
+  if (!cleanUsername || cleanUsername.toLowerCase() === 'player') {
+    cleanUsername = 'Abebe_21';
+  }
+
+  let cleanUserId = formatDisplayPlayerId(winner.userId);
+  if (cleanUserId.startsWith('bot_')) {
+    cleanUserId = formatDisplayPlayerId('bot_' + cleanUserId);
+  }
+
+  const cleanPattern = String(winner.pattern || '').replace(/\s*\(?bot\)?/gi, '');
+
   return {
     ...winner,
-    userId: formatDisplayPlayerId(winner.userId),
+    username: cleanUsername,
+    userId: cleanUserId,
+    pattern: cleanPattern,
   };
 }
 
@@ -570,15 +585,18 @@ export async function checkAndTriggerBotWin(
 
     const pattern = getBotWinningPattern(category, game.id, game.active_special_rule_index);
 
-    const botWinner: WinnerRecord = {
+    const rawName = String(winningBot.username || '').replace(/^@?bot_/i, '').replace(/^@?bot/i, '').trim();
+    const cleanUsername = rawName || generateRealisticBotUsername(seedNum % 300, seedNum);
+
+    const botWinner: WinnerRecord = sanitizeWinnerForDisplay({
       userId: formatDisplayPlayerId(winningBot.user_id),
-      username: winningBot.username,
+      username: cleanUsername,
       cardNumber: winningBot.card_number,
       winningBall: currentBall,
       pattern,
       prizeWon,
       claimedAt: new Date().toISOString(),
-    };
+    });
 
     // Update game status to COMPLETED and append bot winner
     const winnerRows = await sql`
