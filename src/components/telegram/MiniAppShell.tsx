@@ -420,9 +420,6 @@ export default function MiniAppShell({
                   <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1">
                     <span>📅</span> {language === 'am' ? 'የዕለት ንዑስ ክፍል (3 ቀናት):' : 'Weekend Day Subgroups:'}
                   </span>
-                  <span className="text-[10px] font-bold text-amber-700">
-                    {language === 'am' ? 'በየቀኑ 3:00 PM (9:00 የኢትዮጵያ ሰዓት)' : 'One draw per day: 3:00 PM (9:00 Ethiopia clock time)'}
-                  </span>
                 </div>
                 <div className="grid grid-cols-3 gap-1.5">
                   {(['FRI', 'SAT', 'SUN'] as const).map((day) => (
@@ -914,14 +911,15 @@ export default function MiniAppShell({
                   </div>
                 </div>
 
-                {/* Logout / Switch Account */}
-                <div className="pt-1">
+                {/* Keep sign-out available without the marked visible label. */}
+                <div className="pt-1 flex justify-end">
                   <button
                     onClick={logout}
-                    className="w-full py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                    aria-label={language === 'am' ? 'ከአካውንት ውጣ / ቀይር' : 'Sign Out / Switch Account'}
+                    title={language === 'am' ? 'ከአካውንት ውጣ / ቀይር' : 'Sign Out / Switch Account'}
+                    className="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 transition flex items-center justify-center cursor-pointer"
                   >
                     <LogOut className="w-4 h-4 text-rose-500" />
-                    <span>{language === 'am' ? 'ከአካውንት ውጣ / ቀይር' : 'Sign Out / Switch Account'}</span>
                   </button>
                 </div>
               </div>
@@ -1399,7 +1397,7 @@ function WeekendLotteryNumberPicker({
               </button>
             )}
             <div>
-              <h3 className="text-xs font-black text-slate-900 leading-tight flex items-center gap-1">
+              {mode !== 'WEEKEND' && <h3 className="text-xs font-black text-slate-900 leading-tight flex items-center gap-1">
                 <span>{mode === 'FETAN' ? '⚡' : mode === 'SPECIAL' ? '🎲' : '🌟'}</span>
                 <span>
                   {mode === 'FETAN' 
@@ -1410,8 +1408,8 @@ function WeekendLotteryNumberPicker({
                         ? `${selectedGame?.weekendDay === 'FRI' ? 'የዓርብ' : selectedGame?.weekendDay === 'SAT' ? 'የቅዳሜ' : 'የእሑድ'} ሜጋ ሎተሪ (1-1500)`
                         : `${selectedGame?.weekendDay === 'FRI' ? 'Friday' : selectedGame?.weekendDay === 'SAT' ? 'Saturday' : 'Sunday'} Mega Lottery (1-1500)`)}
                 </span>
-              </h3>
-              <span className="text-[10px] text-slate-500 font-bold">
+              </h3>}
+              {mode !== 'WEEKEND' && <span className="text-[10px] text-slate-500 font-bold">
                 {mode === 'FETAN' 
                   ? (isAm ? '40 ሰከንድ ካርድ መምረጫ · 7 ሴኮንድ ቁጥር · 500 ካርዶች' : '40s Card Pick · 7s per Number · 500 Cards')
                   : mode === 'SPECIAL'
@@ -1419,7 +1417,7 @@ function WeekendLotteryNumberPicker({
                       ? `${entryPrice} ብር · ሕግ #${(Math.abs(selectedGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} · ${selectedSpecialRule?.nameAm || 'ልዩ የማሸነፊያ ሕግ'}`
                       : `${entryPrice} ETB · Law #${(Math.abs(selectedGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} · ${selectedSpecialRule?.nameEn || 'Special Law'}`)
                   : (isAm ? '50 ብር · አንድ ዕጣ በየቀኑ · ሙሉ ቤት ብቻ (24/24)' : '50 ETB · One scheduled draw per day · Full House Only')}
-              </span>
+              </span>}
             </div>
           </div>
 
@@ -1512,9 +1510,6 @@ function WeekendLotteryNumberPicker({
                 ⏳ {drawCountdown}
               </span>
             </div>
-          </div>
-          <div className="rounded-xl border-2 border-amber-500 bg-amber-100 py-2 px-2.5 text-center text-xs font-black text-slate-950">
-            ⏰ 3:00 PM (9:00 Ethiopia clock time) · One draw for this day
           </div>
         </div>
       ) : null}
