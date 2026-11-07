@@ -197,8 +197,14 @@ export async function verifyDepositWithLinksEt(
     const amountValue = getReceiptField(receipt,
       'transferredAmount', 'settledAmount', 'amount', 'creditAmount', 'totalPaidAmount', 'totalAmount', 'totalAmountPaid');
     const returnedAmount = parseBirr(amountValue);
-    if (!Number.isFinite(returnedAmount) || Math.round(returnedAmount * 100) < Math.round(amount * 100)) {
-      return { matched: false, reason: 'Verified transaction amount is less than the requested deposit.' };
+    if (!Number.isFinite(returnedAmount)) {
+      return { matched: false, reason: 'The verified receipt does not include a readable transferred amount.' };
+    }
+    if (Math.round(returnedAmount * 100) !== Math.round(amount * 100)) {
+      return {
+        matched: false,
+        reason: `Verified amount (${returnedAmount} ETB) does not match the requested amount (${amount} ETB).`,
+      };
     }
 
     const receiver = getReceiptField(receipt, 'creditedPartyName', 'receiverName', 'recipientName', 'beneficiaryName');
