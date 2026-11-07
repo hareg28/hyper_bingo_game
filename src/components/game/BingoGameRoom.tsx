@@ -1763,13 +1763,15 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   </span>
                   <span className="text-sm sm:text-base font-black text-blue-700">1</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                  <span className="text-[10px] font-bold uppercase text-slate-500">
-                    {language === 'am' ? 'ሽልማት' : 'Prize'}
-                  </span>
-                  <span className="text-sm sm:text-base font-black text-amber-600">{formatETB(gamePrizeDisplay)}</span>
-                </div>
+                {(!isWeekendGame || isWeekendLive) && (
+                  <div className="flex items-center gap-1.5">
+                    <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="text-[10px] font-bold uppercase text-slate-500">
+                      {language === 'am' ? 'ሽልማት' : 'Prize'}
+                    </span>
+                    <span className="text-sm sm:text-base font-black text-amber-600">{formatETB(gamePrizeDisplay)}</span>
+                  </div>
+                )}
               </div>
 
               <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/80 shadow-xs">

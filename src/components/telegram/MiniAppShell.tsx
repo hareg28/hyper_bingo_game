@@ -474,6 +474,7 @@ export default function MiniAppShell({
                         {language === 'am' ? '9:00 የኢትዮጵያ ሰዓት' : '9:00 Ethiopia clock time'}
                       </div>
                     )}
+                    <div className={categoryTab === 'WEEKEND' ? 'w-full flex items-center justify-between gap-3' : 'contents'}>
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-black text-sm text-slate-900">{getGameDisplayName(g, language)}</span>
@@ -509,9 +510,11 @@ export default function MiniAppShell({
 
                       <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                         <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
-                        <span className="flex items-center gap-1 text-amber-700 font-black">
-                          🏆 {language === 'am' ? 'ሽልማት' : 'Prize'}: <strong className="text-amber-900">{formatETB(getGameLivePrizePool(g))}</strong>
-                        </span>
+                        {(categoryTab !== 'WEEKEND' || (g.status === 'RUNNING' && Boolean(g.weekendRoundKey))) && (
+                          <span className="flex items-center gap-1 text-amber-700 font-black">
+                            🏆 {language === 'am' ? 'ሽልማት' : 'Prize'}: <strong className="text-amber-900">{formatETB(getGameLivePrizePool(g))}</strong>
+                          </span>
+                        )}
 
 
 
@@ -523,7 +526,7 @@ export default function MiniAppShell({
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                    <div className={`flex items-center gap-1.5 shrink-0 ${categoryTab === 'WEEKEND' ? 'ml-0' : 'ml-2'}`}>
                       {/* Main Play Button — ALL modes now go through the master number picker first (1-tap buy) */}
                       <button
                         onClick={() => {
@@ -532,7 +535,7 @@ export default function MiniAppShell({
                           }
                           handleSelectGameToPickCards(g.id, categoryTab);
                         }}
-                        className={`px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-xs cursor-pointer ${
+                        className={`px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-xs cursor-pointer whitespace-nowrap ${
                           categoryTab === 'SPECIAL'
                             ? 'bg-slate-950 hover:bg-slate-800 text-white'
                             : categoryTab === 'WEEKEND'
@@ -545,6 +548,7 @@ export default function MiniAppShell({
                         </span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
+                    </div>
                     </div>
                   </div>
                 ))}
@@ -1508,7 +1512,7 @@ function WeekendLotteryNumberPicker({
             </span>
             <div className="flex items-center gap-1.5">
               <span className="text-[9px] font-black text-amber-950 bg-amber-200 px-2 py-0.5 rounded-full border border-amber-300">
-                50 ETB · 50k ETB
+                {selectedGame?.status === 'RUNNING' && Boolean(selectedGame.weekendRoundKey) ? '50 ETB · 50k ETB' : '50 ETB'}
               </span>
               <span className="text-[10px] font-mono font-black text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 flex items-center gap-0.5">
                 ⏳ {drawCountdown}
