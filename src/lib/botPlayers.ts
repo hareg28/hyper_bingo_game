@@ -553,7 +553,7 @@ export async function checkAndTriggerBotWin(
           SELECT card_number, user_id, username FROM game_cards
           WHERE game_id = ${game.id} AND user_id LIKE 'bot_%'
         `;
-      } catch {}
+      } catch { }
     }
     if (!botRows || botRows.length === 0) {
       // Fallback bot row to ensure a bot winner is always produced
