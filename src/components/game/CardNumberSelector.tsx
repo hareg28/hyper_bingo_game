@@ -175,10 +175,10 @@ export default function CardNumberSelector({
     if (playableBalance < entryPrice) {
       setErrorMsg(
         isAm
-          ? `በቂ ሒሳብ የለዎትም! (${entryPrice} ETB ያስፈልጋል፣ ያለዎት ${Math.floor(playableBalance)} ETB)`
-          : `Insufficient balance! (Need ${entryPrice} ETB, have ${Math.floor(playableBalance)} ETB)`
+          ? `በቂ ሒሳብ የለዎትም! (${entryPrice} ETB ያስፈልጋል፣ ያለዎት ${Math.floor(playableBalance)} ETB)። ለመጫወት እባክዎ ተቀማጭ ያድርጉ (Deposit)።`
+          : `Insufficient balance! (Need ${entryPrice} ETB, have ${Math.floor(playableBalance)} ETB). Please deposit to play.`
       );
-      setTimeout(() => setErrorMsg(''), 3500);
+      setTimeout(() => setErrorMsg(''), 4000);
       return false;
     }
 
@@ -232,6 +232,15 @@ export default function CardNumberSelector({
 
   const handleFillMaxCards = () => {
     setErrorMsg('');
+    if (playableBalance < entryPrice) {
+      setErrorMsg(
+        isAm
+          ? `በቂ ሒሳብ የለዎትም! (${entryPrice} ETB ያስፈልጋል፣ ያለዎት ${Math.floor(playableBalance)} ETB)። ለመጫወት እባክዎ ተቀማጭ ያድርጉ (Deposit)።`
+          : `Insufficient balance! (Need ${entryPrice} ETB, have ${Math.floor(playableBalance)} ETB). Please deposit to play.`
+      );
+      setTimeout(() => setErrorMsg(''), 4000);
+      return;
+    }
     for (let i = 0; i < MAX_CARDS - purchasedCount; i++) {
       handleAddRandomCard();
     }

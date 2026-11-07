@@ -1568,9 +1568,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const playableBalance = wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance;
     const totalCost = actualStake * cardsToCreate.length;
     if (playableBalance < totalCost) {
+      const isAm = language === 'am';
       addNotification(
-        '⚠️ Insufficient Balance',
-        `You don't have enough balance to buy this card. Need ${totalCost} ETB; you have ${playableBalance.toFixed(0)} ETB.`,
+        isAm ? '⚠️ በቂ ሒሳብ የለዎትም' : '⚠️ Insufficient Balance',
+        isAm
+          ? `ካርድ ለመግዛት በቂ ሒሳብ የለዎትም። ${totalCost} ETB ያስፈልጋል፤ ያለዎት ${playableBalance.toFixed(0)} ETB ነው። ለመጫወት እባክዎ ተቀማጭ ያድርጉ (Deposit)።`
+          : `You don't have enough balance to buy cards. Need ${totalCost} ETB; you have ${playableBalance.toFixed(0)} ETB. Please deposit to play.`,
         'warning'
       );
       return false;
@@ -2488,12 +2491,16 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const totalCost = calcLotteryTotalCost(numbers.length, game.entryPrice);
     const playable = wallet.availableBalance + wallet.bonusBalance + wallet.winningBalance;
     if (playable < totalCost) {
+      const isAm = language === 'am';
+      const msg = isAm
+        ? `በቂ ሒሳብ የለዎትም! (${totalCost} ETB ያስፈልጋል፣ ያለዎት ${playable.toFixed(0)} ETB)። ለመጫወት እባክዎ ተቀማጭ ያድርጉ (Deposit)።`
+        : `Insufficient balance. Need ${totalCost} ETB; you have ${playable.toFixed(0)} ETB. Please deposit to play.`;
       addNotification(
-        '⚠️ Insufficient Balance',
-        `Insufficient balance. Need ${totalCost} ETB; you have ${playable.toFixed(0)} ETB.`,
+        isAm ? '⚠️ በቂ ሒሳብ የለዎትም' : '⚠️ Insufficient Balance',
+        msg,
         'warning'
       );
-      return { success: false, message: `Insufficient balance. Need ${totalCost} ETB; you have ${playable.toFixed(0)} ETB.` };
+      return { success: false, message: msg };
     }
 
     // Spend bonus, then available balance, then winnings.
