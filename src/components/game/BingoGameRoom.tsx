@@ -27,6 +27,8 @@ import {
   SPECIAL_ROUND_SECONDS,
   FETAN_ROUND_SECONDS,
   WEEKEND_ROUND_SECONDS,
+  generateSeededBingoCardMatrix,
+  generateBingoCardMatrix,
 } from '../../lib/bingoUtils';
 import confetti from 'canvas-confetti';
 import SharedCountdownText from './SharedCountdownText';
@@ -2791,15 +2793,21 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       {showWinnerModal && currentGame.winners && currentGame.winners.length > 0 && (() => {
         const latestWinner = currentGame.winners[currentGame.winners.length - 1];
         const winningCard = activeGameCards.find((c) => c.cardNumber === latestWinner.cardNumber);
+        const winningCardNumberInt = parseInt(latestWinner.cardNumber || '1', 10);
+        const winningGrid: number[][] = (winningCard && winningCard.numbers && winningCard.numbers.length === 5)
+          ? winningCard.numbers
+          : (!Number.isNaN(winningCardNumberInt) && winningCardNumberInt > 0
+              ? generateSeededBingoCardMatrix(winningCardNumberInt)
+              : generateBingoCardMatrix());
+
+        const drawnSet = new Set(currentGame.drawnNumbers || []);
         const winningNumbers: number[] = [];
-        if (winningCard) {
-          for (let r = 0; r < 5; r++) {
-            for (let c = 0; c < 5; c++) {
-              const num = winningCard.numbers?.[r]?.[c] ?? 0;
-              const isFree = (r === 2 && c === 2);
-              if (Boolean(winningCard.marked?.[r]?.[c]) && !isFree && num > 0) {
-                winningNumbers.push(num);
-              }
+        for (let r = 0; r < 5; r++) {
+          for (let c = 0; c < 5; c++) {
+            const num = winningGrid[r]?.[c] ?? 0;
+            const isFree = (r === 2 && c === 2);
+            if (!isFree && num > 0 && drawnSet.has(num)) {
+              winningNumbers.push(num);
             }
           }
         }
@@ -2807,11 +2815,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         return (
         <div 
           onClick={() => setShowWinnerModal(false)}
-          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 border-2 border-amber-400 rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-white text-center relative overflow-hidden cursor-default"
+            className="bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 border-2 border-amber-400 rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-white text-center relative overflow-hidden cursor-default my-auto max-h-[94vh] overflow-y-auto"
           >
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-400/20 rounded-full blur-2xl pointer-events-none"></div>
             <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
@@ -2880,6 +2888,53 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   </span>
                 )}
               </div>
+
+              {/* 🎯 WINNING BOARD DISPLAY (5x5 GRID) */}
+              <div className="pt-2 border-t border-white/10 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-300 font-bold text-xs flex items-center gap-1">
+                    🎯 {language === 'am' ? 'የአሸናፊው ቦርድ (Winning Board):' : 'Winner Board:'}
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-amber-300 px-2 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/30">
+                    Card #{latestWinner.cardNumber}
+                  </span>
+                </div>
+
+                <div className="bg-slate-900/95 p-2 rounded-2xl border border-amber-400/40 shadow-inner">
+                  {/* B - I - N - G - O Header */}
+                  <div className="grid grid-cols-5 gap-1 text-center font-black text-[11px] mb-1">
+                    <span className="text-blue-400">B</span>
+                    <span className="text-purple-400">I</span>
+                    <span className="text-amber-400">N</span>
+                    <span className="text-emerald-400">G</span>
+                    <span className="text-rose-400">O</span>
+                  </div>
+                  {/* 5x5 Grid Cells */}
+                  <div className="grid grid-cols-5 gap-1">
+                    {winningGrid.map((row, rIdx) =>
+                      row.map((val, cIdx) => {
+                        const isFree = rIdx === 2 && cIdx === 2;
+                        const isMarked = isFree || drawnSet.has(val);
+                        return (
+                          <div
+                            key={`win-board-cell-${rIdx}-${cIdx}`}
+                            className={`aspect-square rounded-lg flex items-center justify-center font-mono font-black text-[10px] sm:text-[11px] select-none transition-all ${
+                              isFree
+                                ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white ring-1 ring-emerald-400 shadow-xs'
+                                : isMarked
+                                ? 'bg-gradient-to-br from-amber-400 to-yellow-400 text-slate-950 ring-1 ring-amber-300 shadow-xs font-black'
+                                : 'bg-slate-800/80 text-slate-400 border border-slate-700/60'
+                            }`}
+                          >
+                            {isFree ? 'FREE' : val}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Single-Game Card Rule Notice */}
               <div className="bg-amber-400/20 border border-amber-400/40 rounded-xl p-2 text-center text-[10px] text-amber-200 font-bold leading-tight">
                 ⚡ {language === 'am'

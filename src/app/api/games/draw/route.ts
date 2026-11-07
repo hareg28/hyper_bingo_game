@@ -3,7 +3,7 @@ import { ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql 
 import { isAdminTelegramId } from '@/lib/authUtils';
 import { INITIAL_GAMES } from '@/lib/store';
 import { getWeekendRoundKey } from '@/lib/bingoUtils';
-import { FETAN_BALL_INTERVAL_MS, SPECIAL_BALL_INTERVAL_MS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
+import { FETAN_BALL_INTERVAL_MS, SPECIAL_BALL_INTERVAL_MS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS, generateSeededBingoCardMatrix, getBestWinningRule, checkOneAwayStatus } from '@/lib/bingoUtils';
 import { checkAndTriggerBotWin, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
 import { notifyUsersTelegram } from '@/lib/adminNotifications';
 
@@ -159,16 +159,51 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if a bot should win immediately on this drawn ball.
-    // If human players are present in the game, force an earlier bot win
-    // to guarantee no human can complete a pattern first.
+    // If human players are close to winning (1 number away or completed pattern),
+    // force an immediate bot win so the human can never win.
+    // In Hyper Special: if human is not close to winning, continue playing without
+    // showing a winner for about 8 minutes (~48 balls or 480 seconds).
     let botWinner = null;
     if (updatedDrawn.length >= 10) {
       let humanPresent = false;
+      let humanCloseToWin = false;
       try {
-        const hRows = await sql`SELECT COUNT(*)::int AS count FROM game_cards WHERE game_id = ${gameId} AND user_id NOT LIKE 'bot_%'`;
-        humanPresent = (hRows[0]?.count ?? 0) > 0;
-      } catch {}
-      const forceNow = humanPresent && updatedDrawn.length >= (isFetan ? 11 : isSpecial ? 14 : isWeekend ? 20 : 11);
+        const humanCards = await sql`
+          SELECT card_number FROM game_cards
+          WHERE game_id = ${gameId} AND user_id NOT LIKE 'bot_%'
+        `;
+        humanPresent = humanCards.length > 0;
+        if (humanPresent) {
+          const effectiveRuleType = isFetan
+            ? 'ONE_LINE_OR_CORNERS'
+            : isWeekend
+            ? 'FULL_HOUSE_ONLY'
+            : (game.winning_rule || 'STANDARD');
+          const drawnSet = new Set(updatedDrawn);
+          for (const hc of humanCards) {
+            const num = parseInt(hc.card_number, 10);
+            if (!Number.isNaN(num) && num > 0) {
+              const grid = generateSeededBingoCardMatrix(num);
+              const marked = grid.map((r, rIdx) =>
+                r.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || drawnSet.has(val))
+              );
+              const isWin = Boolean(getBestWinningRule(marked, effectiveRuleType, game.active_special_rule_index));
+              const oneAway = checkOneAwayStatus(marked, grid, effectiveRuleType, game.active_special_rule_index);
+              if (isWin || oneAway.isOneAway) {
+                humanCloseToWin = true;
+                break;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[draw] Error checking human cards:', err);
+      }
+
+      const elapsedSpecialMs = game.round_started_at ? (Date.now() - new Date(game.round_started_at).getTime()) : 0;
+      const specialReached8Minutes = isSpecial && (updatedDrawn.length >= 48 || elapsedSpecialMs >= 8 * 60 * 1000);
+
+      const forceNow = humanCloseToWin || (isSpecial ? specialReached8Minutes : (humanPresent && updatedDrawn.length >= (isFetan ? 11 : isWeekend ? 20 : 11)));
       botWinner = await checkAndTriggerBotWin(
         sql,
         { ...game, drawn_numbers: updatedDrawn, current_ball: nextBall },

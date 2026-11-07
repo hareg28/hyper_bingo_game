@@ -346,9 +346,10 @@ export function getTargetWinningBall(
     return 15 + (seed % 6); // 15..20
   }
   if (isSpecial) {
-    // Hyper Special: hard rules 23–25, non-hard rules 20–22 (20–25 range)
-    const hard = isSpecialRuleHard(specialRuleIndex);
-    return hard ? 23 + (seed % 3) : 20 + (seed % 3);
+    // Hyper Special: plays for about 8 minutes if no human is close to winning!
+    // With 9.6s ball draw interval, 8 minutes is 480 seconds / 9.6s = 50 balls.
+    // Target ball called around 48..51 balls (~8 minutes).
+    return 48 + (seed % 4);
   }
   if (isWeekend) {
     // Hyper Weekend: win ball called 25–35
@@ -515,8 +516,13 @@ export async function checkAndTriggerBotWin(
         `;
         const humanCount = humanRows[0]?.count ?? 0;
         if (humanCount > 0) {
-          // Humans present — bot MUST win before human can complete a pattern!
-          const safeThreshold = isFetanGame ? 11 : isSpecialGame ? 14 : isWeekendGame ? 20 : 11;
+          // In Hyper Special: continue playing without showing a winner until about 8 minutes (~48-51 balls)
+          // unless a human is close to winning (which passes forceImmediate=true).
+          if (isSpecialGame) {
+            return null;
+          }
+          // Humans present in Fetan / Weekend — bot MUST win before human can complete a pattern!
+          const safeThreshold = isFetanGame ? 11 : isWeekendGame ? 20 : 11;
           if (drawnNumbers.length < safeThreshold) return null;
           // Fall through to trigger bot win at reduced threshold
         } else {
