@@ -32,7 +32,7 @@ function getGameDisplayName(g: { entryPrice: number; gameType?: string; isWeeken
       : g.weekendDay === 'SUN' ? (lang === 'am' ? 'እሑድ' : 'Sunday')
       : '';
     if (day) {
-      return `🌟 ${day} · ${g.entryPrice} ETB`;
+      return `🌟 ${day}`;
     }
     return lang === 'am' ? `🌟 ሃይፐር ዊክኤንድ ${g.entryPrice} ብር` : `🌟 Hyper Weekend ${g.entryPrice} ETB`;
   }
