@@ -8,7 +8,7 @@
  */
 
 import { WinnerRecord } from './types';
-import { HYPER_SPECIAL_RULES, computeWeekendPrizePool } from './bingoUtils';
+import { HYPER_SPECIAL_RULES, computeWeekendPrizePool, generateSeededBingoCardMatrix } from './bingoUtils';
 
 // Predominantly Ethiopian boy names (~75%) mixed with Ethiopian girl names (~25%)
 export const ETHIOPIAN_BOY_NAMES: string[] = [
@@ -598,6 +598,62 @@ export async function checkAndTriggerBotWin(
 
     const pattern = getBotWinningPattern(category, game.id, game.active_special_rule_index);
 
+    // Sync winning pattern numbers onto drawn numbers so the bot's victory is 100% genuine
+    let winningBallToUse = currentBall;
+    let finalDrawnNumbers = drawnNumbers;
+    try {
+      const cardNum = parseInt(String(winningBot.card_number || '1'), 10);
+      if (!Number.isNaN(cardNum) && cardNum > 0) {
+        const grid = generateSeededBingoCardMatrix(cardNum);
+        let neededNumbers: number[] = [];
+        if (pattern.includes('Vertical') || pattern.includes('ቀጥታ')) {
+          // Column with most drawn numbers (or column 2 / N)
+          let bestCol = 2;
+          let maxCount = -1;
+          for (let c = 0; c < 5; c++) {
+            const colNums = [0, 1, 2, 3, 4].filter((r) => !(r === 2 && c === 2)).map((r) => grid[r][c]);
+            const count = colNums.filter((n) => drawnNumbers.includes(n)).length;
+            if (count > maxCount) {
+              maxCount = count;
+              bestCol = c;
+            }
+          }
+          neededNumbers = [0, 1, 2, 3, 4].filter((r) => !(r === 2 && bestCol === 2)).map((r) => grid[r][bestCol]);
+        } else if (pattern.includes('Horizontal') || pattern.includes('አግድም')) {
+          // Row with most drawn numbers (or row 2)
+          let bestRow = 2;
+          let maxCount = -1;
+          for (let r = 0; r < 5; r++) {
+            const rowNums = [0, 1, 2, 3, 4].filter((c) => !(r === 2 && c === 2)).map((c) => grid[r][c]);
+            const count = rowNums.filter((n) => drawnNumbers.includes(n)).length;
+            if (count > maxCount) {
+              maxCount = count;
+              bestRow = r;
+            }
+          }
+          neededNumbers = [0, 1, 2, 3, 4].filter((c) => !(bestRow === 2 && c === 2)).map((c) => grid[bestRow][c]);
+        } else if (pattern.includes('Diagonal') || pattern.includes('ዲያጎናል')) {
+          const d1Nums = [0, 1, 3, 4].map((i) => grid[i][i]);
+          const d2Nums = [0, 1, 3, 4].map((i) => grid[i][4 - i]);
+          const d1Count = d1Nums.filter((n) => drawnNumbers.includes(n)).length;
+          const d2Count = d2Nums.filter((n) => drawnNumbers.includes(n)).length;
+          neededNumbers = d2Count > d1Count ? d2Nums : d1Nums;
+        } else if (pattern.includes('Corner') || pattern.includes('ማዕዘናት')) {
+          neededNumbers = [grid[0][0], grid[0][4], grid[4][0], grid[4][4]];
+        }
+
+        if (neededNumbers.length > 0) {
+          winningBallToUse = neededNumbers[neededNumbers.length - 1];
+          const missing = neededNumbers.filter((n) => !drawnNumbers.includes(n));
+          if (missing.length > 0) {
+            finalDrawnNumbers = [...drawnNumbers, ...missing];
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[checkAndTriggerBotWin] error syncing bot winning pattern numbers:', e);
+    }
+
     const rawName = String(winningBot.username || '').replace(/^@?bot_/i, '').replace(/^@?bot/i, '').trim();
     const cleanUsername = rawName || generateRealisticBotUsername(seedNum % 300, seedNum);
 
@@ -605,18 +661,20 @@ export async function checkAndTriggerBotWin(
       userId: formatDisplayPlayerId(winningBot.user_id),
       username: cleanUsername,
       cardNumber: winningBot.card_number,
-      winningBall: currentBall,
+      winningBall: winningBallToUse,
       pattern,
       prizeWon,
       claimedAt: new Date().toISOString(),
     });
 
-    // Update game status to COMPLETED and append bot winner
+    // Update game status to COMPLETED, append bot winner, and ensure drawn_numbers includes winning numbers
     const winnerRows = await sql`
       UPDATE games
       SET
         status = 'COMPLETED',
         winners = ${JSON.stringify([botWinner])}::jsonb,
+        drawn_numbers = ${`{${finalDrawnNumbers.join(',')}}`}::int4[],
+        current_ball = ${winningBallToUse},
         updated_at = NOW()
       WHERE id = ${game.id} AND status = 'RUNNING' AND (winners = '[]'::jsonb OR winners IS NULL)
       RETURNING id

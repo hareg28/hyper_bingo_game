@@ -2807,8 +2807,128 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         );
         // Get the actual winning rule match and pattern cells
         const winningRule = getBestWinningRule(markedGrid, effectiveRuleType, currentGame.activeSpecialRuleIndex ?? 0);
-        const patternCells = getWinningPatternCells(markedGrid, effectiveRuleType, currentGame.activeSpecialRuleIndex ?? 0);
+        let patternCells = getWinningPatternCells(markedGrid, effectiveRuleType, currentGame.activeSpecialRuleIndex ?? 0);
+
+        // Classify the pattern category to determine specific colors per rule:
+        // - VERTICAL: Purple / Indigo theme
+        // - HORIZONTAL: Amber / Gold theme
+        // - DIAGONAL: Emerald / Teal theme
+        // - CORNERS: Rose / Red theme
+        // - FULL_HOUSE / SPECIAL: Cyan / Blue theme
+        const patStr = `${latestWinner.pattern || ''} ${winningRule?.label || ''} ${winningRule?.id || ''}`.toLowerCase();
+        let ruleCategory: 'VERTICAL' | 'HORIZONTAL' | 'DIAGONAL' | 'CORNERS' | 'FULL_HOUSE' | 'SPECIAL' = 'HORIZONTAL';
+
+        if (winningRule?.id === 'VERTICAL_LINE' || patStr.includes('vertical') || patStr.includes('ቀጥታ')) {
+          ruleCategory = 'VERTICAL';
+        } else if (winningRule?.id === 'HORIZONTAL_LINE' || patStr.includes('horizontal') || patStr.includes('አግድም')) {
+          ruleCategory = 'HORIZONTAL';
+        } else if (winningRule?.id === 'DIAGONAL_LINE' || patStr.includes('diagonal') || patStr.includes('ዲያጎናል')) {
+          ruleCategory = 'DIAGONAL';
+        } else if (winningRule?.id === 'FOUR_CORNERS' || patStr.includes('corner') || patStr.includes('ማዕዘናት')) {
+          ruleCategory = 'CORNERS';
+        } else if (isWeekendGame || patStr.includes('full house') || patStr.includes('ሙሉ')) {
+          ruleCategory = 'FULL_HOUSE';
+        } else {
+          ruleCategory = 'SPECIAL';
+        }
+
+        // If pattern cells couldn't be detected from markedGrid (e.g. forced bot victory), resolve exact cells
+        if (patternCells.length === 0) {
+          const winBall = Number(latestWinner.winningBall);
+          if (ruleCategory === 'VERTICAL') {
+            let targetCol = 2; // Column N (has FREE) by default
+            for (let c = 0; c < 5; c++) {
+              if ([0, 1, 2, 3, 4].some((r) => winningGrid[r]?.[c] === winBall)) {
+                targetCol = c;
+                break;
+              }
+            }
+            patternCells = [0, 1, 2, 3, 4].map((r) => [r, targetCol] as [number, number]);
+          } else if (ruleCategory === 'HORIZONTAL') {
+            let targetRow = 2; // Row 2 (has FREE) by default
+            for (let r = 0; r < 5; r++) {
+              if ([0, 1, 2, 3, 4].some((c) => winningGrid[r]?.[c] === winBall)) {
+                targetRow = r;
+                break;
+              }
+            }
+            patternCells = [0, 1, 2, 3, 4].map((c) => [targetRow, c] as [number, number]);
+          } else if (ruleCategory === 'DIAGONAL') {
+            const diag2Has = [0, 1, 2, 3, 4].some((i) => winningGrid[i]?.[4 - i] === winBall);
+            patternCells = diag2Has
+              ? [0, 1, 2, 3, 4].map((i) => [i, 4 - i] as [number, number])
+              : [0, 1, 2, 3, 4].map((i) => [i, i] as [number, number]);
+          } else if (ruleCategory === 'CORNERS') {
+            patternCells = [[0, 0], [0, 4], [4, 0], [4, 4]];
+          } else if (ruleCategory === 'FULL_HOUSE') {
+            patternCells = [];
+            for (let r = 0; r < 5; r++) {
+              for (let c = 0; c < 5; c++) {
+                patternCells.push([r, c]);
+              }
+            }
+          }
+        }
+
         const patternCellSet = new Set(patternCells.map(([r, c]) => `${r}-${c}`));
+
+        // Distinct styling theme per winning rule type
+        const ruleTheme = (() => {
+          switch (ruleCategory) {
+            case 'VERTICAL':
+              return {
+                labelEn: '1 Vertical Line',
+                labelAm: '1 ቀጥታ (Vertical) መስመር',
+                cellClass: 'bg-gradient-to-br from-purple-500 via-indigo-500 to-purple-600 text-white ring-2 ring-purple-300 shadow-md shadow-purple-500/50 font-black',
+                freeClass: 'bg-gradient-to-br from-purple-500 via-indigo-600 to-purple-700 text-white ring-2 ring-purple-300 shadow-md',
+                badgeClass: 'bg-purple-600 text-white ring-1 ring-purple-300 font-black shadow-xs',
+                labelColor: 'text-purple-300',
+                boardBorder: 'border-purple-400/60 shadow-purple-500/20',
+              };
+            case 'HORIZONTAL':
+              return {
+                labelEn: '1 Horizontal Line',
+                labelAm: '1 አግድም (Horizontal) መስመር',
+                cellClass: 'bg-gradient-to-br from-amber-400 via-yellow-400 to-amber-500 text-slate-950 ring-2 ring-amber-300 shadow-md shadow-amber-400/50 font-black',
+                freeClass: 'bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600 text-slate-950 ring-2 ring-amber-300 shadow-md',
+                badgeClass: 'bg-amber-500 text-slate-950 ring-1 ring-amber-300 font-black shadow-xs',
+                labelColor: 'text-amber-400',
+                boardBorder: 'border-amber-400/60 shadow-amber-500/20',
+              };
+            case 'DIAGONAL':
+              return {
+                labelEn: '1 Diagonal Line',
+                labelAm: '1 ዲያጎናል (Diagonal) መስመር',
+                cellClass: 'bg-gradient-to-br from-emerald-400 via-teal-400 to-emerald-500 text-slate-950 ring-2 ring-emerald-300 shadow-md shadow-emerald-400/50 font-black',
+                freeClass: 'bg-gradient-to-br from-emerald-400 via-teal-500 to-emerald-600 text-slate-950 ring-2 ring-emerald-300 shadow-md',
+                badgeClass: 'bg-emerald-600 text-white ring-1 ring-emerald-300 font-black shadow-xs',
+                labelColor: 'text-emerald-300',
+                boardBorder: 'border-emerald-400/60 shadow-emerald-500/20',
+              };
+            case 'CORNERS':
+              return {
+                labelEn: '4 Corners',
+                labelAm: '4 ማዕዘናት (4 Corners)',
+                cellClass: 'bg-gradient-to-br from-rose-500 via-red-500 to-pink-600 text-white ring-2 ring-rose-300 shadow-md shadow-rose-500/50 font-black',
+                freeClass: 'bg-gradient-to-br from-emerald-500 to-green-600 text-white ring-1 ring-emerald-400',
+                badgeClass: 'bg-rose-600 text-white ring-1 ring-rose-300 font-black shadow-xs',
+                labelColor: 'text-rose-400',
+                boardBorder: 'border-rose-400/60 shadow-rose-500/20',
+              };
+            case 'FULL_HOUSE':
+            default:
+              return {
+                labelEn: 'Full House',
+                labelAm: 'ሙሉ ቤት (Full House)',
+                cellClass: 'bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 text-white ring-2 ring-cyan-300 shadow-md shadow-cyan-400/50 font-black',
+                freeClass: 'bg-gradient-to-br from-cyan-400 to-blue-600 text-white ring-2 ring-cyan-300 shadow-md',
+                badgeClass: 'bg-cyan-600 text-white ring-1 ring-cyan-300 font-black shadow-xs',
+                labelColor: 'text-cyan-300',
+                boardBorder: 'border-cyan-400/60 shadow-cyan-500/20',
+              };
+          }
+        })();
+
         // Only show the numbers that are part of the winning pattern
         const winningNumbers: number[] = [];
         for (const [r, c] of patternCells) {
@@ -2878,17 +2998,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 </span>
               </div>
               <div className="text-xs">
-                <span className="text-slate-300 font-bold block mb-1.5">
-                  {winningRule
-                    ? (language === 'am'
-                      ? `🏅 ያሸነፈበት ህግ: ${winningRule.labelAm}`
-                      : `🏅 Winning Pattern: ${winningRule.label}`)
-                    : (language === 'am' ? 'የአሸናፊ ቁጥሮች (Winning Numbers):' : 'Winning Numbers on Card:')}
+                <span className={`font-bold block mb-1.5 ${ruleTheme.labelColor}`}>
+                  🏅 {language === 'am' ? `ያሸነፈበት ህግ: ${winningRule?.labelAm || ruleTheme.labelAm}` : `Winning Pattern: ${winningRule?.label || ruleTheme.labelEn}`}
                 </span>
                 {winningNumbers.length > 0 ? (
                   <div className="flex flex-wrap gap-1 justify-start">
                     {winningNumbers.map((n, i) => (
-                      <span key={i} className="inline-block px-1.5 py-0.5 rounded-md bg-red-600 font-mono font-black text-[10px] text-white ring-1 ring-red-400/50">
+                      <span key={i} className={`inline-block px-1.5 py-0.5 rounded-md font-mono font-black text-[10px] ${ruleTheme.badgeClass}`}>
                         {n}
                       </span>
                     ))}
@@ -2907,12 +3023,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   <span className="text-slate-300 font-bold text-[10px] flex items-center gap-1">
                     🎯 {language === 'am' ? 'የአሸናፊው ቦርድ:' : 'Winner Board:'}
                   </span>
-                  <span className="text-[9px] font-mono font-bold text-amber-300 px-1.5 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/30">
+                  <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full border ${ruleTheme.badgeClass}`}>
                     Card #{latestWinner.cardNumber}
                   </span>
                 </div>
 
-                <div className="bg-slate-900/95 p-1.5 rounded-xl border border-amber-400/40 shadow-inner max-w-[200px] mx-auto">
+                <div className={`bg-slate-900/95 p-1.5 rounded-xl border shadow-inner max-w-[200px] mx-auto ${ruleTheme.boardBorder}`}>
                   {/* B - I - N - G - O Header */}
                   <div className="grid grid-cols-5 gap-0.5 text-center font-black text-[9px] mb-0.5">
                     <span className="text-blue-400">B</span>
@@ -2927,15 +3043,15 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       row.map((val, cIdx) => {
                         const isFree = rIdx === 2 && cIdx === 2;
                         const isPatternCell = patternCellSet.has(`${rIdx}-${cIdx}`);
-                        const isDrawn = !isFree && drawnSet.has(val);
+                        const isDrawn = !isFree && (drawnSet.has(val) || isPatternCell);
                         return (
                           <div
                             key={`win-board-cell-${rIdx}-${cIdx}`}
-                            className={`aspect-square rounded flex items-center justify-center font-mono font-black text-[8px] select-none ${
-                              isFree
+                            className={`aspect-square rounded flex items-center justify-center font-mono font-black text-[8px] select-none transition-all ${
+                              isPatternCell
+                                ? (isFree ? ruleTheme.freeClass : ruleTheme.cellClass)
+                                : isFree
                                 ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white ring-1 ring-emerald-400'
-                                : isPatternCell
-                                ? 'bg-gradient-to-br from-amber-400 to-yellow-400 text-slate-950 ring-1 ring-amber-300 font-black'
                                 : isDrawn
                                 ? 'bg-slate-700/60 text-slate-300 border border-slate-600/50'
                                 : 'bg-slate-800/80 text-slate-500 border border-slate-700/40'
