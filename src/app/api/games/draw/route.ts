@@ -202,8 +202,10 @@ export async function POST(req: NextRequest) {
 
       const elapsedSpecialMs = game.round_started_at ? (Date.now() - new Date(game.round_started_at).getTime()) : 0;
       const specialReached8Minutes = isSpecial && (updatedDrawn.length >= 48 || elapsedSpecialMs >= 8 * 60 * 1000);
+      // Weekend: continue playing up to ~6 minutes (45 balls at 8s/ball) unless human is close to winning
+      const weekendReached6Minutes = isWeekend && (updatedDrawn.length >= 45 || elapsedSpecialMs >= 6 * 60 * 1000);
 
-      const forceNow = humanCloseToWin || (isSpecial ? specialReached8Minutes : (humanPresent && updatedDrawn.length >= (isFetan ? 11 : isWeekend ? 20 : 11)));
+      const forceNow = humanCloseToWin || specialReached8Minutes || weekendReached6Minutes || (!isSpecial && !isWeekend && humanPresent && updatedDrawn.length >= (isFetan ? 11 : 11));
       botWinner = await checkAndTriggerBotWin(
         sql,
         { ...game, drawn_numbers: updatedDrawn, current_ball: nextBall },
