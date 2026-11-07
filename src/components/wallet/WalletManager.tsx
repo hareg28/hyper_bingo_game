@@ -221,7 +221,7 @@ export default function WalletManager() {
 
     setIsProcessing(true);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    const timeout = setTimeout(() => controller.abort(), 58000); // Leave room for the Links.et verification polling window.
     try {
       const res = await fetch('/api/payments/deposit', {
         method: 'POST',

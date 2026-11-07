@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
+import { isTelegramInitDataFresh, parseTelegramUser, verifyTelegramInitData } from '@/lib/telegramAuth';
 
 export async function GET(req: NextRequest) {
   try {
@@ -8,9 +9,16 @@ export async function GET(req: NextRequest) {
     const userId = searchParams.get('userId');
     const telegramId = searchParams.get('telegramId');
     const phone = searchParams.get('phone');
+    const initData = req.headers.get('x-telegram-init-data') ?? '';
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
     let user = null;
-    if (userId) {
+    if (initData && botToken && verifyTelegramInitData(initData, botToken) && isTelegramInitDataFresh(initData)) {
+      const telegramUser = parseTelegramUser(initData);
+      if (telegramUser?.id) {
+        user = await db.getUserByTelegramId(String(telegramUser.id));
+      }
+    } else if (userId) {
       user = await db.getUser(userId);
     } else if (telegramId) {
       user = await db.getUserByTelegramId(telegramId);

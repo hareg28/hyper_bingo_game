@@ -12,6 +12,9 @@ import { ApiResponse, PaymentProvider } from '@/lib/types';
 import { getAdminNotificationIds } from '@/lib/adminNotifications';
 import { isSupportedLinksEtReceiptUrl, verifyDepositWithLinksEt } from '@/lib/linksEt';
 import { createDepositActionSignature } from '@/lib/adminDepositActions';
+import { isTelegramInitDataFresh, parseTelegramUser, verifyTelegramInitData } from '@/lib/telegramAuth';
+
+export const maxDuration = 60;
 
 /** Format a date in Ethiopian local time (UTC+3) */
 function formatEthTime(date: Date): string {
@@ -93,7 +96,7 @@ async function sendScreenshotToTelegram(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, amount, mode, provider, transactionCode, screenshot, senderPhone } = body as {
+    const { userId: requestedUserId, amount, mode, provider, transactionCode, screenshot, senderPhone } = body as {
       userId: string;
       amount: number;
       /** 'arifpay' | 'online' for hosted checkout | 'manual' (or absent) for screenshot/code deposit */
@@ -105,11 +108,26 @@ export async function POST(req: NextRequest) {
     };
 
     // ── Common validation ────────────────────────────────────────────────────
-    if (typeof userId !== 'string' || !userId || typeof amount !== 'number' || !Number.isFinite(amount) || amount < 10 || Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-6) {
+    if (typeof requestedUserId !== 'string' || !requestedUserId || typeof amount !== 'number' || !Number.isFinite(amount) || amount < 10 || Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-6) {
       return NextResponse.json<ApiResponse>({
         success: false,
         error: 'A valid user and an amount of at least 10 ETB (in whole cents) are required.',
       }, { status: 400 });
+    }
+
+    let userId = requestedUserId;
+    const initData = req.headers.get('x-telegram-init-data') ?? '';
+    const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (initData && telegramBotToken && verifyTelegramInitData(initData, telegramBotToken) && isTelegramInitDataFresh(initData)) {
+      const telegramUser = parseTelegramUser(initData);
+      if (!telegramUser?.id) {
+        return NextResponse.json<ApiResponse>({ success: false, error: 'Telegram account could not be verified.' }, { status: 401 });
+      }
+      const telegramAccount = await db.getUserByTelegramId(String(telegramUser.id));
+      if (!telegramAccount) {
+        return NextResponse.json<ApiResponse>({ success: false, error: 'Telegram account is not registered.' }, { status: 404 });
+      }
+      userId = telegramAccount.id;
     }
 
     const user = await db.getUserById(userId);

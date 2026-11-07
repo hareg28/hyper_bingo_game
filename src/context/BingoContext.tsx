@@ -352,7 +352,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
 
         // Live sync with server DB wallet & profile
         const query = savedUser.id ? `userId=${encodeURIComponent(savedUser.id)}` : savedUser.telegramId ? `telegramId=${encodeURIComponent(savedUser.telegramId)}` : `phone=${encodeURIComponent(savedUser.phone)}`;
-        fetch(`/api/wallet?${query}`)
+        fetch(`/api/wallet?${query}`, { headers: getTelegramAuthHeaders() })
           .then((res) => res.json())
           .then((result) => {
             if (result.success && result.data?.wallet) {
@@ -1210,7 +1210,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       const withdrawalId = data.data?.withdrawalId as string | undefined;
       const query = user.id ? `userId=${encodeURIComponent(user.id)}` : '';
       if (query) {
-        const walletRes = await fetch(`/api/wallet?${query}`).then((r) => r.json()).catch(() => null);
+        const walletRes = await fetch(`/api/wallet?${query}`, { headers: getTelegramAuthHeaders() }).then((r) => r.json()).catch(() => null);
         if (walletRes?.success && walletRes.data?.wallet) {
           setWallet(walletRes.data.wallet);
           localStorage.setItem('hyper_bingo_wallet', JSON.stringify(walletRes.data.wallet));
@@ -1285,7 +1285,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       prev.map((t) => (t.id === wd.transactionId ? { ...t, status: 'COMPLETED' } : t))
     );
     if (user?.id) {
-      const walletRes = await fetch(`/api/wallet?userId=${encodeURIComponent(user.id)}`).then((r) => r.json()).catch(() => null);
+      const walletRes = await fetch(`/api/wallet?userId=${encodeURIComponent(user.id)}`, { headers: getTelegramAuthHeaders() }).then((r) => r.json()).catch(() => null);
       if (walletRes?.success && walletRes.data?.wallet) setWallet(walletRes.data.wallet);
     }
 
@@ -1391,7 +1391,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const refreshWallet = async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`/api/wallet?userId=${encodeURIComponent(user.id)}`, { cache: 'no-store' });
+      const res = await fetch(`/api/wallet?userId=${encodeURIComponent(user.id)}`, { cache: 'no-store', headers: getTelegramAuthHeaders() });
       const result = await res.json();
       if (result.success && result.data?.wallet) {
         setWallet(result.data.wallet);

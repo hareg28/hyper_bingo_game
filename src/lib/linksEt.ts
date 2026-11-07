@@ -90,7 +90,7 @@ async function pollLinksEtVerification(
   const url = new URL(statusUrl, 'https://links.et');
   if (url.origin !== 'https://links.et') throw new Error('links.et returned an invalid status URL.');
 
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + 25_000;
   while (Date.now() < deadline) {
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(resolve, 1_500);
@@ -134,7 +134,7 @@ export async function verifyDepositWithLinksEt(
   const controller = new AbortController();
   // links.et may return 202 after the initial wait while a slow provider is
   // still being checked. Allow the follow-up polling window to complete too.
-  const timeout = setTimeout(() => controller.abort(), 60_000);
+  const timeout = setTimeout(() => controller.abort(), 45_000);
   try {
     const response = await fetch('https://links.et/api/verify', {
       method: 'POST',
@@ -144,8 +144,8 @@ export async function verifyDepositWithLinksEt(
         Accept: 'application/json',
       },
       body: JSON.stringify(inputIsUrl
-        ? { url: transactionId, waitMs: 20_000 }
-        : { reference: transactionId, waitMs: 20_000 }),
+        ? { url: transactionId, waitMs: 15_000 }
+        : { reference: transactionId, waitMs: 15_000 }),
       signal: controller.signal,
       cache: 'no-store',
     });
