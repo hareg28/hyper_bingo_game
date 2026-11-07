@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     // ── Persistent bottom keyboard (ReplyKeyboardMarkup) ───────────────────────
     const buildPersistentKeyboard = (admin: boolean, registered = false) => ({
       keyboard: [
-        ...(registered ? [] : [[{ text: '📝 Register / Create Account' }]]),
+        ...(registered ? [] : [[{ text: '📱 Share my contact', request_contact: true }]]),
         // Row 1 — Three game categories
         [
           { text: '⚡ Hyper Fetan', web_app: { url: `${appUrl}?tab=lobby&cat=FETAN` } },
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
       ],
       resize_keyboard: true,
       is_persistent: true,
-      input_field_placeholder: 'Tap a game button above ⬆️',
+      input_field_placeholder: registered ? 'Tap a game button above ⬆️' : 'Share your contact to create an account',
     });
 
     // Channel-safe inline keyboard (Uses URL buttons so Telegram channels NEVER reject it)
@@ -149,11 +149,11 @@ export async function POST(req: NextRequest) {
           await sendMessage({ chat_id: message?.chat?.id || from.id, text: 'Your account is ready. Open the Mini App to play.', reply_markup: { inline_keyboard: [[{ text: '🎮 Open Mini App', web_app: { url: appUrl } }]] } });
           return NextResponse.json({ ok: true });
         }
-        await answerCallback('Let’s create your account.');
+        await answerCallback('Please share your contact to continue.');
         await sendMessage({
           chat_id: message?.chat?.id || from.id,
           text: 'Tap “Share my contact” below to create your account immediately. Your Telegram profile name will be used; you can change it in the Mini App profile.',
-          reply_markup: { keyboard: [[{ text: '📱 Share my contact', request_contact: true }], [{ text: '📝 Register / Create Account' }]], resize_keyboard: true, one_time_keyboard: true },
+          reply_markup: { keyboard: [[{ text: '📱 Share my contact', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true },
         });
         return NextResponse.json({ ok: true });
       }
@@ -393,7 +393,7 @@ export async function POST(req: NextRequest) {
           await sendMessage({
             chat_id: chatId,
             text: 'Tap “Share my contact” below to create your account immediately. Your Telegram profile name will be used; you can change it in the Mini App profile.',
-            reply_markup: { keyboard: [[{ text: '📱 Share my contact', request_contact: true }], [{ text: 'Cancel' }]], resize_keyboard: true, one_time_keyboard: true },
+            reply_markup: { keyboard: [[{ text: '📱 Share my contact', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true },
           });
         }
         return NextResponse.json({ ok: true });
@@ -788,7 +788,7 @@ export async function POST(req: NextRequest) {
         await sendMessage({
           chat_id: chatId,
           text: 'Tap “Share my contact” below to create your account immediately. Your Telegram profile name will be used; you can change it in the Mini App profile.',
-          reply_markup: { keyboard: [[{ text: '📱 Share my contact', request_contact: true }], [{ text: '📝 Register / Create Account' }]], resize_keyboard: true, one_time_keyboard: true },
+          reply_markup: { keyboard: [[{ text: '📱 Share my contact', request_contact: true }]], resize_keyboard: true, one_time_keyboard: true },
         });
         return NextResponse.json({ ok: true });
       }
@@ -814,12 +814,10 @@ export async function POST(req: NextRequest) {
             `${announcementHeader}🎉 <b>Welcome to Hyper Bingo!</b>\n\n` +
             `${alreadyRegistered ? 'You already have a Hyper Bingo account.' : '🔗 You were invited by a friend! Create your account and get <b>20 ETB Welcome Bonus</b>!'}\n\n` +
             `Your referral code: <code>${startPayload}</code>\n\n` +
-            `<b>👇 ${alreadyRegistered ? 'Open the Mini App to play.' : 'Tap Register Account and share your contact to join.'}</b>`,
-          reply_markup: {
-            inline_keyboard: alreadyRegistered
-              ? [[{ text: '🎮 Open Mini App', web_app: { url: appUrl } }]]
-              : [[{ text: '📝 Register Account', callback_data: 'register_account' }]],
-          },
+            `<b>👇 ${alreadyRegistered ? 'Open the Mini App to play.' : 'Share your contact below to create your account and claim your welcome bonus.'}</b>`,
+          reply_markup: alreadyRegistered
+            ? { inline_keyboard: [[{ text: '🎮 Open Mini App', web_app: { url: appUrl } }]] }
+            : buildPersistentKeyboard(isAdmin, false),
         });
         return NextResponse.json({ ok: true });
       }
