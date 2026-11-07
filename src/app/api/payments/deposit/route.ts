@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
     if (isReceiptUrl && (cleanCode.length > 255 || !isSupportedLinksEtReceiptUrl(cleanCode))) {
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'Enter a valid HTTPS receipt link from a bank or wallet supported by links.et.',
+        error: 'Enter a valid HTTPS receipt link from a supported bank or wallet.',
       }, { status: 400 });
     }
 
@@ -327,7 +327,7 @@ export async function POST(req: NextRequest) {
           if (botToken && user.telegramId && !user.telegramId.startsWith('web_')) {
             const playerMessage =
               `✅ <b>Deposit Verified & Credited</b>\n\n` +
-              `Your deposit of <b>${completed.amount} ETB</b> via <b>${completed.paymentProvider}</b> was verified and credited to your Hyper Bingo wallet.`;
+              `Your deposit of <b>${completed.amount} ETB</b> is verified and confirmed. Your Hyper Bingo wallet has been credited.`;
             try {
               await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                 method: 'POST',
@@ -342,7 +342,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json<ApiResponse>({
             success: true,
             data: { txId: completed.id, amount: completed.amount, status: completed.status },
-            message: `links.et verified the ${completed.amount} ETB deposit and credited your wallet.`,
+            message: `Your ${completed.amount} ETB deposit is verified and confirmed. Your wallet has been credited.`,
           });
         }
         reviewReason = 'Verification passed, but safe wallet settlement could not be confirmed.';
@@ -355,7 +355,7 @@ export async function POST(req: NextRequest) {
       if (isExistingReviewRetry) {
         return NextResponse.json<ApiResponse>({
           success: false,
-          error: `This receipt is already in the review queue. The latest check still needs review: ${reviewReason}`,
+          error: 'This receipt is already in the review queue. The latest check still needs review.',
         }, { status: 409 });
       }
     }
