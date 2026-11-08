@@ -173,13 +173,12 @@ export default function MiniAppShell({
   return (
     <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200" style={heightStyle}>
       {isTelegramMiniApp && !user?.phone && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 p-5 text-center">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/95 p-5 text-center">
           <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl space-y-4">
             <div className="text-4xl">🔐</div>
-            <h1 className="text-xl font-black text-slate-950">Register to access Hyper Bingo</h1>
-            <p className="text-sm leading-relaxed text-slate-600">Create your account in the bot by tapping “Share my contact.” Your account is created immediately using your Telegram profile name, which you can edit here later.</p>
-            <a href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot'}?start=register`} target="_blank" rel="noreferrer" className="block w-full rounded-xl bg-amber-500 px-4 py-3 font-black text-slate-950">Register in the bot</a>
-            <p className="text-xs text-slate-500">After registration, close and reopen this Mini App.</p>
+            <h1 className="text-xl font-black text-slate-950">Sign In to Hyper Bingo</h1>
+            <p className="text-sm leading-relaxed text-slate-600">Use your registered phone number or Telegram ID to restore your account. New here? You can register from the sign-in window.</p>
+            <button type="button" onClick={() => openAuthModal('login')} className="block w-full rounded-xl bg-amber-500 px-4 py-3 font-black text-slate-950">Sign In</button>
           </div>
         </div>
       )}
@@ -251,11 +250,11 @@ export default function MiniAppShell({
             </div>
           ) : (
             <button
-              onClick={() => openAuthModal('register')}
+              onClick={() => openAuthModal('login')}
               className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
             >
               <UserIcon className="w-3.5 h-3.5" />
-              <span>{language === 'am' ? 'አካውንት ክፈት' : 'Open Account'}</span>
+              <span>{language === 'am' ? 'ወደ አካውንት ግባ' : 'Sign In'}</span>
             </button>
           )}
 
