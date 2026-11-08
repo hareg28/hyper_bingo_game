@@ -176,9 +176,10 @@ export default function MiniAppShell({
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/95 p-5 text-center">
           <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl space-y-4">
             <div className="text-4xl">🔐</div>
-            <h1 className="text-xl font-black text-slate-950">Sign In to Hyper Bingo</h1>
-            <p className="text-sm leading-relaxed text-slate-600">Use your registered phone number or Telegram ID to restore your account. New here? You can register from the sign-in window.</p>
-            <button type="button" onClick={() => openAuthModal('login')} className="block w-full rounded-xl bg-amber-500 px-4 py-3 font-black text-slate-950">Sign In</button>
+            <h1 className="text-xl font-black text-slate-950">Register in the Hyper Bingo Bot</h1>
+            <p className="text-sm leading-relaxed text-slate-600">To access the Mini App, open the bot and tap “Share Contact” to create and verify your account. Already registered? Sign in with your registered phone or Telegram ID.</p>
+            <a href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot'}?start=register`} target="_blank" rel="noreferrer" className="block w-full rounded-xl bg-amber-500 px-4 py-3 font-black text-slate-950">Open Bot and Share Contact</a>
+            <button type="button" onClick={() => openAuthModal('login')} className="text-xs font-bold text-indigo-700 underline">Already registered? Sign In</button>
           </div>
         </div>
       )}
@@ -568,12 +569,14 @@ export default function MiniAppShell({
                         : 'Create an account and get 20 ETB bonus instantly.'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => openAuthModal('register')}
-                    className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-black text-[10px] transition cursor-pointer shrink-0 shadow-xs"
+                  <a
+                    href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot'}?start=register`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-black text-[10px] transition shrink-0 shadow-xs"
                   >
-                    {language === 'am' ? 'ክፈት' : 'Join'}
-                  </button>
+                    {language === 'am' ? 'ወደ ቦቱ ይሂዱ' : 'Open Bot'}
+                  </a>
                 </div>
               </div>
             )}
@@ -715,13 +718,15 @@ export default function MiniAppShell({
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 pt-2">
-                  <button
-                    onClick={() => openAuthModal('register')}
-                    className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                  <a
+                    href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot'}?start=register`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5"
                   >
                     <Sparkles className="w-4 h-4" />
-                    <span>{language === 'am' ? 'አካውንት ክፈት (20 ብር ቦነስ)' : 'Open Account (20 ETB Bonus)'}</span>
-                  </button>
+                    <span>{language === 'am' ? 'ወደ ቦቱ ይሂዱ • አካውንት ይመዝግቡ' : 'Register in Bot (Share Contact)'}</span>
+                  </a>
                   <button
                     onClick={() => openAuthModal('login')}
                     className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition border border-slate-300 cursor-pointer"
@@ -1735,7 +1740,13 @@ function WeekendLotteryNumberPicker({
       <div className="mx-2 mt-3 space-y-2">
         <button
           type="button"
-          onClick={handleGoToGameRoom}
+          onClick={() => {
+            if (!user) {
+              window.open(`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot'}?start=register`, '_blank', 'noopener,noreferrer');
+              return;
+            }
+            handleGoToGameRoom();
+          }}
           className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
             slotCountFilled === 0
               ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border border-slate-300'
@@ -1743,7 +1754,7 @@ function WeekendLotteryNumberPicker({
           }`}
         >
           {!user ? (
-            isAm ? 'መመዝገብ →' : 'Register to Play →'
+            isAm ? 'ወደ ቦቱ ይሂዱ →' : 'Open Bot to Continue →'
           ) : slotCountFilled === 0 ? (
             isAm ? '👀 ያለ ካርድ በቀጥታ ይመልከቱ (Spectator) →' : '👀 Watch Live Game as Spectator →'
           ) : (

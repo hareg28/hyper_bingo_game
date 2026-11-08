@@ -20,7 +20,7 @@ export default function AuthModal() {
     t 
   } = useBingo();
 
-  const [activeTab, setActiveTab] = useState<'register' | 'login'>('register');
+  const [activeTab, setActiveTab] = useState<'register' | 'login'>('login');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [username, setUsername] = useState('');
@@ -43,10 +43,8 @@ export default function AuthModal() {
   const [referrerStatusMsg, setReferrerStatusMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (authModalMode) {
-      setActiveTab(authModalMode);
-      setRegisterStep('details');
-    }
+    setActiveTab('login');
+    setRegisterStep('details');
   }, [authModalMode]);
 
   // Pre-fill from Telegram if available
@@ -266,32 +264,6 @@ export default function AuthModal() {
                   ? 'ያስመዘገቡትን ስልክ ቁጥር ወይም ቴሌግራም መታወቂያ በማስገባት ይግቡ'
                   : 'Enter your registered Ethiopian phone number or Telegram ID.')}
           </p>
-        </div>
-
-        {/* Tab Switcher */}
-        <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs font-bold">
-          <button
-            type="button"
-            onClick={() => { setActiveTab('register'); setRegisterStep('details'); setErrorMsg(null); }}
-            className={`flex-1 py-2 rounded-lg transition text-center cursor-pointer ${
-              activeTab === 'register'
-                ? 'bg-slate-950 text-white shadow-xs font-black'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            {language === 'am' ? 'አካውንት ክፈት (20 ብር ቦነስ)' : 'Register (20 ETB Bonus)'}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setActiveTab('login'); setErrorMsg(null); }}
-            className={`flex-1 py-2 rounded-lg transition text-center cursor-pointer ${
-              activeTab === 'login'
-                ? 'bg-slate-950 text-white shadow-xs font-black'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            {language === 'am' ? 'ግባ' : 'Sign In'}
-          </button>
         </div>
 
         {/* Error Alert */}
