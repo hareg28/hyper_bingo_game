@@ -1436,13 +1436,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           ================================================================ */}
       {isFetanGame || isSpecialGame ? (
         /* ── Hyper Fetan & Hyper Special Plain Text Header (No Box, Plain Text) ── */
-        <div className="px-1 py-1 space-y-1">
+        <div className="px-1 py-0.5 space-y-0.5">
           {/* Top row: Back Arrow + Game Name */}
           <div className="flex items-center gap-2 px-0.5 pb-1">
             <button
               type="button"
               onClick={onBack}
-              className="w-8 h-8 rounded-xl bg-amber-100 hover:bg-amber-200 text-slate-800 flex items-center justify-center transition cursor-pointer shadow-xs border border-amber-300 shrink-0"
+              className="w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 text-slate-800 flex items-center justify-center transition cursor-pointer shadow-xs border border-amber-300 shrink-0"
               title={language === 'am' ? 'ተመለስ ወደ ሎቢ' : 'Back to Lobby'}
             >
               <ChevronLeft className="w-4.5 h-4.5" />
@@ -1464,7 +1464,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                 {language === 'am' ? 'ደርሻ' : 'DERASH'}
               </div>
-              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
+              <div className="text-lg sm:text-xl font-black text-slate-900 font-mono leading-tight">
                 {formatETB(gamePrizeDisplay)}
               </div>
             </div>
@@ -1474,7 +1474,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                 {language === 'am' ? 'ኳሶች' : 'BALLS'}
               </div>
-              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
+              <div className="text-lg sm:text-xl font-black text-slate-900 font-mono leading-tight">
                 {currentGame.drawnNumbers.length}<span className="text-sm text-slate-400">/75</span>
               </div>
             </div>
@@ -1484,7 +1484,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                 {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
               </div>
-              <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono leading-tight">
+              <div className="text-lg sm:text-xl font-black text-slate-900 font-mono leading-tight">
                 {currentGame.currentPlayers || 0}
               </div>
             </div>
@@ -1494,14 +1494,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               {currentBallNum != null ? (
                 <div
                   className={`rounded-full bg-gradient-to-br ${getLetterColor(getBallLetter(currentBallNum))} shadow-lg flex flex-col items-center justify-center relative overflow-hidden ball-active-anim`}
-                  style={{width:'52px',height:'52px',border:'3px solid white',boxShadow:'0 4px 15px rgba(0,0,0,0.3)'}}
+                  style={{width:'44px',height:'44px',border:'2px solid white',boxShadow:'0 3px 10px rgba(0,0,0,0.25)'}}
                 >
                   <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 28%, rgba(255,255,255,0.45) 0%, transparent 60%)'}} />
-                  <span className="text-[15px] font-black uppercase leading-none text-black z-10" style={{ color: '#000', fontSize: '15px' }}>{getBallLetter(currentBallNum)}</span>
-                  <span className="text-[26px] font-black text-black leading-tight z-10" style={{ color: '#000', fontSize: '26px' }}>{currentBallNum}</span>
+                  <span className="font-black uppercase leading-none text-black z-10" style={{ color: '#000', fontSize: '12px' }}>{getBallLetter(currentBallNum)}</span>
+                  <span className="font-black text-black leading-tight z-10" style={{ color: '#000', fontSize: '21px' }}>{currentBallNum}</span>
                 </div>
               ) : (
-                <div className="rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white" style={{width:'52px',height:'52px'}}>
+                <div className="rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white" style={{width:'44px',height:'44px'}}>
                   <span className="text-[8px] font-black text-slate-400 text-center leading-tight">GET<br/>READY</span>
                 </div>
               )}
@@ -1509,18 +1509,18 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </div>
 
           {/* Controls */}
-          <div className="flex items-center gap-1.5 px-1 pt-0.5">
+          <div className="flex items-center gap-1 px-1">
             <button
               type="button"
               onClick={() => setShowPatternHintModal(true)}
-              className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
+              className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-lg flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
             >
               <span>💡</span><span>Hit</span>
             </button>
             <button
               type="button"
               onClick={() => { setSoundEnabled((prev) => { const next = !prev; if (next) audioManager.unlockAudio(); return next; }); }}
-              className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center ${
+              className={`p-1 rounded-lg border transition cursor-pointer flex items-center justify-center ${
                 soundEnabled ? 'bg-sky-50 text-sky-700 border-sky-300' : 'bg-white text-slate-400 border-slate-200 hover:text-slate-700'
               }`}
             >
@@ -1530,7 +1530,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </div>
 
           {/* ── Middle Area: Previous balls + Intermission timer ── */}
-          <div className="flex items-center justify-between gap-2 py-1.5 px-2.5 bg-slate-50 rounded-xl border border-slate-200 mx-1">
+          {(previousBalls.length > 0 || (isFetanGame && fetanIsIntermission)) && <div className="flex items-center justify-between gap-2 py-0.5 px-1.5 bg-slate-50 rounded-xl border border-slate-200 mx-1">
             {/* Previous 3 balls — bingo ball style */}
             <div className={`flex items-center gap-1 ${showMoreNumbers ? 'flex-wrap max-h-16 overflow-y-auto' : ''}`}>
               {previousBalls.length > 0 ? previousBalls.map((pb, idx) => {
@@ -1558,14 +1558,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 <SharedCountdownText mode="FETAN" deadline={currentGame.nextRoundStartsAt} status={currentGame.status} drawnCount={currentGame.drawnNumbers.length} className="font-mono text-sm" />
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Show Less / Show More toggle */}
           {showMoreNumbers ? (
             <button
               type="button"
               onClick={() => setShowMoreNumbers(false)}
-              className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600 pt-0.5 cursor-pointer"
+              className="w-full flex items-center justify-end gap-1 px-1 text-[10px] font-bold text-rose-600 leading-3 cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
               <span>{language === 'am' ? 'ከሌላ በኩል አሳይ' : 'Show Less'}</span>
@@ -1574,7 +1574,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             <button
               type="button"
               onClick={() => setShowMoreNumbers(true)}
-              className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600 pt-0.5 cursor-pointer"
+              className="w-full flex items-center justify-end gap-1 px-1 text-[10px] font-bold text-rose-600 leading-3 cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
               <span>{language === 'am' ? 'በጣም አሳይ' : 'Show More'}</span>
