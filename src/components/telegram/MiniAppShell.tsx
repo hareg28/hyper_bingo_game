@@ -1476,38 +1476,10 @@ function WeekendLotteryNumberPicker({
       )}
 
 
-      {/* ── After buying: Top PLAY button when cards are filled ── */}
-      {slotCountFilled > 0 && (
-        <div className="mx-2 mt-2">
-          <button
-            type="button"
-            onClick={handleGoToGameRoom}
-            className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:brightness-105 text-white font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-emerald-300/50 active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 border border-emerald-400/50"
-          >
-            <Zap className="w-5 h-5" />
-            <span>{isAm ? `🎮 ይጫወቱ · ወደ ጨዋታው ይግቡ (${slotCountFilled} ካርዶች)` : `🎮 PLAY NOW — Enter Live Room (${slotCountFilled} card${slotCountFilled > 1 ? 's' : ''})`}</span>
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-      )}
-
-
-
-
-
-
       {/* ── Subgroup / Stake Tier Selector ── */}
       {mode === 'WEEKEND' ? (
         <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 shadow-xs space-y-2 shrink-0">
           <div className="flex items-center justify-between px-1">
-            <span className="text-[11px] font-black uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
-              <span>🌟</span>
-              <span>
-                {isAm
-                  ? `${selectedGame?.weekendDay === 'FRI' ? 'የዓርብ' : selectedGame?.weekendDay === 'SAT' ? 'የቅዳሜ' : 'የእሑድ'} ዕጣ (24/24 ሙሉ ቤት)`
-                  : `${selectedGame?.weekendDay === 'FRI' ? 'Friday' : selectedGame?.weekendDay === 'SAT' ? 'Saturday' : 'Sunday'} Draw (Full House)`}
-              </span>
-            </span>
             <div className="flex items-center gap-1.5">
               <span className="text-[9px] font-black text-amber-950 bg-amber-200 px-2 py-0.5 rounded-full border border-amber-300">
                 {selectedGame?.status === 'RUNNING' && Boolean(selectedGame.weekendRoundKey) ? '50 ETB · 50k ETB' : '50 ETB'}
@@ -1715,9 +1687,6 @@ function WeekendLotteryNumberPicker({
             <div>
               <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
                 {isAm ? `የቁጥሮች ሰንጠረዥ (1-${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`}
-              </span>
-              <span className="text-[9px] text-amber-600 font-bold block">
-                {isAm ? '⚡ ካርድ ቁጥር ሲጫኑ በቀጥታ ይገዛል (1-5 ካርዶች)' : '⚡ Tap any card to purchase instantly (Min 1, Max 5)'}
               </span>
             </div>
             <div className="flex items-center gap-1.5 text-[10px] font-bold">
