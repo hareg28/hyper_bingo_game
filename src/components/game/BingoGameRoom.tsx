@@ -1365,12 +1365,15 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         )}
 
 
-      <div className="mx-1 rounded-xl border border-slate-300 bg-white px-2 py-1 shadow-xs">
+      <div className="mx-1 rounded-xl border border-slate-300 bg-white px-2 py-0.5 shadow-xs">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <div className="text-[8px] font-black uppercase tracking-wider text-slate-600">
+            <div className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-slate-600">
               {language === 'am' ? 'ሕግ' : 'RULE'}
-              {isSpecialGame && <span className="ml-1 text-indigo-700">· #{(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} {language === 'am' ? currentSpecialRule.nameAm : currentSpecialRule.nameEn}</span>}
+              {isSpecialGame && <span className="truncate text-indigo-700">· #{(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} {language === 'am' ? currentSpecialRule.nameAm : currentSpecialRule.nameEn}</span>}
+              <button type="button" onClick={() => setShowGameInfo((visible) => !visible)} aria-expanded={showGameInfo} className="ml-auto shrink-0 text-[8px] font-bold text-rose-600 leading-3">
+                {showGameInfo ? (language === 'am' ? 'ያነሰ አሳይ' : 'Less') : (language === 'am' ? 'ተጨማሪ' : 'More')}
+              </button>
             </div>
             {showGameInfo && <div className="text-[10px] font-bold leading-tight text-slate-950">
               {language === 'am'
@@ -1380,9 +1383,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           </div>
           {(isSpecialGame || isFetanGame) && <div className="shrink-0 self-start pt-2 text-right text-[8px] font-bold text-indigo-800">{isSpecialGame ? (language === 'am' ? 'Pick 4 · Play 12 ደቂቃ' : 'Pick 4m · Play 12m') : (language === 'am' ? 'Pick 40 ሰከንድ · Play 8 ደቂቃ 45 ሰከንድ' : 'Pick 40s · Play 8m 45s')}</div>}
         </div>
-        <button type="button" onClick={() => setShowGameInfo((visible) => !visible)} aria-expanded={showGameInfo} className="w-full text-center text-[9px] font-bold text-rose-600 leading-4">
-          {showGameInfo ? (language === 'am' ? 'ያነሰ አሳይ' : 'Show Less') : (language === 'am' ? 'የጨዋታ ዝርዝር አሳይ' : 'Show More')}
-        </button>
         {isSpecialGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && (
           <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700">
             <span>{language === 'am' ? 'የዙሩ ቀሪ ጊዜ' : 'ROUND TIME LEFT'}</span>
