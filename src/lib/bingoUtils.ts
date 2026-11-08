@@ -212,17 +212,19 @@ export function checkLetterXWin(marked: boolean[][]): boolean {
 const getAllCompletedLineMasks = (marked: boolean[][]): { mask: number; type: string }[] => {
   const masks: { mask: number; type: string }[] = [];
   for (let r = 0; r < 5; r++) {
-    if (marked[r].every((v) => v)) masks.push({ mask: 1 << r, type: `row_${r}` });
+    if (marked[r].every((v) => v)) masks.push({ mask: 0b11111 << (r * 5), type: `row_${r}` });
   }
   for (let c = 0; c < 5; c++) {
     let colDone = true;
+    let colMask = 0;
     for (let r = 0; r < 5; r++) {
       if (!marked[r][c]) { colDone = false; break; }
+      colMask |= 1 << (r * 5 + c);
     }
-    if (colDone) masks.push({ mask: 1 << (5 + c), type: `col_${c}` });
+    if (colDone) masks.push({ mask: colMask, type: `col_${c}` });
   }
-  if (isDiag1Complete(marked)) masks.push({ mask: 1 << 10, type: 'diag1' });
-  if (isDiag2Complete(marked)) masks.push({ mask: 1 << 11, type: 'diag2' });
+  if (isDiag1Complete(marked)) masks.push({ mask: [0, 1, 2, 3, 4].reduce((mask, i) => mask | (1 << (i * 5 + i)), 0), type: 'diag1' });
+  if (isDiag2Complete(marked)) masks.push({ mask: [0, 1, 2, 3, 4].reduce((mask, i) => mask | (1 << (i * 5 + 4 - i)), 0), type: 'diag2' });
   return masks;
 };
 
@@ -233,7 +235,7 @@ export function getTwoDistinctLinesCompleted(marked: boolean[][]): boolean {
       if ((all[i].mask & all[j].mask) === 0) return true;
     }
   }
-  return countCompletedLines(marked) >= 2;
+  return false;
 }
 
 // ============================================================================
@@ -252,31 +254,33 @@ export interface HyperSpecialRuleDefinition {
 }
 
 export const HYPER_SPECIAL_RULES: HyperSpecialRuleDefinition[] = [
-  // 1. 2 Non-intersecting Lines / 2 Rectangles + 4 Corners
+  // 1. 2 Non-intersecting Lines
   {
     id: 'TWO_NON_INTERSECTING_LINES',
-    nameAm: '2 ሬክታንግል የማይገናኙ ከ 4 የማዕዘን ኳስ ነጥብ ጋር ሁሉም የማይገናኙ(የጋራ ነጥብ የሌላቸው)',
-    nameEn: '2 Non-intersecting Rectangles + 4 Corners (No Shared Points)',
-    descAm: '2 ሬክታንግል የማይገናኙ ከ 4 የማዕዘን ኳስ ነጥብ ጋር ሁሉም የማይገናኙ(የጋራ ነጥብ የሌላቸው)',
-    descEn: '2 complete lines that share no common numbers (2 rows or 2 columns)',
-    checkWin: (m) => getCompletedRows(m).length >= 2 || getCompletedCols(m).length >= 2,
+    nameAm: '2 የማይገናኙ መስመሮች',
+    nameEn: '2 Non-intersecting Lines',
+    descAm: '2 የማይገናኙ መስመሮች',
+    descEn: '2 complete lines that do not share any number',
+    checkWin: (m) => getTwoDistinctLinesCompleted(m),
     checkOneAway: (m, nums) => {
-      const compRows = getCompletedRows(m);
-      if (compRows.length >= 1) {
-        for (let r = 0; r < 5; r++) {
-          if (!compRows.includes(r)) {
-            const un = [0, 1, 2, 3, 4].filter((c) => !m[r][c]);
-            if (un.length === 1) return { neededNumber: nums[r][un[0]], neededCell: [r, un[0]] };
-          }
-        }
-      }
-      const compCols = getCompletedCols(m);
-      if (compCols.length >= 1) {
-        for (let c = 0; c < 5; c++) {
-          if (!compCols.includes(c)) {
-            const un = [0, 1, 2, 3, 4].filter((r) => !m[r][c]);
-            if (un.length === 1) return { neededNumber: nums[un[0]][c], neededCell: [un[0], c] };
-          }
+      const lines: [number, number][][] = [];
+      for (let r = 0; r < 5; r++) lines.push(Array.from({ length: 5 }, (_, c): [number, number] => [r, c]));
+      for (let c = 0; c < 5; c++) lines.push(Array.from({ length: 5 }, (_, r): [number, number] => [r, c]));
+      lines.push(
+        Array.from({ length: 5 }, (_, i): [number, number] => [i, i]),
+        Array.from({ length: 5 }, (_, i): [number, number] => [i, 4 - i]),
+      );
+      for (let i = 0; i < lines.length; i++) {
+        for (let j = i + 1; j < lines.length; j++) {
+          if (lines[i].some(([r, c]) => lines[j].some(([otherR, otherC]) => r === otherR && c === otherC))) continue;
+          const firstMissing = lines[i].filter(([r, c]) => !m[r][c]);
+          const secondMissing = lines[j].filter(([r, c]) => !m[r][c]);
+          const neededCell = firstMissing.length === 0 && secondMissing.length === 1
+            ? secondMissing[0]
+            : secondMissing.length === 0 && firstMissing.length === 1
+              ? firstMissing[0]
+              : null;
+          if (neededCell) return { neededNumber: nums[neededCell[0]][neededCell[1]], neededCell };
         }
       }
       return null;
@@ -354,8 +358,8 @@ export const HYPER_SPECIAL_RULES: HyperSpecialRuleDefinition[] = [
   // 4. Full House (Blackout)
   {
     id: 'FULL_HOUSE',
-    nameAm: 'ሙሉ ካርድ (Blackout)',
-    nameEn: 'Full House (Blackout) / ሙሉ ካርድ',
+    nameAm: 'ሙሉ ካርድ',
+    nameEn: 'Full House (Blackout)',
     descAm: 'በካርዱ ላይ ያሉትን ሁሉንም 24 ቁጥሮች ምልክት ማድረግ',
     descEn: 'Mark all 24 numbers across the entire bingo card',
     checkWin: (m) => checkFullHouseWin(m),
@@ -430,7 +434,7 @@ export const HYPER_SPECIAL_RULES: HyperSpecialRuleDefinition[] = [
     pattern: [
       [true, false, false, false, true],
       [false, true, false, true, false],
-      [false, false, true, false, false],
+      [false, false, false, false, false],
       [false, true, false, true, false],
       [true, false, false, false, true],
     ],
@@ -470,14 +474,9 @@ export const HYPER_SPECIAL_RULES: HyperSpecialRuleDefinition[] = [
     descAm: 'ከመሃሉ ነጻ (FREE) ቦታ ዙሪያ ያሉ 4 ቁጥሮች',
     descEn: 'The 4 numbers surrounding the center free space',
     checkWin: (m) => {
-      const ortho = m[1][2] && m[3][2] && m[2][1] && m[2][3];
-      const diag = m[1][1] && m[1][3] && m[3][1] && m[3][3];
-      return Boolean(ortho || diag);
+      return Boolean(m[1][1] && m[1][3] && m[3][1] && m[3][3]);
     },
     checkOneAway: (m, nums) => {
-      const ortho: [number, number][] = [[1, 2], [3, 2], [2, 1], [2, 3]];
-      const unOrtho = ortho.filter(([r, c]) => !m[r][c]);
-      if (unOrtho.length === 1) return { neededNumber: nums[unOrtho[0][0]][unOrtho[0][1]], neededCell: unOrtho[0] };
       const diag: [number, number][] = [[1, 1], [1, 3], [3, 1], [3, 3]];
       const unDiag = diag.filter(([r, c]) => !m[r][c]);
       if (unDiag.length === 1) return { neededNumber: nums[unDiag[0][0]][unDiag[0][1]], neededCell: unDiag[0] };
@@ -485,9 +484,9 @@ export const HYPER_SPECIAL_RULES: HyperSpecialRuleDefinition[] = [
     },
     pattern: [
       [false, false, false, false, false],
+      [false, true, false, true, false],
       [false, false, true, false, false],
-      [false, true, true, true, false],
-      [false, false, true, false, false],
+      [false, true, false, true, false],
       [false, false, false, false, false],
     ],
   },
@@ -497,24 +496,45 @@ export const HYPER_SPECIAL_RULES: HyperSpecialRuleDefinition[] = [
     id: 'INSIDE_FRAME',
     nameAm: 'የውስጥ ፍሬም (ከውጭ መስመር ቀጥሎ ያለው የውስጥ ሳጥን)',
     nameEn: 'The 8 or 12 numbers forming a box inside the outer edges',
-    descAm: 'ከውጭ መስመር ቀጥሎ ያለው የውስጥ 3x3 ሳጥን (8 ቁጥሮች)',
-    descEn: 'The 8 numbers forming a box inside the outer edges surrounding the center',
+    descAm: 'ከውጭ መስመር ቀጥሎ ያሉ 8 ወይም 12 ቁጥሮች የሚፈጥሩት የውስጥ ሳጥን',
+    descEn: 'The 8 or 12 numbers forming a box inside the outer edges',
     checkWin: (m) => {
-      const cells: [number, number][] = [
+      const innerThreeByThreeFrame: [number, number][] = [
         [1, 1], [1, 2], [1, 3],
         [2, 1],         [2, 3],
         [3, 1], [3, 2], [3, 3],
       ];
-      return cells.every(([r, c]) => m[r][c]);
+      const hasInnerFourByFourFrame = [0, 1].some((rowOffset) => [0, 1].some((colOffset) => {
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 4; c++) {
+            if ((r === 0 || r === 3 || c === 0 || c === 3) && !m[rowOffset + r][colOffset + c]) return false;
+          }
+        }
+        return true;
+      }));
+      return innerThreeByThreeFrame.every(([r, c]) => m[r][c]) || hasInnerFourByFourFrame;
     },
     checkOneAway: (m, nums) => {
-      const cells: [number, number][] = [
+      const frames: [number, number][][] = [[
         [1, 1], [1, 2], [1, 3],
         [2, 1],         [2, 3],
         [3, 1], [3, 2], [3, 3],
-      ];
-      const un = cells.filter(([r, c]) => !m[r][c]);
-      if (un.length === 1) return { neededNumber: nums[un[0][0]][un[0][1]], neededCell: un[0] };
+      ]];
+      for (const rowOffset of [0, 1]) {
+        for (const colOffset of [0, 1]) {
+          const frame: [number, number][] = [];
+          for (let r = 0; r < 4; r++) {
+            for (let c = 0; c < 4; c++) {
+              if (r === 0 || r === 3 || c === 0 || c === 3) frame.push([rowOffset + r, colOffset + c]);
+            }
+          }
+          frames.push(frame);
+        }
+      }
+      for (const cells of frames) {
+        const un = cells.filter(([r, c]) => !m[r][c]);
+        if (un.length === 1) return { neededNumber: nums[un[0][0]][un[0][1]], neededCell: un[0] };
+      }
       return null;
     },
     pattern: [
