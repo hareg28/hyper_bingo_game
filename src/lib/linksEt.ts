@@ -90,7 +90,7 @@ async function pollLinksEtVerification(
   const url = new URL(statusUrl, 'https://links.et');
   if (url.origin !== 'https://links.et') throw new Error('links.et returned an invalid status URL.');
 
-  const deadline = Date.now() + 25_000;
+  const deadline = Date.now() + 13_000;
   while (Date.now() < deadline) {
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(resolve, 1_500);
@@ -131,35 +131,52 @@ export async function verifyDepositWithLinksEt(
   const inputIsUrl = isSupportedLinksEtReceiptUrl(transactionId);
   if (!inputIsUrl && provider !== 'Telebirr') return { matched: false, reason: 'Paste the bank or wallet receipt URL to verify this payment.' };
 
+  // Telebirr occasionally aborts an upstream receipt lookup even when the
+  // receipt is valid. links.et recommends retrying these transient failures.
+  // Keep retries bounded so the request still fits inside the deposit route's
+  // serverless duration and the wallet UI's request timeout.
+  const maxAttempts = provider === 'Telebirr' ? 3 : 1;
   const controller = new AbortController();
-  // links.et may return 202 after the initial wait while a slow provider is
-  // still being checked. Allow the follow-up polling window to complete too.
-  const timeout = setTimeout(() => controller.abort(), 45_000);
+  const timeout = setTimeout(() => controller.abort(), 52_000);
   try {
-    const response = await fetch('https://links.et/api/verify', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify(inputIsUrl
-        ? { url: transactionId, waitMs: 15_000 }
-        : { reference: transactionId, waitMs: 15_000 }),
-      signal: controller.signal,
-      cache: 'no-store',
-    });
+    let response: Response | undefined;
+    let result: LinksEtResponse = {};
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      response = await fetch('https://links.et/api/verify', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(inputIsUrl
+          ? { url: transactionId, waitMs: 1_000 }
+          : { reference: transactionId, waitMs: 1_000 }),
+        signal: controller.signal,
+        cache: 'no-store',
+      });
 
-    if (response.status === 401 || response.status === 403) {
-      return { matched: false, reason: `links.et denied API access (HTTP ${response.status}); check LINKS_API_KEY.` };
+      if (response.status === 401 || response.status === 403) {
+        return { matched: false, reason: `links.et denied API access (HTTP ${response.status}); check LINKS_API_KEY.` };
+      }
+      const initialResult = await response.json() as LinksEtResponse;
+      result = initialResult;
+      if (response.status === 202) {
+        const statusUrl = typeof initialResult.statusUrl === 'string' ? initialResult.statusUrl : '';
+        if (!statusUrl) return { matched: false, reason: 'links.et queued the receipt but did not provide a status URL.' };
+        result = await pollLinksEtVerification(statusUrl, apiKey, controller.signal);
+      }
+
+      const detail = getResponseError(result);
+      const isTransientFailure = !/remained queued/i.test(detail) && /operation was aborted|abort(?:ed)?|timed? out|timeout|temporar|gave up waiting|upstream.*(?:error|fail)|rate.?limit/i.test(detail);
+      if (isTransientFailure && attempt < maxAttempts && !controller.signal.aborted) {
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+        continue;
+      }
+      break;
     }
-    const initialResult = await response.json() as LinksEtResponse;
-    let result = initialResult;
-    if (response.status === 202) {
-      const statusUrl = typeof initialResult.statusUrl === 'string' ? initialResult.statusUrl : '';
-      if (!statusUrl) return { matched: false, reason: 'links.et queued the receipt but did not provide a status URL.' };
-      result = await pollLinksEtVerification(statusUrl, apiKey, controller.signal);
-    }
+
+    if (!response) return { matched: false, reason: 'links.et verification could not be completed.' };
     if (!response.ok && response.status !== 202) {
       const detail = getResponseError(result);
       return { matched: false, reason: detail ? `links.et could not verify this receipt: ${detail}` : `links.et returned HTTP ${response.status}.` };
