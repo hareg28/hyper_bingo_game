@@ -54,7 +54,7 @@ export const translations = {
     categorySpecial: '🎲 Hyper Special',
     categoryWeekend: '🌟 Hyper Weekend',
     fetanRuleBadge: '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners',
-    specialRuleBadge: '1 Rotating Law Per Game (15 Official Laws)',
+    specialRuleBadge: '1 Rotating Law Per Game (14 Official Laws)',
     weekendRuleBadge: 'FULL HOUSE ONLY (All 24 Numbers)',
     fetanTimingDesc: '8m 45s Round • 40 Sec Card Pick • 7 Sec per Number • 5 Slots',
     fetanSlotsDesc: '5 Card Slots • 1-500 Cards Range',

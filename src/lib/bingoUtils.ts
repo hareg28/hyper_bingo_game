@@ -239,7 +239,7 @@ export function getTwoDistinctLinesCompleted(marked: boolean[][]): boolean {
 }
 
 // ============================================================================
-// 15 OFFICIAL HYPER SPECIAL RULES
+// 14 OFFICIAL HYPER SPECIAL RULES
 // Each game round plays with exactly ONE active rule from this list until finished.
 // ============================================================================
 export interface HyperSpecialRuleDefinition {
@@ -332,30 +332,7 @@ export const HYPER_SPECIAL_RULES: HyperSpecialRuleDefinition[] = [
     ],
   },
 
-  // 3. 4 Corners
-  {
-    id: 'FOUR_CORNERS',
-    nameAm: '4 ማዕዘኖች (የካርዱ አራት ጥጎች)',
-    nameEn: '4 Corners',
-    descAm: 'የካርዱ አራት ጥጎች (የላይ ግራ፣ የላይ ቀኝ፣ የታች ግራ፣ የታች ቀኝ)',
-    descEn: 'All four corner squares of the card',
-    checkWin: (m) => checkFourCornersWin(m),
-    checkOneAway: (m, nums) => {
-      const corners: [number, number][] = [[0, 0], [0, 4], [4, 0], [4, 4]];
-      const un = corners.filter(([r, c]) => !m[r][c]);
-      if (un.length === 1) return { neededNumber: nums[un[0][0]][un[0][1]], neededCell: un[0] };
-      return null;
-    },
-    pattern: [
-      [true, false, false, false, true],
-      [false, false, false, false, false],
-      [false, false, false, false, false],
-      [false, false, false, false, false],
-      [true, false, false, false, true],
-    ],
-  },
-
-  // 4. Full House (Blackout)
+  // 3. Full House (Blackout)
   {
     id: 'FULL_HOUSE',
     nameAm: 'ሙሉ ካርድ',

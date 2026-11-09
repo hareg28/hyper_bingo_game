@@ -967,7 +967,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       return hint;
     }
 
-    // 2. HYPER SPECIAL: 15 Official Laws (one law per game round until finished)
+    // 2. HYPER SPECIAL: 14 Official Laws (one law per game round until finished)
     if (currentGame.category === 'HYPER_SPECIAL' || currentGame.activeSpecialRuleIndex !== undefined) {
       const ruleIdx = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
       const activeRule = HYPER_SPECIAL_RULES[ruleIdx];
@@ -3141,7 +3141,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     ? (language === 'am' ? 'የሃይፐር ፈጣን የድል ሕጎች' : 'Hyper Fetan Winning Rules')
                     : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
                     ? (language === 'am' ? 'የሃይፐር ዊክኤንድ ሕግ (ሙሉ ቤት)' : 'Hyper Weekend Law (Full House Only)')
-                    : (language === 'am' ? 'የሃይፐር ስፔሻል 15 ሕጎች' : 'Hyper Special 15 Official Laws')}
+                    : (language === 'am' ? 'የሃይፐር ስፔሻል 14 ሕጎች' : 'Hyper Special 14 Official Laws')}
                 </h3>
               </div>
               <button
