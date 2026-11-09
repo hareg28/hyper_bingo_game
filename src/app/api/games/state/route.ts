@@ -176,39 +176,6 @@ export async function GET() {
       const isSpecial = game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL';
       const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY';
 
-      // Do not leave an empty Hyper round waiting through its card-pick
-      // window. Bot cards are already seeded, so start the round as soon as
-      // the state poll confirms there are no human cards in it.
-      if ((isFetan || isSpecial) && game.status === 'OPEN' && drawn.length === 0) {
-        const [humanCards] = await sql`
-          SELECT COUNT(*)::int AS count
-          FROM game_cards
-          WHERE game_id = ${game.id}
-            AND user_id NOT LIKE 'bot_%'
-            AND is_paid IS DISTINCT FROM FALSE
-        `;
-        if (Number(humanCards?.count || 0) === 0) {
-          const started = await sql`
-            UPDATE games
-            SET status = 'RUNNING', round_started_at = NOW(), next_round_starts_at = NULL, updated_at = NOW()
-            WHERE id = ${game.id}
-              AND status = 'OPEN'
-              AND drawn_numbers = '{}'
-              AND NOT EXISTS (
-                SELECT 1 FROM game_cards
-                WHERE game_id = ${game.id}
-                  AND user_id NOT LIKE 'bot_%'
-                  AND is_paid IS DISTINCT FROM FALSE
-              )
-            RETURNING id
-          `;
-          if (started.length > 0) {
-            game.status = 'RUNNING';
-            game.round_started_at = new Date();
-            game.next_round_starts_at = null;
-          }
-        }
-      }
       const pickSeconds = isSpecial ? SPECIAL_PICK_SECONDS : FETAN_PICK_SECONDS;
       const ruleCount = HYPER_SPECIAL_RULES.length;
       const currentRuleIndex = Number(game.active_special_rule_index || 0);
