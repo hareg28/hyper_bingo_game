@@ -860,10 +860,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         ? Math.max(0, Math.ceil((serverDeadline - Date.now()) / 1000))
         : 0;
 
-      if (lastSpecialTimerDeadlineRef.current !== serverDeadline) {
-        lastSpecialTimerDeadlineRef.current = serverDeadline;
-        setSpecialSecondsLeft(remaining);
-      }
+      // Always update every tick so the displayed countdown decrements
+      // every second. The old guard (`lastSpecialTimerDeadlineRef.current !==
+      // serverDeadline`) only ran setSpecialSecondsLeft once per new deadline,
+      // leaving the display frozen at 04:00 for the whole 4 minutes.
+      setSpecialSecondsLeft(remaining);
 
       if (remaining <= 0) {
         // Intermission finished — start the live round on the server. Keep
