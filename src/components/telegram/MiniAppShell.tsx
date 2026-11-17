@@ -1220,12 +1220,19 @@ function WeekendLotteryNumberPicker({
         setFetanIsIntermission((current) => current === pickingCards ? current : pickingCards);
         if (pickingCards) {
           fetanRedirectedGameRef.current = null;
-        } else if (
-          selectedGame?.nextRoundStartsAt && Date.now() >= selectedGame.nextRoundStartsAt &&
-          fetanRedirectedGameRef.current !== selectedGame.id
-        ) {
-          fetanRedirectedGameRef.current = selectedGame.id;
-          onPickCardsRef.current(selectedGame.id, slotNumbersRef.current.filter((number): number is number => number !== null).map(String));
+        } else if (fetanRedirectedGameRef.current !== selectedGame?.id) {
+          // Redirect to game room when:
+          //  1. The pick deadline has passed (nextRoundStartsAt exists and expired), OR
+          //  2. The game already transitioned to RUNNING (server cleared nextRoundStartsAt),
+          //     OR any ball was drawn — in all cases the picking window is over.
+          const deadlinePassed = Boolean(selectedGame?.nextRoundStartsAt && Date.now() >= selectedGame.nextRoundStartsAt);
+          const roundStarted = selectedGame?.status === 'RUNNING' || (selectedGame?.drawnNumbers?.length || 0) > 0;
+          if (deadlinePassed || roundStarted) {
+            fetanRedirectedGameRef.current = selectedGame?.id ?? null;
+            if (selectedGame?.id) {
+              onPickCardsRef.current(selectedGame.id, slotNumbersRef.current.filter((number): number is number => number !== null).map(String));
+            }
+          }
         }
       };
       updateFetanClock();

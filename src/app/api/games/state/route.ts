@@ -577,7 +577,9 @@ export async function GET() {
       // Generate exactly targetBotCount cards so pick window sold cards match final players count
       const allBotCards = getInitialBotSoldCardNumbers(r.id, r.category || r.game_type, targetBotCount);
 
-      // Realistic progressive bot participation during the card-picking / selling window
+      // Realistic progressive bot participation during the card-picking / selling window.
+      // Fetan and Special start at 60% of target so the Derash shows a realistic value
+      // from the first second, then ramps to 100% by end of the picking window.
       let visibleBotCount = targetBotCount;
       if (r.status === 'OPEN') {
         if (isFetan) {
@@ -585,15 +587,18 @@ export async function GET() {
           if (pickDeadline > Date.now()) {
             const timeLeftMs = Math.max(0, pickDeadline - Date.now());
             const progress = Math.min(1, Math.max(0, (FETAN_PICK_SECONDS * 1000 - timeLeftMs) / (FETAN_PICK_SECONDS * 1000)));
-            // Smooth ramp up from 1 player to exactly targetBotCount at 40s
-            visibleBotCount = Math.max(1, Math.min(targetBotCount, Math.floor(targetBotCount * progress)));
+            // Ramp from 60% → 100% across the 40-second window so Derash is never 0
+            const minFraction = 0.60;
+            visibleBotCount = Math.max(1, Math.min(targetBotCount, Math.floor(targetBotCount * (minFraction + (1 - minFraction) * progress))));
           }
         } else if (isSpecial) {
           const pickDeadline = r.next_round_starts_at ? Number(r.next_round_starts_at) : 0;
           if (pickDeadline > Date.now()) {
             const timeLeftMs = Math.max(0, pickDeadline - Date.now());
             const progress = Math.min(1, Math.max(0, (SPECIAL_PICK_SECONDS * 1000 - timeLeftMs) / (SPECIAL_PICK_SECONDS * 1000)));
-            visibleBotCount = Math.max(1, Math.min(targetBotCount, Math.floor(targetBotCount * progress)));
+            // Ramp from 60% → 100% across the 4-minute window so Derash is never 0
+            const minFraction = 0.60;
+            visibleBotCount = Math.max(1, Math.min(targetBotCount, Math.floor(targetBotCount * (minFraction + (1 - minFraction) * progress))));
           }
         } else if (isWeekend) {
           const initGame = INITIAL_GAMES.find((g) => g.id === r.id);
