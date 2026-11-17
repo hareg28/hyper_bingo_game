@@ -656,11 +656,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const [announcementSecondsLeft, setAnnouncementSecondsLeft] = useState<number>(10);
   const resetGameRoundRef = React.useRef(resetGameRound);
   const openLotteryTabRef = React.useRef(onOpenLotteryTab);
+  const fetanWinnerDeadlineRef = React.useRef<number | null>(null);
+  const fetanWinnerGameIdRef = React.useRef<string | null>(null);
   resetGameRoundRef.current = resetGameRound;
   openLotteryTabRef.current = onOpenLotteryTab;
 
   useEffect(() => {
-    if (!hasGameWinner) return;
+    if (!hasGameWinner || isFetanGame) return;
 
     const latestClaim = (currentGame.winners || [])
       .map((winner) => Date.parse(winner.claimedAt || ''))
@@ -707,7 +709,58 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       unsubscribe();
       window.removeEventListener('focus', resume);
     };
-  }, [hasGameWinner, currentGame.id, currentGame.winners, isSpecialGame, isWeekendGame, currentGame.roundStartedAt, currentGame.weekendDay, currentGame.weekendSlot]);
+  }, [hasGameWinner, isFetanGame, currentGame.id, currentGame.winners, isSpecialGame, isWeekendGame, currentGame.roundStartedAt, currentGame.weekendDay, currentGame.weekendSlot]);
+
+  // Keep Fetan's post-winner handoff alive if the server clears the winner
+  // during its 10-second cleanup before this client can switch to card picking.
+  useEffect(() => {
+    if (!isFetanGame) {
+      fetanWinnerDeadlineRef.current = null;
+      fetanWinnerGameIdRef.current = null;
+      return;
+    }
+    if (fetanWinnerGameIdRef.current !== currentGame.id) {
+      fetanWinnerGameIdRef.current = currentGame.id;
+      fetanWinnerDeadlineRef.current = null;
+    }
+    if (hasGameWinner && fetanWinnerDeadlineRef.current === null) {
+      const latestClaim = (currentGame.winners || [])
+        .map((winner) => Date.parse(winner.claimedAt || ''))
+        .filter(Number.isFinite)
+        .reduce((latest, claimedAt) => Math.max(latest, claimedAt), 0);
+      fetanWinnerDeadlineRef.current = latestClaim > 0 ? latestClaim + 10_000 : Date.now() + 10_000;
+    }
+    const deadline = fetanWinnerDeadlineRef.current;
+    if (deadline === null) return;
+
+    let timer: number | undefined;
+    const finishAnnouncement = () => {
+      const remaining = deadline - Date.now();
+      setAnnouncementSecondsLeft(Math.max(0, Math.ceil(remaining / 1000)));
+      if (remaining > 0) {
+        timer = window.setTimeout(finishAnnouncement, Math.min(remaining, 1000));
+        return;
+      }
+      setAnnouncementSecondsLeft(0);
+      setShowWinnerModal(false);
+      if (currentGame.status !== 'OPEN' || currentGame.drawnNumbers.length > 0) {
+        resetGameRoundRef.current(currentGame.id);
+      }
+      fetanWinnerDeadlineRef.current = null;
+      if (openLotteryTabRef.current) openLotteryTabRef.current();
+      else setIsSelectorOpen(true);
+    };
+    const resume = () => finishAnnouncement();
+    const unsubscribe = subscribeToMiniAppActivity((active) => { if (active) resume(); });
+    window.addEventListener('focus', resume);
+    finishAnnouncement();
+
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      unsubscribe();
+      window.removeEventListener('focus', resume);
+    };
+  }, [hasGameWinner, isFetanGame, currentGame.id, currentGame.status, currentGame.drawnNumbers.length, currentGame.winners]);
 
   // The scheduled weekend room ends at the ten-minute slot boundary even if
   // nobody claims a win, then returns everyone to the card purchase table.
@@ -1844,7 +1897,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       {/* ================================================================
           CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
           ================================================================ */}
-      {!isWeekendGame && <div className="bg-white rounded-xl p-1 sm:p-1.5 border border-slate-200/80 shadow-xs">
+      <div className="bg-white rounded-xl p-1 sm:p-1.5 border border-slate-200/80 shadow-xs">
         {/* Slim board title */}
         <div className="flex items-center justify-between mb-1 px-0.5">
           <span className="text-[9px] font-black text-slate-800 uppercase tracking-wider">
@@ -1894,7 +1947,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </div>
           ))}
         </div>}
-      </div>}
+      </div>
 
       {/* Blocked Cards Pill (Only shown if any cards are blocked) */}
       {(currentGame.blockedCards || []).length > 0 && (
