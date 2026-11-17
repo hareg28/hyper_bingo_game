@@ -127,8 +127,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: parsedCount
-        ? `Bot count for ${category} updated to ${parsedCount}. Derash will calculate based on this.`
-        : `Bot count for ${category} reset to default time-division count.`,
+        ? `Bot count for ${category} set to ${parsedCount} for 1 round. Derash will calculate based on this, and next round will auto-revert to dynamic system count.`
+        : `Bot count for ${category} reset to default dynamic system count.`,
       category,
       customBotCount: parsedCount,
     });

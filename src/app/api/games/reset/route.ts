@@ -108,6 +108,7 @@ export async function POST(req: NextRequest) {
           active_special_rule_index = ${nextSpecialIndex},
           entry_price = ${nextPrice},
           next_round_starts_at = ${nextRoundStartsAt},
+          custom_bot_count = NULL,
           updated_at = NOW()
         WHERE id = ${gameId}
           AND (status = 'COMPLETED' OR drawn_numbers <> '{}')
@@ -126,7 +127,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Round has already been reset.' }, { status: 409 });
     }
 
-    // Immediately seed fresh bot players for the newly reset round
+    // Reset single-round override in bot_settings so next round automatically reverts to dynamic system count
+    const cat = game.category || game.game_type;
+    if (cat) {
+      try {
+        await sql`
+          UPDATE bot_settings
+          SET custom_bot_count = NULL, updated_at = NOW()
+          WHERE category = ${cat}
+        `;
+      } catch {}
+    }
+
+    // Immediately seed fresh bot players for the newly reset round with dynamic system count
     await ensureBotPlayersInDb(sql, {
       id: gameId,
       category: game.category,
@@ -134,6 +147,7 @@ export async function POST(req: NextRequest) {
       status: 'OPEN',
       entry_price: nextPrice,
       round_started_at: null,
+      custom_bot_count: null,
     });
 
     return NextResponse.json({

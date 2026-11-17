@@ -399,7 +399,8 @@ export function getBotWinningPattern(
  */
 export async function ensureBotPlayersInDb(
   sql: any,
-  game: any
+  game: any,
+  customCountOverride?: number | null
 ): Promise<number> {
   try {
     // Count existing bot cards in DB for this game
@@ -414,10 +415,13 @@ export async function ensureBotPlayersInDb(
       return existingBotCount;
     }
 
-    // Determine target bot count (varied per game & round)
+    // Determine target bot count (respecting admin custom one-time count if set)
     const category = game.category || game.game_type;
     const roundSeed = game.round_started_at ? new Date(game.round_started_at).getTime() : Date.now();
-    const targetBotCount = getBotCountForGame(game.id, category, roundSeed);
+    const customCount = (typeof customCountOverride === 'number' && customCountOverride > 0)
+      ? customCountOverride
+      : (typeof game.custom_bot_count === 'number' && game.custom_bot_count > 0 ? game.custom_bot_count : null);
+    const targetBotCount = getBotCountForGame(game.id, category, roundSeed, customCount);
 
     // Get any existing non-bot card numbers to avoid collisions
     const existingRows = await sql`
@@ -430,7 +434,7 @@ export async function ensureBotPlayersInDb(
     const isWeekend = category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY' || String(game.id).includes('weekend');
     const pricePerCard = parseFloat(String(game.entry_price || (isWeekend ? '50' : '10')));
 
-    // Insert bot cards into game_cards (capped at 60 to prevent serverless DB timeouts)
+    // Insert bot cards into game_cards (capped at targetBotCount or 60 to prevent serverless DB timeouts)
     const cardsToInsert = botCards.slice(0, Math.min(targetBotCount, 60));
     for (const bot of cardsToInsert) {
       await sql`
@@ -706,9 +710,15 @@ export async function checkAndTriggerBotWin(
 /**
  * Returns initial bot sold cards for a game to show on initial client load.
  */
-export function getInitialBotSoldCardNumbers(gameId: string, category?: string): number[] {
+export function getInitialBotSoldCardNumbers(
+  gameId: string,
+  category?: string,
+  countOverride?: number | null
+): number[] {
   const seed = hashString(gameId);
-  const count = getBotCountForGame(gameId, category, seed);
+  const count = (typeof countOverride === 'number' && countOverride > 0)
+    ? countOverride
+    : getBotCountForGame(gameId, category, seed);
   const cards = generateBotCards(gameId, category, count, new Set(), seed);
   return cards
     .map((c) => parseInt(c.cardNumber, 10))

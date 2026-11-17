@@ -743,7 +743,12 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     const intervals: ReturnType<typeof setInterval>[] = [];
 
     openPickGames.forEach((game) => {
-      const allBotCards = getInitialBotSoldCardNumbers(game.id, (game as any).category || (game as any).gameType);
+      const targetCount = (game as any).targetBotCount || (game as any).customBotCount || (game as any).currentPlayers;
+      const allBotCards = getInitialBotSoldCardNumbers(
+        game.id,
+        (game as any).category || (game as any).gameType,
+        targetCount
+      );
       if (allBotCards.length === 0) return;
 
       const deadline = game.nextRoundStartsAt as number;

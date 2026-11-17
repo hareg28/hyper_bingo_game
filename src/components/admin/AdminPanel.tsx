@@ -1450,21 +1450,26 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               </button>
             </div>
 
-            {/* 🤖 BOT PLAYER NUMBER & DERASH CONTROLS */}
-            <div className="p-4 sm:p-5 rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50/50 via-white to-indigo-50/30 shadow-sm space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/60 pb-3">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">🤖</span>
-                    <h4 className="font-black text-slate-900 text-sm sm:text-base">
-                      {language === 'am' ? 'የቦት ተጫዋቾች እና የደራሽ ማስተካከያ (Bot & Derash Controls)' : 'Bot Players & Derash Controls'}
-                    </h4>
+            {/* 🤖 BOT PLAYER NUMBER & DERASH CONTROLS (Clean, Modern & User-Friendly) */}
+            <div className="p-4 sm:p-5 rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50/40 via-white to-slate-50 shadow-sm space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/60 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🤖</span>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-black text-slate-900 text-sm sm:text-base">
+                        {language === 'am' ? 'የቦት እና የደራሽ ማስተካከያ' : 'Bot Players & Derash Controls'}
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-400/30 text-amber-900 border border-amber-400 text-[10px] font-black uppercase tracking-wide">
+                        ⚡ {language === 'am' ? 'ለ 1 ዙር ብቻ' : '1-Round Setting'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      {language === 'am'
+                        ? 'የሚያስተካክሉት ቁጥር ለቀጣዩ 1 ዙር ብቻ ያገለግላል፤ ዙሩ ሲጠናቀቅ በራሱ ወደ ተለዋዋጭ መደበኛ ተጫዋቾች ይመለሳል።'
+                        : 'Custom count applies to 1 round only, then automatically reverts to dynamic system players.'}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-slate-600 font-medium">
-                    {language === 'am'
-                      ? 'አስተዳዳሪው የቦት ቁጥር ሲያስተካክል ደራሹ በዚያው ይሰላል። ካልተስተካከለ በጊዜ ሰሌዳው (Time Division) በ 60% ቅናሽ ይሰራል (boy 95% / girl 5%)።'
-                      : 'Admin can adjust bot player count per game; Derash calculates based on that. If not adjusted, count uses 60% reduced time-division default (95% boy / 5% girl).'}
-                  </p>
                 </div>
                 <button
                   type="button"
@@ -1478,7 +1483,7 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
 
               {botSettingsMessage && (
                 <div
-                  className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                  className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200 ${
                     botSettingsMessage.type === 'success'
                       ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
                       : 'bg-rose-50 text-rose-800 border border-rose-300'
@@ -1490,14 +1495,17 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {['HYPER_FETAN', 'HYPER_SPECIAL', 'HYPER_WEEKEND'].map((catKey) => {
+                {[
+                  { catKey: 'HYPER_FETAN', name: '⚡ Hyper Fetan (ፈጣን)', price: 10, presets: [15, 25, 30, 50, 80] },
+                  { catKey: 'HYPER_SPECIAL', name: '🌟 Hyper Special (ልዩ)', price: 10, presets: [50, 80, 100, 200, 300] },
+                  { catKey: 'HYPER_WEEKEND', name: '🏆 Hyper Weekend (የሳምንት)', price: 50, presets: [250, 350, 500, 800, 1200] },
+                ].map(({ catKey, name, price: entryPrice, presets }) => {
                   const info = botSettings?.[catKey];
                   const isWeekend = catKey === 'HYPER_WEEKEND';
-                  const entryPrice = isWeekend ? 50 : 10;
                   const currentInput = botCountInputs[catKey] ?? '';
                   const activeCount = currentInput.trim().length > 0 && !Number.isNaN(parseInt(currentInput, 10))
                     ? Math.max(1, parseInt(currentInput, 10))
-                    : (info?.defaultCount ?? 50);
+                    : (info?.defaultCount ?? (isWeekend ? 350 : 50));
                   const calculatedDerash = isWeekend
                     ? Math.min(50000, Math.round(activeCount * entryPrice * 0.80))
                     : Math.round(activeCount * entryPrice * 0.80);
@@ -1507,17 +1515,12 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                   return (
                     <div
                       key={catKey}
-                      className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between"
+                      className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-2.5 flex flex-col justify-between"
                     >
                       <div className="space-y-2">
+                        {/* Header: Name + Badge */}
                         <div className="flex items-center justify-between">
-                          <h5 className="font-black text-slate-900 text-xs sm:text-sm">
-                            {catKey === 'HYPER_FETAN'
-                              ? '⚡ Hyper Fetan (ፈጣን)'
-                              : catKey === 'HYPER_SPECIAL'
-                              ? '🌟 Hyper Special (ልዩ)'
-                              : '🏆 Hyper Weekend (የሳምንት)'}
-                          </h5>
+                          <h5 className="font-black text-slate-900 text-xs sm:text-sm">{name}</h5>
                           <span
                             className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
                               isCustomActive
@@ -1526,78 +1529,89 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
                             }`}
                           >
                             {isCustomActive
-                              ? (language === 'am' ? 'ብጁ ተቀናብሯል' : 'Custom Set')
-                              : (language === 'am' ? 'ነባሪ 60% ቅናሽ' : 'Default (-60%)')}
+                              ? (language === 'am' ? 'ለ 1 ዙር ተዘጋጅቷል' : 'Set for 1 Round')
+                              : (language === 'am' ? `ተለዋዋጭ (~${info?.defaultCount ?? '--'})` : `Dynamic (~${info?.defaultCount ?? '--'})`)}
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs">
-                          <div>
-                            <span className="text-[10px] text-slate-500 font-bold block">
-                              {language === 'am' ? 'ነባሪ የቦት ቁጥር' : 'Default Bots (-60%)'}
-                            </span>
-                            <span className="font-mono font-bold text-slate-700">
-                              ~{info?.defaultCount ?? '--'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-slate-500 font-bold block">
-                              {language === 'am' ? 'የመግቢያ ዋጋ' : 'Entry Price'}
-                            </span>
-                            <span className="font-mono font-bold text-slate-700">
-                              {entryPrice} ETB
-                            </span>
-                          </div>
-                        </div>
-
+                        {/* Quick Presets */}
                         <div>
-                          <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                            {language === 'am' ? 'አስተዳዳሪ የቦት ቁጥር (Bot Count):' : 'Adjust Bot Player Count:'}
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            max="5000"
-                            placeholder={String(info?.defaultCount ?? '100')}
-                            value={botCountInputs[catKey] ?? ''}
-                            onChange={(e) => setBotCountInputs((prev) => ({ ...prev, [catKey]: e.target.value }))}
-                            className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-mono font-black text-sm focus:bg-white focus:border-amber-500 focus:outline-none transition"
-                          />
+                          <span className="text-[10px] font-bold text-slate-500 block mb-1">
+                            {language === 'am' ? 'ፈጣን ቁጥሮች (Quick Presets):' : 'Quick Presets:'}
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {presets.map((presetVal) => (
+                              <button
+                                key={presetVal}
+                                type="button"
+                                onClick={() => setBotCountInputs((prev) => ({ ...prev, [catKey]: String(presetVal) }))}
+                                className={`px-2 py-0.5 rounded-lg text-xs font-mono font-bold transition cursor-pointer border ${
+                                  (botCountInputs[catKey] ?? '') === String(presetVal)
+                                    ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-xs'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                                }`}
+                              >
+                                {presetVal}
+                              </button>
+                            ))}
+                          </div>
                         </div>
 
-                        <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 space-y-0.5">
-                          <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide block">
-                            💰 {language === 'am' ? 'የተሰላ ደራሽ (Calculated Derash):' : 'Calculated Derash (Prize Pool):'}
-                          </span>
-                          <div className="font-black text-emerald-700 text-base font-mono">
+                        {/* Number Input */}
+                        <div className="pt-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min="1"
+                              max="5000"
+                              placeholder={String(info?.defaultCount ?? (isWeekend ? 350 : 50))}
+                              value={botCountInputs[catKey] ?? ''}
+                              onChange={(e) => setBotCountInputs((prev) => ({ ...prev, [catKey]: e.target.value }))}
+                              className="w-full px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 font-mono font-black text-sm focus:bg-white focus:border-amber-500 focus:outline-none transition"
+                            />
+                            <span className="text-xs font-bold text-slate-500 shrink-0">
+                              {language === 'am' ? 'ተጫዋች' : 'bots'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Live Derash Preview */}
+                        <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 space-y-0.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide">
+                              💰 {language === 'am' ? 'የተሰላ ደራሽ' : 'Derash (80%):'}
+                            </span>
+                            <span className="font-mono text-[10px] text-emerald-600">
+                              {activeCount} × {entryPrice} ETB
+                            </span>
+                          </div>
+                          <div className="font-black text-emerald-700 text-sm sm:text-base font-mono">
                             {formatETB(calculatedDerash)}
                           </div>
-                          <span className="text-[10px] text-emerald-600 block">
-                            {activeCount} {language === 'am' ? 'ተጫዋቾች' : 'players'} × {entryPrice} ETB × 80%
-                          </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100">
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-100">
                         <button
                           type="button"
                           disabled={savingBotCategory === catKey}
                           onClick={() => handleSaveBotCount(catKey, false)}
-                          className="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition cursor-pointer shadow-xs disabled:opacity-50"
+                          className="flex-1 py-1.5 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-98 text-slate-950 font-black text-xs transition cursor-pointer shadow-xs disabled:opacity-50"
                         >
                           {savingBotCategory === catKey
-                            ? (language === 'am' ? 'በማስቀመጥ ላይ...' : 'Saving...')
-                            : (language === 'am' ? 'አስቀምጥ (Save)' : 'Save Count')}
+                            ? '...'
+                            : (language === 'am' ? '⚡ ለ 1 ዙር ተግብር' : '⚡ Apply for 1 Round')}
                         </button>
                         {isCustomActive && (
                           <button
                             type="button"
                             disabled={savingBotCategory === catKey}
                             onClick={() => handleSaveBotCount(catKey, true)}
-                            className="py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer border border-slate-300 disabled:opacity-50"
-                            title={language === 'am' ? 'ወደ ነባሪ መልስ' : 'Reset to default'}
+                            className="py-1.5 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer border border-slate-300 disabled:opacity-50"
+                            title={language === 'am' ? 'ወደ መደበኛው ተለዋዋጭ መልስ' : 'Revert to auto dynamic'}
                           >
-                            {language === 'am' ? 'መልስ' : 'Reset'}
+                            {language === 'am' ? '↺ መልስ' : '↺ Auto'}
                           </button>
                         )}
                       </div>

@@ -210,6 +210,7 @@ export async function GET() {
         Date.now() >= specialRoundStartedAt + FETAN_ROUND_SECONDS * 1000;
 
       if ((fullRoundEnded || fetanRoundEnded || claimedRoundEnded) && !isWeekend) {
+        const catKey = String(game.category || game.game_type || '');
         const resetRows = await sql`
           WITH reset_game AS (
             UPDATE games
@@ -218,6 +219,7 @@ export async function GET() {
                 blocked_cards = '{}', blocked_players = '{}',
                 active_special_rule_index = ${nextRuleIndex}, entry_price = ${nextPrice},
                 next_round_starts_at = ${isWeekend ? null : Date.now() + pickSeconds * 1000},
+                custom_bot_count = NULL,
                 updated_at = NOW()
             WHERE id = ${game.id} AND status = ${game.status}
               AND drawn_numbers = ${`{${drawn.join(',')}}`}::int4[]
@@ -230,7 +232,17 @@ export async function GET() {
           SELECT id FROM reset_game
         `;
         if (resetRows.length > 0) {
-          await ensureBotPlayersInDb(sql, { ...game, status: 'OPEN', entry_price: nextPrice, round_started_at: null });
+          // Clear single-round admin override so subsequent rounds automatically revert to dynamic system players
+          if (catKey) {
+            try {
+              await sql`
+                UPDATE bot_settings
+                SET custom_bot_count = NULL, updated_at = NOW()
+                WHERE category = ${catKey}
+              `;
+            } catch {}
+          }
+          await ensureBotPlayersInDb(sql, { ...game, status: 'OPEN', entry_price: nextPrice, round_started_at: null, custom_bot_count: null });
           continue;
         }
       }
@@ -321,7 +333,12 @@ export async function GET() {
               const hRows = await sql`SELECT COUNT(*)::int AS count FROM game_cards WHERE game_id = ${game.id} AND user_id NOT LIKE 'bot_%'`;
               humanPresentInGame = (hRows[0]?.count ?? 0) > 0;
             } catch {}
-            const shouldForce = humanPresentInGame && nextDrawn.length >= (isFetan ? 11 : isSpecial ? 14 : 20);
+            const elapsedMs = game.round_started_at ? (Date.now() - new Date(game.round_started_at).getTime()) : 0;
+            const fetanReached2Minutes = isFetan && (nextDrawn.length >= 22 || elapsedMs >= 2 * 60 * 1000);
+            const specialReached8Minutes = isSpecial && (nextDrawn.length >= 48 || elapsedMs >= 8 * 60 * 1000);
+            const weekendReached6to7Minutes = isWeekend && (nextDrawn.length >= 46 || elapsedMs >= 6 * 60 * 1000);
+            const shouldForce = (humanPresentInGame && nextDrawn.length >= (isFetan ? 10 : isSpecial ? 13 : 18)) ||
+              fetanReached2Minutes || specialReached8Minutes || weekendReached6to7Minutes;
             const botWinner = winners.length === 0
               ? await checkAndTriggerBotWin(sql, game, nextDrawn, nextBall, shouldForce)
               : null;
@@ -334,14 +351,19 @@ export async function GET() {
         }
       }
 
-      // Check bot win on ongoing running round (also force when humans are present at safe threshold)
+      // Check bot win on ongoing running round (also force when humans are present at safe threshold or time limit reached)
       if (game.status === 'RUNNING' && drawn.length >= 10 && winners.length === 0 && game.current_ball) {
         let humanInOngoing = false;
         try {
           const hRows2 = await sql`SELECT COUNT(*)::int AS count FROM game_cards WHERE game_id = ${game.id} AND user_id NOT LIKE 'bot_%'`;
           humanInOngoing = (hRows2[0]?.count ?? 0) > 0;
         } catch {}
-        const forceOngoing = humanInOngoing && drawn.length >= (isFetan ? 11 : isSpecial ? 14 : 20);
+        const elapsedOngoing = game.round_started_at ? (Date.now() - new Date(game.round_started_at).getTime()) : 0;
+        const fetanReached2Min = isFetan && (drawn.length >= 22 || elapsedOngoing >= 2 * 60 * 1000);
+        const specialReached8Min = isSpecial && (drawn.length >= 48 || elapsedOngoing >= 8 * 60 * 1000);
+        const weekendReached6to7Min = isWeekend && (drawn.length >= 46 || elapsedOngoing >= 6 * 60 * 1000);
+        const forceOngoing = (humanInOngoing && drawn.length >= (isFetan ? 10 : isSpecial ? 13 : 18)) ||
+          fetanReached2Min || specialReached8Min || weekendReached6to7Min;
         const botWinner = await checkAndTriggerBotWin(sql, game, drawn, Number(game.current_ball), forceOngoing);
         if (botWinner && isWeekend) {
           await notifyUsersTelegram(
@@ -536,7 +558,8 @@ export async function GET() {
         r.round_started_at ? new Date(r.round_started_at).getTime() : undefined,
         customOverride
       );
-      const allBotCards = getInitialBotSoldCardNumbers(r.id, r.category || r.game_type);
+      // Generate exactly targetBotCount cards so pick window sold cards match final players count
+      const allBotCards = getInitialBotSoldCardNumbers(r.id, r.category || r.game_type, targetBotCount);
 
       // Realistic progressive bot participation during the card-picking / selling window
       let visibleBotCount = targetBotCount;
@@ -546,14 +569,15 @@ export async function GET() {
           if (pickDeadline > Date.now()) {
             const timeLeftMs = Math.max(0, pickDeadline - Date.now());
             const progress = Math.min(1, Math.max(0, (FETAN_PICK_SECONDS * 1000 - timeLeftMs) / (FETAN_PICK_SECONDS * 1000)));
-            visibleBotCount = Math.floor(targetBotCount * (0.08 + 0.92 * progress));
+            // Smooth ramp up from 1 player to exactly targetBotCount at 40s
+            visibleBotCount = Math.max(1, Math.min(targetBotCount, Math.floor(targetBotCount * progress)));
           }
         } else if (isSpecial) {
           const pickDeadline = r.next_round_starts_at ? Number(r.next_round_starts_at) : 0;
           if (pickDeadline > Date.now()) {
             const timeLeftMs = Math.max(0, pickDeadline - Date.now());
             const progress = Math.min(1, Math.max(0, (SPECIAL_PICK_SECONDS * 1000 - timeLeftMs) / (SPECIAL_PICK_SECONDS * 1000)));
-            visibleBotCount = Math.floor(targetBotCount * (0.08 + 0.92 * progress));
+            visibleBotCount = Math.max(1, Math.min(targetBotCount, Math.floor(targetBotCount * progress)));
           }
         } else if (isWeekend) {
           const initGame = INITIAL_GAMES.find((g) => g.id === r.id);
@@ -561,7 +585,7 @@ export async function GET() {
           if (drawAt > 0) {
             const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
             const progress = Math.min(1, Math.max(0, (Date.now() - (drawAt - WEEK_MS)) / WEEK_MS));
-            visibleBotCount = Math.floor(targetBotCount * progress);
+            visibleBotCount = Math.max(1, Math.min(targetBotCount, Math.floor(targetBotCount * progress)));
           }
         }
       }
@@ -582,6 +606,8 @@ export async function GET() {
         currentBall: r.current_ball == null ? null : Number(r.current_ball),
         roundStartedAt: r.round_started_at ? new Date(r.round_started_at).getTime() : undefined,
         currentPlayers,
+        targetBotCount,
+        customBotCount: customOverride,
         winners: (Array.isArray(r.winners) ? r.winners : (typeof r.winners === 'string' ? JSON.parse(r.winners) : [])).map((w: any) => sanitizeWinnerForDisplay({
           ...w,
           userId: formatDisplayPlayerId(w.userId),
