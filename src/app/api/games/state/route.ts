@@ -343,9 +343,17 @@ export async function GET() {
               ? await checkAndTriggerBotWin(sql, game, nextDrawn, nextBall, shouldForce)
               : null;
             if (botWinner && isWeekend) {
-              await notifyUsersTelegram(
-                `🏆 WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber} and ${botWinner.prizeWon} ETB. Open the Weekend game page to view the full result.`,
-              );
+              const [gRow] = await sql`SELECT winners, prize_pool FROM games WHERE id = ${game.id}`;
+              const gWinners = Array.isArray(gRow?.winners) ? gRow.winners : [];
+              if (gWinners.length >= 2) {
+                await notifyUsersTelegram(
+                  `🏆 2 WEEKEND BINGO WINNERS (SHARED DERASH)! @${gWinners[0].username} (Card #${gWinners[0].cardNumber}) & @${gWinners[1].username} (Card #${gWinners[1].cardNumber}) won and split ${gRow?.prize_pool || botWinner.prizeWon * 2} ETB (${gWinners[0].prizeWon} ETB each)! Open the Weekend game page to view the full result.`,
+                );
+              } else {
+                await notifyUsersTelegram(
+                  `🏆 WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber} and ${botWinner.prizeWon} ETB. Open the Weekend game page to view the full result.`,
+                );
+              }
             }
           }
         }
@@ -366,9 +374,17 @@ export async function GET() {
           fetanReached2Min || specialReached8Min || weekendReached6to7Min;
         const botWinner = await checkAndTriggerBotWin(sql, game, drawn, Number(game.current_ball), forceOngoing);
         if (botWinner && isWeekend) {
-          await notifyUsersTelegram(
-            `🏆 WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber} and ${botWinner.prizeWon} ETB. Open the Weekend game page to view the full result.`,
-          );
+          const [gRow2] = await sql`SELECT winners, prize_pool FROM games WHERE id = ${game.id}`;
+          const gWinners2 = Array.isArray(gRow2?.winners) ? gRow2.winners : [];
+          if (gWinners2.length >= 2) {
+            await notifyUsersTelegram(
+              `🏆 2 WEEKEND BINGO WINNERS (SHARED DERASH)! @${gWinners2[0].username} (Card #${gWinners2[0].cardNumber}) & @${gWinners2[1].username} (Card #${gWinners2[1].cardNumber}) won and split ${gRow2?.prize_pool || botWinner.prizeWon * 2} ETB (${gWinners2[0].prizeWon} ETB each)! Open the Weekend game page to view the full result.`,
+            );
+          } else {
+            await notifyUsersTelegram(
+              `🏆 WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber} and ${botWinner.prizeWon} ETB. Open the Weekend game page to view the full result.`,
+            );
+          }
         }
       }
     }

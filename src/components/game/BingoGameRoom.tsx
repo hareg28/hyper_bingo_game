@@ -2042,7 +2042,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 <div className="min-w-0">
                   <div className="text-xs font-black uppercase tracking-wider flex items-center gap-2 flex-wrap">
                     <span>
-                      {latestWinner
+                      {currentGame.winners && currentGame.winners.length >= 2
+                        ? (language === 'am'
+                          ? `🎉 2 የጋራ አሸናፊዎች (Shared): @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${currentGame.winners[0].cardNumber} & #${currentGame.winners[1].cardNumber})!`
+                          : `🎉 2 SHARED WINNERS: @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${currentGame.winners[0].cardNumber} & #${currentGame.winners[1].cardNumber})!`)
+                        : latestWinner
                         ? (language === 'am'
                           ? `🎉 ቢንጎ አሸናፊ: @${latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`
                           : `🎉 BINGO WINNER: @${latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`)
@@ -2051,11 +2055,15 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                           : (language === 'am' ? 'ዙሩ ተጠናቋል!' : 'Round Finished!'))
                       }
                     </span>
-                    {latestWinner && (
+                    {currentGame.winners && currentGame.winners.length >= 2 ? (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black">
+                        {formatETB(currentGame.winners[0].prizeWon)} {language === 'am' ? 'እያንዳንዳቸው (ደራሽ ተካፍሏል)' : 'each (50/50 split)'}
+                      </span>
+                    ) : latestWinner ? (
                       <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black">
                         {formatETB(latestWinner.prizeWon)}
                       </span>
-                    )}
+                    ) : null}
                     <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-mono font-black animate-pulse">
                       {isWeekendGame
                         ? `⏳ ${announcementSecondsLeft}s ${language === 'am' ? 'ጨዋታው እስኪያልቅ...' : 'until weekend game ends...'}`

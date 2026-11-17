@@ -217,9 +217,17 @@ export async function POST(req: NextRequest) {
         forceNow
       );
       if (botWinner && isWeekend) {
-        await notifyUsersTelegram(
-          `🏆 WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber} and ${botWinner.prizeWon} ETB. Open the Weekend game page to view the full result.`,
-        );
+        const [gRow] = await sql`SELECT winners, prize_pool FROM games WHERE id = ${gameId}`;
+        const gWinners = Array.isArray(gRow?.winners) ? gRow.winners : [];
+        if (gWinners.length >= 2) {
+          await notifyUsersTelegram(
+            `🏆 2 WEEKEND BINGO WINNERS (SHARED DERASH)! @${gWinners[0].username} (Card #${gWinners[0].cardNumber}) & @${gWinners[1].username} (Card #${gWinners[1].cardNumber}) won and split ${gRow?.prize_pool || botWinner.prizeWon * 2} ETB (${gWinners[0].prizeWon} ETB each)! Open the Weekend game page to view the full result.`,
+          );
+        } else {
+          await notifyUsersTelegram(
+            `🏆 WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber} and ${botWinner.prizeWon} ETB. Open the Weekend game page to view the full result.`,
+          );
+        }
       }
     }
 

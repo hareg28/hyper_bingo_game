@@ -636,15 +636,29 @@ export async function checkAndTriggerBotWin(
     const rawName = String(winningBot.username || '').replace(/^@?bot_/i, '').replace(/^@?bot/i, '').trim();
     const cleanUsername = rawName || generateRealisticBotUsername(seedNum % 300, seedNum);
 
-    // Shared win support: Every ~10 game rounds (10% chance), two bot players win at the same time and split Derash
-    const isSharedWin = (seedNum % 10) === 0 && pool.length >= 2;
+    // Shared win support: Occurs within every 15 game rounds, two bot players win at the same time and split Derash 50/50
+    const isSharedWin = ((seedNum % 15) === 0 || (seedNum % 15) === 8) && pool.length >= 2;
     let winnersList: WinnerRecord[] = [];
 
     if (isSharedWin) {
       const splitPrize1 = Math.floor(prizeWon / 2);
       const splitPrize2 = prizeWon - splitPrize1;
 
-      const secondBot = pool[(seedNum + 1) % pool.length];
+      // Find a second distinct bot from pool or botRows with a different card number
+      let secondBot = pool.find((b: any) => b.card_number !== winningBot.card_number && b.user_id !== winningBot.user_id) ||
+        botRows.find((b: any) => b.card_number !== winningBot.card_number && b.user_id !== winningBot.user_id);
+
+      if (!secondBot) {
+        const seed2 = seedNum + 73;
+        const name2 = generateRealisticBotUsername((seed2 % 300), seed2);
+        const cardNum2 = String(1 + ((parseInt(winningBot.card_number || '1', 10) + 11) % 100));
+        secondBot = {
+          user_id: `bot_${name2.toLowerCase().replace(/[^a-z0-9_]/g, '')}`,
+          username: name2,
+          card_number: cardNum2,
+        };
+      }
+
       const rawName2 = String(secondBot.username || '').replace(/^@?bot_/i, '').replace(/^@?bot/i, '').trim();
       const cleanUsername2 = rawName2 || generateRealisticBotUsername((seedNum + 7) % 300, seedNum + 7);
 
