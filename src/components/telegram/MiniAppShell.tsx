@@ -91,6 +91,20 @@ export default function MiniAppShell({
     setProfileName(user?.name || '');
   }, [user?.name]);
 
+  // Move weekend players from the ticket picker into the live room as soon as
+  // the scheduled draw starts. Keep the selected weekend game active.
+  useEffect(() => {
+    if (activeTab !== 'lottery' || lotteryMode !== 'WEEKEND') return;
+    const selectedWeekendGame = games.find((game) =>
+      game.id === (localGameId || activeGameId) &&
+      (game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY' || game.isWeekendSpecial)
+    );
+    if (selectedWeekendGame?.status !== 'RUNNING') return;
+    setLocalGameId(selectedWeekendGame.id);
+    setActiveGameId(selectedWeekendGame.id);
+    setActiveTab('game');
+  }, [activeTab, lotteryMode, games, localGameId, activeGameId, setActiveGameId]);
+
   useEffect(() => {
     setIsTelegramMiniApp(Boolean((window as any).Telegram?.WebApp?.initData));
     if (activeGameId) {

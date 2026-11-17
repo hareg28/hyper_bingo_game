@@ -27,6 +27,7 @@ import {
   SPECIAL_ROUND_SECONDS,
   FETAN_ROUND_SECONDS,
   WEEKEND_ROUND_SECONDS,
+  getWeekendScheduledStartAt,
   generateSeededBingoCardMatrix,
   generateBingoCardMatrix,
   getWinningPatternCells,
@@ -665,7 +666,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       .map((winner) => Date.parse(winner.claimedAt || ''))
       .filter(Number.isFinite)
       .reduce((latest, claimedAt) => Math.max(latest, claimedAt), 0);
-    const deadline = latestClaim > 0 ? latestClaim + 10_000 : Date.now() + 10_000;
+    const weekendStart = isWeekendGame ? getWeekendScheduledStartAt(currentGame) : null;
+    const deadline = isWeekendGame
+      ? (weekendStart ?? currentGame.roundStartedAt ?? Date.now()) + WEEKEND_ROUND_SECONDS * 1000
+      : latestClaim > 0 ? latestClaim + 10_000 : Date.now() + 10_000;
     let completed = false;
     const update = () => {
       if (isHiddenRef.current) return;
@@ -676,6 +680,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       completed = true;
       clearInterval(timer);
       setShowWinnerModal(false);
+      if (isWeekendGame) return;
       resetGameRoundRef.current(currentGame.id);
       if (isSpecialGame) {
         // Special card purchases stay on the room's plus picker during its
@@ -702,7 +707,22 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       unsubscribe();
       window.removeEventListener('focus', resume);
     };
-  }, [hasGameWinner, currentGame.id, currentGame.winners, isSpecialGame]);
+  }, [hasGameWinner, currentGame.id, currentGame.winners, isSpecialGame, isWeekendGame, currentGame.roundStartedAt, currentGame.weekendDay, currentGame.weekendSlot]);
+
+  // The scheduled weekend room ends at the ten-minute slot boundary even if
+  // nobody claims a win, then returns everyone to the card purchase table.
+  useEffect(() => {
+    if (!isWeekendGame || !currentGame.roundStartedAt) return;
+    const deadline = currentGame.roundStartedAt + WEEKEND_ROUND_SECONDS * 1000;
+    const finishScheduledWeekend = () => {
+      const remaining = deadline - Date.now();
+      if (remaining > 0) return window.setTimeout(finishScheduledWeekend, remaining);
+      openLotteryTabRef.current?.();
+      return undefined;
+    };
+    const timer = finishScheduledWeekend();
+    return () => { if (timer) window.clearTimeout(timer); };
+  }, [isWeekendGame, currentGame.id, currentGame.roundStartedAt]);
 
   // Auto-show winner announcement celebration modal to EVERYONE when a winner claims Bingo during live play
   const prevWinnersCountRef = React.useRef(currentGame.winners?.length || 0);
@@ -1396,7 +1416,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       </div>
 
       {/* ── Clean & Simple Weekend Bar (No Crowding, Single Slim Row) ── */}
-      {isWeekendGame && (
+      {isWeekendGame && !isWeekendLive && (
         <div className="mx-2 mt-1.5 space-y-1">
           <div className="px-3 py-1.5 bg-white rounded-xl border border-amber-300 shadow-2xs flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
@@ -1712,13 +1732,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   </button>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 items-center">
-                  <div className="flex items-center gap-1.5 min-w-0">
+                <div className={`grid ${isWeekendGame ? 'grid-cols-1' : 'grid-cols-3'} gap-2 items-center`}>
+                  {!isWeekendGame && <div className="flex items-center gap-1.5 min-w-0">
                     <Hash className="w-3 h-3 text-slate-400 shrink-0" />
                     <span className="text-[10px] font-bold text-slate-500 shrink-0">ID:</span>
                     <span className="text-[11px] font-mono font-black text-slate-800 truncate">{gameShortId}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 min-w-0 justify-center">
+                  </div>}
+                  {!isWeekendGame && <div className="flex items-center gap-1.5 min-w-0 justify-center">
                     <div className="w-3 h-3 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
                       <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                     </div>
@@ -1726,8 +1746,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       {language === 'am' ? 'ሰዓት' : 'Time'}
                     </span>
                     <span className="text-[11px] font-mono font-black text-slate-800">{currentTime ? `${currentTime} EAT` : '--:-- EAT'}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 min-w-0 justify-end">
+                  </div>}
+                  <div className={`flex items-center gap-1.5 min-w-0 ${isWeekendGame ? 'justify-center' : 'justify-end'}`}>
                     <div className="w-3 h-3 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
                       <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                     </div>
@@ -1820,7 +1840,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       {/* ================================================================
           CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
           ================================================================ */}
-      <div className="bg-white rounded-xl p-1 sm:p-1.5 border border-slate-200/80 shadow-xs">
+      {!isWeekendGame && <div className="bg-white rounded-xl p-1 sm:p-1.5 border border-slate-200/80 shadow-xs">
         {/* Slim board title */}
         <div className="flex items-center justify-between mb-1 px-0.5">
           <span className="text-[9px] font-black text-slate-800 uppercase tracking-wider">
@@ -1870,7 +1890,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </div>
           ))}
         </div>}
-      </div>
+      </div>}
 
       {/* Blocked Cards Pill (Only shown if any cards are blocked) */}
       {(currentGame.blockedCards || []).length > 0 && (
@@ -1976,7 +1996,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       </span>
                     )}
                     <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-mono font-black animate-pulse">
-                      ⏳ {announcementSecondsLeft}s {language === 'am' ? 'ወደ ካርድ መግዣ...' : 'to card board...'}
+                      {isWeekendGame
+                        ? `⏳ ${announcementSecondsLeft}s ${language === 'am' ? 'ጨዋታው እስኪያልቅ...' : 'until weekend game ends...'}`
+                        : `⏳ ${announcementSecondsLeft}s ${language === 'am' ? 'ወደ ካርድ መግዣ...' : 'to card board...'}`}
                     </span>
                   </div>
                   <p className={`text-[11px] font-medium leading-tight mt-0.5 ${isSpecialGame ? 'text-indigo-200' : 'text-slate-900'}`}>
@@ -1990,7 +2012,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   </p>
                 </div>
               </div>
-              {!isSpecialGame && <button
+              {!isSpecialGame && !isWeekendGame && <button
                 type="button"
                 onClick={() => {
                   resetGameRound(currentGame.id);
