@@ -2145,7 +2145,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                                 <div
                                   key={`${rIdx}-${cIdx}`}
                                   onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
-                                  className={`rounded aspect-square flex items-center justify-center font-bold text-[9px] sm:text-[10px] cursor-pointer transition select-none ${
+                                  className={`rounded aspect-square flex items-center justify-center font-bold text-sm sm:text-base cursor-pointer transition select-none ${
                                     isFree
                                       ? 'bg-[#22c55e] text-white border border-emerald-600 shadow-2xs font-black'
                                       : isMarked
@@ -2329,7 +2329,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                                     {isFree ? (
                                       <span className="text-[#2563eb] font-black text-[9px] leading-none">★</span>
                                     ) : (
-                                      <span className={`text-[8px] sm:text-[9px] font-black leading-none ${
+                                      <span className={`text-sm sm:text-base font-black leading-none ${
                                         isMarked ? 'text-white' : 'text-slate-950'
                                       }`}>
                                         {val}

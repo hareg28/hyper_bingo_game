@@ -159,6 +159,41 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   });
   const [activeGameId, setActiveGameId] = useState<string | null>('gm_fetan_10');
   const [userCards, setUserCards] = useState<BingoCard[]>([]);
+
+  // Automatically daub called balls on the player's own cards in Fetan,
+  // Special, and Weekend games. This is idempotent so polling and rerenders
+  // cannot toggle a previously marked number back off.
+  useEffect(() => {
+    const gameById = new Map(games.map((game) => [game.id, game]));
+    setUserCards((previousCards) => {
+      let anyChanged = false;
+      const nextCards = previousCards.map((card) => {
+        const game = gameById.get(card.gameId);
+        if (!game || !game.drawnNumbers?.length) return card;
+        const isFetan = game.category === 'HYPER_FETAN' || game.gameType === 'HYPER_FETAN' || game.name?.includes('Fetan') || game.id.includes('fetan');
+        const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL' || game.name?.includes('Special') || game.id.includes('special');
+        const isWeekend = game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY' || game.isWeekendSpecial || game.id.includes('weekend');
+        if (!isFetan && !isSpecial && !isWeekend) return card;
+
+        const calledNumbers = new Set(game.drawnNumbers);
+        let cardChanged = false;
+        const marked = card.numbers.map((row, rowIndex) => row.map((number, colIndex) => {
+          const isMarked = Boolean(card.marked?.[rowIndex]?.[colIndex]);
+          if (rowIndex === 2 && colIndex === 2) return isMarked;
+          if (calledNumbers.has(number) && !isMarked) {
+            cardChanged = true;
+            return true;
+          }
+          return isMarked;
+        }));
+        if (!cardChanged) return card;
+        anyChanged = true;
+        return { ...card, marked };
+      });
+      return anyChanged ? nextCards : previousCards;
+    });
+  }, [games, userCards]);
+
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>(INITIAL_WITHDRAWALS);
   const [promotions] = useState<Promotion[]>(INITIAL_PROMOTIONS);
