@@ -200,12 +200,15 @@ export async function POST(req: NextRequest) {
         console.error('[draw] Error checking human cards:', err);
       }
 
-      const elapsedSpecialMs = game.round_started_at ? (Date.now() - new Date(game.round_started_at).getTime()) : 0;
-      const specialReached8Minutes = isSpecial && (updatedDrawn.length >= 48 || elapsedSpecialMs >= 8 * 60 * 1000);
-      // Weekend: continue playing up to ~6 minutes (45 balls at 8s/ball) unless human is close to winning
-      const weekendReached6Minutes = isWeekend && (updatedDrawn.length >= 45 || elapsedSpecialMs >= 6 * 60 * 1000);
+      const elapsedMs = game.round_started_at ? (Date.now() - new Date(game.round_started_at).getTime()) : 0;
+      // Fetan: plays up to ~2 minutes (~22 balls at 5.33s/ball) unless human is close to winning
+      const fetanReached2Minutes = isFetan && (updatedDrawn.length >= 22 || elapsedMs >= 2 * 60 * 1000);
+      // Special: plays up to ~8 minutes (~48 balls at 9.6s/ball) unless human is close to winning
+      const specialReached8Minutes = isSpecial && (updatedDrawn.length >= 48 || elapsedMs >= 8 * 60 * 1000);
+      // Weekend: plays 6–7 minutes (~46 balls at 8s/ball) unless human is close to winning
+      const weekendReached6to7Minutes = isWeekend && (updatedDrawn.length >= 46 || elapsedMs >= 6 * 60 * 1000);
 
-      const forceNow = humanCloseToWin || specialReached8Minutes || weekendReached6Minutes || (!isSpecial && !isWeekend && humanPresent && updatedDrawn.length >= (isFetan ? 11 : 11));
+      const forceNow = humanCloseToWin || fetanReached2Minutes || specialReached8Minutes || weekendReached6to7Minutes;
       botWinner = await checkAndTriggerBotWin(
         sql,
         { ...game, drawn_numbers: updatedDrawn, current_ball: nextBall },

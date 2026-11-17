@@ -54,8 +54,8 @@ export function isGirlBotUsername(username: string): boolean {
  * Enforces ~75% boy names and ~25% girl names.
  */
 export function generateRealisticBotUsername(index: number, seed: number): string {
-  // 75% boy names, 25% girl names
-  const isBoy = ((index * 37 + Math.abs(seed)) % 100) < 75;
+  // 95% Ethiopian boy names, 5% Ethiopian girl names (as requested: most of the time almost all boys)
+  const isBoy = ((index * 37 + Math.abs(seed)) % 100) < 95;
   const nameBase = isBoy
     ? ETHIOPIAN_BOY_NAMES[(index * 13 + Math.abs(seed % 97)) % ETHIOPIAN_BOY_NAMES.length].toLowerCase()
     : ETHIOPIAN_GIRL_NAMES[(index * 17 + Math.abs(seed % 53)) % ETHIOPIAN_GIRL_NAMES.length].toLowerCase();
@@ -179,7 +179,10 @@ export function getEthiopianHour(): number {
  *   - Special: 800..950 players
  * - Weekend: scheduled games (no morning/afternoon split) - starting 700 up to 1300 players
  */
-export function getBotCountForGame(gameId: string, category?: string, roundSeed?: number): number {
+export function getBotCountForGame(gameId: string, category?: string, roundSeed?: number, customCount?: number | null): number {
+  if (typeof customCount === 'number' && customCount > 0) {
+    return customCount;
+  }
   const seed = Math.abs(roundSeed ?? (Math.floor(Date.now() / 60000) * 17 + hashString(gameId)));
   const isFetan = category === 'HYPER_FETAN' || gameId.includes('fetan');
   const isSpecial = category === 'HYPER_SPECIAL' || gameId.includes('special');
@@ -188,34 +191,33 @@ export function getBotCountForGame(gameId: string, category?: string, roundSeed?
   const isNight = hour >= 0 && hour < 6; // 12:00 AM midnight to 6:00 AM (sleeping hours)
   const isMorning = hour >= 6 && hour < 13; // 6:00 AM to 1:00 PM (lunch time)
 
+  // Default bot player count reduced by 60% based on time division in each game:
   if (isFetan) {
     if (isNight) {
-      return 25 + (seed % 26); // 25..50 players (small during sleeping hours)
+      return 10 + (seed % 11); // 10..20 players (was 25..50 reduced by 60%)
     } else if (isMorning) {
-      return 150 + (seed % 51); // 150..200 players
+      return 60 + (seed % 21); // 60..80 players (was 150..200 reduced by 60%)
     } else {
-      return 250 + (seed % 81); // 250..330 players (up to 300 and more)
+      return 100 + (seed % 33); // 100..132 players (was 250..330 reduced by 60%)
     }
   }
 
   if (isSpecial) {
     if (isNight) {
-      return 75 + (seed % 56); // 75..130 players (smaller during sleeping hours)
+      return 30 + (seed % 23); // 30..52 players (was 75..130 reduced by 60%)
     } else if (isMorning) {
-      return 680 + (seed % 121); // 680..800 players
+      return 272 + (seed % 49); // 272..320 players (was 680..800 reduced by 60%)
     } else {
-      return 800 + (seed % 151); // 800..950 players (~800 average)
+      return 320 + (seed % 61); // 320..380 players (was 800..950 reduced by 60%)
     }
   }
 
   if (isWeekend) {
-    // Weekend games are scheduled events at 3:00 PM (9:00 Ethiopia clock time).
-    // Starting 700 up to 1300 players per scheduled game.
     const weekendSeed = Math.abs(hashString(gameId) + (roundSeed ? Math.floor(roundSeed / 86400000) : 0));
-    return 700 + (weekendSeed % 601); // 700..1300 players
+    return 280 + (weekendSeed % 241); // 280..520 players (was 700..1300 reduced by 60%)
   }
 
-  return 25 + (seed % 26);
+  return 10 + (seed % 11);
 }
 
 export interface BotCardInfo {
@@ -342,8 +344,9 @@ export function getTargetWinningBall(
   const isWeekend = category === 'HYPER_WEEKEND' || gameId.includes('weekend');
 
   if (isFetan) {
-    // Hyper Fetan: win ball called 15–20
-    return 15 + (seed % 6); // 15..20
+    // Hyper Fetan: plays up to ~2 minutes if no human is close to winning!
+    // With 5.33s ball draw interval, 2 minutes is 120s / 5.33s ≈ 22.5 balls.
+    return 22 + (seed % 4); // 22..25 balls (~2 minutes)
   }
   if (isSpecial) {
     // Hyper Special: plays for about 8 minutes if no human is close to winning!
@@ -352,10 +355,9 @@ export function getTargetWinningBall(
     return 48 + (seed % 4);
   }
   if (isWeekend) {
-    // Hyper Weekend: plays for about 6 minutes if no human is close to winning!
-    // With 8s ball draw interval, 6 minutes is 360 seconds / 8s = 45 balls.
-    // Target ball called around 45..48 balls (~6 minutes).
-    return 45 + (seed % 4); // 45..48
+    // Hyper Weekend: plays for 6–7 minutes if no human is close to winning!
+    // With 8s ball draw interval, 6-7 minutes is 360-420 seconds / 8s = 45-52 balls.
+    return 46 + (seed % 6); // 46..51 balls (~6 to 7 minutes)
   }
   return 15 + (seed % 6);
 }
@@ -506,39 +508,11 @@ export async function checkAndTriggerBotWin(
       return null;
     }
 
-    // If drawn balls haven't reached the target winning ball yet, check if any human
-    // players exist in the game — if so, use a stricter (earlier) threshold to ensure
-    // bot always wins before a human can complete a pattern.
+    // If drawn balls haven't reached the target winning ball yet, continue playing
+    // (Fetan: ~2 min, Special: ~8 min, Weekend: ~6-7 min) UNLESS forced immediately
+    // because a human player is 1 away or completed a pattern (human can never win!).
     if (!forceImmediate && drawnNumbers.length < targetBall) {
-      // Check if any human cards exist in this game
-      try {
-        const humanRows = await sql`
-          SELECT COUNT(*)::int AS count FROM game_cards
-          WHERE game_id = ${game.id} AND user_id NOT LIKE 'bot_%'
-        `;
-        const humanCount = humanRows[0]?.count ?? 0;
-        if (humanCount > 0) {
-          // In Hyper Special: continue playing without showing a winner until about 8 minutes (~48-51 balls)
-          // unless a human is close to winning (which passes forceImmediate=true).
-          if (isSpecialGame) {
-            return null;
-          }
-          // In Hyper Weekend: continue playing without showing a winner until about 6 minutes (~45-48 balls)
-          // unless a human is close to winning (which passes forceImmediate=true).
-          if (isWeekendGame) {
-            return null;
-          }
-          // Humans present in Fetan — bot MUST win before human can complete a pattern!
-          const safeThreshold = isFetanGame ? 11 : 11;
-          if (drawnNumbers.length < safeThreshold) return null;
-          // Fall through to trigger bot win at reduced threshold
-        } else {
-          // No humans — keep standard targetBall threshold
-          return null;
-        }
-      } catch {
-        return null;
-      }
+      return null;
     }
 
     // Fetch bot cards for this game
@@ -577,9 +551,9 @@ export async function checkAndTriggerBotWin(
       }
     }
 
-    // Determine target winner gender: ~75% boys, ~25% girls (mixed, but mostly boys as requested)
+    // Determine target winner gender: 95% boys, 5% girls (as requested: almost all boys)
     const seedNum = Math.abs(hashString(String(roundStartedAt) + '_winner'));
-    const wantsBoy = (seedNum % 100) < 75;
+    const wantsBoy = (seedNum % 100) < 95;
 
     let pool = wantsBoy && boyBots.length > 0 ? boyBots : (girlBots.length > 0 ? girlBots : botRows);
     if (!wantsBoy && girlBots.length > 0) {
@@ -587,8 +561,9 @@ export async function checkAndTriggerBotWin(
     }
     const winningBot = pool[seedNum % pool.length];
 
-    // Calculate total prize pool
-    const targetBotCount = getBotCountForGame(game.id, category, roundStartedAt);
+    // Calculate total prize pool (Derash) based on custom bot count or 60% reduced time-division count
+    const customCount = game.custom_bot_count ? Number(game.custom_bot_count) : null;
+    const targetBotCount = getBotCountForGame(game.id, category, roundStartedAt, customCount);
     const totalPlayers = Math.max(botRows.length, Number(game.current_players || 0), targetBotCount);
     const entryPrice = parseFloat(String(game.entry_price || '10'));
     const isWeekend = category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY';
@@ -657,24 +632,61 @@ export async function checkAndTriggerBotWin(
     const rawName = String(winningBot.username || '').replace(/^@?bot_/i, '').replace(/^@?bot/i, '').trim();
     const cleanUsername = rawName || generateRealisticBotUsername(seedNum % 300, seedNum);
 
-    const botWinner: WinnerRecord = sanitizeWinnerForDisplay({
-      userId: formatDisplayPlayerId(winningBot.user_id),
-      username: cleanUsername,
-      cardNumber: winningBot.card_number,
-      winningBall: winningBallToUse,
-      pattern,
-      prizeWon,
-      claimedAt: new Date().toISOString(),
-    });
+    // Shared win support: Every ~10 game rounds (10% chance), two bot players win at the same time and split Derash
+    const isSharedWin = (seedNum % 10) === 0 && pool.length >= 2;
+    let winnersList: WinnerRecord[] = [];
 
-    // Update game status to COMPLETED, append bot winner, and ensure drawn_numbers includes winning numbers
+    if (isSharedWin) {
+      const splitPrize1 = Math.floor(prizeWon / 2);
+      const splitPrize2 = prizeWon - splitPrize1;
+
+      const secondBot = pool[(seedNum + 1) % pool.length];
+      const rawName2 = String(secondBot.username || '').replace(/^@?bot_/i, '').replace(/^@?bot/i, '').trim();
+      const cleanUsername2 = rawName2 || generateRealisticBotUsername((seedNum + 7) % 300, seedNum + 7);
+
+      const botWinner1: WinnerRecord = sanitizeWinnerForDisplay({
+        userId: formatDisplayPlayerId(winningBot.user_id),
+        username: cleanUsername,
+        cardNumber: winningBot.card_number,
+        winningBall: winningBallToUse,
+        pattern,
+        prizeWon: splitPrize1,
+        claimedAt: new Date().toISOString(),
+      });
+
+      const botWinner2: WinnerRecord = sanitizeWinnerForDisplay({
+        userId: formatDisplayPlayerId(secondBot.user_id),
+        username: cleanUsername2,
+        cardNumber: secondBot.card_number,
+        winningBall: winningBallToUse,
+        pattern,
+        prizeWon: splitPrize2,
+        claimedAt: new Date().toISOString(),
+      });
+
+      winnersList = [botWinner1, botWinner2];
+    } else {
+      const botWinner: WinnerRecord = sanitizeWinnerForDisplay({
+        userId: formatDisplayPlayerId(winningBot.user_id),
+        username: cleanUsername,
+        cardNumber: winningBot.card_number,
+        winningBall: winningBallToUse,
+        pattern,
+        prizeWon,
+        claimedAt: new Date().toISOString(),
+      });
+      winnersList = [botWinner];
+    }
+
+    // Update game status to COMPLETED, append bot winner(s), and ensure drawn_numbers includes winning numbers
     const winnerRows = await sql`
       UPDATE games
       SET
         status = ${isWeekendGame ? 'RUNNING' : 'COMPLETED'},
-        winners = ${JSON.stringify([botWinner])}::jsonb,
+        winners = ${JSON.stringify(winnersList)}::jsonb,
         drawn_numbers = ${`{${finalDrawnNumbers.join(',')}}`}::int4[],
         current_ball = ${winningBallToUse},
+        prize_pool = ${prizeWon},
         updated_at = NOW()
       WHERE id = ${game.id} AND status = 'RUNNING' AND (winners = '[]'::jsonb OR winners IS NULL)
       RETURNING id
@@ -684,7 +696,7 @@ export async function checkAndTriggerBotWin(
     // winner. This prevents duplicate Telegram announcements from overlapping polls.
     if (winnerRows.length === 0) return null;
 
-    return botWinner;
+    return winnersList[0];
   } catch (err) {
     console.error(`[checkAndTriggerBotWin] Error triggering bot win for ${game.id}:`, err);
     return null;

@@ -272,7 +272,19 @@ export async function initDatabaseSchema() {
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS weekend_round_key VARCHAR(32)`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS draw_interval INTEGER DEFAULT 3`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS last_ball_drawn_at TIMESTAMPTZ`;
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS custom_bot_count INTEGER`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`;
+    } catch {}
+
+    // 6bb. Bot Settings Table (stores admin custom bot player counts per game category)
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS bot_settings (
+          category VARCHAR(64) PRIMARY KEY,
+          custom_bot_count INTEGER,
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `;
     } catch {}
     // Keep this essential draw-timing column outside the best-effort block so
     // failures are visible and older deployments are upgraded reliably.

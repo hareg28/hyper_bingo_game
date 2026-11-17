@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
-import { FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getNextWeekendDrawAt, getWeekendRoundKey, getWeekendScheduledStartAt, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
+import { computeWeekendPrizePool, FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getNextWeekendDrawAt, getWeekendRoundKey, getWeekendScheduledStartAt, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
 import { ensureBotPlayersInDb, checkAndTriggerBotWin, getBotCountForGame, getInitialBotSoldCardNumbers, formatDisplayPlayerId, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
 import { notifyUsersTelegram } from '@/lib/adminNotifications';
 
@@ -510,15 +510,31 @@ export async function GET() {
       // Gracefully ignore if table empty or not yet migrated
     }
 
+    // Load custom bot settings from database (admin overrides per category)
+    let botSettingsMap: Record<string, number> = {};
+    try {
+      const bsRows = await sql`
+        SELECT category, custom_bot_count FROM bot_settings
+        WHERE custom_bot_count IS NOT NULL AND custom_bot_count > 0
+      `;
+      for (const bs of bsRows) {
+        botSettingsMap[String(bs.category)] = Number(bs.custom_bot_count);
+      }
+    } catch {}
+
     const games = rows.map((r: any) => {
       const id = String(r.id);
       const isFetan = id.includes('fetan');
       const isSpecial = id.includes('special');
       const isWeekend = id.includes('weekend');
+      const categoryKey = String(r.category || r.game_type || '');
+      const customOverride = botSettingsMap[categoryKey] ?? (r.custom_bot_count ? Number(r.custom_bot_count) : null);
+
       const targetBotCount = getBotCountForGame(
         r.id,
         r.category || r.game_type,
-        r.round_started_at ? new Date(r.round_started_at).getTime() : undefined
+        r.round_started_at ? new Date(r.round_started_at).getTime() : undefined,
+        customOverride
       );
       const allBotCards = getInitialBotSoldCardNumbers(r.id, r.category || r.game_type);
 
@@ -553,6 +569,11 @@ export async function GET() {
       const visibleBotCards = allBotCards.slice(0, Math.min(visibleBotCount, allBotCards.length));
       const humanCount = humanPaidCardCountsByGame[r.id] || 0;
       const currentPlayers = humanCount + visibleBotCount;
+      const entryPriceNum = parseFloat(r.entry_price || '10');
+      // Live Derash (Prize Pool) calculates based on current active players (derived from bot count + human entries)
+      const livePrizePool = isWeekend
+        ? computeWeekendPrizePool(entryPriceNum, currentPlayers)
+        : Math.round(currentPlayers * entryPriceNum * 0.80);
 
       return {
         id: r.id,
@@ -570,8 +591,8 @@ export async function GET() {
         activeSpecialRuleIndex: parseInt(r.active_special_rule_index ?? '0', 10),
         nextRoundStartsAt: r.next_round_starts_at ? Number(r.next_round_starts_at) : undefined,
         weekendRoundKey: r.weekend_round_key || undefined,
-        entryPrice: parseFloat(r.entry_price),
-        prizePool: parseFloat(r.prize_pool),
+        entryPrice: entryPriceNum,
+        prizePool: livePrizePool,
         drawInterval: parseInt(r.draw_interval ?? '3', 10),
         soldCards: Array.from(new Set([
           ...(humanSoldCardsByGame[r.id] || []),

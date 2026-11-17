@@ -1980,9 +1980,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 {language === 'am' ? '🎉 ቢንጎ አሸናፊ ይፋ ሆነ!' : '🎉 BINGO WINNER ANNOUNCED!'}
               </div>
               <div className="text-xs font-black truncate leading-tight">
-                {language === 'am'
-                  ? `አሸናፊ: @${currentGame.winners[currentGame.winners.length - 1].username} · የካርድ ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)} አሸንፏል!`
-                  : `Winner: @${currentGame.winners[currentGame.winners.length - 1].username} · Card ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — WON ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)}!`}
+                {currentGame.winners.length >= 2
+                  ? (language === 'am'
+                    ? `2 የጋራ አሸናፊዎች: @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} እና @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (${formatETB(currentGame.winners[0].prizeWon)} እያንዳንዳቸው)!`
+                    : `2 Shared Winners: @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (${formatETB(currentGame.winners[0].prizeWon)} each)!`)
+                  : (language === 'am'
+                    ? `አሸናፊ: @${currentGame.winners[currentGame.winners.length - 1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} · የካርድ ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)} አሸንፏል!`
+                    : `Winner: @${currentGame.winners[currentGame.winners.length - 1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} · Card ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — WON ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)}!`)}
               </div>
             </div>
           </div>
@@ -3036,42 +3040,96 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               🏆
             </div>
 
-            <div className="space-y-1">
-              <h3 className="text-xs font-black tracking-widest uppercase text-amber-400">
-                {language === 'am' ? '🎉 ቢንጎ አሸናፊ ይፋ ሆነ! 🎉' : '🎉 BINGO WINNER ANNOUNCED! 🎉'}
-              </h3>
-              <p className="text-2xl font-black text-white tracking-wide">
-                @{latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
-              </p>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-black">
-                <span>{language === 'am' ? 'የተጠቃሚ ID ቁጥር' : 'Winner ID #'}:</span>
-                <span className="text-white">#{latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)}</span>
+            {currentGame.winners.length >= 2 ? (
+              <div className="space-y-2">
+                <h3 className="text-xs font-black tracking-widest uppercase text-amber-400">
+                  {language === 'am' ? '🎉 2 ቢንጎ አሸናፊዎች (የጋራ ድል)! 🎉' : '🎉 2 BINGO WINNERS (SHARED DERASH)! 🎉'}
+                </h3>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-black">
+                  <span>{language === 'am' ? 'ደራሽ በእኩል ተካፍሏል' : 'Derash Split 50% / 50%'}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-left pt-1">
+                  {currentGame.winners.slice(0, 2).map((w, idx) => (
+                    <div key={idx} className="bg-white/10 rounded-2xl p-2.5 border border-white/15 space-y-1">
+                      <div className="text-[10px] text-amber-300 font-bold uppercase">
+                        {language === 'am' ? `አሸናፊ #${idx + 1}` : `Winner #${idx + 1}`}
+                      </div>
+                      <div className="font-black text-white text-xs truncate">
+                        @{w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
+                      </div>
+                      <div className="text-[10px] text-slate-300 font-mono">
+                        Card #{w.cardNumber}
+                      </div>
+                      <div className="font-black text-emerald-400 text-xs">
+                        {formatETB(w.prizeWon)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-1">
+                <h3 className="text-xs font-black tracking-widest uppercase text-amber-400">
+                  {language === 'am' ? '🎉 ቢንጎ አሸናፊ ይፋ ሆነ! 🎉' : '🎉 BINGO WINNER ANNOUNCED! 🎉'}
+                </h3>
+                <p className="text-2xl font-black text-white tracking-wide">
+                  @{latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
+                </p>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-black">
+                  <span>{language === 'am' ? 'የተጠቃሚ ID ቁጥር' : 'Winner ID #'}:</span>
+                  <span className="text-white">#{latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)}</span>
+                </div>
+              </div>
+            )}
 
             <div className="bg-white/10 rounded-2xl p-3.5 border border-white/15 space-y-2.5 text-left">
-              <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጠቃሚ ስም (Username):' : 'Username:'}</span>
-                <span className="font-black text-amber-300 text-sm">@{latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                <span className="text-slate-300 font-bold">{language === 'am' ? 'የካርድ ID ቁጥር (Card ID #):' : 'Card ID #:'}</span>
-                <span className="font-mono font-black text-amber-300 text-base">
-                  #{latestWinner.cardNumber || ''}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጫዋች ID (Player ID):' : 'Player ID:'}</span>
-                <span className="font-mono text-xs text-slate-300">
-                  {(() => { const pid = formatDisplayPlayerId(latestWinner.userId); return pid.startsWith('bot_') ? formatDisplayPlayerId('bot_' + pid) : pid; })()}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                <span className="text-slate-300 font-bold">{language === 'am' ? 'የተሸለመው ገንዘብ:' : 'Prize Won:'}</span>
-                <span className="font-black text-emerald-400 text-base">
-                  {formatETB(latestWinner.prizeWon)}
-                </span>
-              </div>
+              {currentGame.winners.length >= 2 ? (
+                <>
+                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                    <span className="text-slate-300 font-bold">{language === 'am' ? 'አሸናፊዎች (Winners):' : 'Winners:'}</span>
+                    <span className="font-black text-amber-300 text-xs">
+                      @{currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @{currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                    <span className="text-slate-300 font-bold">{language === 'am' ? 'የካርድ ID ቁጥሮች:' : 'Card IDs:'}</span>
+                    <span className="font-mono font-black text-amber-300 text-xs">
+                      #{currentGame.winners[0].cardNumber} & #{currentGame.winners[1].cardNumber}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                    <span className="text-slate-300 font-bold">{language === 'am' ? 'የእያንዳንዱ ሽልማት:' : 'Each Prize (50%):'}</span>
+                    <span className="font-black text-emerald-400 text-sm">
+                      {formatETB(currentGame.winners[0].prizeWon)} ({formatETB(currentGame.winners[0].prizeWon * 2)} Total)
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                    <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጠቃሚ ስም (Username):' : 'Username:'}</span>
+                    <span className="font-black text-amber-300 text-sm">@{latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                    <span className="text-slate-300 font-bold">{language === 'am' ? 'የካርድ ID ቁጥር (Card ID #):' : 'Card ID #:'}</span>
+                    <span className="font-mono font-black text-amber-300 text-base">
+                      #{latestWinner.cardNumber || ''}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                    <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጫዋች ID (Player ID):' : 'Player ID:'}</span>
+                    <span className="font-mono text-xs text-slate-300">
+                      {(() => { const pid = formatDisplayPlayerId(latestWinner.userId); return pid.startsWith('bot_') ? formatDisplayPlayerId('bot_' + pid) : pid; })()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                    <span className="text-slate-300 font-bold">{language === 'am' ? 'የተሸለመው ገንዘብ:' : 'Prize Won:'}</span>
+                    <span className="font-black text-emerald-400 text-base">
+                      {formatETB(latestWinner.prizeWon)}
+                    </span>
+                  </div>
+                </>
+              )}
               <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                 <span className="text-slate-300 font-bold">{language === 'am' ? 'ያሸነፈበት ኳስ:' : 'Winning Ball:'}</span>
                 <span className="font-black text-amber-400 text-sm">
