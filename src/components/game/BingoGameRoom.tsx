@@ -2917,32 +2917,71 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           ruleCategory = 'SPECIAL';
         }
 
-        // If pattern cells couldn't be detected from markedGrid (e.g. forced bot victory), resolve exact cells
+        // If pattern cells couldn't be detected from markedGrid (e.g. forced bot victory or stale state),
+        // resolve exact cells using smarter fallback: prefer the column/row with the most drawn numbers,
+        // using winning ball location as the primary hint.
         if (patternCells.length === 0) {
           const winBall = Number(latestWinner.winningBall);
           if (ruleCategory === 'VERTICAL') {
-            let targetCol = 2; // Column N (has FREE) by default
+            // First try: find the column that contains the winning ball
+            let targetCol = -1;
             for (let c = 0; c < 5; c++) {
               if ([0, 1, 2, 3, 4].some((r) => winningGrid[r]?.[c] === winBall)) {
                 targetCol = c;
                 break;
               }
             }
+            // Second try: pick the column with the most drawn numbers on this card
+            if (targetCol === -1) {
+              let maxDrawn = -1;
+              for (let c = 0; c < 5; c++) {
+                const colNums = [0, 1, 2, 3, 4]
+                  .filter((r) => !(r === 2 && c === 2))
+                  .map((r) => winningGrid[r]?.[c] ?? 0);
+                const drawn = colNums.filter((n) => n > 0 && drawnSet.has(n)).length;
+                if (drawn > maxDrawn) { maxDrawn = drawn; targetCol = c; }
+              }
+            }
+            if (targetCol === -1) targetCol = 2; // fallback: N column (has FREE)
             patternCells = [0, 1, 2, 3, 4].map((r) => [r, targetCol] as [number, number]);
           } else if (ruleCategory === 'HORIZONTAL') {
-            let targetRow = 2; // Row 2 (has FREE) by default
+            // First try: find the row that contains the winning ball
+            let targetRow = -1;
             for (let r = 0; r < 5; r++) {
               if ([0, 1, 2, 3, 4].some((c) => winningGrid[r]?.[c] === winBall)) {
                 targetRow = r;
                 break;
               }
             }
+            // Second try: pick the row with the most drawn numbers on this card
+            if (targetRow === -1) {
+              let maxDrawn = -1;
+              for (let r = 0; r < 5; r++) {
+                const rowNums = [0, 1, 2, 3, 4]
+                  .filter((c) => !(r === 2 && c === 2))
+                  .map((c) => winningGrid[r]?.[c] ?? 0);
+                const drawn = rowNums.filter((n) => n > 0 && drawnSet.has(n)).length;
+                if (drawn > maxDrawn) { maxDrawn = drawn; targetRow = r; }
+              }
+            }
+            if (targetRow === -1) targetRow = 2; // fallback: middle row (has FREE)
             patternCells = [0, 1, 2, 3, 4].map((c) => [targetRow, c] as [number, number]);
           } else if (ruleCategory === 'DIAGONAL') {
-            const diag2Has = [0, 1, 2, 3, 4].some((i) => winningGrid[i]?.[4 - i] === winBall);
-            patternCells = diag2Has
-              ? [0, 1, 2, 3, 4].map((i) => [i, 4 - i] as [number, number])
-              : [0, 1, 2, 3, 4].map((i) => [i, i] as [number, number]);
+            // Check which diagonal contains the winning ball (or has more drawn numbers)
+            const d1Has = [0, 1, 2, 3, 4].some((i) => winningGrid[i]?.[i] === winBall);
+            const d2Has = [0, 1, 2, 3, 4].some((i) => winningGrid[i]?.[4 - i] === winBall);
+            if (d1Has) {
+              patternCells = [0, 1, 2, 3, 4].map((i) => [i, i] as [number, number]);
+            } else if (d2Has) {
+              patternCells = [0, 1, 2, 3, 4].map((i) => [i, 4 - i] as [number, number]);
+            } else {
+              // Pick diagonal with most drawn numbers
+              const d1Drawn = [0, 1, 3, 4].filter((i) => drawnSet.has(winningGrid[i]?.[i])).length;
+              const d2Drawn = [0, 1, 3, 4].filter((i) => drawnSet.has(winningGrid[i]?.[4 - i])).length;
+              patternCells = d2Drawn > d1Drawn
+                ? [0, 1, 2, 3, 4].map((i) => [i, 4 - i] as [number, number])
+                : [0, 1, 2, 3, 4].map((i) => [i, i] as [number, number]);
+            }
           } else if (ruleCategory === 'CORNERS') {
             patternCells = [[0, 0], [0, 4], [4, 0], [4, 4]];
           } else if (ruleCategory === 'FULL_HOUSE') {
@@ -3176,13 +3215,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     <span className="text-emerald-400">G</span>
                     <span className="text-rose-400">O</span>
                   </div>
-                  {/* 5x5 Grid Cells */}
+                  {/* 5x5 Grid Cells — only pattern cells get the winning color; non-pattern cells are plain dark */}
                   <div className="grid grid-cols-5 gap-0.5">
                     {winningGrid.map((row, rIdx) =>
                       row.map((val, cIdx) => {
                         const isFree = rIdx === 2 && cIdx === 2;
                         const isPatternCell = patternCellSet.has(`${rIdx}-${cIdx}`);
-                        const isDrawn = !isFree && (drawnSet.has(val) || isPatternCell);
                         return (
                           <div
                             key={`win-board-cell-${rIdx}-${cIdx}`}
@@ -3191,8 +3229,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                                 ? (isFree ? ruleTheme.freeClass : ruleTheme.cellClass)
                                 : isFree
                                 ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white ring-1 ring-emerald-400'
-                                : isDrawn
-                                ? 'bg-slate-700/60 text-slate-300 border border-slate-600/50'
                                 : 'bg-slate-800/80 text-slate-500 border border-slate-700/40'
                             }`}
                           >
