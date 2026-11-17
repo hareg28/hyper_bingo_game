@@ -2,15 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useBingo } from '../../context/BingoContext';
-import { 
-  Volume2, VolumeX, Sparkles, Zap, 
+import {
+  Volume2, VolumeX, Sparkles, Zap,
   Plus, Star, Hash, Lightbulb, X, Grid, ChevronLeft,
   Undo2, Redo2, Settings, Menu, ShieldAlert, Trophy,
   Trash2, Maximize2, Users, AlertTriangle, Eye, Wallet, CheckCircle2, CreditCard
 } from 'lucide-react';
-import { 
-  formatETB, 
-  checkFullHouseWin, 
+import {
+  formatETB,
+  checkFullHouseWin,
   checkFourCornersWin,
   countRemainingNumbers,
   playBingoVictoryFanfare,
@@ -191,11 +191,11 @@ interface BingoGameRoomProps {
 }
 
 export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLotteryTab, onOpenWalletTab }: BingoGameRoomProps) {
-  const { 
-    games, 
-    userCards, 
-    daubCell, 
-    claimBingo, 
+  const {
+    games,
+    userCards,
+    daubCell,
+    claimBingo,
     blockCard,
     resetGameRound,
     joinGame,
@@ -313,7 +313,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       if (hidden) {
         audioManager.pause(); // stops audio + suspends AudioContext
         // Also cancel any stacked SpeechSynthesis utterances
-        try { window.speechSynthesis?.cancel(); } catch {}
+        try { window.speechSynthesis?.cancel(); } catch { }
       } else {
         setCurrentTime(formatEthiopiaTime());
         audioManager.resume(); // wakes AudioContext back up
@@ -336,17 +336,17 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           setLoadedVoices(arr);
           recheckVoiceHealth(arr);
         }
-      } catch {}
+      } catch { }
     };
     // Immediate first attempt (some browsers populate before event)
     refreshVoices();
     // Wait for async voice list load (Chrome/Safari/Firefox all fire onvoiceschanged)
     try {
       window.speechSynthesis.onvoiceschanged = refreshVoices;
-    } catch {}
+    } catch { }
     return () => {
       cancelled = true;
-      try { window.speechSynthesis.onvoiceschanged = null; } catch {}
+      try { window.speechSynthesis.onvoiceschanged = null; } catch { }
     };
   }, [recheckVoiceHealth]);
   // Trigger an extra voices refresh the moment user toggles sound ON (some browsers lazy-load until a user gesture)
@@ -361,7 +361,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         recheckVoiceHealth(arr);
       }
       window.speechSynthesis.cancel();
-    } catch {}
+    } catch { }
   }, [soundEnabled, recheckVoiceHealth]);
   const currentGame = games.find((g) => g.id === gameId) || games[0];
   useEffect(() => {
@@ -372,7 +372,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gameId: currentGame.id, userId: user.id }),
-      }).catch(() => {});
+      }).catch(() => { });
     };
     const unsubscribe = subscribeToMiniAppActivity((active) => {
       if (active) heartbeat();
@@ -418,9 +418,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
 
   // Active card (kept for handlers, but UI now shows ALL cards)
-  const activeUserCard = 
-    activeGameCards.find((c) => c.id === selectedCardId) || 
-    activeGameCards[0] || 
+  const activeUserCard =
+    activeGameCards.find((c) => c.id === selectedCardId) ||
+    activeGameCards[0] ||
     userCards[0];
 
   const isUserAdmin = Boolean(
@@ -456,7 +456,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     const phWord = numberToPhonetic(num);
 
     // Cancel any stale utterance
-    try { window.speechSynthesis.cancel(); } catch {}
+    try { window.speechSynthesis.cancel(); } catch { }
 
     // Use cached voices (avoids expensive getVoices() on every ball draw = mobile perf fix)
     let voices: SpeechSynthesisVoice[] = loadedVoices;
@@ -514,17 +514,17 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     utter.volume = 1.0;
 
     const reapplyTune = () => {
-      try { utter.rate = 1.15; } catch {}
-      try { utter.pitch = 2.0; } catch {}
-      try { utter.volume = 1.0; } catch {}
-      try { if (picked) utter.voice = picked; } catch {}
+      try { utter.rate = 1.15; } catch { }
+      try { utter.pitch = 2.0; } catch { }
+      try { utter.volume = 1.0; } catch { }
+      try { if (picked) utter.voice = picked; } catch { }
       try {
         if (pickedAmharic) utter.lang = 'am-ET';
         else utter.lang = /^en/.test(lower(picked?.lang || '')) ? (picked?.lang || 'en-US') : 'en-US';
-      } catch {}
+      } catch { }
     };
-    try { utter.onstart    = reapplyTune; } catch {}
-    try { utter.onboundary = reapplyTune; } catch {}
+    try { utter.onstart = reapplyTune; } catch { }
+    try { utter.onboundary = reapplyTune; } catch { }
     setTimeout(reapplyTune, 0);
 
     setTimeout(() => {
@@ -546,10 +546,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             if (fresh) { picked = fresh; pickedAmharic = false; }
           }
         }
-        if (picked) { try { utter.voice = picked; } catch {} }
-      } catch {}
+        if (picked) { try { utter.voice = picked; } catch { } }
+      } catch { }
       reapplyTune();
-      try { window.speechSynthesis.speak(utter); } catch {}
+      try { window.speechSynthesis.speak(utter); } catch { }
     }, 25);
   };
 
@@ -804,8 +804,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     const effectiveRuleType = isFetan
       ? 'ONE_LINE_OR_CORNERS'
       : isWeekend
-      ? 'FULL_HOUSE_ONLY'
-      : currentGame.winningRule;
+        ? 'FULL_HOUSE_ONLY'
+        : currentGame.winningRule;
 
     for (const card of activeGameCards) {
       if (currentGame.blockedCards?.includes(card.cardNumber)) continue;
@@ -840,7 +840,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             prizeWon: 0,
             winningBall: currentGame.currentBall || (currentGame.drawnNumbers?.[currentGame.drawnNumbers.length - 1]) || 75,
           }),
-        }).catch(() => {});
+        }).catch(() => { });
         break;
       }
     }
@@ -923,8 +923,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         return {
           isHit: false,
           hitTitle: isAm ? '🎯 የሚያስፈልገው: 1 አግድም፣ 1 ቀጥታ (Vertical)፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '🎯 Win Condition: 1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners',
-          hitDetail: isAm 
-            ? 'ለመጫወት ካርታ ይምረጡ (ከ1-500 እስከ 5 ካርዶች)። ለማሸነፍ ማንኛውም 1 መስመር (አግድም፣ ቀጥታ፣ ዲያጎናል) ወይም አራቱ ማዕዘናት ያስፈልጋል።' 
+          hitDetail: isAm
+            ? 'ለመጫወት ካርታ ይምረጡ (ከ1-500 እስከ 5 ካርዶች)። ለማሸነፍ ማንኛውም 1 መስመር (አግድም፣ ቀጥታ፣ ዲያጎናል) ወይም አራቱ ማዕዘናት ያስፈልጋል።'
             : 'Pick cards (1–500, up to 5 slots) to enter. Complete any 1 line (Row, Col, Diagonal) or 4 Corners to win!',
           progressText: isAm ? '5 ክፍተቶች' : '5 Slots',
           neededNumber: null,
@@ -934,8 +934,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         return {
           isHit: false,
           hitTitle: isAm ? '🏆 የሚያስፈልገው: ሙሉ ቤት ብቻ (Full House Only)' : '🏆 Win Condition: Full House Only',
-          hitDetail: isAm 
-            ? 'ለመጫወት ካርታ ይምረጡ። በካርዱ ላይ ያሉትን ሁሉንም 24 ቁጥሮች ምልክት በማድረግ ሜጋ ጃክፖት ያሸንፉ!' 
+          hitDetail: isAm
+            ? 'ለመጫወት ካርታ ይምረጡ። በካርዱ ላይ ያሉትን ሁሉንም 24 ቁጥሮች ምልክት በማድረግ ሜጋ ጃክፖት ያሸንፉ!'
             : 'Pick cards to enter. Every cell on the card must be marked to claim Full House jackpot!',
           progressText: isAm ? 'ሙሉ ቤት' : 'Full House',
           neededNumber: null,
@@ -957,8 +957,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     const effectiveRuleType = isFetan
       ? 'ONE_LINE_OR_CORNERS'
       : isWeekend
-      ? 'FULL_HOUSE_ONLY'
-      : currentGame.winningRule;
+        ? 'FULL_HOUSE_ONLY'
+        : currentGame.winningRule;
 
     for (const card of activeGameCards) {
       const cardEffectiveMarked = (card.numbers || []).map((row, rIdx) =>
@@ -981,7 +981,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       );
       return getGameHitRequirement(firstCardEffectiveMarked, firstCard.numbers || [], effectiveRuleType, language, currentGame.activeSpecialRuleIndex);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeGameCards, currentGame.winningRule, currentGame.activeSpecialRuleIndex, currentGame.category, language]);
 
   // Automatically trigger Winner Celebration Modal ONLY when a running game genuinely ends with drawn balls
@@ -998,7 +998,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         setShowWinnerModal(true);
         try {
           confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
-        } catch {}
+        } catch { }
       }
     }
   }, [currentGame?.winners?.length, currentGame?.status, currentGame?.drawnNumbers?.length]);
@@ -1267,8 +1267,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     const effectiveRuleType = isFetan
       ? 'ONE_LINE_OR_CORNERS'
       : isWeekend
-      ? 'FULL_HOUSE_ONLY'
-      : currentGame.winningRule;
+        ? 'FULL_HOUSE_ONLY'
+        : currentGame.winningRule;
 
     const effectiveMarked = targetCard.numbers.map((row, rIdx) =>
       row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || targetCard.marked[rIdx][cIdx])
@@ -1285,8 +1285,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       const ruleName = effectiveRuleType === 'ONE_LINE_OR_CORNERS'
         ? (isAm ? '1 አግድም፣ 1 ቀጥታ (Vertical)፣ 1 ዲያጎናል ወይም 4 ማዕዘናት' : '1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners')
         : effectiveRuleType === 'FULL_HOUSE_ONLY'
-        ? (isAm ? 'ሙሉ ቤት (Full House Only)' : 'Full House Only')
-        : (() => {
+          ? (isAm ? 'ሙሉ ቤት (Full House Only)' : 'Full House Only')
+          : (() => {
             const activeRule = HYPER_SPECIAL_RULES[Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
             return isAm ? activeRule.nameAm : activeRule.nameEn;
           })();
@@ -1300,19 +1300,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       return;
     }
 
-    // Human claimed Bingo — strictly enforce bot-only victory
+    // Human claimed Bingo — strictly enforce bot-only victory.
+    // claimBingo() always returns success:false for real users (enforced in
+    // BingoContext AND /api/games/claim). The bot winner comes back via the
+    // server response and is applied asynchronously by the context.
     const result = claimBingo(targetCard.id);
-    setClaimStatus(result);
-
-    if (result.success) {
-      confetti({
-        particleCount: 220,
-        spread: 120,
-        origin: { y: 0.5 },
-        colors: ['#2563eb', '#dc2626', '#f59e0b', '#16a34a', '#9333ea'],
-      });
-      setShowWinnerModal(true);
-    }
+    // Always show the "another player won" message — never credit the human.
+    setClaimStatus({ success: false, message: result.message || 'ይቅርታ! ሌላ ተጫዋች ቀድሞ ቢንጎ ብሏል (Another player already called Bingo first)' });
+    // Guard: even if result.success were somehow true (should never happen),
+    // never open the winner modal for a human player.
+    // showWinnerModal is intentionally NOT set here.
   };
 
   const isFullHouseWin = activeUserCard ? checkFullHouseWin(activeUserCard.marked) : false;
@@ -1400,7 +1397,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // 🔽 SINGLE UNIFIED RENDER (used for both weekend & regular games)
   // =========================================================================
   return (
-    <div 
+    <div
       className="w-full h-full min-h-0 max-w-sm sm:max-w-md mx-auto flex flex-col select-none overflow-hidden"
       style={{ fontFamily: "'Times New Roman', Times, serif" }}
       onClickCapture={() => audioManager.unlockAudio()}
@@ -1439,829 +1436,818 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         )}
 
 
-      <div className="mx-1 rounded-xl border border-slate-300 bg-white px-2 py-0.5 shadow-xs">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-slate-600">
-              {language === 'am' ? 'ሕግ' : 'RULE'}
-              {isSpecialGame && <span className="truncate text-indigo-700">· #{(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} {language === 'am' ? currentSpecialRule.nameAm : currentSpecialRule.nameEn}</span>}
-              <button type="button" onClick={() => setShowGameInfo((visible) => !visible)} aria-expanded={showGameInfo} className="ml-auto shrink-0 text-[8px] font-bold text-rose-600 leading-3">
-                {showGameInfo ? (language === 'am' ? 'ያነሰ አሳይ' : 'Less') : (language === 'am' ? 'ተጨማሪ' : 'More')}
-              </button>
+        <div className="mx-1 rounded-xl border border-slate-300 bg-white px-2 py-0.5 shadow-xs">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-slate-600">
+                {language === 'am' ? 'ሕግ' : 'RULE'}
+                {isSpecialGame && <span className="truncate text-indigo-700">· #{(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} {language === 'am' ? currentSpecialRule.nameAm : currentSpecialRule.nameEn}</span>}
+                <button type="button" onClick={() => setShowGameInfo((visible) => !visible)} aria-expanded={showGameInfo} className="ml-auto shrink-0 text-[8px] font-bold text-rose-600 leading-3">
+                  {showGameInfo ? (language === 'am' ? 'ያነሰ አሳይ' : 'Less') : (language === 'am' ? 'ተጨማሪ' : 'More')}
+                </button>
+              </div>
+              {showGameInfo && <div className="text-[10px] font-bold leading-tight text-slate-950">
+                {language === 'am'
+                  ? isSpecialGame ? currentSpecialRule.descAm : isFetanGame ? 'አንድ ረድፍ፣ አንድ አምድ፣ አንድ ዲያጎናል ወይም 4ቱን ማዕዘኖች ያሟሉ።' : isWeekendGame ? 'ሙሉ ቤት፦ 24ቱን ቁጥሮች እራስዎ ምልክት ያድርጉ።' : dashboardLaw
+                  : dashboardLaw}
+              </div>}
             </div>
-            {showGameInfo && <div className="text-[10px] font-bold leading-tight text-slate-950">
-              {language === 'am'
-                ? isSpecialGame ? currentSpecialRule.descAm : isFetanGame ? 'አንድ ረድፍ፣ አንድ አምድ፣ አንድ ዲያጎናል ወይም 4ቱን ማዕዘኖች ያሟሉ።' : isWeekendGame ? 'ሙሉ ቤት፦ 24ቱን ቁጥሮች እራስዎ ምልክት ያድርጉ።' : dashboardLaw
-                : dashboardLaw}
-            </div>}
+            {(isSpecialGame || isFetanGame || isWeekendGame) && <div className="shrink-0 self-start pt-2 text-right text-[8px] font-bold text-indigo-800">{isWeekendGame
+              ? `${currentGame.weekendDay === 'FRI' ? (language === 'am' ? 'ዓርብ' : 'Friday') : currentGame.weekendDay === 'SAT' ? (language === 'am' ? 'ቅዳሜ' : 'Saturday') : (language === 'am' ? 'እሑድ' : 'Sunday')} · 9:00 ${language === 'am' ? 'የኢትዮጵያ ሰዓት · 10 ደቂቃ ጨዋታ' : 'Ethiopia time · Play 10m'}`
+              : isSpecialGame ? (language === 'am' ? 'Pick 4 · Play 12 ደቂቃ' : 'Pick 4m · Play 12m') : (language === 'am' ? 'Pick 40 ሰከንድ · Play 8 ደቂቃ 45 ሰከንድ' : 'Pick 40s · Play 8m 45s')}</div>}
           </div>
-          {(isSpecialGame || isFetanGame || isWeekendGame) && <div className="shrink-0 self-start pt-2 text-right text-[8px] font-bold text-indigo-800">{isWeekendGame
-            ? `${currentGame.weekendDay === 'FRI' ? (language === 'am' ? 'ዓርብ' : 'Friday') : currentGame.weekendDay === 'SAT' ? (language === 'am' ? 'ቅዳሜ' : 'Saturday') : (language === 'am' ? 'እሑድ' : 'Sunday')} · 9:00 ${language === 'am' ? 'የኢትዮጵያ ሰዓት · 10 ደቂቃ ጨዋታ' : 'Ethiopia time · Play 10m'}`
-            : isSpecialGame ? (language === 'am' ? 'Pick 4 · Play 12 ደቂቃ' : 'Pick 4m · Play 12m') : (language === 'am' ? 'Pick 40 ሰከንድ · Play 8 ደቂቃ 45 ሰከንድ' : 'Pick 40s · Play 8m 45s')}</div>}
-        </div>
-        {isSpecialGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && (
-          <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700">
-            <span>{language === 'am' ? 'የዙሩ ቀሪ ጊዜ' : 'ROUND TIME LEFT'}</span>
-            <span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span>
-            <SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + SPECIAL_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" />
-          </div>
-        )}
-        {isFetanGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የዙሩ ቀሪ ጊዜ' : 'ROUND TIME LEFT'}</span><span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span><SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + FETAN_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" /></div>}
-        {(isFetanGame && fetanIsIntermission || isSpecialGame && specialIsIntermission) && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የመምረጫ ቀሪ ጊዜ' : 'PICK TIME LEFT'}</span><span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span><SharedCountdownText mode={isFetanGame ? 'FETAN' : 'SPECIAL'} deadline={currentGame.nextRoundStartsAt} status={currentGame.status} drawnCount={currentGame.drawnNumbers.length} className="font-mono text-slate-950" /></div>}
-        {isWeekendGame && currentGame.roundStartedAt && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የጨዋታው ቀሪ ጊዜ' : 'GAME TIME LEFT'}</span><span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span><SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + WEEKEND_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" /></div>}
-      </div>
-
-      {/* ── Clean & Simple Weekend Bar (No Crowding, Single Slim Row) ── */}
-      {isWeekendGame && !isWeekendLive && (
-        <div className="mx-2 mt-1.5 space-y-1">
-          <div className="px-3 py-1.5 bg-white rounded-xl border border-amber-300 shadow-2xs flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-xs shrink-0">🎟️</span>
-              <span className="text-[11px] font-black text-slate-900 truncate">
-                {currentGame.weekendDay === 'FRI' ? (language === 'am' ? 'ዓርብ' : 'Friday')
-                  : currentGame.weekendDay === 'SAT' ? (language === 'am' ? 'ቅዳሜ' : 'Saturday')
-                  : (language === 'am' ? 'እሑድ' : 'Sunday')} · {language === 'am' ? '9:00 የኢትዮጵያ ሰዓት' : '9:00 Ethiopia clock time'} · 50 ETB
-              </span>
-            </div>
-            {onOpenLotteryTab && (
-              <button
-                type="button"
-                onClick={onOpenLotteryTab}
-                className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wider flex items-center gap-1 transition shadow-2xs cursor-pointer"
-              >
-                <span>🎟️</span>
-                <span>{language === 'am' ? 'ካርድ ምረጥ' : 'Pick Cards'}</span>
-              </button>
-            )}
-          </div>
-          {currentGame.status !== 'RUNNING' && (
-            <div className="flex items-center justify-between px-3 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[10px] font-bold text-amber-900">
-              <span>{language === 'am' ? '📊 የተሸጡ ካርዶች (ተጫዋቾች):' : '📊 Cards Sold (Players Joined):'}</span>
-              <span className="font-mono font-black text-amber-950 bg-amber-200/80 px-2 py-0.5 rounded">
-                {soldNumbers?.size || currentGame.currentPlayers || 0} / 1500
-              </span>
+          {isSpecialGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && (
+            <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700">
+              <span>{language === 'am' ? 'የዙሩ ቀሪ ጊዜ' : 'ROUND TIME LEFT'}</span>
+              <span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span>
+              <SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + SPECIAL_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" />
             </div>
           )}
+          {isFetanGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የዙሩ ቀሪ ጊዜ' : 'ROUND TIME LEFT'}</span><span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span><SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + FETAN_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" /></div>}
+          {(isFetanGame && fetanIsIntermission || isSpecialGame && specialIsIntermission) && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የመምረጫ ቀሪ ጊዜ' : 'PICK TIME LEFT'}</span><span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span><SharedCountdownText mode={isFetanGame ? 'FETAN' : 'SPECIAL'} deadline={currentGame.nextRoundStartsAt} status={currentGame.status} drawnCount={currentGame.drawnNumbers.length} className="font-mono text-slate-950" /></div>}
+          {isWeekendGame && currentGame.roundStartedAt && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የጨዋታው ቀሪ ጊዜ' : 'GAME TIME LEFT'}</span><span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span><SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + WEEKEND_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" /></div>}
         </div>
-      )}
 
-      {/* ================================================================
+        {/* ── Clean & Simple Weekend Bar (No Crowding, Single Slim Row) ── */}
+        {isWeekendGame && !isWeekendLive && (
+          <div className="mx-2 mt-1.5 space-y-1">
+            <div className="px-3 py-1.5 bg-white rounded-xl border border-amber-300 shadow-2xs flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-xs shrink-0">🎟️</span>
+                <span className="text-[11px] font-black text-slate-900 truncate">
+                  {currentGame.weekendDay === 'FRI' ? (language === 'am' ? 'ዓርብ' : 'Friday')
+                    : currentGame.weekendDay === 'SAT' ? (language === 'am' ? 'ቅዳሜ' : 'Saturday')
+                      : (language === 'am' ? 'እሑድ' : 'Sunday')} · {language === 'am' ? '9:00 የኢትዮጵያ ሰዓት' : '9:00 Ethiopia clock time'} · 50 ETB
+                </span>
+              </div>
+              {onOpenLotteryTab && (
+                <button
+                  type="button"
+                  onClick={onOpenLotteryTab}
+                  className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wider flex items-center gap-1 transition shadow-2xs cursor-pointer"
+                >
+                  <span>🎟️</span>
+                  <span>{language === 'am' ? 'ካርድ ምረጥ' : 'Pick Cards'}</span>
+                </button>
+              )}
+            </div>
+            {currentGame.status !== 'RUNNING' && (
+              <div className="flex items-center justify-between px-3 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[10px] font-bold text-amber-900">
+                <span>{language === 'am' ? '📊 የተሸጡ ካርዶች (ተጫዋቾች):' : '📊 Cards Sold (Players Joined):'}</span>
+                <span className="font-mono font-black text-amber-950 bg-amber-200/80 px-2 py-0.5 rounded">
+                  {soldNumbers?.size || currentGame.currentPlayers || 0} / 1500
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================================================================
           CARD 1: Game Stats & Controls
           HYPER FETAN & HYPER SPECIAL: Clean plain-text header with stats & bingo balls
           OTHER GAMES: Standard white card
           ================================================================ */}
-      {isFetanGame || isSpecialGame || isWeekendGame ? (
-        /* ── Hyper Fetan & Hyper Special Plain Text Header (No Box, Plain Text) ── */
-        <div className="px-1 py-0.5 space-y-0.5">
-          {/* Top row: Back Arrow + Game Name */}
-          <div className="flex items-center gap-2 px-0.5 pb-1">
-            <button
-              type="button"
-              onClick={onBack}
-              className="w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 text-slate-800 flex items-center justify-center transition cursor-pointer shadow-xs border border-amber-300 shrink-0"
-              title={language === 'am' ? 'ተመለስ ወደ ሎቢ' : 'Back to Lobby'}
-            >
-              <ChevronLeft className="w-4.5 h-4.5" />
-            </button>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-black text-slate-900 tracking-tight">
-                {isWeekendGame ? '🌟 ' : isSpecialGame ? '🎲 ' : '⚡ '}
-                {isWeekendGame
-                  ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'HYPER WEEKEND')
-                  : isSpecialGame
-                    ? (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')
-                    : (language === 'am' ? 'ሃይፐር ፈጣን' : 'HYPER FETAN')}{' '}
-                <span className="italic tracking-widest">BINGO</span>
-              </span>
-            </div>
-          </div>
-          {/* Top row stats: DERASH | BALLS | PLAYERS */}
-          <div className="flex items-center justify-between gap-1 sm:gap-2 px-1">
-            {/* DERASH */}
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                {language === 'am' ? 'ደርሻ' : 'DERASH'}
-              </div>
-              <div className="text-lg sm:text-xl font-black text-slate-900 font-mono leading-tight">
-                {formatETB(gamePrizeDisplay)}
+        {isFetanGame || isSpecialGame || isWeekendGame ? (
+          /* ── Hyper Fetan & Hyper Special Plain Text Header (No Box, Plain Text) ── */
+          <div className="px-1 py-0.5 space-y-0.5">
+            {/* Top row: Back Arrow + Game Name */}
+            <div className="flex items-center gap-2 px-0.5 pb-1">
+              <button
+                type="button"
+                onClick={onBack}
+                className="w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 text-slate-800 flex items-center justify-center transition cursor-pointer shadow-xs border border-amber-300 shrink-0"
+                title={language === 'am' ? 'ተመለስ ወደ ሎቢ' : 'Back to Lobby'}
+              >
+                <ChevronLeft className="w-4.5 h-4.5" />
+              </button>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-black text-slate-900 tracking-tight">
+                  {isWeekendGame ? '🌟 ' : isSpecialGame ? '🎲 ' : '⚡ '}
+                  {isWeekendGame
+                    ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'HYPER WEEKEND')
+                    : isSpecialGame
+                      ? (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')
+                      : (language === 'am' ? 'ሃይፐር ፈጣን' : 'HYPER FETAN')}{' '}
+                  <span className="italic tracking-widest">BINGO</span>
+                </span>
               </div>
             </div>
-
-            {/* BALLS */}
-            <div className="text-center">
-              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                {language === 'am' ? 'ኳሶች' : 'BALLS'}
-              </div>
-              <div className="text-lg sm:text-xl font-black text-slate-900 font-mono leading-tight">
-                {currentGame.drawnNumbers.length}<span className="text-sm text-slate-400">/75</span>
-              </div>
-            </div>
-
-            {/* PLAYERS */}
-            <div className="text-center">
-              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
-              </div>
-              <div className="text-lg sm:text-xl font-black text-slate-900 font-mono leading-tight">
-                {currentGame.currentPlayers || 0}
-              </div>
-            </div>
-
-            {/* Current Ball — Bingo Ball Style */}
-            <div className="flex items-center justify-center shrink-0">
-              {currentBallNum != null ? (
-                <div
-                  className={`rounded-full bg-gradient-to-br ${getLetterColor(getBallLetter(currentBallNum))} shadow-lg flex flex-col items-center justify-center relative overflow-hidden ball-active-anim`}
-                  style={{width:'44px',height:'44px',border:'2px solid white',boxShadow:'0 3px 10px rgba(0,0,0,0.25)'}}
-                >
-                  <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 28%, rgba(255,255,255,0.45) 0%, transparent 60%)'}} />
-                  <span className="font-black uppercase leading-none text-black z-10" style={{ color: '#000', fontSize: '12px' }}>{getBallLetter(currentBallNum)}</span>
-                  <span className="font-black text-black leading-tight z-10" style={{ color: '#000', fontSize: '21px' }}>{currentBallNum}</span>
+            {/* Top row stats: DERASH | BALLS | PLAYERS */}
+            <div className="flex items-center justify-between gap-1 sm:gap-2 px-1">
+              {/* DERASH */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  {language === 'am' ? 'ደርሻ' : 'DERASH'}
                 </div>
-              ) : (
-                <div className="rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white" style={{width:'44px',height:'44px'}}>
-                  <span className="text-[8px] font-black text-slate-400 text-center leading-tight">GET<br/>READY</span>
+                <div className="text-lg sm:text-xl font-black text-slate-900 font-mono leading-tight">
+                  {formatETB(gamePrizeDisplay)}
+                </div>
+              </div>
+
+              {/* BALLS */}
+              <div className="text-center">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  {language === 'am' ? 'ኳሶች' : 'BALLS'}
+                </div>
+                <div className="text-lg sm:text-xl font-black text-slate-900 font-mono leading-tight">
+                  {currentGame.drawnNumbers.length}<span className="text-sm text-slate-400">/75</span>
+                </div>
+              </div>
+
+              {/* PLAYERS */}
+              <div className="text-center">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
+                </div>
+                <div className="text-lg sm:text-xl font-black text-slate-900 font-mono leading-tight">
+                  {currentGame.currentPlayers || 0}
+                </div>
+              </div>
+
+              {/* Current Ball — Bingo Ball Style */}
+              <div className="flex items-center justify-center shrink-0">
+                {currentBallNum != null ? (
+                  <div
+                    className={`rounded-full bg-gradient-to-br ${getLetterColor(getBallLetter(currentBallNum))} shadow-lg flex flex-col items-center justify-center relative overflow-hidden ball-active-anim`}
+                    style={{ width: '44px', height: '44px', border: '2px solid white', boxShadow: '0 3px 10px rgba(0,0,0,0.25)' }}
+                  >
+                    <div className="absolute inset-0 rounded-full" style={{ background: 'radial-gradient(circle at 35% 28%, rgba(255,255,255,0.45) 0%, transparent 60%)' }} />
+                    <span className="font-black uppercase leading-none text-black z-10" style={{ color: '#000', fontSize: '12px' }}>{getBallLetter(currentBallNum)}</span>
+                    <span className="font-black text-black leading-tight z-10" style={{ color: '#000', fontSize: '21px' }}>{currentBallNum}</span>
+                  </div>
+                ) : (
+                  <div className="rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-white" style={{ width: '44px', height: '44px' }}>
+                    <span className="text-[8px] font-black text-slate-400 text-center leading-tight">GET<br />READY</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex items-center gap-1 px-1">
+              <button
+                type="button"
+                onClick={() => setShowPatternHintModal(true)}
+                className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-lg flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
+              >
+                <span>💡</span><span>Hit</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setSoundEnabled((prev) => { const next = !prev; if (next) audioManager.unlockAudio(); return next; }); }}
+                className={`p-1 rounded-lg border transition cursor-pointer flex items-center justify-center ${soundEnabled ? 'bg-sky-50 text-sky-700 border-sky-300' : 'bg-white text-slate-400 border-slate-200 hover:text-slate-700'
+                  }`}
+              >
+                {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-sky-600" /> : <VolumeX className="w-3.5 h-3.5" />}
+              </button>
+
+            </div>
+
+            {/* ── Middle Area: Previous balls + Intermission timer ── */}
+            {(previousBalls.length > 0 || (isFetanGame && fetanIsIntermission)) && <div className="flex items-center justify-between gap-2 py-0.5 px-1.5 bg-slate-50 rounded-xl border border-slate-200 mx-1">
+              {/* Previous 3 balls — bingo ball style */}
+              <div className={`flex items-center gap-1 ${showMoreNumbers ? 'flex-wrap max-h-16 overflow-y-auto' : ''}`}>
+                {previousBalls.length > 0 ? previousBalls.map((pb, idx) => {
+                  const pbLetter = getBallLetter(pb);
+                  const pbColor = getLetterColor(pbLetter);
+                  return (
+                    <div
+                      key={`mid-prev-${idx}-${pb}`}
+                      className={`rounded-full bg-gradient-to-br ${pbColor} shadow flex flex-col items-center justify-center relative overflow-hidden`}
+                      style={{ width: '30px', height: '30px', border: '2px solid white' }}
+                    >
+                      <div className="absolute inset-0 rounded-full" style={{ background: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35) 0%, transparent 65%)' }} />
+                      <span className="text-[9px] font-black uppercase leading-none text-black z-10" style={{ color: '#000', fontSize: '9px' }}>{pbLetter}</span>
+                      <span className="text-[14px] font-black text-black leading-tight z-10" style={{ color: '#000', fontSize: '14px' }}>{pb}</span>
+                    </div>
+                  );
+                }) : null}
+              </div>
+
+              {/* Intermission timer for Fetan or Hyper Special */}
+              {isFetanGame && fetanIsIntermission && (
+                <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
+                  <span>⏳</span>
+                  <span>{language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards'}:</span>
+                  <SharedCountdownText mode="FETAN" deadline={currentGame.nextRoundStartsAt} status={currentGame.status} drawnCount={currentGame.drawnNumbers.length} className="font-mono text-sm" />
                 </div>
               )}
+            </div>}
+
+            {/* Show Less / Show More toggle */}
+            {showMoreNumbers ? (
+              <button
+                type="button"
+                onClick={() => setShowMoreNumbers(false)}
+                className="w-full flex items-center justify-end gap-1 px-1 text-[10px] font-bold text-rose-600 leading-3 cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
+                <span>{language === 'am' ? 'ከሌላ በኩል አሳይ' : 'Show Less'}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowMoreNumbers(true)}
+                className="w-full flex items-center justify-end gap-1 px-1 text-[10px] font-bold text-rose-600 leading-3 cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
+                <span>{language === 'am' ? 'በጣም አሳይ' : 'Show More'}</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          /* ── Hyper Weekend: Styled Gradient Header + Cards ── */
+          <div className="space-y-2.5">
+            {/* 1. GRADIENT HEADER BAR */}
+            <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-2.5 sm:p-3 shadow-md flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={onBack} className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition cursor-pointer shadow-inner" title={language === 'am' ? 'ተመለስ ወደ ሎቢ' : 'Back to Lobby'}>
+                  <ChevronLeft className="w-5 h-5 sm:w-5 sm:h-5" />
+                </button>
+                <span className="text-white font-black text-sm sm:text-base tracking-tight">
+                  {isWeekendGame
+                    ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'HYPER WEEKEND')
+                    : (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')}
+                  {' '}
+                  <span className="italic tracking-widest">BINGO</span>
+                </span>
+              </div>
             </div>
-          </div>
 
-          {/* Controls */}
-          <div className="flex items-center gap-1 px-1">
-            <button
-              type="button"
-              onClick={() => setShowPatternHintModal(true)}
-              className="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-lg flex items-center gap-1 cursor-pointer transition active:scale-95 shadow-2xs"
-            >
-              <span>💡</span><span>Hit</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setSoundEnabled((prev) => { const next = !prev; if (next) audioManager.unlockAudio(); return next; }); }}
-              className={`p-1 rounded-lg border transition cursor-pointer flex items-center justify-center ${
-                soundEnabled ? 'bg-sky-50 text-sky-700 border-sky-300' : 'bg-white text-slate-400 border-slate-200 hover:text-slate-700'
-              }`}
-            >
-              {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-sky-600" /> : <VolumeX className="w-3.5 h-3.5" />}
-            </button>
+            {/* Live Weekend dashboard stats — match Fetan/Special while the draw is running. */}
+            {isWeekendLive && (
+              <div className="grid grid-cols-3 gap-1.5 px-1">
+                <div className="rounded-xl bg-white border border-emerald-200 px-2 py-1.5 text-center shadow-xs">
+                  <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                    {language === 'am' ? 'ደርሻ' : 'DERASH'}
+                  </div>
+                  <div className="text-base sm:text-lg font-black text-emerald-700 font-mono leading-tight">
+                    {formatETB(gamePrizeDisplay)}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-white border border-blue-200 px-2 py-1.5 text-center shadow-xs">
+                  <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                    {language === 'am' ? 'ኳሶች' : 'BALLS'}
+                  </div>
+                  <div className="text-base sm:text-lg font-black text-blue-700 font-mono leading-tight">
+                    {currentGame.drawnNumbers.length}<span className="text-xs text-slate-400">/75</span>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-white border border-amber-200 px-2 py-1.5 text-center shadow-xs">
+                  <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">
+                    {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
+                  </div>
+                  <div className="text-base sm:text-lg font-black text-amber-700 font-mono leading-tight">
+                    {totalCardsSold}
+                  </div>
+                </div>
+              </div>
+            )}
 
-          </div>
-
-          {/* ── Middle Area: Previous balls + Intermission timer ── */}
-          {(previousBalls.length > 0 || (isFetanGame && fetanIsIntermission)) && <div className="flex items-center justify-between gap-2 py-0.5 px-1.5 bg-slate-50 rounded-xl border border-slate-200 mx-1">
-            {/* Previous 3 balls — bingo ball style */}
-            <div className={`flex items-center gap-1 ${showMoreNumbers ? 'flex-wrap max-h-16 overflow-y-auto' : ''}`}>
-              {previousBalls.length > 0 ? previousBalls.map((pb, idx) => {
+            {/* Current Ball with 3 Previous Balls — Bingo Ball Style */}
+            <div className={`flex items-center justify-center gap-2 py-1 ${showMoreNumbers ? 'flex-wrap max-h-24 overflow-y-auto' : ''}`}>
+              {previousBalls.length > 0 && previousBalls.map((pb, idx) => {
                 const pbLetter = getBallLetter(pb);
                 const pbColor = getLetterColor(pbLetter);
                 return (
                   <div
-                    key={`mid-prev-${idx}-${pb}`}
+                    key={`prev-sw-${idx}-${pb}`}
                     className={`rounded-full bg-gradient-to-br ${pbColor} shadow flex flex-col items-center justify-center relative overflow-hidden`}
-                    style={{width:'30px',height:'30px',border:'2px solid white'}}
+                    style={{ width: '38px', height: '38px', border: '2.5px solid rgba(255,255,255,0.8)' }}
                   >
-                    <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35) 0%, transparent 65%)'}} />
-                    <span className="text-[9px] font-black uppercase leading-none text-black z-10" style={{ color: '#000', fontSize: '9px' }}>{pbLetter}</span>
-                    <span className="text-[14px] font-black text-black leading-tight z-10" style={{ color: '#000', fontSize: '14px' }}>{pb}</span>
+                    <div className="absolute inset-0 rounded-full" style={{ background: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.4) 0%, transparent 65%)' }} />
+                    <span className="text-[12px] font-black uppercase leading-none text-black z-10" style={{ color: '#000', fontSize: '12px' }}>{pbLetter}</span>
+                    <span className="text-[20px] font-black text-black leading-tight z-10" style={{ color: '#000', fontSize: '20px' }}>{pb}</span>
                   </div>
                 );
-              }) : null}
-            </div>
-
-            {/* Intermission timer for Fetan or Hyper Special */}
-            {isFetanGame && fetanIsIntermission && (
-              <div className="flex items-center gap-1.5 bg-amber-400 text-slate-950 px-2.5 py-1 rounded-lg font-black text-xs shadow-xs animate-pulse">
-                <span>⏳</span>
-                <span>{language === 'am' ? 'ካርድ ይምረጡ' : 'Pick Cards'}:</span>
-                <SharedCountdownText mode="FETAN" deadline={currentGame.nextRoundStartsAt} status={currentGame.status} drawnCount={currentGame.drawnNumbers.length} className="font-mono text-sm" />
-              </div>
-            )}
-          </div>}
-
-          {/* Show Less / Show More toggle */}
-          {showMoreNumbers ? (
-            <button
-              type="button"
-              onClick={() => setShowMoreNumbers(false)}
-              className="w-full flex items-center justify-end gap-1 px-1 text-[10px] font-bold text-rose-600 leading-3 cursor-pointer"
-            >
-              <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
-              <span>{language === 'am' ? 'ከሌላ በኩል አሳይ' : 'Show Less'}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowMoreNumbers(true)}
-              className="w-full flex items-center justify-end gap-1 px-1 text-[10px] font-bold text-rose-600 leading-3 cursor-pointer"
-            >
-              <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
-              <span>{language === 'am' ? 'በጣም አሳይ' : 'Show More'}</span>
-            </button>
-          )}
-        </div>
-      ) : (
-        /* ── Hyper Weekend: Styled Gradient Header + Cards ── */
-        <div className="space-y-2.5">
-          {/* 1. GRADIENT HEADER BAR */}
-          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-2.5 sm:p-3 shadow-md flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={onBack} className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition cursor-pointer shadow-inner" title={language === 'am' ? 'ተመለስ ወደ ሎቢ' : 'Back to Lobby'}>
-                <ChevronLeft className="w-5 h-5 sm:w-5 sm:h-5" />
-              </button>
-              <span className="text-white font-black text-sm sm:text-base tracking-tight">
-                {isWeekendGame
-                  ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'HYPER WEEKEND')
-                  : (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')}
-                {' '}
-                <span className="italic tracking-widest">BINGO</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Live Weekend dashboard stats — match Fetan/Special while the draw is running. */}
-          {isWeekendLive && (
-            <div className="grid grid-cols-3 gap-1.5 px-1">
-              <div className="rounded-xl bg-white border border-emerald-200 px-2 py-1.5 text-center shadow-xs">
-                <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">
-                  {language === 'am' ? 'ደርሻ' : 'DERASH'}
-                </div>
-                <div className="text-base sm:text-lg font-black text-emerald-700 font-mono leading-tight">
-                  {formatETB(gamePrizeDisplay)}
-                </div>
-              </div>
-              <div className="rounded-xl bg-white border border-blue-200 px-2 py-1.5 text-center shadow-xs">
-                <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">
-                  {language === 'am' ? 'ኳሶች' : 'BALLS'}
-                </div>
-                <div className="text-base sm:text-lg font-black text-blue-700 font-mono leading-tight">
-                  {currentGame.drawnNumbers.length}<span className="text-xs text-slate-400">/75</span>
-                </div>
-              </div>
-              <div className="rounded-xl bg-white border border-amber-200 px-2 py-1.5 text-center shadow-xs">
-                <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">
-                  {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
-                </div>
-                <div className="text-base sm:text-lg font-black text-amber-700 font-mono leading-tight">
-                  {totalCardsSold}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Current Ball with 3 Previous Balls — Bingo Ball Style */}
-          <div className={`flex items-center justify-center gap-2 py-1 ${showMoreNumbers ? 'flex-wrap max-h-24 overflow-y-auto' : ''}`}>
-            {previousBalls.length > 0 && previousBalls.map((pb, idx) => {
-              const pbLetter = getBallLetter(pb);
-              const pbColor = getLetterColor(pbLetter);
-              return (
+              })}
+              {currentBallNum != null ? (
                 <div
-                  key={`prev-sw-${idx}-${pb}`}
-                  className={`rounded-full bg-gradient-to-br ${pbColor} shadow flex flex-col items-center justify-center relative overflow-hidden`}
-                  style={{width:'38px',height:'38px',border:'2.5px solid rgba(255,255,255,0.8)'}}
+                  className={`rounded-full bg-gradient-to-br ${getLetterColor(getBallLetter(currentBallNum))} flex flex-col items-center justify-center relative overflow-hidden ball-active-anim`}
+                  style={{ width: '56px', height: '56px', border: '3px solid white', boxShadow: '0 6px 20px rgba(0,0,0,0.35)' }}
                 >
-                  <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.4) 0%, transparent 65%)'}} />
-                  <span className="text-[12px] font-black uppercase leading-none text-black z-10" style={{ color: '#000', fontSize: '12px' }}>{pbLetter}</span>
-                  <span className="text-[20px] font-black text-black leading-tight z-10" style={{ color: '#000', fontSize: '20px' }}>{pb}</span>
+                  <div className="absolute inset-0 rounded-full" style={{ background: 'radial-gradient(circle at 35% 28%, rgba(255,255,255,0.5) 0%, transparent 60%)' }} />
+                  <span className="text-[15px] font-black uppercase leading-none text-black z-10" style={{ color: '#000', fontSize: '15px' }}>{getBallLetter(currentBallNum)}</span>
+                  <span className="text-[28px] font-black text-black leading-tight z-10" style={{ color: '#000', fontSize: '28px' }}>{currentBallNum}</span>
                 </div>
-              );
-            })}
-            {currentBallNum != null ? (
-              <div
-                className={`rounded-full bg-gradient-to-br ${getLetterColor(getBallLetter(currentBallNum))} flex flex-col items-center justify-center relative overflow-hidden ball-active-anim`}
-                style={{width:'56px',height:'56px',border:'3px solid white',boxShadow:'0 6px 20px rgba(0,0,0,0.35)'}}
+              ) : (
+                <div className="rounded-full border-2 border-dashed border-white/50 flex items-center justify-center bg-white/10" style={{ width: '56px', height: '56px' }}>
+                  <span className="text-[9px] font-black text-white/70 text-center leading-tight">GET<br />READY</span>
+                </div>
+              )}
+            </div>
+
+            {/* Show Less / Show More toggle below header */}
+            {showMoreNumbers ? (
+              <button
+                type="button"
+                onClick={() => setShowMoreNumbers(false)}
+                className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600"
               >
-                <div className="absolute inset-0 rounded-full" style={{background:'radial-gradient(circle at 35% 28%, rgba(255,255,255,0.5) 0%, transparent 60%)'}} />
-                <span className="text-[15px] font-black uppercase leading-none text-black z-10" style={{ color: '#000', fontSize: '15px' }}>{getBallLetter(currentBallNum)}</span>
-                <span className="text-[28px] font-black text-black leading-tight z-10" style={{ color: '#000', fontSize: '28px' }}>{currentBallNum}</span>
-              </div>
+                <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
+                <span>{language === 'am' ? 'ከሌላ በኩል አሳይ' : 'Show Less'}</span>
+              </button>
             ) : (
-              <div className="rounded-full border-2 border-dashed border-white/50 flex items-center justify-center bg-white/10" style={{width:'56px',height:'56px'}}>
-                <span className="text-[9px] font-black text-white/70 text-center leading-tight">GET<br/>READY</span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowMoreNumbers(true)}
+                className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
+                <span>{language === 'am' ? 'በጣም አሳይ' : 'Show More'}</span>
+              </button>
+            )}
+
+            {/* EXPANDED PANELS */}
+            {showMoreNumbers && (
+              <>
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                        <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none block">
+                          {language === 'am' ? 'ጨዋታ' : 'Game'}
+                        </span>
+                        <div className="text-xs sm:text-[13px] font-bold text-slate-900 leading-tight truncate">
+                          {language === 'am' ? 'ሙሉ ቤት ብቻ (Full House 24/24)' : 'Full House 24 out of 24 Numbers'}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPatternHintModal(true)}
+                      className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-100 hover:bg-amber-200 flex items-center justify-center transition cursor-pointer"
+                      title={language === 'am' ? 'እርዳታ (Hit)' : 'Hint / Game Hit'}
+                    >
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-600 fill-amber-400" />
+                    </button>
+                  </div>
+
+                  <div className={`grid ${isWeekendGame ? 'grid-cols-1' : 'grid-cols-3'} gap-2 items-center`}>
+                    {!isWeekendGame && <div className="flex items-center gap-1.5 min-w-0">
+                      <Hash className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span className="text-[10px] font-bold text-slate-500 shrink-0">ID:</span>
+                      <span className="text-[11px] font-mono font-black text-slate-800 truncate">{gameShortId}</span>
+                    </div>}
+                    {!isWeekendGame && <div className="flex items-center gap-1.5 min-w-0 justify-center">
+                      <div className="w-3 h-3 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                        <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-500 shrink-0">
+                        {language === 'am' ? 'ሰዓት' : 'Time'}
+                      </span>
+                      <span className="text-[11px] font-mono font-black text-slate-800">{currentTime ? `${currentTime} EAT` : '--:-- EAT'}</span>
+                    </div>}
+                    <div className={`flex items-center gap-1.5 min-w-0 ${isWeekendGame ? 'justify-center' : 'justify-end'}`}>
+                      <div className="w-3 h-3 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                        <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-500 shrink-0">
+                        {language === 'am' ? 'ሁኔታ' : 'Status'}
+                      </span>
+                      <span className="text-[11px] font-black text-slate-700">{gameStatus}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-emerald-600 font-bold text-xs">$</span>
+                    <span className="text-[10px] font-bold uppercase text-slate-500">
+                      {language === 'am' ? 'ዋጋ' : 'Price'}
+                    </span>
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-sm sm:text-base font-black text-emerald-600">{formatETB(currentGame.entryPrice || 10)}</span>
+                      {isSpecialGame && (() => {
+                        const ruleIndex = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
+                        const activeRule = HYPER_SPECIAL_RULES[ruleIndex];
+                        return <span className="max-w-36 truncate text-[9px] font-bold text-indigo-700">{language === 'am' ? `ሕግ #${ruleIndex + 1} · ${activeRule.nameAm}` : `Law #${ruleIndex + 1} · ${activeRule.nameEn}`}</span>;
+                      })()}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-4 rounded-md bg-blue-100 flex items-center justify-center">
+                      <Sparkles className="w-2.5 h-2.5 text-blue-600" />
+                    </div>
+                    <span className="text-[10px] font-bold uppercase text-slate-500">
+                      {language === 'am' ? 'ጨዋታዎች' : 'Games'}
+                    </span>
+                    <span className="text-sm sm:text-base font-black text-blue-700">1</span>
+                  </div>
+                  {(!isWeekendGame || isWeekendLive) && (
+                    <div className="flex items-center gap-1.5">
+                      <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="text-[10px] font-bold uppercase text-slate-500">
+                        {language === 'am' ? 'ሽልማት' : 'Prize'}
+                      </span>
+                      <span className="text-sm sm:text-base font-black text-amber-600">{formatETB(gamePrizeDisplay)}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/80 shadow-xs">
+                  <div className="text-center mb-2">
+                    <span className="text-slate-500 font-bold text-sm sm:text-base">
+                      {language === 'am' ? 'የተጠሩ' : 'Drawn'}
+                      <span className="text-slate-800 font-black">: {currentGame.drawnNumbers.length}</span>
+                    </span>
+                  </div>
+                  <div className="space-y-0.5 bg-slate-50/70 p-1 rounded-xl border border-slate-100">
+                    {rows.map((row) => (
+                      <div key={row.letter} className="flex items-center gap-1">
+                        <div className={`w-6 h-5 sm:w-7 sm:h-6 rounded-md text-[9px] sm:text-[10px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
+                          {row.letter}
+                        </div>
+                        <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
+                          {row.range.map((num) => {
+                            const isDrawn = drawnSet.has(num);
+                            const isCurrent = currentGame.currentBall === num;
+                            return (
+                              <div
+                                key={num}
+                                className={`h-5 sm:h-6 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-all ${isCurrent
+                                    ? 'bg-amber-400 text-slate-950 font-black scale-105 shadow-xs ring-1 ring-amber-400 z-10'
+                                    : isDrawn
+                                      ? `${row.color} font-black shadow-xs`
+                                      : 'bg-white text-slate-950 border border-slate-200'
+                                  }`}
+                              >
+                                {num}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </div>
+        )}
 
-          {/* Show Less / Show More toggle below header */}
-          {showMoreNumbers ? (
-            <button
-              type="button"
-              onClick={() => setShowMoreNumbers(false)}
-              className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600"
-            >
-              <ChevronLeft className="w-3.5 h-3.5 rotate-90" />
-              <span>{language === 'am' ? 'ከሌላ በኩል አሳይ' : 'Show Less'}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowMoreNumbers(true)}
-              className="w-full flex items-center justify-end gap-1 px-1 text-[11px] font-bold text-rose-600"
-            >
-              <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
-              <span>{language === 'am' ? 'በጣም አሳይ' : 'Show More'}</span>
-            </button>
-          )}
-
-          {/* EXPANDED PANELS */}
-          {showMoreNumbers && (
-            <>
-              <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                      <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none block">
-                        {language === 'am' ? 'ጨዋታ' : 'Game'}
-                      </span>
-                      <div className="text-xs sm:text-[13px] font-bold text-slate-900 leading-tight truncate">
-                        {language === 'am' ? 'ሙሉ ቤት ብቻ (Full House 24/24)' : 'Full House 24 out of 24 Numbers'}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowPatternHintModal(true)}
-                    className="shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-100 hover:bg-amber-200 flex items-center justify-center transition cursor-pointer"
-                    title={language === 'am' ? 'እርዳታ (Hit)' : 'Hint / Game Hit'}
-                  >
-                    <Lightbulb className="w-3.5 h-3.5 text-amber-600 fill-amber-400" />
-                  </button>
-                </div>
-
-                <div className={`grid ${isWeekendGame ? 'grid-cols-1' : 'grid-cols-3'} gap-2 items-center`}>
-                  {!isWeekendGame && <div className="flex items-center gap-1.5 min-w-0">
-                    <Hash className="w-3 h-3 text-slate-400 shrink-0" />
-                    <span className="text-[10px] font-bold text-slate-500 shrink-0">ID:</span>
-                    <span className="text-[11px] font-mono font-black text-slate-800 truncate">{gameShortId}</span>
-                  </div>}
-                  {!isWeekendGame && <div className="flex items-center gap-1.5 min-w-0 justify-center">
-                    <div className="w-3 h-3 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                      <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-500 shrink-0">
-                      {language === 'am' ? 'ሰዓት' : 'Time'}
-                    </span>
-                    <span className="text-[11px] font-mono font-black text-slate-800">{currentTime ? `${currentTime} EAT` : '--:-- EAT'}</span>
-                  </div>}
-                  <div className={`flex items-center gap-1.5 min-w-0 ${isWeekendGame ? 'justify-center' : 'justify-end'}`}>
-                    <div className="w-3 h-3 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                      <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-500 shrink-0">
-                      {language === 'am' ? 'ሁኔታ' : 'Status'}
-                    </span>
-                    <span className="text-[11px] font-black text-slate-700">{gameStatus}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-xs flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-emerald-600 font-bold text-xs">$</span>
-                  <span className="text-[10px] font-bold uppercase text-slate-500">
-                    {language === 'am' ? 'ዋጋ' : 'Price'}
-                  </span>
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-sm sm:text-base font-black text-emerald-600">{formatETB(currentGame.entryPrice || 10)}</span>
-                    {isSpecialGame && (() => {
-                      const ruleIndex = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
-                      const activeRule = HYPER_SPECIAL_RULES[ruleIndex];
-                      return <span className="max-w-36 truncate text-[9px] font-bold text-indigo-700">{language === 'am' ? `ሕግ #${ruleIndex + 1} · ${activeRule.nameAm}` : `Law #${ruleIndex + 1} · ${activeRule.nameEn}`}</span>;
-                    })()}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded-md bg-blue-100 flex items-center justify-center">
-                    <Sparkles className="w-2.5 h-2.5 text-blue-600" />
-                  </div>
-                  <span className="text-[10px] font-bold uppercase text-slate-500">
-                    {language === 'am' ? 'ጨዋታዎች' : 'Games'}
-                  </span>
-                  <span className="text-sm sm:text-base font-black text-blue-700">1</span>
-                </div>
-                {(!isWeekendGame || isWeekendLive) && (
-                  <div className="flex items-center gap-1.5">
-                    <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="text-[10px] font-bold uppercase text-slate-500">
-                      {language === 'am' ? 'ሽልማት' : 'Prize'}
-                    </span>
-                    <span className="text-sm sm:text-base font-black text-amber-600">{formatETB(gamePrizeDisplay)}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200/80 shadow-xs">
-                <div className="text-center mb-2">
-                  <span className="text-slate-500 font-bold text-sm sm:text-base">
-                    {language === 'am' ? 'የተጠሩ' : 'Drawn'}
-                    <span className="text-slate-800 font-black">: {currentGame.drawnNumbers.length}</span>
-                  </span>
-                </div>
-                <div className="space-y-0.5 bg-slate-50/70 p-1 rounded-xl border border-slate-100">
-                  {rows.map((row) => (
-                    <div key={row.letter} className="flex items-center gap-1">
-                      <div className={`w-6 h-5 sm:w-7 sm:h-6 rounded-md text-[9px] sm:text-[10px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
-                        {row.letter}
-                      </div>
-                      <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
-                        {row.range.map((num) => {
-                          const isDrawn = drawnSet.has(num);
-                          const isCurrent = currentGame.currentBall === num;
-                          return (
-                            <div
-                              key={num}
-                              className={`h-5 sm:h-6 rounded-md text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-all ${
-                                isCurrent
-                                  ? 'bg-amber-400 text-slate-950 font-black scale-105 shadow-xs ring-1 ring-amber-400 z-10'
-                                  : isDrawn
-                                  ? `${row.color} font-black shadow-xs`
-                                  : 'bg-white text-slate-950 border border-slate-200'
-                              }`}
-                            >
-                              {num}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ── 75-Ball Master Table ── */}
-      {/* ================================================================
+        {/* ── 75-Ball Master Table ── */}
+        {/* ================================================================
           CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
           ================================================================ */}
-      <div className="bg-white rounded-xl p-1 sm:p-1.5 border border-slate-200/80 shadow-xs">
-        {/* Slim board title */}
-        <div className="flex items-center justify-between mb-1 px-0.5">
-          <span className="text-[9px] font-black text-slate-800 uppercase tracking-wider">
-            {language === 'am' ? 'የቢንጎ 75-ኳስ ሰንጠረዥ' : '75-Ball Master Board'}
-          </span>
-          <span className="text-[8px] font-mono font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200">
-            {currentGame.drawnNumbers.length} / 75 {language === 'am' ? 'የተጠሩ' : 'Drawn'}
-          </span>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowMasterBoard((visible) => !visible)}
-          className="w-full flex items-center justify-center gap-1 py-0.5 text-[8px] font-bold text-rose-600"
-          aria-expanded={showMasterBoard}
-        >
-          <ChevronLeft className={`w-3.5 h-3.5 transition-transform ${showMasterBoard ? 'rotate-90' : '-rotate-90'}`} />
-          <span>{showMasterBoard ? (language === 'am' ? 'ደብቅ' : 'Show Less') : (language === 'am' ? 'ሙሉ ሰንጠረዥ አሳይ' : 'Show 75 Numbers')}</span>
-        </button>
-        {/* 5 Rows B-I-N-G-O with 15 columns */}
-        {showMasterBoard && <div className="space-y-px bg-slate-50/70 p-0.5 sm:p-1 rounded-lg border border-slate-100">
-          {rows.map((row) => (
-            <div key={row.letter} className="flex items-center gap-1">
-              <div className={`w-4 h-5 sm:w-6 sm:h-6 rounded text-[9px] sm:text-[10px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
-                {row.letter}
-              </div>
-              <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
-                {row.range.map((num) => {
-                  const isDrawn = drawnSet.has(num);
-                  const isCurrent = currentGame.currentBall === num;
-                  return (
-                    <div
-                      key={num}
-                      className={`h-5 sm:h-6 rounded text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-all ${
-                        isCurrent
-                          ? 'bg-yellow-300 text-slate-950 font-black scale-125 shadow-[0_0_12px_3px_rgba(250,204,21,0.85)] ring-2 ring-yellow-400 animate-pulse z-20 brightness-110'
-                          : isDrawn
-                          ? `${row.color} font-black shadow-xs`
-                          : 'bg-white text-slate-950 border border-slate-200'
-                      }`}
-                    >
-                      {num}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>}
-      </div>
-
-      {/* Blocked Cards Pill (Only shown if any cards are blocked) */}
-      {(currentGame.blockedCards || []).length > 0 && (
-        <div className="flex justify-end">
-          <button
-            onClick={() => setShowBlockedModal(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-800 text-[11px] font-black transition cursor-pointer shadow-xs"
-            title="Disqualified & Blocked Cards"
-          >
-            <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
-            <span>{language === 'am' ? 'የታገዱ ካርዶች:' : 'Blocked:'}</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-white border border-rose-300 font-mono text-rose-700 text-xs shadow-xs">
-              {(currentGame.blockedCards || []).length}
+        <div className="bg-white rounded-xl p-1 sm:p-1.5 border border-slate-200/80 shadow-xs">
+          {/* Slim board title */}
+          <div className="flex items-center justify-between mb-1 px-0.5">
+            <span className="text-[9px] font-black text-slate-800 uppercase tracking-wider">
+              {language === 'am' ? 'የቢንጎ 75-ኳስ ሰንጠረዥ' : '75-Ball Master Board'}
             </span>
-          </button>
-        </div>
-      )}
+            <span className="text-[8px] font-mono font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200">
+              {currentGame.drawnNumbers.length} / 75 {language === 'am' ? 'የተጠሩ' : 'Drawn'}
+            </span>
+          </div>
 
-      {/* ================================================================
+          <button
+            type="button"
+            onClick={() => setShowMasterBoard((visible) => !visible)}
+            className="w-full flex items-center justify-center gap-1 py-0.5 text-[8px] font-bold text-rose-600"
+            aria-expanded={showMasterBoard}
+          >
+            <ChevronLeft className={`w-3.5 h-3.5 transition-transform ${showMasterBoard ? 'rotate-90' : '-rotate-90'}`} />
+            <span>{showMasterBoard ? (language === 'am' ? 'ደብቅ' : 'Show Less') : (language === 'am' ? 'ሙሉ ሰንጠረዥ አሳይ' : 'Show 75 Numbers')}</span>
+          </button>
+          {/* 5 Rows B-I-N-G-O with 15 columns */}
+          {showMasterBoard && <div className="space-y-px bg-slate-50/70 p-0.5 sm:p-1 rounded-lg border border-slate-100">
+            {rows.map((row) => (
+              <div key={row.letter} className="flex items-center gap-1">
+                <div className={`w-4 h-5 sm:w-6 sm:h-6 rounded text-[9px] sm:text-[10px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
+                  {row.letter}
+                </div>
+                <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
+                  {row.range.map((num) => {
+                    const isDrawn = drawnSet.has(num);
+                    const isCurrent = currentGame.currentBall === num;
+                    return (
+                      <div
+                        key={num}
+                        className={`h-5 sm:h-6 rounded text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-all ${isCurrent
+                            ? 'bg-yellow-300 text-slate-950 font-black scale-125 shadow-[0_0_12px_3px_rgba(250,204,21,0.85)] ring-2 ring-yellow-400 animate-pulse z-20 brightness-110'
+                            : isDrawn
+                              ? `${row.color} font-black shadow-xs`
+                              : 'bg-white text-slate-950 border border-slate-200'
+                          }`}
+                      >
+                        {num}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>}
+        </div>
+
+        {/* Blocked Cards Pill (Only shown if any cards are blocked) */}
+        {(currentGame.blockedCards || []).length > 0 && (
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShowBlockedModal(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-800 text-[11px] font-black transition cursor-pointer shadow-xs"
+              title="Disqualified & Blocked Cards"
+            >
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+              <span>{language === 'am' ? 'የታገዱ ካርዶች:' : 'Blocked:'}</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-white border border-rose-300 font-mono text-rose-700 text-xs shadow-xs">
+                {(currentGame.blockedCards || []).length}
+              </span>
+            </button>
+          </div>
+        )}
+
+        {/* ================================================================
           5. WINNER ANNOUNCEMENT BANNER + TOAST ALERTS
           ================================================================ */}
-      {currentGame.winners && currentGame.winners.length > 0 && (currentGame.drawnNumbers?.length || 0) >= 15 && (
-        <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 shadow-md border-2 border-yellow-200 flex items-center justify-between gap-2 animate-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center font-black shrink-0 text-base shadow-xs">
-              🏆
-            </div>
-            <div className="min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-wider text-slate-900 leading-tight">
-                {language === 'am' ? '🎉 ቢንጎ አሸናፊ ይፋ ሆነ!' : '🎉 BINGO WINNER ANNOUNCED!'}
+        {currentGame.winners && currentGame.winners.length > 0 && (currentGame.drawnNumbers?.length || 0) >= 15 && (
+          <div className="mx-2 mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 shadow-md border-2 border-yellow-200 flex items-center justify-between gap-2 animate-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center font-black shrink-0 text-base shadow-xs">
+                🏆
               </div>
-              <div className="text-xs font-black truncate leading-tight">
-                {currentGame.winners.length >= 2
-                  ? (language === 'am'
-                    ? `2 የጋራ አሸናፊዎች: @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} እና @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (${formatETB(currentGame.winners[0].prizeWon)} እያንዳንዳቸው)!`
-                    : `2 Shared Winners: @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (${formatETB(currentGame.winners[0].prizeWon)} each)!`)
-                  : (language === 'am'
-                    ? `አሸናፊ: @${currentGame.winners[currentGame.winners.length - 1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} · የካርድ ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)} አሸንፏል!`
-                    : `Winner: @${currentGame.winners[currentGame.winners.length - 1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} · Card ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — WON ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)}!`)}
+              <div className="min-w-0">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-900 leading-tight">
+                  {language === 'am' ? '🎉 ቢንጎ አሸናፊ ይፋ ሆነ!' : '🎉 BINGO WINNER ANNOUNCED!'}
+                </div>
+                <div className="text-xs font-black truncate leading-tight">
+                  {currentGame.winners.length >= 2
+                    ? (language === 'am'
+                      ? `2 የጋራ አሸናፊዎች: @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} እና @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (${formatETB(currentGame.winners[0].prizeWon)} እያንዳንዳቸው)!`
+                      : `2 Shared Winners: @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (${formatETB(currentGame.winners[0].prizeWon)} each)!`)
+                    : (language === 'am'
+                      ? `አሸናፊ: @${currentGame.winners[currentGame.winners.length - 1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} · የካርድ ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)} አሸንፏል!`
+                      : `Winner: @${currentGame.winners[currentGame.winners.length - 1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} · Card ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — WON ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)}!`)}
+                </div>
               </div>
             </div>
+            <button
+              onClick={() => setShowWinnerModal(true)}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-amber-300 text-[11px] font-black shrink-0 transition cursor-pointer shadow-xs"
+            >
+              {language === 'am' ? 'ይመልከቱ' : 'View'}
+            </button>
           </div>
-          <button
-            onClick={() => setShowWinnerModal(true)}
-            className="px-2.5 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-amber-300 text-[11px] font-black shrink-0 transition cursor-pointer shadow-xs"
-          >
-            {language === 'am' ? 'ይመልከቱ' : 'View'}
-          </button>
-        </div>
-      )}
+        )}
 
-      {claimStatus && (
-        <div className={`mx-2 mt-2 px-2.5 py-1 rounded-xl border text-center text-xs font-bold shadow-md flex items-center justify-between gap-1.5 shrink-0 animate-in fade-in ${
-          claimStatus.success ? 'bg-emerald-100 border-emerald-400 text-emerald-950' : 'bg-amber-100 border-amber-400 text-amber-950'
-        }`}>
-          <span className="truncate">{claimStatus.message}</span>
-          <button onClick={() => setClaimStatus(null)} className="p-0.5 text-slate-700 hover:text-slate-950 cursor-pointer">
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-      )}
-
-      {gameHitFeedback && (
-        <div className="mx-2 mt-1 px-2.5 py-1 rounded-xl bg-amber-100 border border-amber-400 text-amber-950 text-xs font-bold shadow-md flex items-center justify-between gap-1.5 shrink-0">
-          <div className="flex items-center gap-1 truncate">
-            <Lightbulb className="w-3.5 h-3.5 fill-amber-500 text-amber-900 shrink-0" />
-            <span className="truncate">{gameHitFeedback}</span>
+        {claimStatus && (
+          <div className={`mx-2 mt-2 px-2.5 py-1 rounded-xl border text-center text-xs font-bold shadow-md flex items-center justify-between gap-1.5 shrink-0 animate-in fade-in ${claimStatus.success ? 'bg-emerald-100 border-emerald-400 text-emerald-950' : 'bg-amber-100 border-amber-400 text-amber-950'
+            }`}>
+            <span className="truncate">{claimStatus.message}</span>
+            <button onClick={() => setClaimStatus(null)} className="p-0.5 text-slate-700 hover:text-slate-950 cursor-pointer">
+              <X className="w-3 h-3" />
+            </button>
           </div>
-          <button onClick={() => setGameHitFeedback(null)} className="p-0.5 text-amber-900 shrink-0 cursor-pointer">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* ================================================================
+        {gameHitFeedback && (
+          <div className="mx-2 mt-1 px-2.5 py-1 rounded-xl bg-amber-100 border border-amber-400 text-amber-950 text-xs font-bold shadow-md flex items-center justify-between gap-1.5 shrink-0">
+            <div className="flex items-center gap-1 truncate">
+              <Lightbulb className="w-3.5 h-3.5 fill-amber-500 text-amber-900 shrink-0" />
+              <span className="truncate">{gameHitFeedback}</span>
+            </div>
+            <button onClick={() => setGameHitFeedback(null)} className="p-0.5 text-amber-900 shrink-0 cursor-pointer">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* ================================================================
           6. BINGO CARDS — Each picked card gets its OWN separate table
           ================================================================ */}
-      <div className="p-2 pb-4 bg-slate-100 flex flex-col gap-3">
-        {/* Global Winner Announcement Banner — VISIBLE TO EVERYONE IN THE ROOM */}
-        {hasGameWinner && (() => {
-          const latestWinner = (currentGame.winners && currentGame.winners.length > 0)
-            ? currentGame.winners[currentGame.winners.length - 1]
-            : null;
-          return (
-            <div className={`border-2 rounded-2xl p-3 shadow-md flex flex-col sm:flex-row items-center justify-between gap-2.5 animate-in slide-in-from-top-2 duration-300 ${
-              isSpecialGame
-                ? 'bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 border-indigo-400 text-white'
-                : 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 border-amber-600 text-slate-950'
-            }`}>
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="text-2xl shrink-0">🏆</span>
-                <div className="min-w-0">
-                  <div className="text-xs font-black uppercase tracking-wider flex items-center gap-2 flex-wrap">
-                    <span>
-                      {currentGame.winners && currentGame.winners.length >= 2
-                        ? (language === 'am'
-                          ? `🎉 2 የጋራ አሸናፊዎች (Shared): @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${currentGame.winners[0].cardNumber} & #${currentGame.winners[1].cardNumber})!`
-                          : `🎉 2 SHARED WINNERS: @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${currentGame.winners[0].cardNumber} & #${currentGame.winners[1].cardNumber})!`)
-                        : latestWinner
-                        ? (language === 'am'
-                          ? `🎉 ቢንጎ አሸናፊ: @${latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`
-                          : `🎉 BINGO WINNER: @${latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`)
-                        : (isSpecialGame
-                          ? (language === 'am' ? 'የስፔሻል ዙር ተጠናቋል!' : 'Hyper Special Round Finished!')
-                          : (language === 'am' ? 'ዙሩ ተጠናቋል!' : 'Round Finished!'))
-                      }
-                    </span>
-                    {currentGame.winners && currentGame.winners.length >= 2 ? (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black">
-                        {formatETB(currentGame.winners[0].prizeWon)} {language === 'am' ? 'እያንዳንዳቸው (ደራሽ ተካፍሏል)' : 'each (50/50 split)'}
+        <div className="p-2 pb-4 bg-slate-100 flex flex-col gap-3">
+          {/* Global Winner Announcement Banner — VISIBLE TO EVERYONE IN THE ROOM */}
+          {hasGameWinner && (() => {
+            const latestWinner = (currentGame.winners && currentGame.winners.length > 0)
+              ? currentGame.winners[currentGame.winners.length - 1]
+              : null;
+            return (
+              <div className={`border-2 rounded-2xl p-3 shadow-md flex flex-col sm:flex-row items-center justify-between gap-2.5 animate-in slide-in-from-top-2 duration-300 ${isSpecialGame
+                  ? 'bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 border-indigo-400 text-white'
+                  : 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 border-amber-600 text-slate-950'
+                }`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-2xl shrink-0">🏆</span>
+                  <div className="min-w-0">
+                    <div className="text-xs font-black uppercase tracking-wider flex items-center gap-2 flex-wrap">
+                      <span>
+                        {currentGame.winners && currentGame.winners.length >= 2
+                          ? (language === 'am'
+                            ? `🎉 2 የጋራ አሸናፊዎች (Shared): @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${currentGame.winners[0].cardNumber} & #${currentGame.winners[1].cardNumber})!`
+                            : `🎉 2 SHARED WINNERS: @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${currentGame.winners[0].cardNumber} & #${currentGame.winners[1].cardNumber})!`)
+                          : latestWinner
+                            ? (language === 'am'
+                              ? `🎉 ቢንጎ አሸናፊ: @${latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`
+                              : `🎉 BINGO WINNER: @${latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`)
+                            : (isSpecialGame
+                              ? (language === 'am' ? 'የስፔሻል ዙር ተጠናቋል!' : 'Hyper Special Round Finished!')
+                              : (language === 'am' ? 'ዙሩ ተጠናቋል!' : 'Round Finished!'))
+                        }
                       </span>
-                    ) : latestWinner ? (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black">
-                        {formatETB(latestWinner.prizeWon)}
+                      {currentGame.winners && currentGame.winners.length >= 2 ? (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black">
+                          {formatETB(currentGame.winners[0].prizeWon)} {language === 'am' ? 'እያንዳንዳቸው (ደራሽ ተካፍሏል)' : 'each (50/50 split)'}
+                        </span>
+                      ) : latestWinner ? (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black">
+                          {formatETB(latestWinner.prizeWon)}
+                        </span>
+                      ) : null}
+                      <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-mono font-black animate-pulse">
+                        {isWeekendGame
+                          ? `⏳ ${announcementSecondsLeft}s ${language === 'am' ? 'ጨዋታው እስኪያልቅ...' : 'until weekend game ends...'}`
+                          : `⏳ ${announcementSecondsLeft}s ${language === 'am' ? 'ወደ ካርድ መግዣ...' : 'to card board...'}`}
                       </span>
-                    ) : null}
-                    <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-mono font-black animate-pulse">
-                      {isWeekendGame
-                        ? `⏳ ${announcementSecondsLeft}s ${language === 'am' ? 'ጨዋታው እስኪያልቅ...' : 'until weekend game ends...'}`
-                        : `⏳ ${announcementSecondsLeft}s ${language === 'am' ? 'ወደ ካርድ መግዣ...' : 'to card board...'}`}
-                    </span>
-                  </div>
-                  <p className={`text-[11px] font-medium leading-tight mt-0.5 ${isSpecialGame ? 'text-indigo-200' : 'text-slate-900'}`}>
-                    {isSpecialGame
-                      ? (language === 'am'
+                    </div>
+                    <p className={`text-[11px] font-medium leading-tight mt-0.5 ${isSpecialGame ? 'text-indigo-200' : 'text-slate-900'}`}>
+                      {isSpecialGame
+                        ? (language === 'am'
                           ? `ቀጣዩ ዙር በአዲስ ሕግ (ሕግ #${((currentGame.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length + 1}) እና አዲስ ዋጋ ይጀምራል።`
                           : `Next game rotates to Law #${((currentGame.activeSpecialRuleIndex ?? 0) + 1) % HYPER_SPECIAL_RULES.length + 1} with a new price.`)
-                      : (language === 'am'
+                        : (language === 'am'
                           ? 'እያንዳንዱ ካርድ ለአንድ ዙር ብቻ ያገለግላል። ቀጣዩን ዙር ለመጫወት አዲስ ካርድ መግዛት አለብዎት።'
                           : 'Cards are valid for 1 game only. To play again, please purchase new cards for the next round.')}
-                  </p>
+                    </p>
+                  </div>
                 </div>
+                {!isSpecialGame && !isWeekendGame && <button
+                  type="button"
+                  onClick={() => {
+                    resetGameRound(currentGame.id);
+                    if (onOpenLotteryTab) {
+                      onOpenLotteryTab();
+                    } else {
+                      setIsSelectorOpen(true);
+                    }
+                  }}
+                  className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-900 text-amber-300 font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <span>🎮 {language === 'am' ? 'አዲስ ካርድ ይግዙና ይጫወቱ' : 'Purchase Cards to Play Again'}</span>
+                </button>}
               </div>
-              {!isSpecialGame && !isWeekendGame && <button
-                type="button"
-                onClick={() => {
-                  resetGameRound(currentGame.id);
-                  if (onOpenLotteryTab) {
-                    onOpenLotteryTab();
-                  } else {
-                    setIsSelectorOpen(true);
-                  }
-                }}
-                className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-900 text-amber-300 font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-              >
-                <span>🎮 {language === 'am' ? 'አዲስ ካርድ ይግዙና ይጫወቱ' : 'Purchase Cards to Play Again'}</span>
-              </button>}
-            </div>
-          );
-        })()}
+            );
+          })()}
 
-        {isSpecialGame ? (
-          /* ── Hyper Special: 2 Slots Per Screen with Rectangular Number Cells ── */
-          <div className="space-y-2 pb-24">
-            <div className="flex items-center justify-between px-1.5 pt-0.5 text-xs">
-              <span className="font-black text-slate-700">
-                {language === 'am' ? 'የተመረጡ ካርዶች' : 'Selected Cards'}: {activeGameCards.length}/30
-              </span>
-              <span className="font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-lg shadow-2xs">
-                {activeGameCards.filter((c) => c.isRegistered).length}/5 {language === 'am' ? 'የተመዘገቡ ካርዶች' : 'Registered Cards'}
-              </span>
-            </div>
-
-            {/* When entering to choose cards: NO BINGO BOX initially until user chooses cards via the (+) button */}
-            {activeGameCards.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 px-4 text-center space-y-3 bg-white rounded-2xl border border-dashed border-slate-300 mx-1 shadow-2xs">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-slate-800">
-                    {language === 'am' ? 'ምንም የተመረጠ ካርድ የለም' : 'No Cards Selected Yet'}
-                  </h3>
-                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                    {language === 'am' ? 'አንድ ካርድ ለመጨመር በታች ያለውን + ይጫኑ' : 'Tap the + button below to add one card.'}
-                  </p>
-                </div>
-                <span className="text-[11px] font-semibold text-slate-400">
-                  {language === 'am' ? 'እስከ 30 ካርዶች መምረጥ እና 5 ካርዶች መመዝገብ ይችላሉ' : 'Select up to 30 cards, register up to 5'}
+          {isSpecialGame ? (
+            /* ── Hyper Special: 2 Slots Per Screen with Rectangular Number Cells ── */
+            <div className="space-y-2 pb-24">
+              <div className="flex items-center justify-between px-1.5 pt-0.5 text-xs">
+                <span className="font-black text-slate-700">
+                  {language === 'am' ? 'የተመረጡ ካርዶች' : 'Selected Cards'}: {activeGameCards.length}/30
+                </span>
+                <span className="font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-lg shadow-2xs">
+                  {activeGameCards.filter((c) => c.isRegistered).length}/5 {language === 'am' ? 'የተመዘገቡ ካርዶች' : 'Registered Cards'}
                 </span>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-1.5 pb-3 max-h-[42vh] overflow-y-auto pr-1">
-                {activeGameCards.map((card) => {
-                  const isRegistered = Boolean(card.isRegistered);
-                  const specialRoundHasStarted = isSpecialGame && (currentGame.status === 'RUNNING' || currentGame.drawnNumbers.length > 0);
-                  const effectiveCardMarked = (card.numbers || []).map((row, rIdx) =>
-                    row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]))
-                  );
-                  const cardIsWin = Boolean(getBestWinningRule(effectiveCardMarked, currentGame.winningRule, currentGame.activeSpecialRuleIndex));
-                  const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
 
-                  return (
-                    <div
-                      key={card.id}
-                      className={`bg-white rounded-xl overflow-hidden border-2 shadow-xs transition-all flex flex-col justify-between ${
-                        cardIsBlocked
-                          ? 'border-rose-400 ring-1 ring-rose-200'
-                          : cardIsWin
-                          ? 'border-amber-400 ring-2 ring-amber-300 shadow-md shadow-amber-200 animate-pulse'
-                          : isRegistered
-                          ? 'border-emerald-500 shadow-emerald-100 ring-1 ring-emerald-400'
-                          : 'border-slate-300'
-                      }`}
-                    >
-                      {/* Top Bar: card number + intermission timer OR registered indicator + remove */}
-                      <div className={`px-2 py-1 flex items-center justify-between font-mono font-black text-[11px] shadow-2xs ${
-                        isRegistered ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-white'
-                      }`}>
-                        <div className="flex items-center gap-1 min-w-0">
-                          <CreditCard className="w-3 h-3 shrink-0" />
-                          <span className="truncate">{card.cardNumber}</span>
-                          {isRegistered && !specialIsIntermission && (
-                            <span className="ml-1 text-[9px] bg-white/20 px-1 rounded font-bold">✓</span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeCard(card.id)}
-                          disabled={specialRoundHasStarted && (isRegistered || card.isPaid !== false)}
-                          className={`hover:bg-black/20 p-1 rounded cursor-pointer transition shrink-0 disabled:cursor-not-allowed disabled:opacity-40 ${
-                            isRegistered ? 'text-white/80 hover:text-white' : 'text-white/70 hover:text-white'
+              {/* When entering to choose cards: NO BINGO BOX initially until user chooses cards via the (+) button */}
+              {activeGameCards.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 px-4 text-center space-y-3 bg-white rounded-2xl border border-dashed border-slate-300 mx-1 shadow-2xs">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-slate-800">
+                      {language === 'am' ? 'ምንም የተመረጠ ካርድ የለም' : 'No Cards Selected Yet'}
+                    </h3>
+                    <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                      {language === 'am' ? 'አንድ ካርድ ለመጨመር በታች ያለውን + ይጫኑ' : 'Tap the + button below to add one card.'}
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    {language === 'am' ? 'እስከ 30 ካርዶች መምረጥ እና 5 ካርዶች መመዝገብ ይችላሉ' : 'Select up to 30 cards, register up to 5'}
+                  </span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-1.5 pb-3 max-h-[42vh] overflow-y-auto pr-1">
+                  {activeGameCards.map((card) => {
+                    const isRegistered = Boolean(card.isRegistered);
+                    const specialRoundHasStarted = isSpecialGame && (currentGame.status === 'RUNNING' || currentGame.drawnNumbers.length > 0);
+                    const effectiveCardMarked = (card.numbers || []).map((row, rIdx) =>
+                      row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]))
+                    );
+                    const cardIsWin = Boolean(getBestWinningRule(effectiveCardMarked, currentGame.winningRule, currentGame.activeSpecialRuleIndex));
+                    const cardIsBlocked = currentGame.blockedCards?.includes(card.cardNumber);
+
+                    return (
+                      <div
+                        key={card.id}
+                        className={`bg-white rounded-xl overflow-hidden border-2 shadow-xs transition-all flex flex-col justify-between ${cardIsBlocked
+                            ? 'border-rose-400 ring-1 ring-rose-200'
+                            : cardIsWin
+                              ? 'border-amber-400 ring-2 ring-amber-300 shadow-md shadow-amber-200 animate-pulse'
+                              : isRegistered
+                                ? 'border-emerald-500 shadow-emerald-100 ring-1 ring-emerald-400'
+                                : 'border-slate-300'
                           }`}
-                          title={specialRoundHasStarted && (isRegistered || card.isPaid !== false) ? 'Registered cards stay active until the round ends' : 'Remove card'}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      <div className="p-1.5 space-y-1 flex-1 flex flex-col justify-between">
-                        {/* Register Card Button */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            toggleSpecialCardRegistration(card.id);
-                            // Notification removed per requirement
-                          }}
-                          className={`w-full py-1 px-1 rounded-md font-bold text-[10px] sm:text-[11px] transition cursor-pointer shadow-2xs active:scale-95 ${
-                            isRegistered
-                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1'
-                              : 'bg-[#38bdf8] hover:bg-[#0ea5e9] text-white'
-                          }`}
-                        >
-                          {isRegistered ? '✓ Registered' : 'Register Card'}
-                        </button>
-
-                        {/* B I N G O Header Row */}
-                        <div className="grid grid-cols-5 gap-[2px] text-center font-black text-white text-[9px]">
-                          <div className="bg-[#22c55e] py-0.5 rounded">B</div>
-                          <div className="bg-[#ef4444] py-0.5 rounded">I</div>
-                          <div className="bg-[#06b6d4] py-0.5 rounded">N</div>
-                          <div className="bg-[#3b82f6] py-0.5 rounded">G</div>
-                          <div className="bg-[#f59e0b] py-0.5 rounded">O</div>
-                        </div>
-
-                        {/* 5x5 Number Grid (Rectangle / Square Cells like others, center green F) */}
-                        <div className="grid grid-cols-5 gap-[2px] text-center">
-                          {card.numbers.map((row, rIdx) =>
-                            row.map((val, cIdx) => {
-                              const isFree = rIdx === 2 && cIdx === 2;
-                              const isMarked = effectiveCardMarked[rIdx][cIdx];
-                              return (
-                                <div
-                                  key={`${rIdx}-${cIdx}`}
-                                  onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
-                                  className={`rounded aspect-square flex items-center justify-center font-bold text-sm sm:text-base cursor-pointer transition select-none ${
-                                    isFree
-                                      ? 'bg-[#22c55e] text-white border border-emerald-600 shadow-2xs font-black'
-                                      : isMarked
-                                      ? 'bg-amber-400 text-slate-950 ring-1 ring-amber-500 font-black shadow-2xs'
-                                      : 'bg-white border border-slate-200 text-slate-900 shadow-2xs hover:bg-slate-50'
-                                  }`}
-                                >
-                                  {isFree ? 'F' : val}
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-
-                        {/* BINGO Button on Registered Card */}
-                        {isRegistered && (
+                      >
+                        {/* Top Bar: card number + intermission timer OR registered indicator + remove */}
+                        <div className={`px-2 py-1 flex items-center justify-between font-mono font-black text-[11px] shadow-2xs ${isRegistered ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-white'
+                          }`}>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <CreditCard className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{card.cardNumber}</span>
+                            {isRegistered && !specialIsIntermission && (
+                              <span className="ml-1 text-[9px] bg-white/20 px-1 rounded font-bold">✓</span>
+                            )}
+                          </div>
                           <button
                             type="button"
-                            disabled={cardIsBlocked}
-                            onClick={() => {
-                              if (cardIsBlocked) return;
-                              handleClaimBingo(card.id);
-                            }}
-                            className={`w-full py-1.5 px-2 rounded-lg font-black italic tracking-wider transition-all relative flex items-center justify-center cursor-pointer shadow-xs ${
-                              cardIsBlocked
-                                ? 'bg-rose-900 text-rose-300 cursor-not-allowed text-[10px]'
-                                : cardIsWin
-                                ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse shadow-amber-300 text-xs sm:text-sm font-black'
-                                : 'bg-[#2563eb] hover:bg-blue-700 text-white active:scale-[0.99] text-xs sm:text-sm'
-                            }`}
+                            onClick={() => removeCard(card.id)}
+                            disabled={specialRoundHasStarted && (isRegistered || card.isPaid !== false)}
+                            className={`hover:bg-black/20 p-1 rounded cursor-pointer transition shrink-0 disabled:cursor-not-allowed disabled:opacity-40 ${isRegistered ? 'text-white/80 hover:text-white' : 'text-white/70 hover:text-white'
+                              }`}
+                            title={specialRoundHasStarted && (isRegistered || card.isPaid !== false) ? 'Registered cards stay active until the round ends' : 'Remove card'}
                           >
-                            <span className="tracking-widest">
-                              {cardIsBlocked ? '🚫 BLOCKED' : cardIsWin ? '🎉 BINGO!' : 'BINGO!'}
-                            </span>
-                            <span className="absolute right-1.5 bottom-0.5 text-[8px] font-mono font-bold text-blue-200">
-                              #{card.cardNumber}
-                            </span>
+                            <X className="w-3.5 h-3.5" />
                           </button>
-                        )}
+                        </div>
+
+                        <div className="p-1.5 space-y-1 flex-1 flex flex-col justify-between">
+                          {/* Register Card Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              toggleSpecialCardRegistration(card.id);
+                              // Notification removed per requirement
+                            }}
+                            className={`w-full py-1 px-1 rounded-md font-bold text-[10px] sm:text-[11px] transition cursor-pointer shadow-2xs active:scale-95 ${isRegistered
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1'
+                                : 'bg-[#38bdf8] hover:bg-[#0ea5e9] text-white'
+                              }`}
+                          >
+                            {isRegistered ? '✓ Registered' : 'Register Card'}
+                          </button>
+
+                          {/* B I N G O Header Row */}
+                          <div className="grid grid-cols-5 gap-[2px] text-center font-black text-white text-[9px]">
+                            <div className="bg-[#22c55e] py-0.5 rounded">B</div>
+                            <div className="bg-[#ef4444] py-0.5 rounded">I</div>
+                            <div className="bg-[#06b6d4] py-0.5 rounded">N</div>
+                            <div className="bg-[#3b82f6] py-0.5 rounded">G</div>
+                            <div className="bg-[#f59e0b] py-0.5 rounded">O</div>
+                          </div>
+
+                          {/* 5x5 Number Grid (Rectangle / Square Cells like others, center green F) */}
+                          <div className="grid grid-cols-5 gap-[2px] text-center">
+                            {card.numbers.map((row, rIdx) =>
+                              row.map((val, cIdx) => {
+                                const isFree = rIdx === 2 && cIdx === 2;
+                                const isMarked = effectiveCardMarked[rIdx][cIdx];
+                                return (
+                                  <div
+                                    key={`${rIdx}-${cIdx}`}
+                                    onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
+                                    className={`rounded aspect-square flex items-center justify-center font-bold text-sm sm:text-base cursor-pointer transition select-none ${isFree
+                                        ? 'bg-[#22c55e] text-white border border-emerald-600 shadow-2xs font-black'
+                                        : isMarked
+                                          ? 'bg-amber-400 text-slate-950 ring-1 ring-amber-500 font-black shadow-2xs'
+                                          : 'bg-white border border-slate-200 text-slate-900 shadow-2xs hover:bg-slate-50'
+                                      }`}
+                                  >
+                                    {isFree ? 'F' : val}
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+
+                          {/* BINGO Button on Registered Card */}
+                          {isRegistered && (
+                            <button
+                              type="button"
+                              disabled={cardIsBlocked}
+                              onClick={() => {
+                                if (cardIsBlocked) return;
+                                handleClaimBingo(card.id);
+                              }}
+                              className={`w-full py-1.5 px-2 rounded-lg font-black italic tracking-wider transition-all relative flex items-center justify-center cursor-pointer shadow-xs ${cardIsBlocked
+                                  ? 'bg-rose-900 text-rose-300 cursor-not-allowed text-[10px]'
+                                  : cardIsWin
+                                    ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse shadow-amber-300 text-xs sm:text-sm font-black'
+                                    : 'bg-[#2563eb] hover:bg-blue-700 text-white active:scale-[0.99] text-xs sm:text-sm'
+                                }`}
+                            >
+                              <span className="tracking-widest">
+                                {cardIsBlocked ? '🚫 BLOCKED' : cardIsWin ? '🎉 BINGO!' : 'BINGO!'}
+                              </span>
+                              <span className="absolute right-1.5 bottom-0.5 text-[8px] font-mono font-bold text-blue-200">
+                                #{card.cardNumber}
+                              </span>
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ) : activeGameCards.length > 0 ? (
-          /* ── Render all slots in a scrollable grid (no pagination; all cards visible & scrollable) ── */
-          (() => {
-            const visibleCards = activeGameCards;
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : activeGameCards.length > 0 ? (
+            /* ── Render all slots in a scrollable grid (no pagination; all cards visible & scrollable) ── */
+            (() => {
+              const visibleCards = activeGameCards;
 
               return (
                 <div className="space-y-1.5">
@@ -2273,8 +2259,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       const effectiveRuleType = isFetan
                         ? 'ONE_LINE_OR_CORNERS'
                         : isWeekend
-                        ? 'FULL_HOUSE_ONLY'
-                        : currentGame.winningRule;
+                          ? 'FULL_HOUSE_ONLY'
+                          : currentGame.winningRule;
 
                       const effectiveCardMarked = (card.numbers || []).map((row, rIdx) =>
                         row.map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(card.marked?.[rIdx]?.[cIdx]))
@@ -2287,15 +2273,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       return (
                         <div
                           key={card.id}
-                          className={`bg-white rounded-2xl overflow-hidden p-2 shadow-xs border-2 transition-all flex flex-col justify-between ${
-                            cardIsBlocked
+                          className={`bg-white rounded-2xl overflow-hidden p-2 shadow-xs border-2 transition-all flex flex-col justify-between ${cardIsBlocked
                               ? 'border-rose-400 ring-2 ring-rose-200'
                               : cardIsWin
-                              ? 'border-amber-400 ring-2 ring-amber-300 shadow-md shadow-amber-200 animate-pulse'
-                              : oneAway.isOneAway
-                              ? 'border-amber-400 ring-2 ring-amber-300 shadow-xs shadow-amber-200/50'
-                              : 'border-slate-200/90'
-                          }`}
+                                ? 'border-amber-400 ring-2 ring-amber-300 shadow-md shadow-amber-200 animate-pulse'
+                                : oneAway.isOneAway
+                                  ? 'border-amber-400 ring-2 ring-amber-300 shadow-xs shadow-amber-200/50'
+                                  : 'border-slate-200/90'
+                            }`}
                         >
                           {/* Top micro-bar: Slot #, Card #, 1-Away suspense & card tools */}
                           <div className="flex items-center justify-between px-0.5 pb-1 border-b border-slate-100 mb-1">
@@ -2359,7 +2344,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                               <div
                                 key={col.letter}
                                 className={`${col.bg} text-white font-black italic rounded flex items-center justify-center text-[10px] shadow-2xs`}
-                                style={{height:'16px'}}
+                                style={{ height: '16px' }}
                               >
                                 {col.letter}
                               </div>
@@ -2379,25 +2364,23 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                                   <button
                                     key={`${card.id}-${rIdx}-${cIdx}`}
                                     onClick={() => !isFree && daubCell(card.id, rIdx, cIdx)}
-                                    className={`rounded flex items-center justify-center font-extrabold transition-all relative select-none cursor-pointer ${
-                                      isFree
+                                    className={`rounded flex items-center justify-center font-extrabold transition-all relative select-none cursor-pointer ${isFree
                                         ? 'bg-[#16a34a] border border-emerald-600 shadow-2xs'
                                         : isMarked
-                                        ? 'bg-[#dc2626] border border-red-700 text-white shadow-inner'
-                                        : isTargetNumber
-                                        ? 'bg-amber-100 border border-amber-400 text-amber-950 ring-1 ring-amber-500 animate-pulse z-10'
-                                        : isHintCell
-                                        ? 'bg-amber-100 border border-amber-400 text-amber-950 ring-1 ring-amber-400 animate-pulse'
-                                        : 'bg-slate-50/90 hover:bg-slate-100 border border-slate-200/90 text-slate-900 shadow-2xs'
-                                    }`}
-                                    style={{aspectRatio:'1/1', minHeight:'0'}}
+                                          ? 'bg-[#dc2626] border border-red-700 text-white shadow-inner'
+                                          : isTargetNumber
+                                            ? 'bg-amber-100 border border-amber-400 text-amber-950 ring-1 ring-amber-500 animate-pulse z-10'
+                                            : isHintCell
+                                              ? 'bg-amber-100 border border-amber-400 text-amber-950 ring-1 ring-amber-400 animate-pulse'
+                                              : 'bg-slate-50/90 hover:bg-slate-100 border border-slate-200/90 text-slate-900 shadow-2xs'
+                                      }`}
+                                    style={{ aspectRatio: '1/1', minHeight: '0' }}
                                   >
                                     {isFree ? (
                                       <span className="text-[#2563eb] font-black text-[9px] leading-none">★</span>
                                     ) : (
-                                      <span className={`text-sm sm:text-base font-black leading-none ${
-                                        isMarked ? 'text-white' : 'text-slate-950'
-                                      }`}>
+                                      <span className={`text-sm sm:text-base font-black leading-none ${isMarked ? 'text-white' : 'text-slate-950'
+                                        }`}>
                                         {val}
                                       </span>
                                     )}
@@ -2411,13 +2394,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                           <button
                             disabled={cardIsBlocked}
                             onClick={() => !cardIsBlocked && handleClaimBingo(card.id)}
-                            className={`w-full py-1 px-1.5 rounded-lg font-black italic tracking-wider transition-all relative flex items-center justify-center cursor-pointer shadow-xs ${
-                              cardIsBlocked
+                            className={`w-full py-1 px-1.5 rounded-lg font-black italic tracking-wider transition-all relative flex items-center justify-center cursor-pointer shadow-xs ${cardIsBlocked
                                 ? 'bg-rose-900 text-rose-300 cursor-not-allowed text-[10px]'
                                 : cardIsWin
-                                ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse shadow-amber-300 text-xs sm:text-sm'
-                                : 'bg-[#2563eb] hover:bg-blue-700 text-white active:scale-[0.99] text-xs sm:text-sm'
-                            }`}
+                                  ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse shadow-amber-300 text-xs sm:text-sm'
+                                  : 'bg-[#2563eb] hover:bg-blue-700 text-white active:scale-[0.99] text-xs sm:text-sm'
+                              }`}
                           >
                             <span className="tracking-widest">
                               {cardIsBlocked ? '🚫 BLOCKED' : 'BINGO!'}
@@ -2433,119 +2415,116 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 </div>
               );
             })()
-        ) : (
-          /* No cards yet — Spectator Mode & Card Purchase Area */
-          <div className="flex flex-col items-center justify-center py-6 px-3 text-center space-y-3.5 bg-white rounded-2xl border border-slate-200 mx-1 shadow-xs">
-            {/* Live Spectator Mode Indicator */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-900 text-xs font-black shadow-2xs">
-              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
-              <Eye className="w-3.5 h-3.5 text-blue-600" />
-              <span>{language === 'am' ? 'የቀጥታ እይታ ሞድ · Spectator Mode' : 'Live Spectator Mode'}</span>
-            </div>
+          ) : (
+            /* No cards yet — Spectator Mode & Card Purchase Area */
+            <div className="flex flex-col items-center justify-center py-6 px-3 text-center space-y-3.5 bg-white rounded-2xl border border-slate-200 mx-1 shadow-xs">
+              {/* Live Spectator Mode Indicator */}
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-900 text-xs font-black shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                <Eye className="w-3.5 h-3.5 text-blue-600" />
+                <span>{language === 'am' ? 'የቀጥታ እይታ ሞድ · Spectator Mode' : 'Live Spectator Mode'}</span>
+              </div>
 
-            <div className="space-y-1 px-4">
-              <h3 className="text-sm font-black text-slate-900">
-                {isWeekendGame
-                  ? (language === 'am' ? '🌟 ሃይፐር ዊክኤንድ ጨዋታ እይታ' : '🌟 Hyper Weekend Live Spectator')
-                  : (language === 'am' ? 'ጨዋታውን በቀጥታ እየተመለከቱ ነው' : 'Watching Live Game')}
-              </h3>
-              <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                {language === 'am'
-                  ? 'ጨዋታውን ያለ ካርድ በቀጥታ መከታተል ይችላሉ። በጨዋታው ለመሳተፍ እና ለማሸነፍ ካርድ ይግዙ።'
-                  : 'You can watch this game live without cards. To participate and win, purchase cards below.'}
-              </p>
-            </div>
-
-            {/* Insufficient Balance Notice with Deposit Action */}
-            {!hasSufficientBalance && (
-              <div className="w-full max-w-xs mx-auto p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs text-center space-y-2 shadow-2xs">
-                <div className="flex items-center justify-center gap-1.5 font-black text-amber-900">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>{language === 'am' ? 'ዝቅተኛ ቀሪ ሒሳብ' : 'Insufficient Balance'}</span>
-                </div>
-                <p className="text-[11px] text-amber-800 leading-tight">
+              <div className="space-y-1 px-4">
+                <h3 className="text-sm font-black text-slate-900">
+                  {isWeekendGame
+                    ? (language === 'am' ? '🌟 ሃይፐር ዊክኤንድ ጨዋታ እይታ' : '🌟 Hyper Weekend Live Spectator')
+                    : (language === 'am' ? 'ጨዋታውን በቀጥታ እየተመለከቱ ነው' : 'Watching Live Game')}
+                </h3>
+                <p className="text-xs text-slate-500 max-w-xs mx-auto">
                   {language === 'am'
-                    ? `ለመጫወት ቢያንስ ${currentGame.entryPrice} ETB ያስፈልጋል። ያለ በቂ ሒሳብ መጫወት አይችሉም (ቀሪ ሒሳብዎ: ${Math.floor(playableBalance)} ETB)። መመልከት ይችላሉ!`
-                    : `At least ${currentGame.entryPrice} ETB required. Without sufficient balance you cannot play (You have: ${Math.floor(playableBalance)} ETB). You can watch!`}
+                    ? 'ጨዋታውን ያለ ካርድ በቀጥታ መከታተል ይችላሉ። በጨዋታው ለመሳተፍ እና ለማሸነፍ ካርድ ይግዙ።'
+                    : 'You can watch this game live without cards. To participate and win, purchase cards below.'}
                 </p>
-                {onOpenWalletTab && (
-                  <button
-                    type="button"
-                    onClick={onOpenWalletTab}
-                    className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Wallet className="w-3.5 h-3.5" />
-                    <span>{language === 'am' ? '💳 ሒሳብ ሙላ (Deposit via Telebirr/CBE)' : '💳 Deposit to Play'}</span>
-                  </button>
-                )}
               </div>
-            )}
 
-            {/* Action Buttons: Card purchase blocked if balance is insufficient */}
-            {isWeekendGame ? (
-              <div className="flex flex-col gap-2 px-4 w-full max-w-xs mx-auto">
-                {onOpenLotteryTab && (
+              {/* Insufficient Balance Notice with Deposit Action */}
+              {!hasSufficientBalance && (
+                <div className="w-full max-w-xs mx-auto p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs text-center space-y-2 shadow-2xs">
+                  <div className="flex items-center justify-center gap-1.5 font-black text-amber-900">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>{language === 'am' ? 'ዝቅተኛ ቀሪ ሒሳብ' : 'Insufficient Balance'}</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-tight">
+                    {language === 'am'
+                      ? `ለመጫወት ቢያንስ ${currentGame.entryPrice} ETB ያስፈልጋል። ያለ በቂ ሒሳብ መጫወት አይችሉም (ቀሪ ሒሳብዎ: ${Math.floor(playableBalance)} ETB)። መመልከት ይችላሉ!`
+                      : `At least ${currentGame.entryPrice} ETB required. Without sufficient balance you cannot play (You have: ${Math.floor(playableBalance)} ETB). You can watch!`}
+                  </p>
+                  {onOpenWalletTab && (
+                    <button
+                      type="button"
+                      onClick={onOpenWalletTab}
+                      className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Wallet className="w-3.5 h-3.5" />
+                      <span>{language === 'am' ? '💳 ሒሳብ ሙላ (Deposit via Telebirr/CBE)' : '💳 Deposit to Play'}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons: Card purchase blocked if balance is insufficient */}
+              {isWeekendGame ? (
+                <div className="flex flex-col gap-2 px-4 w-full max-w-xs mx-auto">
+                  {onOpenLotteryTab && (
+                    <button
+                      type="button"
+                      onClick={onOpenLotteryTab}
+                      className="w-full px-3 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>{language === 'am' ? '🎟️ ሎተሪ ካርታ ይምረጡ (1-1500)' : '🎟️ Pick Lottery Tickets (1–1500)'}</span>
+                    </button>
+                  )}
                   <button
-                    type="button"
-                    onClick={onOpenLotteryTab}
-                    className="w-full px-3 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                    disabled={!hasSufficientBalance}
+                    onClick={handleQuickPlay}
+                    className={`w-full px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${!hasSufficientBalance
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                        : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white cursor-pointer'
+                      }`}
                   >
-                    <Sparkles className="w-4 h-4" />
-                    <span>{language === 'am' ? '🎟️ ሎተሪ ካርታ ይምረጡ (1-1500)' : '🎟️ Pick Lottery Tickets (1–1500)'}</span>
+                    <Zap className="w-4 h-4" />
+                    <span>
+                      {!hasSufficientBalance
+                        ? (language === 'am' ? `ሒሳብ ይሙሉ (${currentGame.entryPrice} ብር)` : `Deposit to Play (${currentGame.entryPrice} ETB)`)
+                        : (language === 'am' ? '🚀 አሁኑኑ ይጫወቱ (Quick Play)' : '🚀 Quick Play (Join Now)')}
+                    </span>
                   </button>
-                )}
-                <button
-                  disabled={!hasSufficientBalance}
-                  onClick={handleQuickPlay}
-                  className={`w-full px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${
-                    !hasSufficientBalance
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
-                      : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white cursor-pointer'
-                  }`}
-                >
-                  <Zap className="w-4 h-4" />
-                  <span>
-                    {!hasSufficientBalance
-                      ? (language === 'am' ? `ሒሳብ ይሙሉ (${currentGame.entryPrice} ብር)` : `Deposit to Play (${currentGame.entryPrice} ETB)`)
-                      : (language === 'am' ? '🚀 አሁኑኑ ይጫወቱ (Quick Play)' : '🚀 Quick Play (Join Now)')}
-                  </span>
-                </button>
-              </div>
-            ) : !isSpecialGame ? (
-              <div className="flex flex-col sm:flex-row gap-2 px-4 w-full max-w-xs mx-auto">
-                <button
-                  disabled={!hasSufficientBalance}
-                  onClick={() => (!user || user.id === 'usr_guest' ? openAuthModal('register') : isSpecialGame ? setIsSelectorOpen(true) : onOpenLotteryTab ? onOpenLotteryTab() : setIsSelectorOpen(true))}
-                  className={`flex-1 px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${
-                    !hasSufficientBalance
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
-                      : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white cursor-pointer'
-                  }`}
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>{language === 'am' ? 'ካርድ ቁጥር ይምረጡ' : 'Pick Cards'}</span>
-                </button>
-                <button
-                  disabled={!hasSufficientBalance}
-                  onClick={handleQuickPlay}
-                  className={`flex-1 px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${
-                    !hasSufficientBalance
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
-                      : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white cursor-pointer'
-                  }`}
-                >
-                  <Zap className="w-4 h-4" />
-                  <span>
-                    {!hasSufficientBalance
-                      ? (language === 'am' ? `ሒሳብ ይሙሉ (${currentGame.entryPrice} ብር)` : `Deposit (${currentGame.entryPrice} ETB)`)
-                      : (language === 'am' ? 'ፈጣን ጨዋታ' : 'Quick Play')}
-                  </span>
-                </button>
-              </div>
-            ) : null}
-          </div>
-        )}
-      </div>
+                </div>
+              ) : !isSpecialGame ? (
+                <div className="flex flex-col sm:flex-row gap-2 px-4 w-full max-w-xs mx-auto">
+                  <button
+                    disabled={!hasSufficientBalance}
+                    onClick={() => (!user || user.id === 'usr_guest' ? openAuthModal('register') : isSpecialGame ? setIsSelectorOpen(true) : onOpenLotteryTab ? onOpenLotteryTab() : setIsSelectorOpen(true))}
+                    className={`flex-1 px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${!hasSufficientBalance
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white cursor-pointer'
+                      }`}
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{language === 'am' ? 'ካርድ ቁጥር ይምረጡ' : 'Pick Cards'}</span>
+                  </button>
+                  <button
+                    disabled={!hasSufficientBalance}
+                    onClick={handleQuickPlay}
+                    className={`flex-1 px-3 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 ${!hasSufficientBalance
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                        : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white cursor-pointer'
+                      }`}
+                  >
+                    <Zap className="w-4 h-4" />
+                    <span>
+                      {!hasSufficientBalance
+                        ? (language === 'am' ? `ሒሳብ ይሙሉ (${currentGame.entryPrice} ብር)` : `Deposit (${currentGame.entryPrice} ETB)`)
+                        : (language === 'am' ? 'ፈጣን ጨዋታ' : 'Quick Play')}
+                    </span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ================================================================
@@ -2563,8 +2542,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         const effectiveRuleType = isFetan
           ? 'ONE_LINE_OR_CORNERS'
           : isWeekend
-          ? 'FULL_HOUSE_ONLY'
-          : currentGame.winningRule;
+            ? 'FULL_HOUSE_ONLY'
+            : currentGame.winningRule;
 
         const effectiveFsMarked = (fsCard.numbers || []).map((row, rIdx) =>
           (row || []).map((_, cIdx) => (rIdx === 2 && cIdx === 2) || Boolean(fsCard.marked?.[rIdx]?.[cIdx]))
@@ -2582,13 +2561,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     <button
                       key={c.id}
                       onClick={() => setSelectedCardId(c.id)}
-                      className={`px-3 py-1.5 rounded-xl font-black text-xs transition cursor-pointer shrink-0 ${
-                        isActive
+                      className={`px-3 py-1.5 rounded-xl font-black text-xs transition cursor-pointer shrink-0 ${isActive
                           ? isBlk
                             ? 'bg-rose-700 text-white'
                             : 'bg-emerald-500 text-slate-950 shadow-md font-black'
                           : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
-                      }`}
+                        }`}
                     >
                       #{c.cardNumber}
                       {isBlk && <span className="ml-1 text-[9px]">🚫</span>}
@@ -2646,20 +2624,18 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     <button
                       key={`fs-${rIdx}-${cIdx}`}
                       onClick={() => !isFree && daubCell(fsCard.id, rIdx, cIdx)}
-                      className={`flex items-center justify-center font-extrabold rounded-xl border transition-all cursor-pointer aspect-square ${
-                        isFree
+                      className={`flex items-center justify-center font-extrabold rounded-xl border transition-all cursor-pointer aspect-square ${isFree
                           ? 'bg-[#16a34a] border-emerald-500 shadow-sm'
                           : isMarked
-                          ? 'bg-[#dc2626] border-red-700 text-white shadow-inner'
-                          : 'bg-white text-slate-950 border-slate-200 hover:bg-slate-100 shadow-xs'
-                      }`}
+                            ? 'bg-[#dc2626] border-red-700 text-white shadow-inner'
+                            : 'bg-white text-slate-950 border-slate-200 hover:bg-slate-100 shadow-xs'
+                        }`}
                     >
                       {isFree ? (
                         <span className="text-[#2563eb] font-black text-2xl sm:text-3xl leading-none">★</span>
                       ) : (
-                        <span className={`font-black text-xl sm:text-2xl ${
-                          isMarked ? 'text-white' : 'text-slate-950'
-                        }`}>
+                        <span className={`font-black text-xl sm:text-2xl ${isMarked ? 'text-white' : 'text-slate-950'
+                          }`}>
                           {val}
                         </span>
                       )}
@@ -2674,13 +2650,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <button
                 disabled={fsBlocked}
                 onClick={() => { if (!fsBlocked) { handleClaimBingo(fsCard.id); setExpandCardModal(false); } }}
-                className={`w-full py-3 rounded-xl font-black text-lg sm:text-xl tracking-widest italic relative flex items-center justify-center cursor-pointer shadow-lg transition-all ${
-                  fsBlocked
+                className={`w-full py-3 rounded-xl font-black text-lg sm:text-xl tracking-widest italic relative flex items-center justify-center cursor-pointer shadow-lg transition-all ${fsBlocked
                     ? 'bg-rose-900 text-rose-300 cursor-not-allowed'
                     : fsWin
-                    ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse shadow-amber-300'
-                    : 'bg-[#2563eb] hover:bg-blue-700 text-white active:scale-[0.99]'
-                }`}
+                      ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 animate-pulse shadow-amber-300'
+                      : 'bg-[#2563eb] hover:bg-blue-700 text-white active:scale-[0.99]'
+                  }`}
               >
                 <span>{fsBlocked ? '🚫 BLOCKED' : 'BINGO!'}</span>
                 <span className="absolute right-3 bottom-2 text-[11px] sm:text-xs font-mono font-bold text-blue-200">
@@ -2727,13 +2702,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       return (
                         <div
                           key={num}
-                          className={`h-5 rounded-md text-[9px] font-bold flex items-center justify-center transition-all ${
-                            isCurrent
+                          className={`h-5 rounded-md text-[9px] font-bold flex items-center justify-center transition-all ${isCurrent
                               ? 'bg-yellow-300 text-slate-950 font-black scale-125 shadow-[0_0_12px_3px_rgba(250,204,21,0.85)] ring-2 ring-yellow-400 animate-pulse z-20 brightness-110'
                               : isDrawn
-                              ? `${row.color} font-black`
-                              : 'bg-white text-slate-700 border border-slate-200'
-                          }`}
+                                ? `${row.color} font-black`
+                                : 'bg-white text-slate-700 border border-slate-200'
+                            }`}
                         >
                           {num}
                         </div>
@@ -2885,16 +2859,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         const winningGrid: number[][] = (winningCard && winningCard.numbers && winningCard.numbers.length === 5)
           ? winningCard.numbers
           : (!Number.isNaN(winningCardNumberInt) && winningCardNumberInt > 0
-              ? generateSeededBingoCardMatrix(winningCardNumberInt)
-              : generateBingoCardMatrix());
+            ? generateSeededBingoCardMatrix(winningCardNumberInt)
+            : generateBingoCardMatrix());
 
         const drawnSet = new Set(currentGame.drawnNumbers || []);
         // Determine the effective winning rule type for this game
         const effectiveRuleType = isFetanGame
           ? 'ONE_LINE_OR_CORNERS'
           : isWeekendGame
-          ? 'FULL_HOUSE_ONLY'
-          : (currentGame.winningRule || 'STANDARD');
+            ? 'FULL_HOUSE_ONLY'
+            : (currentGame.winningRule || 'STANDARD');
         // Build marked grid based on drawn numbers
         const markedGrid = winningGrid.map((row, rIdx) =>
           row.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || drawnSet.has(val))
@@ -3073,252 +3047,251 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         }
         winningNumbers.sort((a, b) => a - b);
         return (
-        <div 
-          onClick={() => setShowWinnerModal(false)}
-          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 border-2 border-amber-400 rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-white text-center relative overflow-hidden cursor-default my-auto max-h-[94vh] overflow-y-auto"
+          <div
+            onClick={() => setShowWinnerModal(false)}
+            className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
           >
-            <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-400/20 rounded-full blur-2xl pointer-events-none"></div>
-            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 border-2 border-amber-400 rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-white text-center relative overflow-hidden cursor-default my-auto max-h-[94vh] overflow-y-auto"
+            >
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-400/20 rounded-full blur-2xl pointer-events-none"></div>
+              <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
 
-            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 flex items-center justify-center text-3xl mx-auto shadow-lg ring-4 ring-amber-400/30 animate-bounce">
-              🏆
-            </div>
-
-            {currentGame.winners.length >= 2 ? (
-              <div className="space-y-2">
-                <h3 className="text-xs font-black tracking-widest uppercase text-amber-400">
-                  {language === 'am' ? '🎉 2 ቢንጎ አሸናፊዎች (የጋራ ድል)! 🎉' : '🎉 2 BINGO WINNERS (SHARED DERASH)! 🎉'}
-                </h3>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-black">
-                  <span>{language === 'am' ? 'ደራሽ በእኩል ተካፍሏል' : 'Derash Split 50% / 50%'}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-left pt-1">
-                  {currentGame.winners.slice(0, 2).map((w, idx) => (
-                    <div key={idx} className="bg-white/10 rounded-2xl p-2.5 border border-white/15 space-y-1">
-                      <div className="text-[10px] text-amber-300 font-bold uppercase">
-                        {language === 'am' ? `አሸናፊ #${idx + 1}` : `Winner #${idx + 1}`}
-                      </div>
-                      <div className="font-black text-white text-xs truncate">
-                        @{w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
-                      </div>
-                      <div className="text-[10px] text-slate-300 font-mono">
-                        Card #{w.cardNumber}
-                      </div>
-                      <div className="font-black text-emerald-400 text-xs">
-                        {formatETB(w.prizeWon)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 flex items-center justify-center text-3xl mx-auto shadow-lg ring-4 ring-amber-400/30 animate-bounce">
+                🏆
               </div>
-            ) : (
-              <div className="space-y-1">
-                <h3 className="text-xs font-black tracking-widest uppercase text-amber-400">
-                  {language === 'am' ? '🎉 ቢንጎ አሸናፊ ይፋ ሆነ! 🎉' : '🎉 BINGO WINNER ANNOUNCED! 🎉'}
-                </h3>
-                <p className="text-2xl font-black text-white tracking-wide">
-                  @{latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
-                </p>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-black">
-                  <span>{language === 'am' ? 'የተጠቃሚ ID ቁጥር' : 'Winner ID #'}:</span>
-                  <span className="text-white">#{latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)}</span>
-                </div>
-              </div>
-            )}
 
-            <div className="bg-white/10 rounded-2xl p-3.5 border border-white/15 space-y-2.5 text-left">
               {currentGame.winners.length >= 2 ? (
-                <>
-                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                    <span className="text-slate-300 font-bold">{language === 'am' ? 'አሸናፊዎች (Winners):' : 'Winners:'}</span>
-                    <span className="font-black text-amber-300 text-xs">
-                      @{currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @{currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
-                    </span>
+                <div className="space-y-2">
+                  <h3 className="text-xs font-black tracking-widest uppercase text-amber-400">
+                    {language === 'am' ? '🎉 2 ቢንጎ አሸናፊዎች (የጋራ ድል)! 🎉' : '🎉 2 BINGO WINNERS (SHARED DERASH)! 🎉'}
+                  </h3>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-black">
+                    <span>{language === 'am' ? 'ደራሽ በእኩል ተካፍሏል' : 'Derash Split 50% / 50%'}</span>
                   </div>
-                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                    <span className="text-slate-300 font-bold">{language === 'am' ? 'የካርድ ID ቁጥሮች:' : 'Card IDs:'}</span>
-                    <span className="font-mono font-black text-amber-300 text-xs">
-                      #{currentGame.winners[0].cardNumber} & #{currentGame.winners[1].cardNumber}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                    <span className="text-slate-300 font-bold">{language === 'am' ? 'የእያንዳንዱ ሽልማት:' : 'Each Prize (50%):'}</span>
-                    <span className="font-black text-emerald-400 text-sm">
-                      {formatETB(currentGame.winners[0].prizeWon)} ({formatETB(currentGame.winners[0].prizeWon * 2)} Total)
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                    <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጠቃሚ ስም (Username):' : 'Username:'}</span>
-                    <span className="font-black text-amber-300 text-sm">@{latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                    <span className="text-slate-300 font-bold">{language === 'am' ? 'የካርድ ID ቁጥር (Card ID #):' : 'Card ID #:'}</span>
-                    <span className="font-mono font-black text-amber-300 text-base">
-                      #{latestWinner.cardNumber || ''}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                    <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጫዋች ID (Player ID):' : 'Player ID:'}</span>
-                    <span className="font-mono text-xs text-slate-300">
-                      {(() => { const pid = formatDisplayPlayerId(latestWinner.userId); return pid.startsWith('bot_') ? formatDisplayPlayerId('bot_' + pid) : pid; })()}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                    <span className="text-slate-300 font-bold">{language === 'am' ? 'የተሸለመው ገንዘብ:' : 'Prize Won:'}</span>
-                    <span className="font-black text-emerald-400 text-base">
-                      {formatETB(latestWinner.prizeWon)}
-                    </span>
-                  </div>
-                </>
-              )}
-              <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                <span className="text-slate-300 font-bold">{language === 'am' ? 'ያሸነፈበት ኳስ:' : 'Winning Ball:'}</span>
-                <span className="font-black text-amber-400 text-sm">
-                  #{latestWinner.winningBall || currentGame.currentBall || ''}
-                </span>
-              </div>
-              <div className="text-xs">
-                <span className={`font-bold block mb-1.5 ${ruleTheme.labelColor}`}>
-                  🏅 {language === 'am' ? `ያሸነፈበት ህግ: ${winningRule?.labelAm || ruleTheme.labelAm}` : `Winning Pattern: ${winningRule?.label || ruleTheme.labelEn}`}
-                </span>
-                {winningNumbers.length > 0 ? (
-                  <div className="flex flex-wrap gap-1 justify-start">
-                    {winningNumbers.map((n, i) => (
-                      <span key={i} className={`inline-block px-1.5 py-0.5 rounded-md font-mono font-black text-[10px] ${ruleTheme.badgeClass}`}>
-                        {n}
-                      </span>
+                  <div className="grid grid-cols-2 gap-2 text-left pt-1">
+                    {currentGame.winners.slice(0, 2).map((w, idx) => (
+                      <div key={idx} className="bg-white/10 rounded-2xl p-2.5 border border-white/15 space-y-1">
+                        <div className="text-[10px] text-amber-300 font-bold uppercase">
+                          {language === 'am' ? `አሸናፊ #${idx + 1}` : `Winner #${idx + 1}`}
+                        </div>
+                        <div className="font-black text-white text-xs truncate">
+                          @{w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
+                        </div>
+                        <div className="text-[10px] text-slate-300 font-mono">
+                          Card #{w.cardNumber}
+                        </div>
+                        <div className="font-black text-emerald-400 text-xs">
+                          {formatETB(w.prizeWon)}
+                        </div>
+                      </div>
                     ))}
                   </div>
-                ) : (
-                  <span className="text-amber-300 font-mono font-bold text-xs">
-                    {latestWinner.pattern || (language === 'am' ? 'ሙሉ ካርቴላ — 24 ቁጥሮች ተሟልተዋል' : 'Full House — All 24 numbers daubed')}
-                  </span>
-                )}
-              </div>
-
-              {/* 🎯 WINNING BOARD DISPLAY — Fetan only */}
-              {isFetanGame && (
-              <div className="pt-2 border-t border-white/10 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-300 font-bold text-[10px] flex items-center gap-1">
-                    🎯 {language === 'am' ? 'የአሸናፊው ቦርድ:' : 'Winner Board:'}
-                  </span>
-                  <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full border ${ruleTheme.badgeClass}`}>
-                    Card #{latestWinner.cardNumber}
-                  </span>
                 </div>
-
-                <div className={`bg-slate-900/95 p-1.5 rounded-xl border shadow-inner max-w-[200px] mx-auto ${ruleTheme.boardBorder}`}>
-                  {/* B - I - N - G - O Header */}
-                  <div className="grid grid-cols-5 gap-0.5 text-center font-black text-[9px] mb-0.5">
-                    <span className="text-blue-400">B</span>
-                    <span className="text-purple-400">I</span>
-                    <span className="text-amber-400">N</span>
-                    <span className="text-emerald-400">G</span>
-                    <span className="text-rose-400">O</span>
-                  </div>
-                  {/* 5x5 Grid Cells — only pattern cells get the winning color; non-pattern cells are plain dark */}
-                  <div className="grid grid-cols-5 gap-0.5">
-                    {winningGrid.map((row, rIdx) =>
-                      row.map((val, cIdx) => {
-                        const isFree = rIdx === 2 && cIdx === 2;
-                        const isPatternCell = patternCellSet.has(`${rIdx}-${cIdx}`);
-                        return (
-                          <div
-                            key={`win-board-cell-${rIdx}-${cIdx}`}
-                            className={`aspect-square rounded flex items-center justify-center font-mono font-black text-[8px] select-none transition-all ${
-                              isPatternCell
-                                ? (isFree ? ruleTheme.freeClass : ruleTheme.cellClass)
-                                : isFree
-                                ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white ring-1 ring-emerald-400'
-                                : 'bg-slate-800/80 text-slate-500 border border-slate-700/40'
-                            }`}
-                          >
-                            {isFree ? '★' : val}
-                          </div>
-                        );
-                      })
-                    )}
+              ) : (
+                <div className="space-y-1">
+                  <h3 className="text-xs font-black tracking-widest uppercase text-amber-400">
+                    {language === 'am' ? '🎉 ቢንጎ አሸናፊ ይፋ ሆነ! 🎉' : '🎉 BINGO WINNER ANNOUNCED! 🎉'}
+                  </h3>
+                  <p className="text-2xl font-black text-white tracking-wide">
+                    @{latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
+                  </p>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-black">
+                    <span>{language === 'am' ? 'የተጠቃሚ ID ቁጥር' : 'Winner ID #'}:</span>
+                    <span className="text-white">#{latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)}</span>
                   </div>
                 </div>
-              </div>
               )}
 
-              {/* Single-Game Card Rule Notice */}
-              <div className="bg-amber-400/20 border border-amber-400/40 rounded-xl p-2 text-center text-[10px] text-amber-200 font-bold leading-tight">
-                ⚡ {language === 'am'
-                  ? 'ካርዶችዎ ለዚህ ጨዋታ ብቻ አገልግለዋል። ድጋሚ ለመጫወት አዲስ ካርድ መግዛት አለብዎት።'
-                  : 'Cards used in this game have concluded. To play again, please purchase fresh cards for the new round.'}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2 pt-1">
-              <button
-                type="button"
-                disabled={isWeekendGame && announcementSecondsLeft > 0}
-                onClick={() => {
-                  if (isWeekendGame) {
-                    if (announcementSecondsLeft <= 0) openLotteryTabRef.current?.();
-                    setShowWinnerModal(false);
-                    return;
-                  }
-                  resetGameRound(currentGame.id);
-                  setShowWinnerModal(false);
-                  if (isSpecialGame) {
-                    setSpecialIsIntermission(true);
-                    setSpecialSecondsLeft(SPECIAL_PICK_SECONDS);
-                    setIsSelectorOpen(true);
-                  } else if (onOpenLotteryTab) {
-                    onOpenLotteryTab();
-                  } else {
-                    setIsSelectorOpen(true);
-                  }
-                }}
-                className={`w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 font-black text-xs transition shadow-md flex items-center justify-center gap-1.5 ${isWeekendGame && announcementSecondsLeft > 0 ? 'opacity-70 cursor-not-allowed' : 'hover:brightness-105 cursor-pointer'}`}
-              >
-                <span>{isWeekendGame
-                  ? `⏳ ${language === 'am' ? `ካርድ ለመግዛት ${announcementSecondsLeft} ሰከንድ ይጠብቁ` : `Wait ${announcementSecondsLeft}s for card purchasing`}`
-                  : `🎮 ${isSpecialGame ? (language === 'am' ? `ቀጣይ ዙር (${announcementSecondsLeft}s)` : `Play Next Round (${announcementSecondsLeft}s)`) : (language === 'am' ? `ቀጣይ ዙር ይጫወቱ (${announcementSecondsLeft}s)` : `Play Next Round (${announcementSecondsLeft}s)`)}`}</span>
-              </button>
-              <div className="flex items-center gap-2">
-                {onBack && (
-                  <button
-                    type="button"
-                    onClick={() => { setShowWinnerModal(false); onBack(); }}
-                    className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition cursor-pointer border border-slate-700 flex items-center justify-center gap-1.5"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    <span>{language === 'am' ? 'ወደ ሎቢ' : 'Back to Lobby'}</span>
-                  </button>
+              <div className="bg-white/10 rounded-2xl p-3.5 border border-white/15 space-y-2.5 text-left">
+                {currentGame.winners.length >= 2 ? (
+                  <>
+                    <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                      <span className="text-slate-300 font-bold">{language === 'am' ? 'አሸናፊዎች (Winners):' : 'Winners:'}</span>
+                      <span className="font-black text-amber-300 text-xs">
+                        @{currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @{currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                      <span className="text-slate-300 font-bold">{language === 'am' ? 'የካርድ ID ቁጥሮች:' : 'Card IDs:'}</span>
+                      <span className="font-mono font-black text-amber-300 text-xs">
+                        #{currentGame.winners[0].cardNumber} & #{currentGame.winners[1].cardNumber}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                      <span className="text-slate-300 font-bold">{language === 'am' ? 'የእያንዳንዱ ሽልማት:' : 'Each Prize (50%):'}</span>
+                      <span className="font-black text-emerald-400 text-sm">
+                        {formatETB(currentGame.winners[0].prizeWon)} ({formatETB(currentGame.winners[0].prizeWon * 2)} Total)
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                      <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጠቃሚ ስም (Username):' : 'Username:'}</span>
+                      <span className="font-black text-amber-300 text-sm">@{latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                      <span className="text-slate-300 font-bold">{language === 'am' ? 'የካርድ ID ቁጥር (Card ID #):' : 'Card ID #:'}</span>
+                      <span className="font-mono font-black text-amber-300 text-base">
+                        #{latestWinner.cardNumber || ''}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                      <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጫዋች ID (Player ID):' : 'Player ID:'}</span>
+                      <span className="font-mono text-xs text-slate-300">
+                        {(() => { const pid = formatDisplayPlayerId(latestWinner.userId); return pid.startsWith('bot_') ? formatDisplayPlayerId('bot_' + pid) : pid; })()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                      <span className="text-slate-300 font-bold">{language === 'am' ? 'የተሸለመው ገንዘብ:' : 'Prize Won:'}</span>
+                      <span className="font-black text-emerald-400 text-base">
+                        {formatETB(latestWinner.prizeWon)}
+                      </span>
+                    </div>
+                  </>
                 )}
+                <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
+                  <span className="text-slate-300 font-bold">{language === 'am' ? 'ያሸነፈበት ኳስ:' : 'Winning Ball:'}</span>
+                  <span className="font-black text-amber-400 text-sm">
+                    #{latestWinner.winningBall || currentGame.currentBall || ''}
+                  </span>
+                </div>
+                <div className="text-xs">
+                  <span className={`font-bold block mb-1.5 ${ruleTheme.labelColor}`}>
+                    🏅 {language === 'am' ? `ያሸነፈበት ህግ: ${winningRule?.labelAm || ruleTheme.labelAm}` : `Winning Pattern: ${winningRule?.label || ruleTheme.labelEn}`}
+                  </span>
+                  {winningNumbers.length > 0 ? (
+                    <div className="flex flex-wrap gap-1 justify-start">
+                      {winningNumbers.map((n, i) => (
+                        <span key={i} className={`inline-block px-1.5 py-0.5 rounded-md font-mono font-black text-[10px] ${ruleTheme.badgeClass}`}>
+                          {n}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-amber-300 font-mono font-bold text-xs">
+                      {latestWinner.pattern || (language === 'am' ? 'ሙሉ ካርቴላ — 24 ቁጥሮች ተሟልተዋል' : 'Full House — All 24 numbers daubed')}
+                    </span>
+                  )}
+                </div>
+
+                {/* 🎯 WINNING BOARD DISPLAY — Fetan only */}
+                {isFetanGame && (
+                  <div className="pt-2 border-t border-white/10 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-300 font-bold text-[10px] flex items-center gap-1">
+                        🎯 {language === 'am' ? 'የአሸናፊው ቦርድ:' : 'Winner Board:'}
+                      </span>
+                      <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full border ${ruleTheme.badgeClass}`}>
+                        Card #{latestWinner.cardNumber}
+                      </span>
+                    </div>
+
+                    <div className={`bg-slate-900/95 p-1.5 rounded-xl border shadow-inner max-w-[200px] mx-auto ${ruleTheme.boardBorder}`}>
+                      {/* B - I - N - G - O Header */}
+                      <div className="grid grid-cols-5 gap-0.5 text-center font-black text-[9px] mb-0.5">
+                        <span className="text-blue-400">B</span>
+                        <span className="text-purple-400">I</span>
+                        <span className="text-amber-400">N</span>
+                        <span className="text-emerald-400">G</span>
+                        <span className="text-rose-400">O</span>
+                      </div>
+                      {/* 5x5 Grid Cells — only pattern cells get the winning color; non-pattern cells are plain dark */}
+                      <div className="grid grid-cols-5 gap-0.5">
+                        {winningGrid.map((row, rIdx) =>
+                          row.map((val, cIdx) => {
+                            const isFree = rIdx === 2 && cIdx === 2;
+                            const isPatternCell = patternCellSet.has(`${rIdx}-${cIdx}`);
+                            return (
+                              <div
+                                key={`win-board-cell-${rIdx}-${cIdx}`}
+                                className={`aspect-square rounded flex items-center justify-center font-mono font-black text-[8px] select-none transition-all ${isPatternCell
+                                    ? (isFree ? ruleTheme.freeClass : ruleTheme.cellClass)
+                                    : isFree
+                                      ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white ring-1 ring-emerald-400'
+                                      : 'bg-slate-800/80 text-slate-500 border border-slate-700/40'
+                                  }`}
+                              >
+                                {isFree ? '★' : val}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Single-Game Card Rule Notice */}
+                <div className="bg-amber-400/20 border border-amber-400/40 rounded-xl p-2 text-center text-[10px] text-amber-200 font-bold leading-tight">
+                  ⚡ {language === 'am'
+                    ? 'ካርዶችዎ ለዚህ ጨዋታ ብቻ አገልግለዋል። ድጋሚ ለመጫወት አዲስ ካርድ መግዛት አለብዎት።'
+                    : 'Cards used in this game have concluded. To play again, please purchase fresh cards for the new round.'}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setShowWinnerModal(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition cursor-pointer border border-white/20"
+                  disabled={isWeekendGame && announcementSecondsLeft > 0}
+                  onClick={() => {
+                    if (isWeekendGame) {
+                      if (announcementSecondsLeft <= 0) openLotteryTabRef.current?.();
+                      setShowWinnerModal(false);
+                      return;
+                    }
+                    resetGameRound(currentGame.id);
+                    setShowWinnerModal(false);
+                    if (isSpecialGame) {
+                      setSpecialIsIntermission(true);
+                      setSpecialSecondsLeft(SPECIAL_PICK_SECONDS);
+                      setIsSelectorOpen(true);
+                    } else if (onOpenLotteryTab) {
+                      onOpenLotteryTab();
+                    } else {
+                      setIsSelectorOpen(true);
+                    }
+                  }}
+                  className={`w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 font-black text-xs transition shadow-md flex items-center justify-center gap-1.5 ${isWeekendGame && announcementSecondsLeft > 0 ? 'opacity-70 cursor-not-allowed' : 'hover:brightness-105 cursor-pointer'}`}
                 >
-                  <span>{language === 'am' ? 'ይዝጉ' : 'Close'}</span>
+                  <span>{isWeekendGame
+                    ? `⏳ ${language === 'am' ? `ካርድ ለመግዛት ${announcementSecondsLeft} ሰከንድ ይጠብቁ` : `Wait ${announcementSecondsLeft}s for card purchasing`}`
+                    : `🎮 ${isSpecialGame ? (language === 'am' ? `ቀጣይ ዙር (${announcementSecondsLeft}s)` : `Play Next Round (${announcementSecondsLeft}s)`) : (language === 'am' ? `ቀጣይ ዙር ይጫወቱ (${announcementSecondsLeft}s)` : `Play Next Round (${announcementSecondsLeft}s)`)}`}</span>
                 </button>
+                <div className="flex items-center gap-2">
+                  {onBack && (
+                    <button
+                      type="button"
+                      onClick={() => { setShowWinnerModal(false); onBack(); }}
+                      className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition cursor-pointer border border-slate-700 flex items-center justify-center gap-1.5"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>{language === 'am' ? 'ወደ ሎቢ' : 'Back to Lobby'}</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowWinnerModal(false)}
+                    className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition cursor-pointer border border-white/20"
+                  >
+                    <span>{language === 'am' ? 'ይዝጉ' : 'Close'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
         );
       })()}
 
       {/* PATTERN HINTS MODAL — 4 Winning Rules & Hit Info */}
       {showPatternHintModal && (
-        <div 
+        <div
           onClick={() => setShowPatternHintModal(false)}
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-200 cursor-pointer"
         >
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden cursor-default border border-slate-200 animate-in zoom-in-95 duration-150"
           >
@@ -3330,8 +3303,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
                     ? (language === 'am' ? 'የሃይፐር ፈጣን የድል ሕጎች' : 'Hyper Fetan Winning Rules')
                     : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
-                    ? (language === 'am' ? 'የሃይፐር ዊክኤንድ ሕግ (ሙሉ ቤት)' : 'Hyper Weekend Law (Full House Only)')
-                    : (language === 'am' ? 'የሃይፐር ስፔሻል 14 ሕጎች' : 'Hyper Special 14 Official Laws')}
+                      ? (language === 'am' ? 'የሃይፐር ዊክኤንድ ሕግ (ሙሉ ቤት)' : 'Hyper Weekend Law (Full House Only)')
+                      : (language === 'am' ? 'የሃይፐር ስፔሻል 14 ሕጎች' : 'Hyper Special 14 Official Laws')}
                 </h3>
               </div>
               <button
@@ -3359,13 +3332,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             <p className="px-4 pt-3 pb-2 text-xs text-slate-600 leading-relaxed">
               {currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
                 ? (language === 'am'
-                    ? '1 አግድም፣ 1 ቀጥታ (Vertical)፣ 1 ዲያጎናል ወይም 4 ማዕዘናት በማጠናቀቅ ያሸንፉ። (ሙሉ ቤት፣ X እና 2 አግድም ተሰርዘዋል!)'
-                    : 'Complete 1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners to win. (Full House, Letter X, and 2 horizontal lines are excluded!)')
+                  ? '1 አግድም፣ 1 ቀጥታ (Vertical)፣ 1 ዲያጎናል ወይም 4 ማዕዘናት በማጠናቀቅ ያሸንፉ። (ሙሉ ቤት፣ X እና 2 አግድም ተሰርዘዋል!)'
+                  : 'Complete 1 Horizontal, 1 Vertical, 1 Diagonal, or 4 Corners to win. (Full House, Letter X, and 2 horizontal lines are excluded!)')
                 : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
-                ? (language === 'am'
+                  ? (language === 'am'
                     ? 'በዚህ ጨዋታ ለማሸነፍ ሙሉ ቤት ብቻ (ሁሉንም 24 ቁጥሮች) ምልክት ማድረግ ያስፈልጋል።'
                     : 'In Weekend Mega Draw, only Full House (all 24 numbers marked) wins the jackpot!')
-                : (language === 'am'
+                  : (language === 'am'
                     ? 'በሃይፐር ስፔሻል ለእያንዳንዱ ዙር አንድ የተመረጠ ሕግ ብቻ ይሰራል፤ የዚህ ዙር ንቁ ሕግ በወርቃማ ምልክት ጎልቶ ይታያል።'
                     : 'In Hyper Special, exactly one law governs each game round until finished. The active law for this round is highlighted in gold.')}
             </p>
@@ -3375,7 +3348,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               {(currentGame.winningRule === 'ONE_LINE_OR_CORNERS' || currentGame.category === 'HYPER_FETAN'
                 ? HYPER_FETAN_RULES
                 : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
-                ? [{
+                  ? [{
                     id: 'FULL_HOUSE',
                     title: 'Full House (Blackout)',
                     titleAm: 'ሙሉ ቤት (Blackout)',
@@ -3383,7 +3356,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     subtitleAm: 'በካርዱ ላይ ያሉትን ሁሉንም 24 ቁጥሮች ምልክት ማድረግ',
                     pattern: Array.from({ length: 5 }, () => Array(5).fill(true)),
                   }]
-                : HYPER_SPECIAL_RULES.map((r, idx) => ({
+                  : HYPER_SPECIAL_RULES.map((r, idx) => ({
                     id: r.id,
                     title: r.nameEn,
                     titleAm: r.nameAm,
@@ -3397,11 +3370,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 return (
                   <div
                     key={rule.id}
-                    className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${
-                      isActive
+                    className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${isActive
                         ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-400 shadow-md'
                         : 'border-slate-200 bg-slate-50/70 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     {/* Mini Pattern Grid */}
                     <div className="shrink-0 rounded-lg overflow-hidden border border-slate-300 bg-white">
@@ -3412,13 +3384,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                             return (
                               <div
                                 key={cIdx}
-                                className={`w-3.5 h-3.5 border border-slate-100 ${
-                                  isFree
+                                className={`w-3.5 h-3.5 border border-slate-100 ${isFree
                                     ? 'bg-amber-300'
                                     : filled
-                                    ? isActive ? 'bg-amber-500' : 'bg-indigo-600'
-                                    : 'bg-white'
-                                }`}
+                                      ? isActive ? 'bg-amber-500' : 'bg-indigo-600'
+                                      : 'bg-white'
+                                  }`}
                               />
                             );
                           })}
@@ -3490,11 +3461,10 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             type="button"
             onClick={() => setFabOpen((open) => !open)}
             disabled={!specialIsIntermission || specialSecondsLeft <= 0}
-            className={`w-10 h-10 rounded-full text-white text-xl font-bold flex items-center justify-center shadow-lg transition ${
-              specialIsIntermission && specialSecondsLeft > 0
+            className={`w-10 h-10 rounded-full text-white text-xl font-bold flex items-center justify-center shadow-lg transition ${specialIsIntermission && specialSecondsLeft > 0
                 ? 'bg-[#ef4444] hover:bg-[#dc2626] active:scale-95 cursor-pointer'
                 : 'bg-slate-400 cursor-not-allowed'
-            }`}
+              }`}
             title="Choose how many cards to add"
           >
             {fabOpen ? '×' : '+'}

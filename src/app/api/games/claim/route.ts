@@ -51,7 +51,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Another player already called Bingo first' }, { status: 409 });
     }
 
-    // Enforce bot-only win rule: Real players cannot win prize money
+    // ── HUMAN-BLOCK LAYER 1: userId must start with 'bot_' ──────────────────
+    // Real player userIds are numeric (Telegram IDs). Bot IDs are always
+    // prefixed 'bot_'. If the caller is a real player, immediately force a
+    // bot win and return a 409 so the human NEVER receives a prize.
     const isBot = String(userId).startsWith('bot_');
     if (!isBot) {
       let botWinner = null;
@@ -67,6 +70,35 @@ export async function POST(req: NextRequest) {
           success: false,
           error: 'ይቅርታ! ሌላ ተጫዋች ቀድሞ ቢንጎ ብሏል (Another player already called Bingo first)',
           botWinner: botWinner ? sanitizeWinnerForDisplay(botWinner) : null,
+        },
+        { status: 409 }
+      );
+    }
+
+    // ── HUMAN-BLOCK LAYER 2: Confirm userId is a registered bot card in DB ──
+    // Even if someone spoofs a 'bot_' prefix, the card must actually exist as
+    // a bot row in game_cards to prevent any wallet credit reaching a human.
+    const [botCardRow] = await sql`
+      SELECT user_id FROM game_cards
+      WHERE game_id = ${gameId} AND card_number = ${cardNumber}
+        AND user_id LIKE 'bot_%'
+      LIMIT 1
+    `;
+    if (!botCardRow) {
+      // The claimed card doesn't belong to a real bot — force bot win, block.
+      let botWinner2 = null;
+      if (game.status === 'RUNNING' && currentWinners.length === 0) {
+        const drawn2: number[] = Array.isArray(game.drawn_numbers) ? game.drawn_numbers : [];
+        const currentBall2 = Number(game.current_ball || winningBall || 75);
+        botWinner2 = await checkAndTriggerBotWin(sql, game, drawn2, currentBall2, true);
+      } else if (currentWinners.length > 0) {
+        botWinner2 = currentWinners[0];
+      }
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'ይቅርታ! ሌላ ተጫዋች ቀድሞ ቢንጎ ብሏል (Another player already called Bingo first)',
+          botWinner: botWinner2 ? sanitizeWinnerForDisplay(botWinner2) : null,
         },
         { status: 409 }
       );
