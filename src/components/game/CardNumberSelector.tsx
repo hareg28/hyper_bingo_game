@@ -51,6 +51,12 @@ export default function CardNumberSelector({
   const [showMorePresets, setShowMorePresets] = useState(false);
   const pickWindowSeconds = mode === 'FETAN' ? FETAN_PICK_SECONDS : 30;
   const [pickCountdown, setPickCountdown] = useState(pickWindowSeconds);
+  const purchasedNumbersRef = React.useRef(purchasedNumbers);
+  const onConfirmRef = React.useRef(onConfirm);
+  const onCloseRef = React.useRef(onClose);
+  purchasedNumbersRef.current = purchasedNumbers;
+  onConfirmRef.current = onConfirm;
+  onCloseRef.current = onClose;
 
   const prevIsOpenRef = React.useRef(false);
 
@@ -76,17 +82,17 @@ export default function CardNumberSelector({
       setPickCountdown((prev) => {
         if (prev <= 1) {
           // Time expired! If user bought cards, auto-confirm and enter game
-          if (purchasedNumbers.length > 0) {
-            onConfirm(purchasedNumbers);
+          if (purchasedNumbersRef.current.length > 0) {
+            onConfirmRef.current(purchasedNumbersRef.current);
           }
-          onClose();
+          onCloseRef.current();
           return pickWindowSeconds;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [isOpen, purchasedNumbers, onConfirm, onClose, pickWindowSeconds]);
+  }, [isOpen, pickWindowSeconds]);
 
   if (!isOpen) return null;
 
