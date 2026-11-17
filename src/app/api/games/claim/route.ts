@@ -117,11 +117,11 @@ export async function POST(req: NextRequest) {
     };
     const updatedWinners = [...currentWinners, winRecord];
 
-    // 6. Update game status → COMPLETED and append winner
+    // Weekend rounds remain live until the scheduled ten-minute slot ends.
     await sql`
       UPDATE games
       SET
-        status = 'COMPLETED',
+        status = ${isWeekend ? 'RUNNING' : 'COMPLETED'},
         winners = ${JSON.stringify(updatedWinners)}::jsonb,
         updated_at = NOW()
       WHERE id = ${gameId}

@@ -155,6 +155,13 @@ export async function GET() {
         WHERE id = ${weekendGame.id}
           AND (weekend_round_key IS DISTINCT FROM ${weekendRoundKey} OR status = 'OPEN')
       `;
+      // Older deployments marked weekend games completed immediately after a
+      // winner. Keep the existing round running through its ten-minute slot.
+      await sql`
+        UPDATE games SET status = 'RUNNING', updated_at = NOW()
+        WHERE id = ${weekendGame.id} AND weekend_round_key = ${weekendRoundKey}
+          AND status = 'COMPLETED' AND winners <> '[]'::jsonb
+      `;
     }
 
     // Keep scheduled rounds and shared state synchronized for every client.
@@ -259,7 +266,7 @@ export async function GET() {
       // Compare the old draw array and due time in SQL so overlapping polls
       // can commit at most one ball per interval.
       if ((isFetan || isSpecial || (isWeekend && weekendRoundIsLive)) &&
-          game.status === 'RUNNING' && drawn.length < 75 && winners.length === 0) {
+          game.status === 'RUNNING' && drawn.length < 75 && (!isWeekend || winners.length === 0)) {
         const drawIntervalMs = isSpecial
           ? SPECIAL_BALL_INTERVAL_MS
           : isFetan
@@ -315,7 +322,9 @@ export async function GET() {
               humanPresentInGame = (hRows[0]?.count ?? 0) > 0;
             } catch {}
             const shouldForce = humanPresentInGame && nextDrawn.length >= (isFetan ? 11 : isSpecial ? 14 : 20);
-            const botWinner = await checkAndTriggerBotWin(sql, game, nextDrawn, nextBall, shouldForce);
+            const botWinner = winners.length === 0
+              ? await checkAndTriggerBotWin(sql, game, nextDrawn, nextBall, shouldForce)
+              : null;
             if (botWinner && isWeekend) {
               await notifyUsersTelegram(
                 `🏆 WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber} and ${botWinner.prizeWon} ETB. Open the Weekend game page to view the full result.`,

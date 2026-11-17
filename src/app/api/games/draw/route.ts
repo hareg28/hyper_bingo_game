@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     // Validate game can draw
     const winners = Array.isArray(game.winners) ? game.winners
       : (typeof game.winners === 'string' ? JSON.parse(game.winners || '[]') : []);
-    if (game.status === 'COMPLETED' || winners.length > 0) {
+    if (game.status === 'COMPLETED' || (!isWeekend && winners.length > 0)) {
       return NextResponse.json({ success: false, error: 'Game already completed' }, { status: 409 });
     }
     if (isSpecial && game.round_started_at &&
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
         current_ball = ${nextBall},
         round_started_at = COALESCE(round_started_at, NOW()),
         last_ball_drawn_at = NOW(),
-        status = ${isCompleted ? 'COMPLETED' : 'RUNNING'},
+        status = ${isCompleted && !isWeekend ? 'COMPLETED' : 'RUNNING'},
         updated_at = NOW()
       WHERE id = ${gameId}
         AND drawn_numbers = ${`{${drawn.join(',')}}`}::int4[]
@@ -225,7 +225,7 @@ export async function POST(req: NextRequest) {
       data: {
         ball: nextBall,
         drawnNumbers: updatedDrawn,
-        isCompleted: isCompleted || !!botWinner,
+        isCompleted: !isWeekend && (isCompleted || !!botWinner),
         winner: botWinner ? sanitizeWinnerForDisplay(botWinner) : undefined,
       },
     });

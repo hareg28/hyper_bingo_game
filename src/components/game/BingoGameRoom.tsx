@@ -1401,7 +1401,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 : dashboardLaw}
             </div>}
           </div>
-          {(isSpecialGame || isFetanGame) && <div className="shrink-0 self-start pt-2 text-right text-[8px] font-bold text-indigo-800">{isSpecialGame ? (language === 'am' ? 'Pick 4 · Play 12 ደቂቃ' : 'Pick 4m · Play 12m') : (language === 'am' ? 'Pick 40 ሰከንድ · Play 8 ደቂቃ 45 ሰከንድ' : 'Pick 40s · Play 8m 45s')}</div>}
+          {(isSpecialGame || isFetanGame || isWeekendGame) && <div className="shrink-0 self-start pt-2 text-right text-[8px] font-bold text-indigo-800">{isWeekendGame
+            ? `${currentGame.weekendDay === 'FRI' ? (language === 'am' ? 'ዓርብ' : 'Friday') : currentGame.weekendDay === 'SAT' ? (language === 'am' ? 'ቅዳሜ' : 'Saturday') : (language === 'am' ? 'እሑድ' : 'Sunday')} · 9:00 ${language === 'am' ? 'የኢትዮጵያ ሰዓት · 10 ደቂቃ ጨዋታ' : 'Ethiopia time · Play 10m'}`
+            : isSpecialGame ? (language === 'am' ? 'Pick 4 · Play 12 ደቂቃ' : 'Pick 4m · Play 12m') : (language === 'am' ? 'Pick 40 ሰከንድ · Play 8 ደቂቃ 45 ሰከንድ' : 'Pick 40s · Play 8m 45s')}</div>}
         </div>
         {isSpecialGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && (
           <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700">
@@ -1412,7 +1414,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         )}
         {isFetanGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የዙሩ ቀሪ ጊዜ' : 'ROUND TIME LEFT'}</span><span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span><SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + FETAN_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" /></div>}
         {(isFetanGame && fetanIsIntermission || isSpecialGame && specialIsIntermission) && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የመምረጫ ቀሪ ጊዜ' : 'PICK TIME LEFT'}</span><span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span><SharedCountdownText mode={isFetanGame ? 'FETAN' : 'SPECIAL'} deadline={currentGame.nextRoundStartsAt} status={currentGame.status} drawnCount={currentGame.drawnNumbers.length} className="font-mono text-slate-950" /></div>}
-        {isWeekendGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የጨዋታው ቀሪ ጊዜ' : 'GAME TIME LEFT'}</span><SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + WEEKEND_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" /></div>}
+        {isWeekendGame && currentGame.roundStartedAt && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የጨዋታው ቀሪ ጊዜ' : 'GAME TIME LEFT'}</span><span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span><SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + WEEKEND_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" /></div>}
       </div>
 
       {/* ── Clean & Simple Weekend Bar (No Crowding, Single Slim Row) ── */}
@@ -1454,7 +1456,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           HYPER FETAN & HYPER SPECIAL: Clean plain-text header with stats & bingo balls
           OTHER GAMES: Standard white card
           ================================================================ */}
-      {isFetanGame || isSpecialGame ? (
+      {isFetanGame || isSpecialGame || isWeekendGame ? (
         /* ── Hyper Fetan & Hyper Special Plain Text Header (No Box, Plain Text) ── */
         <div className="px-1 py-0.5 space-y-0.5">
           {/* Top row: Back Arrow + Game Name */}
@@ -1469,10 +1471,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             </button>
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-black text-slate-900 tracking-tight">
-                {isSpecialGame ? '🎲 ' : '⚡ '}
-                {isSpecialGame
-                  ? (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')
-                  : (language === 'am' ? 'ሃይፐር ፈጣን' : 'HYPER FETAN')}{' '}
+                {isWeekendGame ? '🌟 ' : isSpecialGame ? '🎲 ' : '⚡ '}
+                {isWeekendGame
+                  ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'HYPER WEEKEND')
+                  : isSpecialGame
+                    ? (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')
+                    : (language === 'am' ? 'ሃይፐር ፈጣን' : 'HYPER FETAN')}{' '}
                 <span className="italic tracking-widest">BINGO</span>
               </span>
             </div>

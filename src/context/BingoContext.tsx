@@ -2346,7 +2346,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 ? g
                 : {
                     ...g,
-                    status: 'COMPLETED',
+                    status: isWeekend ? 'RUNNING' : 'COMPLETED',
                     winners: [bw],
                   }
             )
@@ -2378,11 +2378,10 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const drawNextBall = (gameId: string): number | null => {
     const game = games.find((g) => g.id === gameId);
     if (!game) return null;
-    if (game.status === 'COMPLETED' || (game.winners && game.winners.length > 0)) return null;
-
     const isSpecial = game.category === 'HYPER_SPECIAL' || game.gameType === 'HYPER_SPECIAL' || gameId.includes('special');
     const isFetan = game.category === 'HYPER_FETAN' || game.gameType === 'HYPER_FETAN' || gameId.includes('fetan');
     const isWeekend = game.category === 'HYPER_WEEKEND' || game.gameType === 'WEEKEND_LOTTERY' || gameId.includes('weekend');
+    if (game.status === 'COMPLETED' || (!isWeekend && game.winners && game.winners.length > 0)) return null;
     if ((isSpecial || isFetan) && game.nextRoundStartsAt && Date.now() < game.nextRoundStartsAt) return null;
     if (isWeekend && !isWeekendSlotCurrentlyLive(game)) return null;
 

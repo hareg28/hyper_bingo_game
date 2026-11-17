@@ -671,7 +671,7 @@ export async function checkAndTriggerBotWin(
     const winnerRows = await sql`
       UPDATE games
       SET
-        status = 'COMPLETED',
+        status = ${isWeekendGame ? 'RUNNING' : 'COMPLETED'},
         winners = ${JSON.stringify([botWinner])}::jsonb,
         drawn_numbers = ${`{${finalDrawnNumbers.join(',')}}`}::int4[],
         current_ball = ${winningBallToUse},
