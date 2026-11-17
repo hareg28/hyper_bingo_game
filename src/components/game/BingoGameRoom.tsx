@@ -3106,7 +3106,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
             <div className="flex flex-col gap-2 pt-1">
               <button
                 type="button"
+                disabled={isWeekendGame && announcementSecondsLeft > 0}
                 onClick={() => {
+                  if (isWeekendGame) {
+                    if (announcementSecondsLeft <= 0) openLotteryTabRef.current?.();
+                    setShowWinnerModal(false);
+                    return;
+                  }
                   resetGameRound(currentGame.id);
                   setShowWinnerModal(false);
                   if (isSpecialGame) {
@@ -3119,9 +3125,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     setIsSelectorOpen(true);
                   }
                 }}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:brightness-105 text-slate-950 font-black text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                className={`w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 font-black text-xs transition shadow-md flex items-center justify-center gap-1.5 ${isWeekendGame && announcementSecondsLeft > 0 ? 'opacity-70 cursor-not-allowed' : 'hover:brightness-105 cursor-pointer'}`}
               >
-                <span>🎮 {isSpecialGame ? (language === 'am' ? `ቀጣይ ዙር (${announcementSecondsLeft}s)` : `Play Next Round (${announcementSecondsLeft}s)`) : (language === 'am' ? `ቀጣይ ዙር ይጫወቱ (${announcementSecondsLeft}s)` : `Play Next Round (${announcementSecondsLeft}s)`)}</span>
+                <span>{isWeekendGame
+                  ? `⏳ ${language === 'am' ? `ካርድ ለመግዛት ${announcementSecondsLeft} ሰከንድ ይጠብቁ` : `Wait ${announcementSecondsLeft}s for card purchasing`}`
+                  : `🎮 ${isSpecialGame ? (language === 'am' ? `ቀጣይ ዙር (${announcementSecondsLeft}s)` : `Play Next Round (${announcementSecondsLeft}s)`) : (language === 'am' ? `ቀጣይ ዙር ይጫወቱ (${announcementSecondsLeft}s)` : `Play Next Round (${announcementSecondsLeft}s)`)}`}</span>
               </button>
               <div className="flex items-center gap-2">
                 {onBack && (
