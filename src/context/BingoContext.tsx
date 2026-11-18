@@ -645,6 +645,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 entryPrice: server.entryPrice,
                 prizePool: server.prizePool,
                 drawInterval: server.drawInterval,
+                soldCards: Array.isArray(server.soldCards) ? server.soldCards : localGame.soldCards,
+                category: server.category || localGame.category,
+                gameType: server.gameType || localGame.gameType,
               };
             })
           );
@@ -767,6 +770,56 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [games.filter((g) => String(g.id).includes('weekend')).map((g) => `${g.id}:${g.status}`).join('|')]);
   // ── End weekend time-based reveal ─────────────────────────────────────────
+
+  // ── Fetan & Special progressive bot card reveal during card-pick window ──
+  // Bots pick cards progressively until picking time finishes to make the game realistic.
+  useEffect(() => {
+    const updateProgressivePickCards = () => {
+      setLotterySoldMap((prev) => {
+        let changed = false;
+        const nextMap = { ...prev };
+        games.forEach((g) => {
+          const id = String(g.id);
+          const isFetan = id.includes('fetan') || (g as any).category === 'HYPER_FETAN';
+          const isSpecial = id.includes('special') || (g as any).category === 'HYPER_SPECIAL';
+          if ((!isFetan && !isSpecial) || g.status !== 'OPEN' || !g.nextRoundStartsAt) return;
+          const pickDurationMs = isFetan ? 40_000 : 240_000;
+          const timeLeftMs = Math.max(0, Number(g.nextRoundStartsAt) - Date.now());
+          const elapsedMs = Math.max(0, pickDurationMs - timeLeftMs);
+          const progress = Math.min(1, Math.max(0, elapsedMs / pickDurationMs));
+
+          const allBotCards = getInitialBotSoldCardNumbers(
+            g.id,
+            (g as any).category || (g as any).gameType,
+            (g as any).customBotCount || (g as any).targetBotCount
+          );
+          if (allBotCards.length === 0) return;
+          const targetCount = allBotCards.length;
+          const visibleCount = Math.max(1, Math.min(targetCount, Math.ceil(targetCount * progress)));
+          const botSlice = allBotCards.slice(0, visibleCount);
+
+          const existing = prev[g.id] || new Set<number>();
+          const nextSet = new Set<number>(existing);
+          let added = false;
+          botSlice.forEach((num) => {
+            if (!nextSet.has(num)) {
+              nextSet.add(num);
+              added = true;
+            }
+          });
+          if (added || nextSet.size !== existing.size) {
+            nextMap[g.id] = nextSet;
+            changed = true;
+          }
+        });
+        return changed ? nextMap : prev;
+      });
+    };
+
+    updateProgressivePickCards();
+    const timer = setInterval(updateProgressivePickCards, 1000);
+    return () => clearInterval(timer);
+  }, [games]);
 
   const openAuthModal = React.useCallback((mode: 'register' | 'login' = 'register') => {
     setAuthModalMode(mode);

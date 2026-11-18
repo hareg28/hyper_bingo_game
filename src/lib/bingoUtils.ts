@@ -1512,11 +1512,14 @@ export function getFetanClock(
   if (status === 'RUNNING' || drawnCount > 0 || status === 'COMPLETED') {
     return { pickingCards: false, secondsLeft: 0 };
   }
-  if (nextRoundStartsAt && nextRoundStartsAt > nowMs) {
-    return {
-      pickingCards: true,
-      secondsLeft: Math.max(0, Math.ceil((nextRoundStartsAt - nowMs) / 1000)),
-    };
+  if (nextRoundStartsAt) {
+    if (nextRoundStartsAt > nowMs) {
+      return {
+        pickingCards: true,
+        secondsLeft: Math.max(0, Math.ceil((nextRoundStartsAt - nowMs) / 1000)),
+      };
+    }
+    return { pickingCards: false, secondsLeft: 0 };
   }
   if (status === 'OPEN' && drawnCount === 0) {
     return {
@@ -1537,11 +1540,14 @@ export function getSpecialPickClock(
   if (status === 'RUNNING' || drawnCount > 0 || status === 'COMPLETED') {
     return { pickingCards: false, secondsLeft: 0 };
   }
-  if (nextRoundStartsAt && nextRoundStartsAt > nowMs) {
-    return {
-      pickingCards: true,
-      secondsLeft: Math.max(0, Math.ceil((nextRoundStartsAt - nowMs) / 1000)),
-    };
+  if (nextRoundStartsAt) {
+    if (nextRoundStartsAt > nowMs) {
+      return {
+        pickingCards: true,
+        secondsLeft: Math.max(0, Math.ceil((nextRoundStartsAt - nowMs) / 1000)),
+      };
+    }
+    return { pickingCards: false, secondsLeft: 0 };
   }
   if (status === 'OPEN' && drawnCount === 0) {
     return {

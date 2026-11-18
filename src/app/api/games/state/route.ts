@@ -116,6 +116,14 @@ export async function GET() {
         AND drawn_numbers = '{}'
         AND next_round_starts_at IS NULL
     `;
+    await sql`
+      UPDATE games
+      SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + ${FETAN_PICK_SECONDS * 1000}
+      WHERE (category = 'HYPER_FETAN' OR game_type = 'HYPER_FETAN')
+        AND status = 'OPEN'
+        AND drawn_numbers = '{}'
+        AND next_round_starts_at IS NULL
+    `;
 
     // Apply scheduled Weekend transitions before returning shared state so a
     // cron invocation at the slot boundary can start the round immediately.
@@ -419,6 +427,14 @@ export async function GET() {
         AND drawn_numbers = '{}'
         AND next_round_starts_at IS NULL
     `;
+    await sql`
+      UPDATE games
+      SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + ${FETAN_PICK_SECONDS * 1000}
+      WHERE (category = 'HYPER_FETAN' OR game_type = 'HYPER_FETAN')
+        AND status = 'OPEN'
+        AND drawn_numbers = '{}'
+        AND next_round_starts_at IS NULL
+    `;
     // Keep the Special entry price tied to the active rule, including rows
     // that existed before the 10 / 20 ETB rotation was introduced.
     await sql`
@@ -602,11 +618,31 @@ export async function GET() {
       // Generate exactly targetBotCount cards so pick window sold cards match final players count
       const allBotCards = getInitialBotSoldCardNumbers(r.id, r.category || r.game_type, targetBotCount);
 
-      // Show all bot cards as sold from the very start of the picking window
-      // so the board never shows 0 sold and Derash is always a realistic value.
+      // Progressive bot participation during the card-picking / selling window:
+      // Bots pick cards in progress until the picking time finishes to make the game realistic!
+      // When admin sets custom count (e.g. 10), they ramp from 1 to 10 across the window.
+      // Once the round starts RUNNING, all target bots are in.
       let visibleBotCount = targetBotCount;
       if (r.status === 'OPEN') {
-        if (isWeekend) {
+        if (isFetan) {
+          const pickDeadline = r.next_round_starts_at ? Number(r.next_round_starts_at) : 0;
+          if (pickDeadline > Date.now()) {
+            const timeLeftMs = Math.max(0, pickDeadline - Date.now());
+            const elapsedMs = Math.max(0, FETAN_PICK_SECONDS * 1000 - timeLeftMs);
+            const progress = Math.min(1, Math.max(0, elapsedMs / (FETAN_PICK_SECONDS * 1000)));
+            // Ramp smoothly from 1 up to targetBotCount across the 40 seconds
+            visibleBotCount = Math.max(1, Math.min(targetBotCount, Math.ceil(targetBotCount * progress)));
+          }
+        } else if (isSpecial) {
+          const pickDeadline = r.next_round_starts_at ? Number(r.next_round_starts_at) : 0;
+          if (pickDeadline > Date.now()) {
+            const timeLeftMs = Math.max(0, pickDeadline - Date.now());
+            const elapsedMs = Math.max(0, SPECIAL_PICK_SECONDS * 1000 - timeLeftMs);
+            const progress = Math.min(1, Math.max(0, elapsedMs / (SPECIAL_PICK_SECONDS * 1000)));
+            // Ramp smoothly from 1 up to targetBotCount across the 4 minutes
+            visibleBotCount = Math.max(1, Math.min(targetBotCount, Math.ceil(targetBotCount * progress)));
+          }
+        } else if (isWeekend) {
           const initGame = INITIAL_GAMES.find((g) => g.id === r.id);
           const drawAt = initGame ? getNextWeekendDrawAt(initGame) : 0;
           if (drawAt > 0) {
@@ -619,24 +655,30 @@ export async function GET() {
 
       const isCustomSet = typeof customOverride === 'number' && customOverride > 0;
       const visibleBotCards = allBotCards.slice(0, Math.min(visibleBotCount, allBotCards.length));
-      // When admin sets custom bot count (e.g. 10), start from 0 with exactly customOverride bots.
-      // Do not add system players on top!
+      // When admin sets custom bot count (e.g. 10), it ramps in progress from 1 to 10 bots,
+      // and when RUNNING, it reaches exactly 10!
+      // In both cases, do not add old system players on top:
       const humanCount = humanPaidCardCountsByGame[r.id] || 0;
-      const effectiveBots = isCustomSet ? customOverride : Math.max(botCardCountsByGame[r.id] || 0, visibleBotCount);
+      const effectiveBots = isCustomSet
+        ? Math.min(customOverride, visibleBotCount)
+        : (r.status === 'OPEN' ? visibleBotCount : Math.max(botCardCountsByGame[r.id] || 0, visibleBotCount));
       const currentPlayers = humanCount + effectiveBots;
       const entryPriceNum = parseFloat(r.entry_price || '10');
-      // Live Derash (Prize Pool) calculates based on current active players (derived from bot count + human entries)
+      // Live Derash (Prize Pool) calculates based on current active players (derived from progressive bot count + human entries)
       const livePrizePool = isWeekend
         ? computeWeekendPrizePool(entryPriceNum, currentPlayers)
         : Math.round(currentPlayers * entryPriceNum * 0.80);
 
+      // For sold cards during OPEN status: show ONLY progressive bot cards picked so far + human cards!
       const dbSold = allSoldCardsByGame[r.id] || [];
-      const combinedSold = isCustomSet
-        ? Array.from(new Set([...(humanSoldCardsByGame[r.id] || []), ...visibleBotCards.slice(0, customOverride)]))
+      const combinedSold = r.status === 'OPEN'
+        ? Array.from(new Set([...(humanSoldCardsByGame[r.id] || []), ...visibleBotCards]))
         : Array.from(new Set([...dbSold, ...visibleBotCards]));
 
       return {
         id: r.id,
+        category: r.category,
+        gameType: r.game_type,
         status: r.status,
         drawnNumbers: parseIntegerArray(r.drawn_numbers),
         currentBall: r.current_ball == null ? null : Number(r.current_ball),

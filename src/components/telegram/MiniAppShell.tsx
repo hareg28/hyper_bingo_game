@@ -990,20 +990,11 @@ export default function MiniAppShell({
 
         <button
           onClick={() => {
-            if (categoryTab === 'SPECIAL') {
-              const specGame = games.find((g) => g.category === 'HYPER_SPECIAL' || g.id.includes('special'));
-              if (specGame) {
-                setLocalGameId(specGame.id);
-                setActiveGameId(specGame.id);
-              }
-              setActiveTab('game');
-            } else {
-              setLotteryMode(categoryTab);
-              setActiveTab('lottery');
-            }
+            setLotteryMode(categoryTab);
+            setActiveTab('lottery');
           }}
           className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-2 py-1 rounded-xl ${
-            (categoryTab === 'SPECIAL' ? activeTab === 'game' : activeTab === 'lottery') ? 'text-amber-600 font-black bg-amber-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+            activeTab === 'lottery' ? 'text-amber-600 font-black bg-amber-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
           <Sparkles className="w-5 h-5" />
@@ -1292,17 +1283,24 @@ function WeekendLotteryNumberPicker({
 
   const soldSet = React.useMemo(() => {
     if (!selectedGame) return new Set<number>();
-    return getLotterySoldNumbers(selectedGame.id);
-  }, [selectedGame?.id, getLotterySoldNumbers]);
+    const fromContext = getLotterySoldNumbers(selectedGame.id);
+    if (fromContext && fromContext.size > 0) return fromContext;
+    if (Array.isArray(selectedGame.soldCards) && selectedGame.soldCards.length > 0) {
+      return new Set<number>(selectedGame.soldCards);
+    }
+    return fromContext || new Set<number>();
+  }, [selectedGame?.id, selectedGame?.soldCards, selectedGame?.currentPlayers, getLotterySoldNumbers]);
 
   const activeSlotSet = new Set(slotNumbers.filter((n): n is number => n !== null));
   const slotCountFilled = slotNumbers.filter((n) => n !== null).length;
   const totalCost = slotCountFilled * entryPrice;
   const playableBalance = (wallet?.availableBalance ?? 0) + (wallet?.bonusBalance ?? 0) + (wallet?.winningBalance ?? 0);
   const canAfford = playableBalance >= totalCost;
-  const derash = mode === 'WEEKEND'
-    ? computeWeekendPrizePool(entryPrice, selectedGame?.currentPlayers || 0)
-    : Math.round(Math.min(selectedGame?.currentPlayers || 0, soldSet.size) * entryPrice * WINNERS_CUT_PCT);
+  const derash = selectedGame?.prizePool
+    ? selectedGame.prizePool
+    : mode === 'WEEKEND'
+      ? computeWeekendPrizePool(entryPrice, selectedGame?.currentPlayers || 0)
+      : Math.round(Math.max(selectedGame?.currentPlayers || 0, soldSet.size) * entryPrice * WINNERS_CUT_PCT);
   const showDerash = mode !== 'WEEKEND' || (
     selectedGame?.status === 'RUNNING' && Boolean(selectedGame.weekendRoundKey)
   );
@@ -1404,7 +1402,7 @@ function WeekendLotteryNumberPicker({
         fetanRedirectedGameRef.current = selectedGame.id;
         onPickCardsRef.current(selectedGame.id, slotNumbersRef.current.filter((number): number is number => number !== null).map(String));
       }
-      if (fetanIsIntermission) fetanRedirectedGameRef.current = null;
+      if (fetanIsIntermission && !roundStarted && !deadlinePassed) fetanRedirectedGameRef.current = null;
     }
     prevFetanIntermissionRef.current = fetanIsIntermission;
   }, [fetanIsIntermission, selectedGame?.id, selectedGame?.status, selectedGame?.drawnNumbers?.length, mode]);

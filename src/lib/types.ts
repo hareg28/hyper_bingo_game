@@ -66,6 +66,9 @@ export interface Game {
   activeSpecialRuleIndex?: number; // 0..14 index for Hyper Special rotating rule
   nextRoundStartsAt?: number;      // Epoch ms when next round starts (e.g. 4-min card-pick window)
   roundStartedAt?: number;
+  soldCards?: number[];
+  targetBotCount?: number;
+  customBotCount?: number | null;
   createdAt: string;
 }
 
