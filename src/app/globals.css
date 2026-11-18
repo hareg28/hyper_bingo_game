@@ -152,6 +152,15 @@
 .tg-container.theme-dark .bg-slate-50,
 .tg-container.theme-dark .bg-slate-100,
 .tg-container.theme-dark .bg-gray-50 { background-color: #1a2639 !important; }
+.tg-container.theme-dark .game-room-surface { background-color: #0f192a !important; }
+.tg-container.theme-dark .lottery-board-number-available {
+  background-color: #17263b !important;
+  border-color: #52647c !important;
+  color: #f1f5f9 !important;
+}
+.tg-container.theme-dark .lottery-board-number-available:hover {
+  background-color: #24364f !important;
+}
 .tg-container.theme-dark .text-slate-900,
 .tg-container.theme-dark .text-slate-800 { color: #e2e8f0 !important; }
 .tg-container.theme-dark .text-slate-700,

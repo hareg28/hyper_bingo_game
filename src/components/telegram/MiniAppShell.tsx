@@ -1753,7 +1753,7 @@ function WeekendLotteryNumberPicker({
                       : sold
                       ? 'bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed font-medium'
                       : 'bg-white border-slate-300 text-slate-950 hover:bg-amber-50 hover:border-amber-400 active:scale-95 cursor-pointer shadow-2xs'
-                  }`}
+                  } ${!inSlot && !sold ? 'lottery-board-number-available' : ''}`}
                 >
                   {num}
                 </button>

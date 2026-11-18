@@ -1409,7 +1409,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       {/* ================================================================
           SCROLLABLE BODY — Modern Card Layout (Matches Telegram Mockup)
           ================================================================ */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-24 sm:pb-32 bg-slate-100/70 p-1.5 sm:p-3 space-y-1 sm:space-y-2.5">
+      <div className="game-room-surface flex-1 min-h-0 overflow-y-auto overscroll-contain pb-24 sm:pb-32 bg-slate-100/70 p-1.5 sm:p-3 space-y-1 sm:space-y-2.5">
 
         {voiceBanner && (
           <div className="sticky top-0 z-40 bg-amber-50 border-b border-amber-300 px-3 py-2.5 shadow-sm">
@@ -1530,7 +1530,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     : isSpecialGame
                       ? (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')
                       : (language === 'am' ? 'ሃይፐር ፈጣን' : 'HYPER FETAN')}{' '}
-                  <span className="italic tracking-widest">BINGO</span>
+                  <span className="tracking-widest">BINGO</span>
                 </span>
               </div>
             </div>
@@ -1683,7 +1683,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'HYPER WEEKEND')
                     : (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')}
                   {' '}
-                  <span className="italic tracking-widest">BINGO</span>
+                  <span className="tracking-widest">BINGO</span>
                 </span>
               </div>
             </div>
