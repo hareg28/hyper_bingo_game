@@ -289,6 +289,7 @@ export async function initDatabaseSchema() {
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS draw_interval INTEGER DEFAULT 3`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS last_ball_drawn_at TIMESTAMPTZ`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS custom_bot_count INTEGER`;
+      await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS round_count INTEGER DEFAULT 0`;
       await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`;
     } catch {}
 

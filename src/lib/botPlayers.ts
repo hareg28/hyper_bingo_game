@@ -646,15 +646,30 @@ export async function checkAndTriggerBotWin(
     const rawName = String(winningBot.username || '').replace(/^@?bot_/i, '').replace(/^@?bot/i, '').trim();
     const cleanUsername = rawName || generateRealisticBotUsername(seedNum % 300, seedNum);
 
-    // Shared win support: Occurs within every 15 game rounds, two bot players win at the same time and split Derash 50/50
-    const isSharedWin = ((seedNum % 15) === 0 || (seedNum % 15) === 8) && pool.length >= 2;
+    // Shared win support: In 15 game rounds, 2 or 3 bot players share the win and split the Derash.
+    // Applies across all game types (HYPER_FETAN, HYPER_SPECIAL, HYPER_WEEKEND).
+    const roundCount = Number(game.round_count || 0);
+    const isSharedWin = ((roundCount > 0 && roundCount % 15 === 0) || (seedNum % 15 === 0));
     let winnersList: WinnerRecord[] = [];
 
     if (isSharedWin) {
-      const splitPrize1 = Math.floor(prizeWon / 2);
-      const splitPrize2 = prizeWon - splitPrize1;
+      // 50% chance of 2 winners, 50% chance of 3 winners
+      const numSharedWinners = (seedNum % 2 === 0) ? 3 : 2;
+      const splitBase = Math.floor(prizeWon / numSharedWinners);
+      const remainder = prizeWon - (splitBase * numSharedWinners);
 
-      // Find a second distinct bot from pool or botRows with a different card number
+      // Winner 1
+      const botWinner1: WinnerRecord = sanitizeWinnerForDisplay({
+        userId: formatDisplayPlayerId(winningBot.user_id),
+        username: cleanUsername,
+        cardNumber: winningBot.card_number,
+        winningBall: winningBallToUse,
+        pattern,
+        prizeWon: splitBase + remainder,
+        claimedAt: new Date().toISOString(),
+      });
+
+      // Winner 2 (distinct card and user)
       let secondBot = pool.find((b: any) => b.card_number !== winningBot.card_number && b.user_id !== winningBot.user_id) ||
         botRows.find((b: any) => b.card_number !== winningBot.card_number && b.user_id !== winningBot.user_id);
 
@@ -672,27 +687,58 @@ export async function checkAndTriggerBotWin(
       const rawName2 = String(secondBot.username || '').replace(/^@?bot_/i, '').replace(/^@?bot/i, '').trim();
       const cleanUsername2 = rawName2 || generateRealisticBotUsername((seedNum + 7) % 300, seedNum + 7);
 
-      const botWinner1: WinnerRecord = sanitizeWinnerForDisplay({
-        userId: formatDisplayPlayerId(winningBot.user_id),
-        username: cleanUsername,
-        cardNumber: winningBot.card_number,
-        winningBall: winningBallToUse,
-        pattern,
-        prizeWon: splitPrize1,
-        claimedAt: new Date().toISOString(),
-      });
-
       const botWinner2: WinnerRecord = sanitizeWinnerForDisplay({
         userId: formatDisplayPlayerId(secondBot.user_id),
         username: cleanUsername2,
         cardNumber: secondBot.card_number,
         winningBall: winningBallToUse,
         pattern,
-        prizeWon: splitPrize2,
+        prizeWon: splitBase,
         claimedAt: new Date().toISOString(),
       });
 
-      winnersList = [botWinner1, botWinner2];
+      if (numSharedWinners === 3) {
+        // Winner 3 (distinct from winner 1 and winner 2)
+        let thirdBot = pool.find((b: any) =>
+          b.card_number !== winningBot.card_number &&
+          b.card_number !== secondBot.card_number &&
+          b.user_id !== winningBot.user_id &&
+          b.user_id !== secondBot.user_id
+        ) || botRows.find((b: any) =>
+          b.card_number !== winningBot.card_number &&
+          b.card_number !== secondBot.card_number &&
+          b.user_id !== winningBot.user_id &&
+          b.user_id !== secondBot.user_id
+        );
+
+        if (!thirdBot) {
+          const seed3 = seedNum + 149;
+          const name3 = generateRealisticBotUsername((seed3 % 300), seed3);
+          const cardNum3 = String(1 + ((parseInt(winningBot.card_number || '1', 10) + 27) % 100));
+          thirdBot = {
+            user_id: `bot_${name3.toLowerCase().replace(/[^a-z0-9_]/g, '')}`,
+            username: name3,
+            card_number: cardNum3,
+          };
+        }
+
+        const rawName3 = String(thirdBot.username || '').replace(/^@?bot_/i, '').replace(/^@?bot/i, '').trim();
+        const cleanUsername3 = rawName3 || generateRealisticBotUsername((seedNum + 19) % 300, seedNum + 19);
+
+        const botWinner3: WinnerRecord = sanitizeWinnerForDisplay({
+          userId: formatDisplayPlayerId(thirdBot.user_id),
+          username: cleanUsername3,
+          cardNumber: thirdBot.card_number,
+          winningBall: winningBallToUse,
+          pattern,
+          prizeWon: splitBase,
+          claimedAt: new Date().toISOString(),
+        });
+
+        winnersList = [botWinner1, botWinner2, botWinner3];
+      } else {
+        winnersList = [botWinner1, botWinner2];
+      }
     } else {
       const botWinner: WinnerRecord = sanitizeWinnerForDisplay({
         userId: formatDisplayPlayerId(winningBot.user_id),
@@ -715,6 +761,7 @@ export async function checkAndTriggerBotWin(
         drawn_numbers = ${`{${finalDrawnNumbers.join(',')}}`}::int4[],
         current_ball = ${winningBallToUse},
         prize_pool = ${prizeWon},
+        round_count = COALESCE(round_count, 0) + 1,
         updated_at = NOW()
       WHERE id = ${game.id} AND status = 'RUNNING' AND (winners = '[]'::jsonb OR winners IS NULL)
       RETURNING id

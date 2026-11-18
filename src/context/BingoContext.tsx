@@ -2419,6 +2419,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         if (res.success && res.data?.ball && Array.isArray(res.data.drawnNumbers)) {
           const serverBall: number = res.data.ball;
           const serverWinner = res.data.winner as WinnerRecord | undefined;
+          const serverWinners = (Array.isArray(res.data.winners) && res.data.winners.length > 0)
+            ? (res.data.winners as WinnerRecord[])
+            : (serverWinner ? [serverWinner] : undefined);
           setGames((prev) =>
             prev.map((g) => {
               if (g.id !== gameId) return g;
@@ -2427,16 +2430,16 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 drawnNumbers: res.data.drawnNumbers,
                 currentBall: serverBall,
                 status: res.data.isCompleted ? 'COMPLETED' : 'RUNNING',
-                winners: serverWinner ? [serverWinner] : g.winners,
+                winners: serverWinners ?? g.winners,
               };
             })
           );
           if (serverWinner && typeof window !== 'undefined') {
             try {
-              localStorage.setItem(`hyper_bingo_winner_${gameId}`, JSON.stringify({ gameId, winner: serverWinner }));
+              localStorage.setItem(`hyper_bingo_winner_${gameId}`, JSON.stringify({ gameId, winner: serverWinner, winners: serverWinners }));
             } catch {}
             try {
-              window.dispatchEvent(new CustomEvent('hyperbingo:winner', { detail: { gameId, winner: serverWinner } }));
+              window.dispatchEvent(new CustomEvent('hyperbingo:winner', { detail: { gameId, winner: serverWinner, winners: serverWinners } }));
             } catch {}
           }
         }

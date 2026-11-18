@@ -1991,8 +1991,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 <div className="text-xs font-black truncate leading-tight">
                   {currentGame.winners.length >= 2
                     ? (language === 'am'
-                      ? `2 የጋራ አሸናፊዎች: @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} እና @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (${formatETB(currentGame.winners[0].prizeWon)} እያንዳንዳቸው)!`
-                      : `2 Shared Winners: @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (${formatETB(currentGame.winners[0].prizeWon)} each)!`)
+                      ? `${currentGame.winners.length} የጋራ አሸናፊዎች (ደራሽ ተካፍሏል): ${currentGame.winners.map(w => `@${w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}`).join(' እና ')} (${formatETB(currentGame.winners[0].prizeWon)} እያንዳንዳቸው)!`
+                      : `${currentGame.winners.length} Shared Winners (Split Derash): ${currentGame.winners.map(w => `@${w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}`).join(' & ')} (${formatETB(currentGame.winners[0].prizeWon)} each)!`)
                     : (language === 'am'
                       ? `አሸናፊ: @${currentGame.winners[currentGame.winners.length - 1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} · የካርድ ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)} አሸንፏል!`
                       : `Winner: @${currentGame.winners[currentGame.winners.length - 1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} · Card ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — WON ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)}!`)}
@@ -2051,8 +2051,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       <span>
                         {currentGame.winners && currentGame.winners.length >= 2
                           ? (language === 'am'
-                            ? `🎉 2 የጋራ አሸናፊዎች (Shared): @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${currentGame.winners[0].cardNumber} & #${currentGame.winners[1].cardNumber})!`
-                            : `🎉 2 SHARED WINNERS: @${currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @${currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${currentGame.winners[0].cardNumber} & #${currentGame.winners[1].cardNumber})!`)
+                            ? `🎉 ${currentGame.winners.length} የጋራ አሸናፊዎች (Shared): ${currentGame.winners.map(w => `@${w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${w.cardNumber})`).join(' & ')}!`
+                            : `🎉 ${currentGame.winners.length} SHARED WINNERS: ${currentGame.winners.map(w => `@${w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${w.cardNumber})`).join(' & ')}!`)
                           : latestWinner
                             ? (language === 'am'
                               ? `🎉 ቢንጎ አሸናፊ: @${latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`
@@ -2064,7 +2064,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       </span>
                       {currentGame.winners && currentGame.winners.length >= 2 ? (
                         <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black">
-                          {formatETB(currentGame.winners[0].prizeWon)} {language === 'am' ? 'እያንዳንዳቸው (ደራሽ ተካፍሏል)' : 'each (50/50 split)'}
+                          {formatETB(currentGame.winners[0].prizeWon)} {language === 'am' ? `እያንዳንዳቸው (ደራሽ በ${currentGame.winners.length} ተካፍሏል)` : `each (${currentGame.winners.length}-way split)`}
                         </span>
                       ) : latestWinner ? (
                         <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black">
@@ -3079,14 +3079,14 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               {currentGame.winners.length >= 2 ? (
                 <div className="space-y-2">
                   <h3 className="text-xs font-black tracking-widest uppercase text-amber-400">
-                    {language === 'am' ? '🎉 2 ቢንጎ አሸናፊዎች (የጋራ ድል)! 🎉' : '🎉 2 BINGO WINNERS (SHARED DERASH)! 🎉'}
+                    {language === 'am' ? `🎉 ${currentGame.winners.length} ቢንጎ አሸናፊዎች (የጋራ ድል)! 🎉` : `🎉 ${currentGame.winners.length} BINGO WINNERS (SHARED DERASH)! 🎉`}
                   </h3>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-black">
-                    <span>{language === 'am' ? 'ደራሽ በእኩል ተካፍሏል' : 'Derash Split 50% / 50%'}</span>
+                    <span>{language === 'am' ? `ደራሽ በ${currentGame.winners.length} ተካፍሏል` : `Derash Split (${currentGame.winners.length}-way)`}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-left pt-1">
-                    {currentGame.winners.slice(0, 2).map((w, idx) => (
-                      <div key={idx} className="bg-white/10 rounded-2xl p-2.5 border border-white/15 space-y-1">
+                  <div className={`grid ${currentGame.winners.length >= 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-2 text-left pt-1`}>
+                    {currentGame.winners.map((w, idx) => (
+                      <div key={idx} className="bg-white/10 rounded-2xl p-2 border border-white/15 space-y-1">
                         <div className="text-[10px] text-amber-300 font-bold uppercase">
                           {language === 'am' ? `አሸናፊ #${idx + 1}` : `Winner #${idx + 1}`}
                         </div>
@@ -3123,20 +3123,20 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   <>
                     <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                       <span className="text-slate-300 font-bold">{language === 'am' ? 'አሸናፊዎች (Winners):' : 'Winners:'}</span>
-                      <span className="font-black text-amber-300 text-xs">
-                        @{currentGame.winners[0].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} & @{currentGame.winners[1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
+                      <span className="font-black text-amber-300 text-xs text-right truncate max-w-[200px]">
+                        {currentGame.winners.map(w => `@${w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}`).join(' & ')}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                       <span className="text-slate-300 font-bold">{language === 'am' ? 'የካርድ ID ቁጥሮች:' : 'Card IDs:'}</span>
-                      <span className="font-mono font-black text-amber-300 text-xs">
-                        #{currentGame.winners[0].cardNumber} & #{currentGame.winners[1].cardNumber}
+                      <span className="font-mono font-black text-amber-300 text-xs text-right">
+                        {currentGame.winners.map(w => `#${w.cardNumber}`).join(' & ')}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                      <span className="text-slate-300 font-bold">{language === 'am' ? 'የእያንዳንዱ ሽልማት:' : 'Each Prize (50%):'}</span>
+                      <span className="text-slate-300 font-bold">{language === 'am' ? 'የእያንዳንዱ ሽልማት:' : 'Each Prize:'}</span>
                       <span className="font-black text-emerald-400 text-sm">
-                        {formatETB(currentGame.winners[0].prizeWon)} ({formatETB(currentGame.winners[0].prizeWon * 2)} Total)
+                        {formatETB(currentGame.winners[0].prizeWon)} ({formatETB(currentGame.prizePool || currentGame.winners.reduce((sum, w) => sum + (w.prizeWon || 0), 0))} Total)
                       </span>
                     </div>
                   </>

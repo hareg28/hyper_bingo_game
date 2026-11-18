@@ -377,8 +377,9 @@ export async function GET() {
               const [gRow] = await sql`SELECT winners, prize_pool FROM games WHERE id = ${game.id}`;
               const gWinners = Array.isArray(gRow?.winners) ? gRow.winners : [];
               if (gWinners.length >= 2) {
+                const namesStr = gWinners.map((w: any) => `@${w.username} (Card #${w.cardNumber})`).join(' & ');
                 await notifyUsersTelegram(
-                  `🏆 2 WEEKEND BINGO WINNERS (SHARED DERASH)! @${gWinners[0].username} (Card #${gWinners[0].cardNumber}) & @${gWinners[1].username} (Card #${gWinners[1].cardNumber}) won and split ${gRow?.prize_pool || botWinner.prizeWon * 2} ETB (${gWinners[0].prizeWon} ETB each)! Open the Weekend game page to view the full result.`,
+                  `🏆 ${gWinners.length} WEEKEND BINGO WINNERS (SHARED DERASH)! ${namesStr} won and split ${gRow?.prize_pool || (gWinners[0]?.prizeWon * gWinners.length)} ETB (${gWinners[0]?.prizeWon} ETB each)! Open the Weekend game page to view the full result.`,
                 );
               } else {
                 await notifyUsersTelegram(
@@ -408,8 +409,9 @@ export async function GET() {
           const [gRow2] = await sql`SELECT winners, prize_pool FROM games WHERE id = ${game.id}`;
           const gWinners2 = Array.isArray(gRow2?.winners) ? gRow2.winners : [];
           if (gWinners2.length >= 2) {
+            const namesStr2 = gWinners2.map((w: any) => `@${w.username} (Card #${w.cardNumber})`).join(' & ');
             await notifyUsersTelegram(
-              `🏆 2 WEEKEND BINGO WINNERS (SHARED DERASH)! @${gWinners2[0].username} (Card #${gWinners2[0].cardNumber}) & @${gWinners2[1].username} (Card #${gWinners2[1].cardNumber}) won and split ${gRow2?.prize_pool || botWinner.prizeWon * 2} ETB (${gWinners2[0].prizeWon} ETB each)! Open the Weekend game page to view the full result.`,
+              `🏆 ${gWinners2.length} WEEKEND BINGO WINNERS (SHARED DERASH)! ${namesStr2} won and split ${gRow2?.prize_pool || (gWinners2[0]?.prizeWon * gWinners2.length)} ETB (${gWinners2[0]?.prizeWon} ETB each)! Open the Weekend game page to view the full result.`,
             );
           } else {
             await notifyUsersTelegram(
