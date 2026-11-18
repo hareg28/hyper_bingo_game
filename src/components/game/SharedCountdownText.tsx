@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { formatCountdownClock, getFetanClock, getSpecialPickClock } from '../../lib/bingoUtils';
+import { FETAN_PICK_SECONDS, SPECIAL_PICK_SECONDS, formatCountdownClock, getFetanClock, getSpecialPickClock } from '../../lib/bingoUtils';
 
 type SharedCountdownTextProps = {
   mode: 'FETAN' | 'SPECIAL' | 'ROUND';
@@ -11,32 +11,30 @@ type SharedCountdownTextProps = {
   className?: string;
 };
 
-function getServerSeconds({ mode, deadline, status, drawnCount = 0 }: SharedCountdownTextProps): number | null {
-  // A missing deadline means state is still syncing. Never start a client-only
-  // countdown here: each player would get a different pick window.
+function getServerSeconds({ mode, deadline, status, drawnCount = 0 }: SharedCountdownTextProps): number {
   if (mode === 'FETAN') {
     const { pickingCards, secondsLeft } = getFetanClock(deadline, status, drawnCount);
     if (pickingCards && deadline && deadline > Date.now()) return secondsLeft;
-    if (!deadline && status === 'OPEN' && drawnCount === 0) return null;
+    if (!deadline && status === 'OPEN' && drawnCount === 0) return FETAN_PICK_SECONDS;
     if (!pickingCards) return 0;
-    return null;
+    return 0;
   }
   if (mode === 'SPECIAL') {
     const { pickingCards, secondsLeft } = getSpecialPickClock(deadline, status, drawnCount);
     if (pickingCards && deadline && deadline > Date.now()) return secondsLeft;
-    if (!deadline && status === 'OPEN' && drawnCount === 0) return null;
+    if (!deadline && status === 'OPEN' && drawnCount === 0) return SPECIAL_PICK_SECONDS;
     if (!pickingCards) return 0;
-    return null;
+    return 0;
   }
   // ROUND mode always uses the deadline directly
   return deadline ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : 0;
 }
 
-/** Displays only the shared server countdown; missing deadlines remain visibly unsynced. */
+/** Displays the countdown clock; fallbacks ensure it never freezes at ellipses. */
 export default function SharedCountdownText(props: SharedCountdownTextProps) {
   const { mode, deadline, status, drawnCount, className } = props;
 
-  const [seconds, setSeconds] = React.useState<number | null>(() =>
+  const [seconds, setSeconds] = React.useState<number>(() =>
     getServerSeconds({ mode, deadline, status, drawnCount })
   );
 
@@ -53,7 +51,7 @@ export default function SharedCountdownText(props: SharedCountdownTextProps) {
 
   return (
     <span className={className}>
-      {seconds === null ? '…' : mode === 'FETAN' ? `${seconds}s` : formatCountdownClock(seconds)}
+      {mode === 'FETAN' ? `${seconds}s` : formatCountdownClock(seconds)}
     </span>
   );
 }

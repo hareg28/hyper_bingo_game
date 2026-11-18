@@ -677,10 +677,9 @@ export default function MiniAppShell({
               setLocalGameId(newId);
               setActiveGameId(newId);
             }}
-            onPickCards={(gameId, cardNumbers) => {
-              // Lottery cards are purchased at the picker tap. Do not run joinGame
-              // again here: a stale React snapshot can repurchase the same cards.
-              if (cardNumbers.length > 0 && !user) { openAuthModal('register'); return; }
+            onPickCards={(gameId) => {
+              // Lottery cards are purchased at the picker tap.
+              // Always transition to the game room when countdown finishes or player taps Play/Watch.
               setLocalGameId(gameId);
               setActiveGameId(gameId);
               setActiveTab('game');

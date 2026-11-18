@@ -1518,8 +1518,12 @@ export function getFetanClock(
       secondsLeft: Math.max(0, Math.ceil((nextRoundStartsAt - nowMs) / 1000)),
     };
   }
-  // A client must never invent a fresh window when it has no shared deadline.
-  // The state endpoint initializes the deadline once and returns it to every client.
+  if (status === 'OPEN' && drawnCount === 0) {
+    return {
+      pickingCards: true,
+      secondsLeft: FETAN_PICK_SECONDS,
+    };
+  }
   return { pickingCards: false, secondsLeft: 0 };
 }
 
@@ -1530,7 +1534,7 @@ export function getSpecialPickClock(
   drawnCount: number = 0,
   nowMs: number = Date.now()
 ): { pickingCards: boolean; secondsLeft: number } {
-  if (status === 'RUNNING' || drawnCount > 0) {
+  if (status === 'RUNNING' || drawnCount > 0 || status === 'COMPLETED') {
     return { pickingCards: false, secondsLeft: 0 };
   }
   if (nextRoundStartsAt && nextRoundStartsAt > nowMs) {
@@ -1539,7 +1543,11 @@ export function getSpecialPickClock(
       secondsLeft: Math.max(0, Math.ceil((nextRoundStartsAt - nowMs) / 1000)),
     };
   }
-  // Use only the shared server deadline; otherwise reopening the page would
-  // restart a client-only four-minute countdown that can never expire globally.
+  if (status === 'OPEN' && drawnCount === 0) {
+    return {
+      pickingCards: true,
+      secondsLeft: SPECIAL_PICK_SECONDS,
+    };
+  }
   return { pickingCards: false, secondsLeft: 0 };
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
+import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureCustomBotCountColumn, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
 import { computeWeekendPrizePool, FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getNextWeekendDrawAt, getWeekendRoundKey, getWeekendScheduledStartAt, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
 import { ensureBotPlayersInDb, checkAndTriggerBotWin, getBotCountForGame, getInitialBotSoldCardNumbers, formatDisplayPlayerId, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
@@ -94,6 +94,7 @@ export async function GET() {
     await ensureGameCardPaidColumn(sql);
     await ensureWeekendRoundKeyColumn(sql);
     await ensureBlockedPlayersColumn(sql);
+    await ensureCustomBotCountColumn(sql);
     await ensureBuiltinGameRows(sql);
     await ensureSingleDrawWeekendMigration(sql);
 
@@ -103,6 +104,14 @@ export async function GET() {
       UPDATE games
       SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + ${FETAN_PICK_SECONDS * 1000}
       WHERE (category = 'HYPER_FETAN' OR game_type = 'HYPER_FETAN')
+        AND status = 'OPEN'
+        AND drawn_numbers = '{}'
+        AND next_round_starts_at IS NULL
+    `;
+    await sql`
+      UPDATE games
+      SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + ${SPECIAL_PICK_SECONDS * 1000}
+      WHERE (category = 'HYPER_SPECIAL' OR game_type = 'HYPER_SPECIAL')
         AND status = 'OPEN'
         AND drawn_numbers = '{}'
         AND next_round_starts_at IS NULL
@@ -164,11 +173,23 @@ export async function GET() {
       `;
     }
 
+    // Load custom bot settings from database (admin overrides per category)
+    let botSettingsMap: Record<string, number> = {};
+    try {
+      const bsRows = await sql`
+        SELECT category, custom_bot_count FROM bot_settings
+        WHERE custom_bot_count IS NOT NULL AND custom_bot_count > 0
+      `;
+      for (const bs of bsRows) {
+        botSettingsMap[String(bs.category)] = Number(bs.custom_bot_count);
+      }
+    } catch {}
+
     // Keep scheduled rounds and shared state synchronized for every client.
     const hyperRows = await sql`
       SELECT id, category, game_type, status, drawn_numbers, current_ball, winners, round_started_at,
              next_round_starts_at, last_ball_drawn_at, draw_interval, active_special_rule_index,
-             entry_price, weekend_round_key
+             entry_price, weekend_round_key, custom_bot_count
       FROM games
       WHERE category IN ('HYPER_FETAN', 'HYPER_SPECIAL', 'HYPER_WEEKEND')
          OR game_type IN ('HYPER_FETAN', 'HYPER_SPECIAL', 'WEEKEND_LOTTERY')
@@ -182,6 +203,8 @@ export async function GET() {
       const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN';
       const isSpecial = game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL';
       const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY';
+      const catKey = String(game.category || game.game_type || '');
+      const customOverride = botSettingsMap[catKey] ?? (game.custom_bot_count ? Number(game.custom_bot_count) : null);
 
       const pickSeconds = isSpecial ? SPECIAL_PICK_SECONDS : FETAN_PICK_SECONDS;
       const ruleCount = HYPER_SPECIAL_RULES.length;
@@ -242,14 +265,14 @@ export async function GET() {
               `;
             } catch {}
           }
-          await ensureBotPlayersInDb(sql, { ...game, status: 'OPEN', entry_price: nextPrice, round_started_at: null, custom_bot_count: null });
+          await ensureBotPlayersInDb(sql, { ...game, status: 'OPEN', entry_price: nextPrice, round_started_at: null, custom_bot_count: null }, customOverride);
           continue;
         }
       }
 
       // Ensure active bot players are present in all rooms (including Weekend OPEN games before game starts)
       if (game.status === 'OPEN' || game.status === 'RUNNING') {
-        await ensureBotPlayersInDb(sql, game);
+        await ensureBotPlayersInDb(sql, game, customOverride);
       }
 
       if (isWeekend && !weekendRoundIsLive) continue;
@@ -522,43 +545,32 @@ export async function GET() {
       (row.category !== 'HYPER_WEEKEND' && row.game_type !== 'WEEKEND_LOTTERY') || activeWeekendIds.has(row.id)
     );
 
-    // Fetch human sold cards by game so clients can show live sold cards & left cards on the board
-    const humanSoldCardsByGame: Record<string, number[]> = {};
+    // Fetch sold cards by game (both bots and humans) so clients show live sold cards & left cards on the board
+    const allSoldCardsByGame: Record<string, number[]> = {};
+    const botCardCountsByGame: Record<string, number> = {};
     const humanPaidCardCountsByGame: Record<string, number> = {};
     try {
       const soldRows = await sql`
         SELECT game_id, card_number, user_id, is_paid FROM game_cards
       `;
       for (const row of soldRows) {
+        if (!allSoldCardsByGame[row.game_id]) {
+          allSoldCardsByGame[row.game_id] = [];
+        }
+        const num = parseInt(row.card_number, 10);
+        if (!Number.isNaN(num)) {
+          allSoldCardsByGame[row.game_id].push(num);
+        }
         const isBot = String(row.user_id || '').startsWith('bot_');
-        if (!isBot) {
-          if (!humanSoldCardsByGame[row.game_id]) {
-            humanSoldCardsByGame[row.game_id] = [];
-          }
-          const num = parseInt(row.card_number, 10);
-          if (!Number.isNaN(num)) {
-            humanSoldCardsByGame[row.game_id].push(num);
-          }
-          if (row.is_paid !== false) {
-            humanPaidCardCountsByGame[row.game_id] = (humanPaidCardCountsByGame[row.game_id] || 0) + 1;
-          }
+        if (isBot) {
+          botCardCountsByGame[row.game_id] = (botCardCountsByGame[row.game_id] || 0) + 1;
+        } else if (row.is_paid !== false) {
+          humanPaidCardCountsByGame[row.game_id] = (humanPaidCardCountsByGame[row.game_id] || 0) + 1;
         }
       }
     } catch {
       // Gracefully ignore if table empty or not yet migrated
     }
-
-    // Load custom bot settings from database (admin overrides per category)
-    let botSettingsMap: Record<string, number> = {};
-    try {
-      const bsRows = await sql`
-        SELECT category, custom_bot_count FROM bot_settings
-        WHERE custom_bot_count IS NOT NULL AND custom_bot_count > 0
-      `;
-      for (const bs of bsRows) {
-        botSettingsMap[String(bs.category)] = Number(bs.custom_bot_count);
-      }
-    } catch {}
 
     const games = rows.map((r: any) => {
       const id = String(r.id);
@@ -581,30 +593,11 @@ export async function GET() {
       // Generate exactly targetBotCount cards so pick window sold cards match final players count
       const allBotCards = getInitialBotSoldCardNumbers(r.id, r.category || r.game_type, targetBotCount);
 
-      // Realistic progressive bot participation during the card-picking / selling window.
-      // Fetan and Special start at 60% of target so the Derash shows a realistic value
-      // from the first second, then ramps to 100% by end of the picking window.
+      // Show all bot cards as sold from the very start of the picking window
+      // so the board never shows 0 sold and Derash is always a realistic value.
       let visibleBotCount = targetBotCount;
       if (r.status === 'OPEN') {
-        if (isFetan) {
-          const pickDeadline = r.next_round_starts_at ? Number(r.next_round_starts_at) : 0;
-          if (pickDeadline > Date.now()) {
-            const timeLeftMs = Math.max(0, pickDeadline - Date.now());
-            const progress = Math.min(1, Math.max(0, (FETAN_PICK_SECONDS * 1000 - timeLeftMs) / (FETAN_PICK_SECONDS * 1000)));
-            // Ramp from 60% → 100% across the 40-second window so Derash is never 0
-            const minFraction = 0.60;
-            visibleBotCount = Math.max(1, Math.min(targetBotCount, Math.floor(targetBotCount * (minFraction + (1 - minFraction) * progress))));
-          }
-        } else if (isSpecial) {
-          const pickDeadline = r.next_round_starts_at ? Number(r.next_round_starts_at) : 0;
-          if (pickDeadline > Date.now()) {
-            const timeLeftMs = Math.max(0, pickDeadline - Date.now());
-            const progress = Math.min(1, Math.max(0, (SPECIAL_PICK_SECONDS * 1000 - timeLeftMs) / (SPECIAL_PICK_SECONDS * 1000)));
-            // Ramp from 60% → 100% across the 4-minute window so Derash is never 0
-            const minFraction = 0.60;
-            visibleBotCount = Math.max(1, Math.min(targetBotCount, Math.floor(targetBotCount * (minFraction + (1 - minFraction) * progress))));
-          }
-        } else if (isWeekend) {
+        if (isWeekend) {
           const initGame = INITIAL_GAMES.find((g) => g.id === r.id);
           const drawAt = initGame ? getNextWeekendDrawAt(initGame) : 0;
           if (drawAt > 0) {
@@ -616,8 +609,11 @@ export async function GET() {
       }
 
       const visibleBotCards = allBotCards.slice(0, Math.min(visibleBotCount, allBotCards.length));
+      const dbSold = allSoldCardsByGame[r.id] || [];
+      const combinedSold = Array.from(new Set([...dbSold, ...visibleBotCards]));
       const humanCount = humanPaidCardCountsByGame[r.id] || 0;
-      const currentPlayers = humanCount + visibleBotCount;
+      const effectiveBots = Math.max(botCardCountsByGame[r.id] || 0, visibleBotCount);
+      const currentPlayers = humanCount + effectiveBots;
       const entryPriceNum = parseFloat(r.entry_price || '10');
       // Live Derash (Prize Pool) calculates based on current active players (derived from bot count + human entries)
       const livePrizePool = isWeekend
@@ -645,10 +641,7 @@ export async function GET() {
         entryPrice: entryPriceNum,
         prizePool: livePrizePool,
         drawInterval: parseInt(r.draw_interval ?? '3', 10),
-        soldCards: Array.from(new Set([
-          ...(humanSoldCardsByGame[r.id] || []),
-          ...visibleBotCards,
-        ])),
+        soldCards: combinedSold,
         updatedAt: r.updated_at,
       };
     });

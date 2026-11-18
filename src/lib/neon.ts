@@ -18,6 +18,22 @@ let weekendRoundKeyMigration: Promise<void> | null = null;
 let blockedPlayersMigration: Promise<void> | null = null;
 let builtinGamesMigration: Promise<void> | null = null;
 let gameCardPaidMigration: Promise<void> | null = null;
+let customBotCountMigration: Promise<void> | null = null;
+
+/** Ensure custom_bot_count column exists on games table. */
+export async function ensureCustomBotCountColumn(
+  sql: NonNullable<ReturnType<typeof getNeonSql>>
+): Promise<void> {
+  if (!customBotCountMigration) {
+    customBotCountMigration = sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS custom_bot_count INTEGER`
+      .then(() => undefined)
+      .catch((error) => {
+        customBotCountMigration = null;
+        throw error;
+      });
+  }
+  await customBotCountMigration;
+}
 
 /** Track whether a retained Special card has been paid for after unregistering. */
 export async function ensureGameCardPaidColumn(

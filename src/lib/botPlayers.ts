@@ -438,8 +438,8 @@ export async function ensureBotPlayersInDb(
     const isWeekend = category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY' || String(game.id).includes('weekend');
     const pricePerCard = parseFloat(String(game.entry_price || (isWeekend ? '50' : '10')));
 
-    // Insert bot cards into game_cards (capped at targetBotCount or 60 to prevent serverless DB timeouts)
-    const cardsToInsert = botCards.slice(0, Math.min(targetBotCount, 60));
+    // Insert bot cards into game_cards in batches (up to 100 per round to cover all bots)
+    const cardsToInsert = botCards.slice(0, Math.min(targetBotCount, 100));
     for (const bot of cardsToInsert) {
       await sql`
         INSERT INTO game_cards (id, game_id, card_number, user_id, username, cost, is_registered, is_paid)
