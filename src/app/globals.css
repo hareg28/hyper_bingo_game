@@ -161,6 +161,11 @@
 .tg-container.theme-dark .lottery-board-number-available:hover {
   background-color: #24364f !important;
 }
+.tg-container.theme-dark .bingo-master-board .bingo-master-cell-available {
+  background-color: #17263b !important;
+  border-color: #52647c !important;
+  color: #ffffff !important;
+}
 .tg-container.theme-dark .text-slate-900,
 .tg-container.theme-dark .text-slate-800 { color: #e2e8f0 !important; }
 .tg-container.theme-dark .text-slate-700,

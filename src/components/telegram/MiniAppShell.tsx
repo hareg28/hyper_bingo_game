@@ -334,6 +334,16 @@ export default function MiniAppShell({
               </button>
             </div>
 
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={isDarkTheme ? 'Light theme' : 'Dark theme'}
+              className="w-7 h-7 rounded-full bg-slate-100 border border-slate-300 text-slate-700 flex items-center justify-center shrink-0"
+            >
+              {isDarkTheme ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            </button>
+
             {/* Daily Spin Button — Lobby only */}
             {activeTab === 'lobby' && (
               <button

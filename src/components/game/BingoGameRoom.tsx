@@ -1907,7 +1907,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         {/* ================================================================
           CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
           ================================================================ */}
-        <div className="bg-white rounded-xl p-1 sm:p-1.5 border border-slate-200/80 shadow-xs">
+        <div className="bingo-master-board bg-white rounded-xl p-1 sm:p-1.5 border border-slate-200/80 shadow-xs">
           {/* Slim board title */}
           <div className="flex items-center justify-between mb-1 px-0.5">
             <span className="text-[9px] font-black text-slate-800 uppercase tracking-wider">
@@ -1946,7 +1946,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                             : isDrawn
                               ? `${row.color} font-black shadow-xs`
                               : 'bg-white text-slate-950 border border-slate-200'
-                          }`}
+                          } ${!isCurrent && !isDrawn ? 'bingo-master-cell-available' : ''}`}
                       >
                         {num}
                       </div>
