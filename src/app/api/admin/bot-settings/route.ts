@@ -114,14 +114,34 @@ export async function POST(req: NextRequest) {
           updated_at = NOW()
     `;
 
-    // Also update any matching games in games table so live state picks it up immediately
+    // Also update any matching games in games table so live state picks it up immediately.
+    // If setting a custom count, purge old bot cards for OPEN games so it sets fresh from 0!
     try {
-      await sql`
-        UPDATE games
-        SET custom_bot_count = ${parsedCount},
-            updated_at = NOW()
-        WHERE category = ${category} OR game_type = ${category}
-      `;
+      if (parsedCount) {
+        await sql`
+          DELETE FROM game_cards
+          WHERE game_id IN (
+            SELECT id FROM games
+            WHERE (category = ${category} OR game_type = ${category})
+              AND status = 'OPEN'
+          ) AND user_id LIKE 'bot_%'
+        `;
+        await sql`
+          UPDATE games
+          SET custom_bot_count = ${parsedCount},
+              current_players = ${parsedCount},
+              updated_at = NOW()
+          WHERE (category = ${category} OR game_type = ${category})
+            AND status = 'OPEN'
+        `;
+      } else {
+        await sql`
+          UPDATE games
+          SET custom_bot_count = NULL,
+              updated_at = NOW()
+          WHERE category = ${category} OR game_type = ${category}
+        `;
+      }
     } catch {}
 
     return NextResponse.json({

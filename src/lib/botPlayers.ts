@@ -403,18 +403,6 @@ export async function ensureBotPlayersInDb(
   customCountOverride?: number | null
 ): Promise<number> {
   try {
-    // Count existing bot cards in DB for this game
-    const botCountRows = await sql`
-      SELECT COUNT(*)::int AS count FROM game_cards
-      WHERE game_id = ${game.id} AND user_id LIKE 'bot_%'
-    `;
-    const existingBotCount = botCountRows[0]?.count ?? 0;
-
-    // If bots are already populated for this round, nothing to do
-    if (existingBotCount > 0) {
-      return existingBotCount;
-    }
-
     // Determine target bot count (respecting admin custom one-time count if set)
     const category = game.category || game.game_type;
     const roundSeed = game.round_started_at
@@ -426,6 +414,24 @@ export async function ensureBotPlayersInDb(
       ? customCountOverride
       : (typeof game.custom_bot_count === 'number' && game.custom_bot_count > 0 ? game.custom_bot_count : null);
     const targetBotCount = getBotCountForGame(game.id, category, roundSeed, customCount);
+
+    // Count existing bot cards in DB for this game
+    const botCountRows = await sql`
+      SELECT COUNT(*)::int AS count FROM game_cards
+      WHERE game_id = ${game.id} AND user_id LIKE 'bot_%'
+    `;
+    const existingBotCount = botCountRows[0]?.count ?? 0;
+
+    // When admin sets custom bot count (e.g. 10), start fresh from 0 with exactly customCount bots
+    // rather than keeping/adding on top of old system bots!
+    if (customCount && existingBotCount > 0 && existingBotCount !== customCount) {
+      await sql`
+        DELETE FROM game_cards
+        WHERE game_id = ${game.id} AND user_id LIKE 'bot_%'
+      `;
+    } else if (existingBotCount > 0) {
+      return existingBotCount;
+    }
 
     // Get any existing non-bot card numbers to avoid collisions
     const existingRows = await sql`

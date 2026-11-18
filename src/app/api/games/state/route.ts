@@ -547,6 +547,7 @@ export async function GET() {
 
     // Fetch sold cards by game (both bots and humans) so clients show live sold cards & left cards on the board
     const allSoldCardsByGame: Record<string, number[]> = {};
+    const humanSoldCardsByGame: Record<string, number[]> = {};
     const botCardCountsByGame: Record<string, number> = {};
     const humanPaidCardCountsByGame: Record<string, number> = {};
     try {
@@ -564,8 +565,16 @@ export async function GET() {
         const isBot = String(row.user_id || '').startsWith('bot_');
         if (isBot) {
           botCardCountsByGame[row.game_id] = (botCardCountsByGame[row.game_id] || 0) + 1;
-        } else if (row.is_paid !== false) {
-          humanPaidCardCountsByGame[row.game_id] = (humanPaidCardCountsByGame[row.game_id] || 0) + 1;
+        } else {
+          if (!humanSoldCardsByGame[row.game_id]) {
+            humanSoldCardsByGame[row.game_id] = [];
+          }
+          if (!Number.isNaN(num)) {
+            humanSoldCardsByGame[row.game_id].push(num);
+          }
+          if (row.is_paid !== false) {
+            humanPaidCardCountsByGame[row.game_id] = (humanPaidCardCountsByGame[row.game_id] || 0) + 1;
+          }
         }
       }
     } catch {
@@ -608,17 +617,23 @@ export async function GET() {
         }
       }
 
+      const isCustomSet = typeof customOverride === 'number' && customOverride > 0;
       const visibleBotCards = allBotCards.slice(0, Math.min(visibleBotCount, allBotCards.length));
-      const dbSold = allSoldCardsByGame[r.id] || [];
-      const combinedSold = Array.from(new Set([...dbSold, ...visibleBotCards]));
+      // When admin sets custom bot count (e.g. 10), start from 0 with exactly customOverride bots.
+      // Do not add system players on top!
       const humanCount = humanPaidCardCountsByGame[r.id] || 0;
-      const effectiveBots = Math.max(botCardCountsByGame[r.id] || 0, visibleBotCount);
+      const effectiveBots = isCustomSet ? customOverride : Math.max(botCardCountsByGame[r.id] || 0, visibleBotCount);
       const currentPlayers = humanCount + effectiveBots;
       const entryPriceNum = parseFloat(r.entry_price || '10');
       // Live Derash (Prize Pool) calculates based on current active players (derived from bot count + human entries)
       const livePrizePool = isWeekend
         ? computeWeekendPrizePool(entryPriceNum, currentPlayers)
         : Math.round(currentPlayers * entryPriceNum * 0.80);
+
+      const dbSold = allSoldCardsByGame[r.id] || [];
+      const combinedSold = isCustomSet
+        ? Array.from(new Set([...(humanSoldCardsByGame[r.id] || []), ...visibleBotCards.slice(0, customOverride)]))
+        : Array.from(new Set([...dbSold, ...visibleBotCards]));
 
       return {
         id: r.id,
