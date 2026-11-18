@@ -111,11 +111,20 @@ export default function AdminPanel({ isStandalone = false }: { isStandalone?: bo
     try {
       const rawVal = botCountInputs[category];
       const parsed = resetToDefault ? null : (rawVal && rawVal.trim().length > 0 ? parseInt(rawVal.trim(), 10) : null);
+      const initData = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp?.initData : '';
+      const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (initData) {
+        authHeaders['X-Telegram-Init-Data'] = initData;
+      }
       const res = await fetch('/api/admin/bot-settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
-          adminTelegramId: user?.telegramId || user?.username || 'admin',
+          adminTelegramId: user?.telegramId || user?.username || user?.id || 'admin',
+          username: user?.username,
+          telegramId: user?.telegramId,
+          userId: user?.id,
+          role: user?.role,
           category,
           customBotCount: parsed,
         }),

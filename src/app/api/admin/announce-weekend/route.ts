@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdminTelegramId } from '@/lib/authUtils';
+import { isAuthorizedTelegramAdmin } from '@/lib/adminRequestAuth';
 import { db } from '@/lib/db';
 
 function safeTgHtml(str: string): string {
@@ -18,9 +19,14 @@ export async function POST(req: NextRequest) {
     const { adminTelegramId, chatId, customText, mediaUrl, mediaType, fileName } = body;
 
     // Verify caller is admin (checks whitelist, database role, or admin username)
-    let isAuthorized = isAdminTelegramId(adminTelegramId) || String(adminTelegramId).toLowerCase() === 'admin';
+    let isAuthorized = await isAuthorizedTelegramAdmin(req).catch(() => false);
+    if (!isAuthorized) {
+      isAuthorized = isAdminTelegramId(adminTelegramId) || String(adminTelegramId).toLowerCase() === 'admin';
+    }
     if (!isAuthorized && adminTelegramId) {
-      const userInDb = await db.getUserByTelegramId(String(adminTelegramId)).catch(() => null);
+      const cleanId = String(adminTelegramId).trim().replace(/^@/, '');
+      const userInDb = await db.getUserByTelegramId(cleanId).catch(() => null)
+        || await db.getUserByUsername(cleanId).catch(() => null);
       if (userInDb?.role === 'admin') {
         isAuthorized = true;
       }

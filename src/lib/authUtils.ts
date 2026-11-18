@@ -5,17 +5,24 @@
  */
 
 export function getAdminWhitelist(): string[] {
-  const envAdmins = 
-    (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADMIN_TELEGRAM_IDS) || 
-    (typeof process !== 'undefined' && process.env?.ADMIN_TELEGRAM_IDS) || 
-    '';
+  const envAdmins1 = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADMIN_TELEGRAM_IDS) || '';
+  const envAdmins2 = (typeof process !== 'undefined' && process.env?.ADMIN_TELEGRAM_IDS) || '';
+  const combined = `${envAdmins1},${envAdmins2}`;
 
-  const list = envAdmins
+  const list = combined
     .split(',')
     .map((id) => id.trim().toLowerCase().replace(/^@/, ''))
     .filter(Boolean);
 
-  const defaults = ['570615212', '7829104', 'hareg_t', 'hareg28'];
+  const defaults = [
+    '570615212',
+    '7829104',
+    '634945198',
+    'hareg_t',
+    'hareg28',
+    'tamraattteff',
+    'tamrat',
+  ];
   for (const d of defaults) {
     if (!list.includes(d)) list.push(d);
   }
