@@ -194,6 +194,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   const {
     games,
     userCards,
+    autoMarkEnabled,
+    setAutoMarkEnabled,
     daubCell,
     claimBingo,
     blockCard,
@@ -1599,6 +1601,18 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   }`}
               >
                 {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-sky-600" /> : <VolumeX className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoMarkEnabled}
+                onClick={() => setAutoMarkEnabled(!autoMarkEnabled)}
+                className={`px-1.5 py-1 rounded-lg border text-[9px] font-bold leading-none transition cursor-pointer ${autoMarkEnabled ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-500 border-slate-200'}`}
+                title={language === 'am' ? 'ራስ-ሰር ምልክት' : 'Toggle automatic number marking'}
+              >
+                {language === 'am'
+                  ? `ራስ-ሰር ${autoMarkEnabled ? 'አብራ' : 'ጠፍቷል'}`
+                  : `Auto Mark ${autoMarkEnabled ? 'On' : 'Off'}`}
               </button>
 
             </div>

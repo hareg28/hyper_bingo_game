@@ -71,6 +71,8 @@ interface BingoContextType {
   games: Game[];
   activeGameId: string | null;
   userCards: BingoCard[];
+  autoMarkEnabled: boolean;
+  setAutoMarkEnabled: (enabled: boolean) => void;
   transactions: Transaction[];
   refreshTransactions: () => Promise<void>;
   withdrawals: WithdrawalRequest[];
@@ -159,11 +161,19 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   });
   const [activeGameId, setActiveGameId] = useState<string | null>('gm_fetan_10');
   const [userCards, setUserCards] = useState<BingoCard[]>([]);
+  const [autoMarkEnabled, setAutoMarkEnabledState] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.localStorage.getItem('hyper_bingo_auto_mark') !== 'false';
+  });
+  const setAutoMarkEnabled = (enabled: boolean) => {
+    setAutoMarkEnabledState(enabled);
+    try { window.localStorage.setItem('hyper_bingo_auto_mark', String(enabled)); } catch {}
+  };
 
-  // Automatically daub called balls on the player's own cards in Fetan,
-  // Special, and Weekend games. This is idempotent so polling and rerenders
-  // cannot toggle a previously marked number back off.
+  // Optionally daub called balls on the player's own cards in Fetan, Special,
+  // and Weekend games. This is idempotent across polling and rerenders.
   useEffect(() => {
+    if (!autoMarkEnabled) return;
     const gameById = new Map(games.map((game) => [game.id, game]));
     setUserCards((previousCards) => {
       let anyChanged = false;
@@ -192,7 +202,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       });
       return anyChanged ? nextCards : previousCards;
     });
-  }, [games, userCards]);
+  }, [games, userCards, autoMarkEnabled]);
 
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>(INITIAL_WITHDRAWALS);
@@ -2817,6 +2827,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         games,
         activeGameId,
         userCards,
+        autoMarkEnabled,
+        setAutoMarkEnabled,
         transactions,
         refreshTransactions,
         withdrawals,
