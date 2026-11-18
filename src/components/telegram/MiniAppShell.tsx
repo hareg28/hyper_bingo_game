@@ -7,7 +7,7 @@ import {
   Wallet, User as UserIcon, Shield, 
   Share2, Copy, Check, LogOut, Sparkles, 
   ChevronRight, ChevronLeft, Globe, X, Users,
-  Gamepad2, Zap, Eye, Menu
+  Gamepad2, Zap, Eye, Menu, Moon, Sun
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
 import SharedCountdownText from '../game/SharedCountdownText';
@@ -86,6 +86,19 @@ export default function MiniAppShell({
   const [profileName, setProfileName] = useState('');
   const [profileNameMessage, setProfileNameMessage] = useState('');
   const [savingProfileName, setSavingProfileName] = useState(false);
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
+
+  useEffect(() => {
+    setIsDarkTheme(window.localStorage.getItem('hb_theme') === 'dark');
+  }, []);
+
+  const toggleTheme = () => {
+    setIsDarkTheme((current) => {
+      const next = !current;
+      window.localStorage.setItem('hb_theme', next ? 'dark' : 'light');
+      return next;
+    });
+  };
 
   useEffect(() => {
     setProfileName(user?.name || '');
@@ -185,7 +198,7 @@ export default function MiniAppShell({
     : { height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' as const };
 
   return (
-    <div className="tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200" style={heightStyle}>
+    <div className={`tg-container flex flex-col bg-white text-slate-900 font-sans border-x border-slate-200 ${isDarkTheme ? 'theme-dark' : ''}`} style={heightStyle}>
       {isTelegramMiniApp && !user?.phone && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/95 p-5 text-center">
           <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl space-y-4">
@@ -210,6 +223,9 @@ export default function MiniAppShell({
           </button>
 
           <div className="flex items-center gap-1.5">
+            <button type="button" onClick={toggleTheme} aria-label={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'} title={isDarkTheme ? 'Light theme' : 'Dark theme'} className="w-7 h-7 rounded-full bg-slate-100 border border-slate-300 text-slate-700 flex items-center justify-center">
+              {isDarkTheme ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            </button>
             {/* Language Switcher */}
             <div className="flex items-center bg-slate-100 rounded-xl p-0.5 border border-slate-300 text-[10px] font-black shrink-0">
               <button

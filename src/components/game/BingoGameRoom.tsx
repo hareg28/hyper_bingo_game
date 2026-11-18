@@ -1509,9 +1509,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           ================================================================ */}
         {isFetanGame || isSpecialGame || isWeekendGame ? (
           /* ── Hyper Fetan & Hyper Special Plain Text Header (No Box, Plain Text) ── */
-          <div className="px-1 py-0.5 space-y-0.5">
+          <div className="px-1 py-0 space-y-0">
             {/* Top row: Back Arrow + Game Name */}
-            <div className="flex items-center gap-2 px-0.5 pb-1">
+            <div className="flex items-center gap-1.5 px-0.5 pb-0.5">
               <button
                 type="button"
                 onClick={onBack}
@@ -1521,7 +1521,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 <ChevronLeft className="w-4.5 h-4.5" />
               </button>
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-black text-slate-900 tracking-tight">
+                <span className="text-xs font-black text-slate-900 tracking-tight">
                   {isWeekendGame ? '🌟 ' : isSpecialGame ? '🎲 ' : '⚡ '}
                   {isWeekendGame
                     ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'HYPER WEEKEND')
@@ -1539,7 +1539,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                   {language === 'am' ? 'ደርሻ' : 'DERASH'}
                 </div>
-                <div className="text-lg sm:text-xl font-black text-slate-900 font-mono leading-tight">
+                <div className="text-base sm:text-lg font-black text-slate-900 font-mono leading-tight">
                   {formatETB(gamePrizeDisplay)}
                 </div>
               </div>
@@ -1549,7 +1549,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                   {language === 'am' ? 'ኳሶች' : 'BALLS'}
                 </div>
-                <div className="text-lg sm:text-xl font-black text-slate-900 font-mono leading-tight">
+                <div className="text-base sm:text-lg font-black text-slate-900 font-mono leading-tight">
                   {currentGame.drawnNumbers.length}<span className="text-sm text-slate-400">/75</span>
                 </div>
               </div>
@@ -1559,7 +1559,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                   {language === 'am' ? 'ተጫዋቾች' : 'PLAYERS'}
                 </div>
-                <div className="text-lg sm:text-xl font-black text-slate-900 font-mono leading-tight">
+                <div className="text-base sm:text-lg font-black text-slate-900 font-mono leading-tight">
                   {currentGame.currentPlayers || 0}
                 </div>
               </div>

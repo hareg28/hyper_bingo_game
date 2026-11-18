@@ -142,3 +142,30 @@
   color: #0f172a;
 }
 
+/* User-selectable Mini App dark theme. Kept scoped so game and admin logic are untouched. */
+.tg-container.theme-dark {
+  background-color: #0b1220;
+  color: #e2e8f0;
+  border-color: #263449;
+}
+.tg-container.theme-dark .bg-white { background-color: #111c2e !important; }
+.tg-container.theme-dark .bg-slate-50,
+.tg-container.theme-dark .bg-slate-100,
+.tg-container.theme-dark .bg-gray-50 { background-color: #1a2639 !important; }
+.tg-container.theme-dark .text-slate-900,
+.tg-container.theme-dark .text-slate-800 { color: #e2e8f0 !important; }
+.tg-container.theme-dark .text-slate-700,
+.tg-container.theme-dark .text-slate-600,
+.tg-container.theme-dark .text-slate-500 { color: #a9b8cb !important; }
+.tg-container.theme-dark .border-slate-100,
+.tg-container.theme-dark .border-slate-200,
+.tg-container.theme-dark .border-slate-300 { border-color: #34445a !important; }
+.tg-container.theme-dark .glass-panel {
+  background: #111c2e;
+  border-color: #34445a;
+  color: #e2e8f0;
+}
+.tg-container.theme-dark input,
+.tg-container.theme-dark textarea,
+.tg-container.theme-dark select { background-color: #111c2e; color: #e2e8f0; }
+
