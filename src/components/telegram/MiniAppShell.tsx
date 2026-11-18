@@ -1303,7 +1303,7 @@ function WeekendLotteryNumberPicker({
   const canAfford = playableBalance >= totalCost;
   const derash = mode === 'WEEKEND'
     ? computeWeekendPrizePool(entryPrice, selectedGame?.currentPlayers || 0)
-    : Math.round((selectedGame?.currentPlayers || 0) * entryPrice * WINNERS_CUT_PCT);
+    : Math.round(Math.min(selectedGame?.currentPlayers || 0, soldSet.size) * entryPrice * WINNERS_CUT_PCT);
   const showDerash = mode !== 'WEEKEND' || (
     selectedGame?.status === 'RUNNING' && Boolean(selectedGame.weekendRoundKey)
   );
