@@ -571,7 +571,11 @@ export async function GET() {
       const targetBotCount = getBotCountForGame(
         r.id,
         r.category || r.game_type,
-        r.round_started_at ? new Date(r.round_started_at).getTime() : undefined,
+        r.round_started_at
+          ? new Date(r.round_started_at).getTime()
+          : r.next_round_starts_at
+            ? Number(r.next_round_starts_at)
+            : undefined,
         customOverride
       );
       // Generate exactly targetBotCount cards so pick window sold cards match final players count

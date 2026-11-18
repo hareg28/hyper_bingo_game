@@ -417,7 +417,11 @@ export async function ensureBotPlayersInDb(
 
     // Determine target bot count (respecting admin custom one-time count if set)
     const category = game.category || game.game_type;
-    const roundSeed = game.round_started_at ? new Date(game.round_started_at).getTime() : Date.now();
+    const roundSeed = game.round_started_at
+      ? new Date(game.round_started_at).getTime()
+      : game.next_round_starts_at
+        ? Number(game.next_round_starts_at)
+        : Date.now();
     const customCount = (typeof customCountOverride === 'number' && customCountOverride > 0)
       ? customCountOverride
       : (typeof game.custom_bot_count === 'number' && game.custom_bot_count > 0 ? game.custom_bot_count : null);

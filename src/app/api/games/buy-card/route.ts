@@ -69,8 +69,8 @@ export async function POST(req: NextRequest) {
     if (!game) {
       return NextResponse.json({ success: false, error: 'Game not found' }, { status: 404 });
     }
-    const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN';
-    const isSpecial = game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL';
+    const isFetan = game.category === 'HYPER_FETAN' || game.game_type === 'HYPER_FETAN' || String(game.id).includes('fetan');
+    const isSpecial = game.category === 'HYPER_SPECIAL' || game.game_type === 'HYPER_SPECIAL' || String(game.id).includes('special');
     const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY' || gameId.includes('weekend');
     const isScheduledWeekendGame = INITIAL_GAMES.some((candidate) => candidate.id === gameId && (candidate.category === 'HYPER_WEEKEND' || candidate.gameType === 'WEEKEND_LOTTERY'));
     if (isWeekend && (!isScheduledWeekendGame || game.status === 'CANCELLED')) {
