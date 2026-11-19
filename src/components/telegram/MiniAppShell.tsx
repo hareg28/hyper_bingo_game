@@ -407,46 +407,37 @@ export default function MiniAppShell({
               <button
                 type="button"
                 onClick={() => setCategoryTab('FETAN')}
-                className={`py-2 px-1 rounded-xl text-xs font-black transition flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                className={`py-2 px-1 rounded-xl text-xs font-black transition flex items-center justify-center cursor-pointer ${
                   categoryTab === 'FETAN'
                     ? 'bg-amber-500 text-slate-950 shadow-sm border border-amber-600 scale-[1.02]'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
               >
                 <span className="flex items-center gap-1 font-black">⚡ {language === 'am' ? 'ሃይፐር ፈጣን' : 'Hyper Fetan'}</span>
-                <span className={`text-[9px] font-bold ${categoryTab === 'FETAN' ? 'text-amber-950' : 'text-slate-500'}`}>
-                  10 ETB {language === 'am' ? 'ብቻ' : 'ONLY'} · 500 {language === 'am' ? 'ካርድ' : 'Cards'}
-                </span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setCategoryTab('SPECIAL')}
-                className={`py-2 px-1 rounded-xl text-xs font-black transition flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                className={`py-2 px-1 rounded-xl text-xs font-black transition flex items-center justify-center cursor-pointer ${
                   categoryTab === 'SPECIAL'
                     ? 'bg-amber-500 text-slate-950 shadow-sm border border-amber-600 scale-[1.02]'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
               >
                 <span className="flex items-center gap-1 font-black">🎲 {language === 'am' ? 'ሃይፐር ስፔሻል' : 'Hyper Special'}</span>
-                <span className={`text-[9px] font-bold ${categoryTab === 'SPECIAL' ? 'text-amber-950' : 'text-slate-500'}`}>
-                  10-100+ ETB · {language === 'am' ? 'የተጫዋች/ምክር ዋጋ' : 'Player/Rec Stake'}
-                </span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setCategoryTab('WEEKEND')}
-                className={`py-2 px-1 rounded-xl text-xs font-black transition flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                className={`py-2 px-1 rounded-xl text-xs font-black transition flex items-center justify-center cursor-pointer ${
                   categoryTab === 'WEEKEND'
                     ? 'bg-amber-500 text-slate-950 shadow-sm border border-amber-600 scale-[1.02]'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                 }`}
               >
                 <span className="flex items-center gap-1 font-black">🌟 {language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'Hyper Weekend'}</span>
-                <span className={`text-[9px] font-bold ${categoryTab === 'WEEKEND' ? 'text-amber-950' : 'text-slate-500'}`}>
-                  50 ETB · 1500 {language === 'am' ? 'ካርድ' : 'Cards'}
-                </span>
               </button>
             </div>
 
