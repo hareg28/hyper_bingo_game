@@ -22,7 +22,6 @@ import {
   checkOneAwayStatus,
   getGameHitRequirement,
   getFetanClock,
-  getSpecialPickClock,
   computeWeekendPrizePool,
   SPECIAL_PICK_SECONDS,
   SPECIAL_ROUND_SECONDS,
@@ -615,8 +614,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   });
   const [specialIsIntermission, setSpecialIsIntermission] = useState<boolean>(() => {
     if (!isSpecialGame) return false;
-    if (getSpecialPickClock(currentGame.nextRoundStartsAt, currentGame.status, currentGame.drawnNumbers.length).pickingCards) return true;
     if (currentGame.status === 'RUNNING' || currentGame.drawnNumbers.length > 0) return false;
+    if (currentGame.nextRoundStartsAt && Date.now() < currentGame.nextRoundStartsAt) return true;
     // If status is OPEN with no drawn numbers and no nextRoundStartsAt yet, start intermission
     if (currentGame.status === 'OPEN' && currentGame.drawnNumbers.length === 0 && (!currentGame.winners || currentGame.winners.length === 0)) return true;
     return false;
@@ -629,7 +628,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
   // Sync specialIsIntermission whenever the server's nextRoundStartsAt or game status changes
   useEffect(() => {
     if (!isSpecialGame) return;
-    if (currentGame.drawnNumbers.length > 0) {
+    if (currentGame.status === 'RUNNING' || currentGame.drawnNumbers.length > 0) {
       setSpecialIsIntermission(false);
       return;
     }
@@ -653,9 +652,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         }
       }
       return;
-    }
-    if (currentGame.status === 'RUNNING') {
-      setSpecialIsIntermission(false);
     }
   }, [isSpecialGame, currentGame.id, currentGame.nextRoundStartsAt, currentGame.status, currentGame.drawnNumbers.length, startExpiredSpecialRound]);
 
