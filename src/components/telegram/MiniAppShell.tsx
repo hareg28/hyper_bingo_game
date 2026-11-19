@@ -135,12 +135,16 @@ export default function MiniAppShell({
     setActiveGameId(gameId);
     setLotteryMode('FETAN');
 
-    // Use the in-memory state kept fresh by the background poll — no extra fetch, no spinner.
+    // Route immediately based on current round status:
+    // When OPEN (intermission / card-picking): go directly to the Card Picker (lottery tab).
+    // When RUNNING (balls are being drawn): go directly to the Live Room (game tab).
     const knownGame = games.find((g) => g.id === gameId);
-    const isActivelyPicking =
-      knownGame?.status === 'OPEN' &&
-      Boolean(knownGame?.nextRoundStartsAt && knownGame.nextRoundStartsAt > Date.now());
+    const isActivelyPicking = knownGame ? knownGame.status === 'OPEN' : true;
     setActiveTab(isActivelyPicking ? 'lottery' : 'game');
+
+    // Fire a background refresh immediately so the room shows up-to-date data
+    // (balances the 2-3 s poll gap — data appears within ~300 ms, no blocking).
+    void refreshGameState(gameId);
   };
 
   const handleSelectGameToPickCards = (gameId: string, cat: 'FETAN' | 'SPECIAL' | 'WEEKEND') => {
@@ -149,6 +153,8 @@ export default function MiniAppShell({
       setActiveGameId(gameId);
       // Hyper Special uses the in-room plus picker; keep a single card-selection surface.
       setActiveTab('game');
+      // Fire a background refresh so the room gets fresh data immediately.
+      void refreshGameState(gameId);
     } else if (cat === 'FETAN') {
       openFetanGame(gameId);
     } else {

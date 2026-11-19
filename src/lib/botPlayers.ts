@@ -444,23 +444,29 @@ export async function ensureBotPlayersInDb(
     const isWeekend = category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY' || String(game.id).includes('weekend');
     const pricePerCard = parseFloat(String(game.entry_price || (isWeekend ? '50' : '10')));
 
-    // Insert bot cards into game_cards in batches (up to 100 per round to cover all bots)
+    // Insert bot cards into game_cards in parallel batches (up to 100 per round to cover all bots)
     const cardsToInsert = botCards.slice(0, Math.min(targetBotCount, 100));
-    for (const bot of cardsToInsert) {
-      await sql`
-        INSERT INTO game_cards (id, game_id, card_number, user_id, username, cost, is_registered, is_paid)
-        VALUES (
-          ${bot.id},
-          ${bot.gameId},
-          ${bot.cardNumber},
-          ${bot.userId},
-          ${bot.username},
-          ${pricePerCard},
-          TRUE,
-          TRUE
+    const BATCH_SIZE = 25;
+    for (let i = 0; i < cardsToInsert.length; i += BATCH_SIZE) {
+      const batch = cardsToInsert.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map((bot) =>
+          sql`
+            INSERT INTO game_cards (id, game_id, card_number, user_id, username, cost, is_registered, is_paid)
+            VALUES (
+              ${bot.id},
+              ${bot.gameId},
+              ${bot.cardNumber},
+              ${bot.userId},
+              ${bot.username},
+              ${pricePerCard},
+              TRUE,
+              TRUE
+            )
+            ON CONFLICT (game_id, card_number) DO NOTHING
+          `
         )
-        ON CONFLICT (game_id, card_number) DO NOTHING
-      `;
+      );
     }
 
     // Count human cards and update game's authoritative current_players count in DB
