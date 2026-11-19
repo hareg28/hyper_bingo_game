@@ -1509,7 +1509,9 @@ export function getFetanClock(
   pickingCards: boolean;
   secondsLeft: number;
 } {
-  if (status === 'RUNNING' || drawnCount > 0 || status === 'COMPLETED') {
+  // The shared deadline is authoritative while it is still in the future.
+  // A briefly stale RUNNING status must not hide the remaining pick window.
+  if (drawnCount > 0 || status === 'COMPLETED') {
     return { pickingCards: false, secondsLeft: 0 };
   }
   if (nextRoundStartsAt) {
@@ -1519,6 +1521,9 @@ export function getFetanClock(
         secondsLeft: Math.max(0, Math.ceil((nextRoundStartsAt - nowMs) / 1000)),
       };
     }
+    return { pickingCards: false, secondsLeft: 0 };
+  }
+  if (status === 'RUNNING') {
     return { pickingCards: false, secondsLeft: 0 };
   }
   if (status === 'OPEN' && drawnCount === 0) {
@@ -1537,7 +1542,9 @@ export function getSpecialPickClock(
   drawnCount: number = 0,
   nowMs: number = Date.now()
 ): { pickingCards: boolean; secondsLeft: number } {
-  if (status === 'RUNNING' || drawnCount > 0 || status === 'COMPLETED') {
+  // The shared deadline is authoritative while it is still in the future.
+  // A briefly stale RUNNING status must not hide the remaining pick window.
+  if (drawnCount > 0 || status === 'COMPLETED') {
     return { pickingCards: false, secondsLeft: 0 };
   }
   if (nextRoundStartsAt) {
@@ -1547,6 +1554,9 @@ export function getSpecialPickClock(
         secondsLeft: Math.max(0, Math.ceil((nextRoundStartsAt - nowMs) / 1000)),
       };
     }
+    return { pickingCards: false, secondsLeft: 0 };
+  }
+  if (status === 'RUNNING') {
     return { pickingCards: false, secondsLeft: 0 };
   }
   if (status === 'OPEN' && drawnCount === 0) {

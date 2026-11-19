@@ -1404,17 +1404,22 @@ function WeekendLotteryNumberPicker({
   // Enter the live room when Fetan's 40-second shared card-pick window closes.
   React.useEffect(() => {
     if (mode === 'FETAN' && selectedGame) {
+      const { pickingCards } = getFetanClock(
+        selectedGame.nextRoundStartsAt,
+        selectedGame.status,
+        selectedGame.drawnNumbers?.length || 0
+      );
       const roundStarted = selectedGame.status === 'RUNNING' || (selectedGame.drawnNumbers?.length || 0) > 0;
       const pickWindowClosed = prevFetanIntermissionRef.current && !fetanIsIntermission;
       const deadlinePassed = Boolean(selectedGame.nextRoundStartsAt && Date.now() >= selectedGame.nextRoundStartsAt);
-      if ((roundStarted || pickWindowClosed || deadlinePassed) && fetanRedirectedGameRef.current !== selectedGame.id) {
+      if (!pickingCards && (roundStarted || pickWindowClosed || deadlinePassed) && fetanRedirectedGameRef.current !== selectedGame.id) {
         fetanRedirectedGameRef.current = selectedGame.id;
         onPickCardsRef.current(selectedGame.id, slotNumbersRef.current.filter((number): number is number => number !== null).map(String));
       }
-      if (fetanIsIntermission && !roundStarted && !deadlinePassed) fetanRedirectedGameRef.current = null;
+      if (pickingCards) fetanRedirectedGameRef.current = null;
     }
     prevFetanIntermissionRef.current = fetanIsIntermission;
-  }, [fetanIsIntermission, selectedGame?.id, selectedGame?.status, selectedGame?.drawnNumbers?.length, mode]);
+  }, [fetanIsIntermission, selectedGame?.id, selectedGame?.nextRoundStartsAt, selectedGame?.status, selectedGame?.drawnNumbers?.length, mode]);
 
   const regCode = user ? user.referralCode?.toUpperCase() || '---' : '---';
 
