@@ -2124,6 +2124,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
 
               {/* When entering to choose cards: NO BINGO BOX initially until user chooses cards via the (+) button */}
               {activeGameCards.length === 0 ? (
+                isSpecialGame && !specialIsIntermission ? null : (
                 <div className="flex flex-col items-center justify-center py-10 px-4 text-center space-y-3 bg-white rounded-2xl border border-dashed border-slate-300 mx-1 shadow-2xs">
                   <div className="space-y-1">
                     <h3 className="text-sm font-bold text-slate-800">
@@ -2137,6 +2138,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     {language === 'am' ? 'እስከ 30 ካርዶች መምረጥ እና 5 ካርዶች መመዝገብ ይችላሉ' : 'Select up to 30 cards, register up to 5'}
                   </span>
                 </div>
+                )
               ) : (
                 <div className="grid grid-cols-2 gap-1.5 pb-3 max-h-[42vh] overflow-y-auto pr-1">
                   {activeGameCards.map((card) => {
@@ -2462,7 +2464,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               )}
 
               {/* Action Buttons: Card purchase blocked if balance is insufficient */}
-              {isWeekendGame ? (
+              {(!isFetanGame || fetanIsIntermission) && (isWeekendGame ? (
                 <div className="flex flex-col gap-2 px-4 w-full max-w-xs mx-auto">
                   {onOpenLotteryTab && (
                     <button
@@ -2519,7 +2521,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     </span>
                   </button>
                 </div>
-              ) : null}
+              ) : null)}
             </div>
           )}
         </div>
