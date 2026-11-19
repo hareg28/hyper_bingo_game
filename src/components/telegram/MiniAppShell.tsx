@@ -138,9 +138,15 @@ export default function MiniAppShell({
     } else if (cat === 'FETAN') {
       // Resolve the authoritative round before showing a picker. The app's
       // initial local state can say OPEN for a few seconds while a live round
-      // is already running on the server.
+      // is already running on the server. Keep the button responsive if the
+      // state request is slow; the regular state poll will still hand off a
+      // live round as soon as its authoritative state arrives.
       const requestId = ++gameSelectionRequestRef.current;
-      void refreshGameState(gameId).then((game) => {
+      const stateOrFallback = Promise.race([
+        refreshGameState(gameId),
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 700)),
+      ]);
+      void stateOrFallback.then((game) => {
         if (requestId !== gameSelectionRequestRef.current || activeTabRef.current !== 'lobby') return;
         const currentGame = game || games.find((candidate) => candidate.id === gameId);
         setLotteryMode('FETAN');
