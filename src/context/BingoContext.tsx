@@ -142,6 +142,13 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const [games, setGames] = useState<Game[]>(() => {
     if (typeof window !== 'undefined') {
       try {
+        const cached = localStorage.getItem('hyper_bingo_games_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
         const saved = localStorage.getItem('hyper_bingo_special_rotation');
         if (saved) {
           const parsed = JSON.parse(saved);
@@ -642,8 +649,8 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             setUserCards((prev) => prev.filter((card) => !resetIds.has(card.gameId)));
           }
 
-          setGames((prev) =>
-            prev.map((localGame) => {
+          setGames((prev) => {
+            const nextGames = prev.map((localGame) => {
               const server = json.data.find((g: any) => g.id === localGame.id);
               if (!server) return localGame;
               const serverWinners = Array.isArray(server.winners) ? server.winners : [];
@@ -695,8 +702,14 @@ export function BingoProvider({ children }: { children: ReactNode }) {
                 category: server.category || localGame.category,
                 gameType: server.gameType || localGame.gameType,
               };
-            })
-          );
+            });
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('hyper_bingo_games_cache', JSON.stringify(nextGames));
+              } catch {}
+            }
+            return nextGames;
+          });
           // Also persist special rotation to localStorage if returned from server
           if (typeof window !== 'undefined') {
             const specialServer = json.data.find((g: any) => g.id === 'gm_special');
@@ -745,6 +758,9 @@ export function BingoProvider({ children }: { children: ReactNode }) {
       polling = false;
       scheduleNextPoll();
     };
+
+    // Immediately kick off the first poll to synchronize with the server with zero delay
+    void poll();
 
     const unsubscribe = subscribeToMiniAppActivity((active) => {
       if (!active) {

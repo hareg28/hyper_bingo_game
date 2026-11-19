@@ -15,15 +15,11 @@ function getServerSeconds({ mode, deadline, status, drawnCount = 0 }: SharedCoun
   if (mode === 'FETAN') {
     const { pickingCards, secondsLeft } = getFetanClock(deadline, status, drawnCount);
     if (pickingCards && deadline && deadline > Date.now()) return secondsLeft;
-    if (!deadline && status === 'OPEN' && drawnCount === 0) return FETAN_PICK_SECONDS;
-    if (!pickingCards) return 0;
     return 0;
   }
   if (mode === 'SPECIAL') {
     const { pickingCards, secondsLeft } = getSpecialPickClock(deadline, status, drawnCount);
     if (pickingCards && deadline && deadline > Date.now()) return secondsLeft;
-    if (!deadline && status === 'OPEN' && drawnCount === 0) return SPECIAL_PICK_SECONDS;
-    if (!pickingCards) return 0;
     return 0;
   }
   // ROUND mode always uses the deadline directly

@@ -77,6 +77,25 @@ function parseIntegerArray(value: unknown): number[] {
   return contents.split(',').map((part) => Number(part.trim())).filter(Number.isFinite);
 }
 
+let migrationsPromise: Promise<void> | null = null;
+function runStateMigrationsOnce(sql: NonNullable<ReturnType<typeof getNeonSql>>) {
+  if (!migrationsPromise) {
+    migrationsPromise = Promise.all([
+      ensureGameDrawTimestampColumn(sql),
+      ensureGameCardPaidColumn(sql),
+      ensureWeekendRoundKeyColumn(sql),
+      ensureBlockedPlayersColumn(sql),
+      ensureCustomBotCountColumn(sql),
+      ensureBuiltinGameRows(sql),
+      ensureSingleDrawWeekendMigration(sql),
+    ]).then(() => undefined).catch((err) => {
+      migrationsPromise = null;
+      throw err;
+    });
+  }
+  return migrationsPromise;
+}
+
 /**
  * GET /api/games/state
  * Returns live game state for all games from the DB.
@@ -90,13 +109,7 @@ export async function GET() {
   }
 
   try {
-    await ensureGameDrawTimestampColumn(sql);
-    await ensureGameCardPaidColumn(sql);
-    await ensureWeekendRoundKeyColumn(sql);
-    await ensureBlockedPlayersColumn(sql);
-    await ensureCustomBotCountColumn(sql);
-    await ensureBuiltinGameRows(sql);
-    await ensureSingleDrawWeekendMigration(sql);
+    await runStateMigrationsOnce(sql);
 
     // First Hyper rounds get a shared, server-timed card-pick window. Fetan
     // opens for 40 seconds after a winner; Special opens for four minutes.
@@ -112,14 +125,6 @@ export async function GET() {
       UPDATE games
       SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + ${SPECIAL_PICK_SECONDS * 1000}
       WHERE (category = 'HYPER_SPECIAL' OR game_type = 'HYPER_SPECIAL')
-        AND status = 'OPEN'
-        AND drawn_numbers = '{}'
-        AND next_round_starts_at IS NULL
-    `;
-    await sql`
-      UPDATE games
-      SET next_round_starts_at = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint + ${FETAN_PICK_SECONDS * 1000}
-      WHERE (category = 'HYPER_FETAN' OR game_type = 'HYPER_FETAN')
         AND status = 'OPEN'
         AND drawn_numbers = '{}'
         AND next_round_starts_at IS NULL

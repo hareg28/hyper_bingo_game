@@ -136,7 +136,8 @@ export default function MiniAppShell({
     setActiveGameId(gameId);
     setLotteryMode('FETAN');
     const knownGame = games.find((candidate) => candidate.id === gameId);
-    const immediateTab = knownGame?.status === 'RUNNING' || (knownGame?.drawnNumbers?.length || 0) > 0 ? 'game' : 'lottery';
+    const isActivelyPicking = knownGame?.status === 'OPEN' && Boolean(knownGame?.nextRoundStartsAt && knownGame.nextRoundStartsAt > Date.now());
+    const immediateTab = isActivelyPicking ? 'lottery' : 'game';
     setActiveTab(immediateTab);
 
     // Navigate from the latest local snapshot immediately, then correct it
@@ -145,7 +146,8 @@ export default function MiniAppShell({
       if (requestId !== gameSelectionRequestRef.current) return;
       if (activeTabRef.current !== sourceTab && activeTabRef.current !== immediateTab) return;
       const currentGame = game || games.find((candidate) => candidate.id === gameId);
-      const serverTab = currentGame?.status === 'RUNNING' || (currentGame?.drawnNumbers?.length || 0) > 0 ? 'game' : 'lottery';
+      const isServerPicking = currentGame?.status === 'OPEN' && Boolean(currentGame?.nextRoundStartsAt && currentGame.nextRoundStartsAt > Date.now());
+      const serverTab = isServerPicking ? 'lottery' : 'game';
       if (serverTab !== immediateTab) setActiveTab(serverTab);
     });
   };

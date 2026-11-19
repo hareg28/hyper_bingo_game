@@ -1496,12 +1496,6 @@ export function getFetanClock(
     }
     return { pickingCards: false, secondsLeft: 0 };
   }
-  if (status === 'OPEN' && drawnCount === 0) {
-    return {
-      pickingCards: true,
-      secondsLeft: FETAN_PICK_SECONDS,
-    };
-  }
   return { pickingCards: false, secondsLeft: 0 };
 }
 
@@ -1523,12 +1517,6 @@ export function getSpecialPickClock(
       };
     }
     return { pickingCards: false, secondsLeft: 0 };
-  }
-  if (status === 'OPEN' && drawnCount === 0) {
-    return {
-      pickingCards: true,
-      secondsLeft: SPECIAL_PICK_SECONDS,
-    };
   }
   return { pickingCards: false, secondsLeft: 0 };
 }
