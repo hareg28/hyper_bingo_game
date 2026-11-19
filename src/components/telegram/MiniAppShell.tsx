@@ -53,6 +53,7 @@ export default function MiniAppShell({
   const [isTelegramMiniApp, setIsTelegramMiniApp] = useState(false);
   const { 
     games, 
+    refreshGameState,
     user, 
     wallet, 
     activeGameId, 
@@ -76,6 +77,9 @@ export default function MiniAppShell({
   } = useBingo();
 
   const [activeTab, setActiveTab] = useState<'lobby' | 'game' | 'wallet' | 'profile' | 'admin' | 'lottery'>(initialTab);
+  const activeTabRef = React.useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const gameSelectionRequestRef = React.useRef(0);
   const [copiedRef, setCopiedRef] = useState(false);
   const [categoryTab, setCategoryTab] = useState<'FETAN' | 'SPECIAL' | 'WEEKEND'>(initialTab === 'lottery' ? 'WEEKEND' : 'FETAN');
   const [selectedWeekendDay, setSelectedWeekendDay] = useState<'FRI' | 'SAT' | 'SUN'>('FRI');
@@ -131,6 +135,17 @@ export default function MiniAppShell({
     if (cat === 'SPECIAL') {
       // Hyper Special uses the in-room plus picker; keep a single card-selection surface.
       setActiveTab('game');
+    } else if (cat === 'FETAN') {
+      // Resolve the authoritative round before showing a picker. The app's
+      // initial local state can say OPEN for a few seconds while a live round
+      // is already running on the server.
+      const requestId = ++gameSelectionRequestRef.current;
+      void refreshGameState(gameId).then((game) => {
+        if (requestId !== gameSelectionRequestRef.current || activeTabRef.current !== 'lobby') return;
+        const currentGame = game || games.find((candidate) => candidate.id === gameId);
+        setLotteryMode('FETAN');
+        setActiveTab(currentGame?.status === 'RUNNING' || (currentGame?.drawnNumbers?.length || 0) > 0 ? 'game' : 'lottery');
+      });
     } else {
       setLotteryMode(cat);
       setActiveTab('lottery');

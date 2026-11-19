@@ -69,6 +69,7 @@ interface BingoContextType {
   isLoggedIn: boolean;
   wallet: Wallet;
   games: Game[];
+  refreshGameState: (gameId: string) => Promise<Game | null>;
   activeGameId: string | null;
   userCards: BingoCard[];
   autoMarkEnabled: boolean;
@@ -159,6 +160,41 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
     return INITIAL_GAMES;
   });
+  const refreshGameState = React.useCallback(async (gameId: string): Promise<Game | null> => {
+    try {
+      const response = await fetch('/api/games/state', { cache: 'no-store' });
+      if (!response.ok) return null;
+      const result = await response.json();
+      const server = Array.isArray(result.data) ? result.data.find((game: any) => game.id === gameId) : null;
+      const local = games.find((game) => game.id === gameId);
+      if (!result.success || !server || !local) return null;
+
+      const freshGame: Game = {
+        ...local,
+        status: server.status,
+        drawnNumbers: Array.isArray(server.drawnNumbers) ? server.drawnNumbers : [],
+        currentBall: server.currentBall,
+        currentPlayers: server.currentPlayers,
+        winners: Array.isArray(server.winners) ? server.winners : [],
+        blockedCards: Array.isArray(server.blockedCards) ? server.blockedCards : [],
+        blockedPlayers: Array.isArray(server.blockedPlayers) ? server.blockedPlayers : [],
+        activeSpecialRuleIndex: server.activeSpecialRuleIndex,
+        nextRoundStartsAt: server.nextRoundStartsAt,
+        roundStartedAt: server.roundStartedAt,
+        weekendRoundKey: server.weekendRoundKey,
+        entryPrice: server.entryPrice,
+        prizePool: server.prizePool,
+        drawInterval: server.drawInterval,
+        soldCards: Array.isArray(server.soldCards) ? server.soldCards : local.soldCards,
+        category: server.category || local.category,
+        gameType: server.gameType || local.gameType,
+      };
+      setGames((previous) => previous.map((game) => game.id === gameId ? { ...game, ...freshGame } : game));
+      return freshGame;
+    } catch {
+      return null;
+    }
+  }, [games]);
   const [activeGameId, setActiveGameId] = useState<string | null>('gm_fetan_10');
   const [userCards, setUserCards] = useState<BingoCard[]>([]);
   const [autoMarkEnabled, setAutoMarkEnabledState] = useState(() => {
@@ -2828,6 +2864,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         isLoggedIn,
         wallet,
         games,
+        refreshGameState,
         activeGameId,
         userCards,
         autoMarkEnabled,
