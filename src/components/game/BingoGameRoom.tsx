@@ -1044,7 +1044,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       return hint;
     }
 
-    // 2. HYPER SPECIAL: 14 Official Laws (one law per game round until finished)
+    // 2. HYPER SPECIAL: one active law per round
     if (currentGame.category === 'HYPER_SPECIAL' || currentGame.activeSpecialRuleIndex !== undefined) {
       const ruleIdx = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
       const activeRule = HYPER_SPECIAL_RULES[ruleIdx];
@@ -1387,7 +1387,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
     : Math.round(totalGrossMoney * 0.80);
   const playableBalance = (wallet?.availableBalance || 0) + (wallet?.bonusBalance || 0) + (wallet?.winningBalance || 0);
   const hasSufficientBalance = playableBalance >= (currentGame?.entryPrice || 0);
-  const currentSpecialRule = HYPER_SPECIAL_RULES[Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length];
+  const currentSpecialRuleIndex = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
+  const currentSpecialRule = HYPER_SPECIAL_RULES[currentSpecialRuleIndex];
   const dashboardLaw = isSpecialGame
     ? `${currentSpecialRule.nameEn} — ${currentSpecialRule.descEn}`
     : isFetanGame
@@ -1439,13 +1440,13 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
         )}
 
 
-        <div className="mx-1 rounded-xl border border-slate-300 bg-white px-2 py-0.5 shadow-xs">
+        <div className={`mx-1 rounded-xl border border-slate-300 bg-white px-2 py-0.5 shadow-xs ${isSpecialGame ? 'special-rule-header' : ''}`}>
           {!isFetanGame && (
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-slate-600">
                   {language === 'am' ? 'ሕግ' : 'RULE'}
-                  {isSpecialGame && <span className="truncate text-indigo-700">· #{(Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} {language === 'am' ? currentSpecialRule.nameAm : currentSpecialRule.nameEn}</span>}
+                  {isSpecialGame && <span className="truncate text-indigo-700">· #{currentSpecialRuleIndex + 1} {language === 'am' ? currentSpecialRule.nameAm : currentSpecialRule.nameEn}</span>}
                   <button type="button" onClick={() => setShowGameInfo((visible) => !visible)} aria-expanded={showGameInfo} className="ml-auto shrink-0 text-[8px] font-bold text-rose-600 leading-3">
                     {showGameInfo ? (language === 'am' ? 'ያነሰ አሳይ' : 'Less') : (language === 'am' ? 'ተጨማሪ' : 'More')}
                   </button>
@@ -3301,7 +3302,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     ? (language === 'am' ? 'የሃይፐር ፈጣን የድል ሕጎች' : 'Hyper Fetan Winning Rules')
                     : currentGame.winningRule === 'FULL_HOUSE_ONLY' || currentGame.category === 'HYPER_WEEKEND'
                       ? (language === 'am' ? 'የሃይፐር ዊክኤንድ ሕግ (ሙሉ ቤት)' : 'Hyper Weekend Law (Full House Only)')
-                      : (language === 'am' ? 'የሃይፐር ስፔሻል 14 ሕጎች' : 'Hyper Special 14 Official Laws')}
+                      : (language === 'am' ? 'የሃይፐር ስፔሻል የዚህ ዙር ሕግ' : 'Hyper Special Current Rule')}
                 </h3>
               </div>
               <button
@@ -3336,8 +3337,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     ? 'በዚህ ጨዋታ ለማሸነፍ ሙሉ ቤት ብቻ (ሁሉንም 24 ቁጥሮች) ምልክት ማድረግ ያስፈልጋል።'
                     : 'In Weekend Mega Draw, only Full House (all 24 numbers marked) wins the jackpot!')
                   : (language === 'am'
-                    ? 'በሃይፐር ስፔሻል ለእያንዳንዱ ዙር አንድ የተመረጠ ሕግ ብቻ ይሰራል፤ የዚህ ዙር ንቁ ሕግ በወርቃማ ምልክት ጎልቶ ይታያል።'
-                    : 'In Hyper Special, exactly one law governs each game round until finished. The active law for this round is highlighted in gold.')}
+                    ? 'በሃይፐር ስፔሻል ለእያንዳንዱ ዙር አንድ የተመረጠ ሕግ ብቻ ይሰራል፤ ከታች የዚህ ዙር ንቁ ሕግ ይታያል።'
+                    : 'In Hyper Special, exactly one law governs each game round. Only the active rule for this round is shown below.')}
             </p>
 
             {/* Winning Rule Patterns List */}
@@ -3353,15 +3354,20 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     subtitleAm: 'በካርዱ ላይ ያሉትን ሁሉንም 24 ቁጥሮች ምልክት ማድረግ',
                     pattern: Array.from({ length: 5 }, () => Array(5).fill(true)),
                   }]
-                  : HYPER_SPECIAL_RULES.map((r, idx) => ({
-                    id: r.id,
-                    title: r.nameEn,
-                    titleAm: r.nameAm,
-                    subtitle: r.descEn,
-                    subtitleAm: r.descAm,
-                    pattern: r.pattern,
-                    isActive: idx === (Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length),
-                  }))
+                  : (() => {
+                    const activeIndex = Math.abs(currentGame.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length;
+                    const r = HYPER_SPECIAL_RULES[activeIndex];
+                    return [{
+                      id: r.id,
+                      title: r.nameEn,
+                      titleAm: r.nameAm,
+                      subtitle: r.descEn,
+                      subtitleAm: r.descAm,
+                      pattern: r.pattern,
+                      displayNumber: activeIndex + 1,
+                      isActive: true,
+                    }];
+                  })()
               ).map((rule: any, idx: number) => {
                 const isActive = rule.isActive;
                 return (
@@ -3397,7 +3403,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className={`font-black text-xs ${isActive ? 'text-amber-950 font-black' : 'text-slate-900'}`}>
-                          #{idx + 1} · {language === 'am' ? rule.titleAm : rule.title}
+                          #{rule.displayNumber ?? idx + 1} · {language === 'am' ? rule.titleAm : rule.title}
                         </span>
                         {isActive && (
                           <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-500 text-slate-950 animate-pulse">

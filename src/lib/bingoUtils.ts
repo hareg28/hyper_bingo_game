@@ -239,7 +239,7 @@ export function getTwoDistinctLinesCompleted(marked: boolean[][]): boolean {
 }
 
 // ============================================================================
-// 14 OFFICIAL HYPER SPECIAL RULES
+// 13 OFFICIAL HYPER SPECIAL RULES
 // Each game round plays with exactly ONE active rule from this list until finished.
 // ============================================================================
 export interface HyperSpecialRuleDefinition {
@@ -440,31 +440,6 @@ export const HYPER_SPECIAL_RULES: HyperSpecialRuleDefinition[] = [
       [true, false, false, false, false],
       [true, false, false, false, false],
       [true, true, true, true, true],
-    ],
-  },
-
-  // 8. Small Inside Box
-  {
-    id: 'SMALL_INSIDE_BOX',
-    nameAm: 'የውስጥ ትንሽ ሳጥን (በመካከሉ ያሉ 4 ቁጥሮች)',
-    nameEn: 'The 4 numbers surrounding the center free space',
-    descAm: 'ከመሃሉ ነጻ (FREE) ቦታ ዙሪያ ያሉ 4 ቁጥሮች',
-    descEn: 'The 4 numbers surrounding the center free space',
-    checkWin: (m) => {
-      return Boolean(m[1][1] && m[1][3] && m[3][1] && m[3][3]);
-    },
-    checkOneAway: (m, nums) => {
-      const diag: [number, number][] = [[1, 1], [1, 3], [3, 1], [3, 3]];
-      const unDiag = diag.filter(([r, c]) => !m[r][c]);
-      if (unDiag.length === 1) return { neededNumber: nums[unDiag[0][0]][unDiag[0][1]], neededCell: unDiag[0] };
-      return null;
-    },
-    pattern: [
-      [false, false, false, false, false],
-      [false, true, false, true, false],
-      [false, false, true, false, false],
-      [false, true, false, true, false],
-      [false, false, false, false, false],
     ],
   },
 

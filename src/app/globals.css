@@ -171,6 +171,10 @@
 .tg-container.theme-dark .text-slate-700,
 .tg-container.theme-dark .text-slate-600,
 .tg-container.theme-dark .text-slate-500 { color: #c3d1e2 !important; }
+.tg-container.theme-dark .special-rule-header .text-indigo-700,
+.tg-container.theme-dark .special-rule-header .text-indigo-800 { color: #d8b4fe !important; }
+.tg-container.theme-dark .special-rule-header .text-slate-950 { color: #f1f5f9 !important; }
+.tg-container.theme-dark .special-rule-header .text-rose-600 { color: #fda4af !important; }
 .tg-container.theme-dark .border-slate-100,
 .tg-container.theme-dark .border-slate-200,
 .tg-container.theme-dark .border-slate-300 { border-color: #59718f !important; }
