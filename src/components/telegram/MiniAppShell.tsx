@@ -129,21 +129,30 @@ export default function MiniAppShell({
     }
   }, [activeGameId]);
 
-  const openFetanGame = async (gameId: string) => {
+  const openFetanGame = (gameId: string) => {
     const requestId = ++gameSelectionRequestRef.current;
     setLocalGameId(gameId);
     setActiveGameId(gameId);
     setLotteryMode('FETAN');
 
-    // Always fetch fresh server state BEFORE routing to avoid stale-cache tab flash.
-    const game = await refreshGameState(gameId);
-    if (requestId !== gameSelectionRequestRef.current) return;
-
-    const currentGame = game || games.find((candidate) => candidate.id === gameId);
+    // Route instantly from in-memory state (kept fresh by the polling loop — no stale cache).
+    const knownGame = games.find((candidate) => candidate.id === gameId);
     const isActivelyPicking =
-      currentGame?.status === 'OPEN' &&
-      Boolean(currentGame?.nextRoundStartsAt && currentGame.nextRoundStartsAt > Date.now());
-    setActiveTab(isActivelyPicking ? 'lottery' : 'game');
+      knownGame?.status === 'OPEN' &&
+      Boolean(knownGame?.nextRoundStartsAt && knownGame.nextRoundStartsAt > Date.now());
+    const immediateTab = isActivelyPicking ? 'lottery' : 'game';
+    setActiveTab(immediateTab);
+
+    // Background safety-check: if the in-memory state was somehow stale, correct silently.
+    void refreshGameState(gameId).then((game) => {
+      if (requestId !== gameSelectionRequestRef.current) return;
+      const currentGame = game || games.find((candidate) => candidate.id === gameId);
+      const isServerPicking =
+        currentGame?.status === 'OPEN' &&
+        Boolean(currentGame?.nextRoundStartsAt && currentGame.nextRoundStartsAt > Date.now());
+      const serverTab = isServerPicking ? 'lottery' : 'game';
+      if (serverTab !== immediateTab) setActiveTab(serverTab);
+    });
   };
 
   const handleSelectGameToPickCards = (gameId: string, cat: 'FETAN' | 'SPECIAL' | 'WEEKEND') => {
