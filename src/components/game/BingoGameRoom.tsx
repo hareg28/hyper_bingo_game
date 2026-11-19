@@ -6,7 +6,7 @@ import {
   Volume2, VolumeX, Sparkles, Zap,
   Plus, Star, Hash, Lightbulb, X, Grid, ChevronLeft,
   Undo2, Redo2, Settings, Menu, ShieldAlert, Trophy,
-  Trash2, Maximize2, Users, AlertTriangle, Eye, Wallet, CheckCircle2, CreditCard
+  Trash2, Maximize2, Users, AlertTriangle, Wallet, CheckCircle2, CreditCard
 } from 'lucide-react';
 import {
   formatETB,
@@ -2431,28 +2431,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               );
             })()
           ) : (
-            /* No cards yet — Spectator Mode & Card Purchase Area */
+            /* No cards yet — Card Purchase Area */
             <div className="flex flex-col items-center justify-center py-6 px-3 text-center space-y-3.5 bg-white rounded-2xl border border-slate-200 mx-1 shadow-xs">
-              {/* Live Spectator Mode Indicator */}
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-900 text-xs font-black shadow-2xs">
-                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
-                <Eye className="w-3.5 h-3.5 text-blue-600" />
-                <span>{language === 'am' ? 'የቀጥታ እይታ ሞድ · Spectator Mode' : 'Live Spectator Mode'}</span>
-              </div>
-
-              <div className="space-y-1 px-4">
-                <h3 className="text-sm font-black text-slate-900">
-                  {isWeekendGame
-                    ? (language === 'am' ? '🌟 ሃይፐር ዊክኤንድ ጨዋታ እይታ' : '🌟 Hyper Weekend Live Spectator')
-                    : (language === 'am' ? 'ጨዋታውን በቀጥታ እየተመለከቱ ነው' : 'Watching Live Game')}
-                </h3>
-                <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                  {language === 'am'
-                    ? 'ጨዋታውን ያለ ካርድ በቀጥታ መከታተል ይችላሉ። በጨዋታው ለመሳተፍ እና ለማሸነፍ ካርድ ይግዙ።'
-                    : 'You can watch this game live without cards. To participate and win, purchase cards below.'}
-                </p>
-              </div>
-
               {/* Insufficient Balance Notice with Deposit Action */}
               {!hasSufficientBalance && (
                 <div className="w-full max-w-xs mx-auto p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs text-center space-y-2 shadow-2xs">

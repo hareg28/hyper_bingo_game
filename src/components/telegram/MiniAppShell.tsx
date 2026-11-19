@@ -7,7 +7,7 @@ import {
   Wallet, User as UserIcon, Shield, 
   Share2, Copy, Check, LogOut, Sparkles, 
   ChevronRight, ChevronLeft, Globe, X, Users,
-  Gamepad2, Zap, Eye, Menu, Moon, Sun
+  Gamepad2, Zap, Menu, Moon, Sun
 } from 'lucide-react';
 import BingoGameRoom from '../game/BingoGameRoom';
 import SharedCountdownText from '../game/SharedCountdownText';
@@ -1468,7 +1468,7 @@ function WeekendLotteryNumberPicker({
               </h3>}
               {mode !== 'WEEKEND' && <span className="text-[10px] text-slate-500 font-bold">
                 {mode === 'FETAN' 
-                  ? (isAm ? '40 ሰከንድ ካርድ መምረጫ · 7 ሴኮንድ ቁጥር · 500 ካርዶች' : '40s Card Pick · 7s per Number · 500 Cards')
+                  ? (isAm ? '500 ካርዶች' : '500 Cards')
                   : mode === 'SPECIAL'
                   ? (isAm
                       ? `${entryPrice} ብር · ሕግ #${(Math.abs(selectedGame?.activeSpecialRuleIndex || 0) % HYPER_SPECIAL_RULES.length) + 1} · ${selectedSpecialRule?.nameAm || 'ልዩ የማሸነፊያ ሕግ'}`
@@ -1489,17 +1489,7 @@ function WeekendLotteryNumberPicker({
                 <Zap className="w-3 h-3" />
                 <span>{isAm ? `🎮 PLAY (${slotCountFilled})` : `🎮 PLAY (${slotCountFilled})`}</span>
               </button>
-            ) : (
-              <button
-                type="button"
-            onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_fri_2pm', [])}
-                className="px-2 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer border border-slate-300"
-                title={isAm ? 'ጨዋታውን በቀጥታ ይመልከቱ' : 'Watch live game'}
-              >
-                <Eye className="w-3 h-3 text-blue-600" />
-                <span>{isAm ? 'እይ' : 'Watch'}</span>
-              </button>
-            )}
+            ) : null}
             <div className="px-2 py-1 rounded-xl bg-indigo-50 border border-indigo-300 text-indigo-800 font-mono font-black text-[10px] flex items-center gap-1 shadow-2xs">
               <span className="text-indigo-600">#</span>
               <span className="text-[9px] uppercase">{isAm ? 'ኮድ' : 'REG'}</span>
@@ -1734,22 +1724,6 @@ function WeekendLotteryNumberPicker({
       ) : (
         /* Master Lottery Numbers Table — Clean White Background, Bold Black Numbers */
         <div className="mx-2 mt-2 bg-white rounded-2xl border border-slate-200 p-2 shadow-xs">
-          <div className="flex items-center justify-between mb-1.5 px-1">
-            <div>
-              <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
-                {isAm ? `የቁጥሮች ሰንጠረዥ (1-${TOTAL_NUMBERS})` : `Master Lottery Board (1–${TOTAL_NUMBERS})`}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 text-[10px] font-bold">
-              <span className="text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-lg">
-                {soldSet.size} {isAm ? 'የተሸጡ ካርዶች' : 'sold cards'}
-              </span>
-              <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg font-black">
-                {Math.max(0, TOTAL_NUMBERS - soldSet.size)} {isAm ? 'ያልተሸጡ ካርዶች' : 'unsold cards'}
-              </span>
-            </div>
-          </div>
-
           <div className="grid grid-cols-10 gap-1 sm:gap-1.5">
             {Array.from({ length: TOTAL_NUMBERS }, (_, i) => i + 1).map((num) => {
               const sold = soldSet.has(num);
@@ -1785,38 +1759,25 @@ function WeekendLotteryNumberPicker({
 
       {/* Bottom Action Area: Enter Game Room (NO separate Buy button) */}
       <div className="mx-2 mt-3 space-y-2">
-        <button
-          type="button"
-          onClick={() => {
-            if (!user) {
-              window.open(`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot'}?start=register`, '_blank', 'noopener,noreferrer');
-              return;
-            }
-            handleGoToGameRoom();
-          }}
-          className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
-            slotCountFilled === 0
-              ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border border-slate-300'
-              : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 hover:brightness-105 shadow-amber-300/60 active:scale-[0.99]'
-          }`}
-        >
-          {!user ? (
-            isAm ? 'ወደ ቦቱ ይሂዱ →' : 'Open Bot to Continue →'
-          ) : slotCountFilled === 0 ? (
-            isAm ? '👀 ያለ ካርድ በቀጥታ ይመልከቱ (Spectator) →' : '👀 Watch Live Game as Spectator →'
-          ) : (
-            `🎮 ${isAm ? 'ወደ ጨዋታው ክፍል ይግቡ' : 'Enter Game Room'} (${slotCountFilled} ${isAm ? 'ካርድ' : 'Card'}${slotCountFilled > 1 ? 's' : ''}) →`
-          )}
-        </button>
-
-        {slotCountFilled > 0 && (
+        {(!user || slotCountFilled > 0) && (
           <button
             type="button"
-                onClick={() => onPickCards(selectedGame?.id || 'gm_weekend_fri_2pm', [])}
-            className="w-full py-2 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 transition flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200"
+            onClick={() => {
+              if (!user) {
+                window.open(`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot'}?start=register`, '_blank', 'noopener,noreferrer');
+                return;
+              }
+              handleGoToGameRoom();
+            }}
+            className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
+              slotCountFilled === 0
+                ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border border-slate-300'
+                : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 hover:brightness-105 shadow-amber-300/60 active:scale-[0.99]'
+            }`}
           >
-            <Eye className="w-3.5 h-3.5 text-blue-600" />
-            <span>{isAm ? '👀 ያለ ካርድ በቀጥታ ተመልካች ይሁኑ' : '👀 Watch as Spectator'}</span>
+            {!user
+              ? (isAm ? 'ወደ ቦቱ ይሂዱ →' : 'Open Bot to Continue →')
+              : `🎮 ${isAm ? 'ወደ ጨዋታው ክፍል ይግቡ' : 'Enter Game Room'} (${slotCountFilled} ${isAm ? 'ካርድ' : 'Card'}${slotCountFilled > 1 ? 's' : ''}) →`}
           </button>
         )}
       </div>
