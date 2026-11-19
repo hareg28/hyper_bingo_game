@@ -1,6 +1,6 @@
-import { 
-  User, Wallet, Game, BingoCard, Transaction, 
-  WithdrawalRequest, Promotion, AuditLog, Referral 
+import {
+  User, Wallet, Game, BingoCard, Transaction,
+  WithdrawalRequest, Promotion, AuditLog, Referral
 } from './types';
 import { computeWeekendPrizePool, createNewBingoCard, generateSoldNumbersForGame, getNextWeekendDrawAt } from './bingoUtils';
 import { getInitialBotSoldCardNumbers } from './botPlayers';

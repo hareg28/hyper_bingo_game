@@ -129,27 +129,21 @@ export default function MiniAppShell({
     }
   }, [activeGameId]);
 
-  const openFetanGame = (gameId: string) => {
-    const sourceTab = activeTabRef.current;
+  const openFetanGame = async (gameId: string) => {
     const requestId = ++gameSelectionRequestRef.current;
     setLocalGameId(gameId);
     setActiveGameId(gameId);
     setLotteryMode('FETAN');
-    const knownGame = games.find((candidate) => candidate.id === gameId);
-    const isActivelyPicking = knownGame?.status === 'OPEN' && Boolean(knownGame?.nextRoundStartsAt && knownGame.nextRoundStartsAt > Date.now());
-    const immediateTab = isActivelyPicking ? 'lottery' : 'game';
-    setActiveTab(immediateTab);
 
-    // Navigate from the latest local snapshot immediately, then correct it
-    // when the server response arrives if the local round status was stale.
-    void refreshGameState(gameId).then((game) => {
-      if (requestId !== gameSelectionRequestRef.current) return;
-      if (activeTabRef.current !== sourceTab && activeTabRef.current !== immediateTab) return;
-      const currentGame = game || games.find((candidate) => candidate.id === gameId);
-      const isServerPicking = currentGame?.status === 'OPEN' && Boolean(currentGame?.nextRoundStartsAt && currentGame.nextRoundStartsAt > Date.now());
-      const serverTab = isServerPicking ? 'lottery' : 'game';
-      if (serverTab !== immediateTab) setActiveTab(serverTab);
-    });
+    // Always fetch fresh server state BEFORE routing to avoid stale-cache tab flash.
+    const game = await refreshGameState(gameId);
+    if (requestId !== gameSelectionRequestRef.current) return;
+
+    const currentGame = game || games.find((candidate) => candidate.id === gameId);
+    const isActivelyPicking =
+      currentGame?.status === 'OPEN' &&
+      Boolean(currentGame?.nextRoundStartsAt && currentGame.nextRoundStartsAt > Date.now());
+    setActiveTab(isActivelyPicking ? 'lottery' : 'game');
   };
 
   const handleSelectGameToPickCards = (gameId: string, cat: 'FETAN' | 'SPECIAL' | 'WEEKEND') => {

@@ -142,13 +142,6 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   const [games, setGames] = useState<Game[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const cached = localStorage.getItem('hyper_bingo_games_cache');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        }
         const saved = localStorage.getItem('hyper_bingo_special_rotation');
         if (saved) {
           const parsed = JSON.parse(saved);
@@ -705,7 +698,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
             });
             if (typeof window !== 'undefined') {
               try {
-                localStorage.setItem('hyper_bingo_games_cache', JSON.stringify(nextGames));
+                // special rotation is persisted separately; no games cache here to avoid stale state on re-open
               } catch {}
             }
             return nextGames;
