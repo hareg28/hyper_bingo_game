@@ -91,6 +91,7 @@ export default function MiniAppShell({
   const [profileNameMessage, setProfileNameMessage] = useState('');
   const [savingProfileName, setSavingProfileName] = useState(false);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const [isFetanLoading, setIsFetanLoading] = useState(false);
 
   useEffect(() => {
     setIsDarkTheme(window.localStorage.getItem('hb_theme') === 'dark');
@@ -135,23 +136,25 @@ export default function MiniAppShell({
     setActiveGameId(gameId);
     setLotteryMode('FETAN');
 
-    // Route instantly from in-memory state (kept fresh by the polling loop — no stale cache).
-    const knownGame = games.find((candidate) => candidate.id === gameId);
-    const isActivelyPicking =
-      knownGame?.status === 'OPEN' &&
-      Boolean(knownGame?.nextRoundStartsAt && knownGame.nextRoundStartsAt > Date.now());
-    const immediateTab = isActivelyPicking ? 'lottery' : 'game';
-    setActiveTab(immediateTab);
-
-    // Background safety-check: if the in-memory state was somehow stale, correct silently.
+    // Show a loading spinner immediately — no wrong tab flash.
+    // Route to the correct tab only once the server confirms the real state.
+    setIsFetanLoading(true);
     void refreshGameState(gameId).then((game) => {
       if (requestId !== gameSelectionRequestRef.current) return;
       const currentGame = game || games.find((candidate) => candidate.id === gameId);
-      const isServerPicking =
+      const isActivelyPicking =
         currentGame?.status === 'OPEN' &&
         Boolean(currentGame?.nextRoundStartsAt && currentGame.nextRoundStartsAt > Date.now());
-      const serverTab = isServerPicking ? 'lottery' : 'game';
-      if (serverTab !== immediateTab) setActiveTab(serverTab);
+      setActiveTab(isActivelyPicking ? 'lottery' : 'game');
+      setIsFetanLoading(false);
+    }).catch(() => {
+      // On network error fall back to in-memory state
+      const knownGame = games.find((candidate) => candidate.id === gameId);
+      const isActivelyPicking =
+        knownGame?.status === 'OPEN' &&
+        Boolean(knownGame?.nextRoundStartsAt && knownGame.nextRoundStartsAt > Date.now());
+      setActiveTab(isActivelyPicking ? 'lottery' : 'game');
+      setIsFetanLoading(false);
     });
   };
 
@@ -681,8 +684,16 @@ export default function MiniAppShell({
           </div>
         )}
 
+        {/* FETAN LOADING — shown while we fetch server state to pick the correct tab */}
+        {isFetanLoading && (
+          <div className="flex flex-col items-center justify-center flex-1 min-h-[60vh] gap-4">
+            <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin" />
+            <p className="text-slate-500 text-sm">Loading game…</p>
+          </div>
+        )}
+
         {/* GAME ROOM TAB */}
-        {activeTab === 'game' && (
+        {!isFetanLoading && activeTab === 'game' && (
           <BingoGameRoom
             gameId={localGameId || activeGameId || games[0].id}
             onBack={() => setActiveTab('lobby')}
@@ -703,7 +714,7 @@ export default function MiniAppShell({
         )}
 
         {/* LOTTERY / CARD PICKER TAB */}
-        {activeTab === 'lottery' && (
+        {!isFetanLoading && activeTab === 'lottery' && (
           <WeekendLotteryNumberPicker
             mode={lotteryMode}
             games={games}
