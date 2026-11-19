@@ -1521,7 +1521,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <button
                 type="button"
                 onClick={onBack}
-                className="w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 text-slate-800 flex items-center justify-center transition cursor-pointer shadow-xs border border-amber-300 shrink-0"
+                className="game-room-back-button w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 text-slate-800 flex items-center justify-center transition cursor-pointer shadow-xs border border-amber-300 shrink-0"
                 title={language === 'am' ? 'ተመለስ ወደ ሎቢ' : 'Back to Lobby'}
               >
                 <ChevronLeft className="w-4.5 h-4.5" />
