@@ -15,7 +15,7 @@ import WalletManager from '../wallet/WalletManager';
 import AdminPanel from '../admin/AdminPanel';
 import DailyLuckyWheelModal from '../rewards/DailyLuckyWheelModal';
 import { isAdminTelegramId } from '../../lib/authUtils';
-import { getGameLivePrizePool, WINNERS_CUT_PCT } from '../../lib/store';
+import { WINNERS_CUT_PCT } from '../../lib/store';
 import { subscribeToMiniAppActivity } from '../../lib/miniAppActivity';
 
 const SUPPORT_PHONE_1 = process.env.NEXT_PUBLIC_SUPPORT_PHONE_1 || '0912738543';
@@ -548,14 +548,6 @@ export default function MiniAppShell({
 
                       <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                         <span>Entry: <strong className="text-slate-900">{formatETB(g.entryPrice)}</strong></span>
-                        {categoryTab !== 'WEEKEND' && (
-                          <span className="flex items-center gap-1 text-amber-700 font-black">
-                            🏆 {language === 'am' ? 'ሽልማት' : 'Prize'}: <strong className="text-amber-900">{formatETB(getGameLivePrizePool(g))}</strong>
-                          </span>
-                        )}
-
-
-
 
                         {g.blockedCards && g.blockedCards.length > 0 && (
                           <span className="text-rose-600 font-bold flex items-center gap-0.5 text-[10px]">
