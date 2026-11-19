@@ -80,7 +80,6 @@ export default function MiniAppShell({
   const activeTabRef = React.useRef(activeTab);
   activeTabRef.current = activeTab;
   const gameSelectionRequestRef = React.useRef(0);
-  const [pendingFetanGameId, setPendingFetanGameId] = useState<string | null>(null);
   const [copiedRef, setCopiedRef] = useState(false);
   const [categoryTab, setCategoryTab] = useState<'FETAN' | 'SPECIAL' | 'WEEKEND'>(initialTab === 'lottery' ? 'WEEKEND' : 'FETAN');
   const [selectedWeekendDay, setSelectedWeekendDay] = useState<'FRI' | 'SAT' | 'SUN'>('FRI');
@@ -131,19 +130,23 @@ export default function MiniAppShell({
   }, [activeGameId]);
 
   const openFetanGame = (gameId: string) => {
-    if (pendingFetanGameId === gameId) return;
     const sourceTab = activeTabRef.current;
     const requestId = ++gameSelectionRequestRef.current;
-    setPendingFetanGameId(gameId);
     setLocalGameId(gameId);
     setActiveGameId(gameId);
+    setLotteryMode('FETAN');
+    const knownGame = games.find((candidate) => candidate.id === gameId);
+    const immediateTab = knownGame?.status === 'RUNNING' || (knownGame?.drawnNumbers?.length || 0) > 0 ? 'game' : 'lottery';
+    setActiveTab(immediateTab);
+
+    // Navigate from the latest local snapshot immediately, then correct it
+    // when the server response arrives if the local round status was stale.
     void refreshGameState(gameId).then((game) => {
-      if (requestId !== gameSelectionRequestRef.current || activeTabRef.current !== sourceTab) return;
+      if (requestId !== gameSelectionRequestRef.current) return;
+      if (activeTabRef.current !== sourceTab && activeTabRef.current !== immediateTab) return;
       const currentGame = game || games.find((candidate) => candidate.id === gameId);
-      setLotteryMode('FETAN');
-      setActiveTab(currentGame?.status === 'RUNNING' || (currentGame?.drawnNumbers?.length || 0) > 0 ? 'game' : 'lottery');
-    }).finally(() => {
-      if (requestId === gameSelectionRequestRef.current) setPendingFetanGameId(null);
+      const serverTab = currentGame?.status === 'RUNNING' || (currentGame?.drawnNumbers?.length || 0) > 0 ? 'game' : 'lottery';
+      if (serverTab !== immediateTab) setActiveTab(serverTab);
     });
   };
 
