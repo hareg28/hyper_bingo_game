@@ -576,14 +576,13 @@ export default function MiniAppShell({
                     <div className={`flex items-center gap-1.5 shrink-0 ${categoryTab === 'WEEKEND' ? 'ml-0' : 'ml-2'}`}>
                       {/* Main Play Button — ALL modes now go through the master number picker first (1-tap buy) */}
                       <button
-                        disabled={categoryTab === 'FETAN' && pendingFetanGameId === g.id}
                         onClick={() => {
                           if (g.status === 'COMPLETED') {
                             resetGameRound(g.id);
                           }
                           handleSelectGameToPickCards(g.id, categoryTab);
                         }}
-                        className={`px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-xs cursor-pointer disabled:cursor-wait disabled:opacity-80 whitespace-nowrap ${
+                        className={`px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-xs cursor-pointer whitespace-nowrap ${
                           categoryTab === 'SPECIAL'
                             ? 'bg-slate-950 hover:bg-slate-800 text-white'
                             : categoryTab === 'WEEKEND'
@@ -592,9 +591,7 @@ export default function MiniAppShell({
                         }`}
                       >
                         <span>
-                          {pendingFetanGameId === g.id
-                            ? (language === 'am' ? 'ጨዋታውን በማረጋገጥ ላይ…' : 'CHECKING GAME…')
-                            : (language === 'am' ? 'ካርድ ይምረጡ / ይጫወቱ' : 'PICK & PLAY')}
+                          {language === 'am' ? 'ካርድ ይምረጡ / ይጫወቱ' : 'PICK & PLAY'}
                         </span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
