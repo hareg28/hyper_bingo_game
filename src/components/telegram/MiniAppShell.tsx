@@ -80,6 +80,7 @@ export default function MiniAppShell({
   const activeTabRef = React.useRef(activeTab);
   activeTabRef.current = activeTab;
   const gameSelectionRequestRef = React.useRef(0);
+  const [pendingFetanGameId, setPendingFetanGameId] = useState<string | null>(null);
   const [copiedRef, setCopiedRef] = useState(false);
   const [categoryTab, setCategoryTab] = useState<'FETAN' | 'SPECIAL' | 'WEEKEND'>(initialTab === 'lottery' ? 'WEEKEND' : 'FETAN');
   const [selectedWeekendDay, setSelectedWeekendDay] = useState<'FRI' | 'SAT' | 'SUN'>('FRI');
@@ -129,30 +130,34 @@ export default function MiniAppShell({
     }
   }, [activeGameId]);
 
-  const handleSelectGameToPickCards = (gameId: string, cat: 'FETAN' | 'SPECIAL' | 'WEEKEND') => {
+  const openFetanGame = (gameId: string) => {
+    if (pendingFetanGameId === gameId) return;
+    const sourceTab = activeTabRef.current;
+    const requestId = ++gameSelectionRequestRef.current;
+    setPendingFetanGameId(gameId);
     setLocalGameId(gameId);
     setActiveGameId(gameId);
+    void refreshGameState(gameId).then((game) => {
+      if (requestId !== gameSelectionRequestRef.current || activeTabRef.current !== sourceTab) return;
+      const currentGame = game || games.find((candidate) => candidate.id === gameId);
+      setLotteryMode('FETAN');
+      setActiveTab(currentGame?.status === 'RUNNING' || (currentGame?.drawnNumbers?.length || 0) > 0 ? 'game' : 'lottery');
+    }).finally(() => {
+      if (requestId === gameSelectionRequestRef.current) setPendingFetanGameId(null);
+    });
+  };
+
+  const handleSelectGameToPickCards = (gameId: string, cat: 'FETAN' | 'SPECIAL' | 'WEEKEND') => {
     if (cat === 'SPECIAL') {
+      setLocalGameId(gameId);
+      setActiveGameId(gameId);
       // Hyper Special uses the in-room plus picker; keep a single card-selection surface.
       setActiveTab('game');
     } else if (cat === 'FETAN') {
-      // Resolve the authoritative round before showing a picker. The app's
-      // initial local state can say OPEN for a few seconds while a live round
-      // is already running on the server. Keep the button responsive if the
-      // state request is slow; the regular state poll will still hand off a
-      // live round as soon as its authoritative state arrives.
-      const requestId = ++gameSelectionRequestRef.current;
-      const stateOrFallback = Promise.race([
-        refreshGameState(gameId),
-        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 700)),
-      ]);
-      void stateOrFallback.then((game) => {
-        if (requestId !== gameSelectionRequestRef.current || activeTabRef.current !== 'lobby') return;
-        const currentGame = game || games.find((candidate) => candidate.id === gameId);
-        setLotteryMode('FETAN');
-        setActiveTab(currentGame?.status === 'RUNNING' || (currentGame?.drawnNumbers?.length || 0) > 0 ? 'game' : 'lottery');
-      });
+      openFetanGame(gameId);
     } else {
+      setLocalGameId(gameId);
+      setActiveGameId(gameId);
       setLotteryMode(cat);
       setActiveTab('lottery');
     }
@@ -571,13 +576,14 @@ export default function MiniAppShell({
                     <div className={`flex items-center gap-1.5 shrink-0 ${categoryTab === 'WEEKEND' ? 'ml-0' : 'ml-2'}`}>
                       {/* Main Play Button — ALL modes now go through the master number picker first (1-tap buy) */}
                       <button
+                        disabled={categoryTab === 'FETAN' && pendingFetanGameId === g.id}
                         onClick={() => {
                           if (g.status === 'COMPLETED') {
                             resetGameRound(g.id);
                           }
                           handleSelectGameToPickCards(g.id, categoryTab);
                         }}
-                        className={`px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-xs cursor-pointer whitespace-nowrap ${
+                        className={`px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1 shadow-xs cursor-pointer disabled:cursor-wait disabled:opacity-80 whitespace-nowrap ${
                           categoryTab === 'SPECIAL'
                             ? 'bg-slate-950 hover:bg-slate-800 text-white'
                             : categoryTab === 'WEEKEND'
@@ -586,7 +592,9 @@ export default function MiniAppShell({
                         }`}
                       >
                         <span>
-                          {language === 'am' ? 'ካርድ ይምረጡ / ይጫወቱ' : 'PICK & PLAY'}
+                          {pendingFetanGameId === g.id
+                            ? (language === 'am' ? 'ጨዋታውን በማረጋገጥ ላይ…' : 'CHECKING GAME…')
+                            : (language === 'am' ? 'ካርድ ይምረጡ / ይጫወቱ' : 'PICK & PLAY')}
                         </span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
@@ -1020,6 +1028,16 @@ export default function MiniAppShell({
 
         <button
           onClick={() => {
+            if (categoryTab === 'FETAN') {
+              const fetanGame = games.find((game) =>
+                (game.category === 'HYPER_FETAN' || game.name?.includes('Fetan')) &&
+                game.category !== 'HYPER_SPECIAL' && !game.id.includes('special')
+              );
+              if (fetanGame) {
+                openFetanGame(fetanGame.id);
+                return;
+              }
+            }
             setLotteryMode(categoryTab);
             setActiveTab('lottery');
           }}
