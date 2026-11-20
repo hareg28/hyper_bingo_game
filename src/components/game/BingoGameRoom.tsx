@@ -1446,7 +1446,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               <div className="min-w-0">
                 <div className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-slate-600">
                   {language === 'am' ? 'ሕግ' : 'RULE'}
-                  {isSpecialGame && <span className="truncate text-indigo-700">· {showGameInfo ? `#${currentSpecialRuleIndex + 1} ${language === 'am' ? currentSpecialRule.nameAm : currentSpecialRule.nameEn}` : (language === 'am' ? 'ልዩ ሕግ አለ' : 'Special rule applies')}</span>}
+                  {isSpecialGame && <span className="truncate text-indigo-700">· {language === 'am' ? 'ልዩ ሕግ አለ' : 'Special rule applies'}</span>}
                   <button type="button" onClick={() => setShowGameInfo((visible) => !visible)} aria-expanded={showGameInfo} className="ml-auto shrink-0 text-[8px] font-bold text-rose-600 leading-3">
                     {showGameInfo ? (language === 'am' ? 'ያነሰ አሳይ' : 'Less') : (language === 'am' ? 'ተጨማሪ' : 'More')}
                   </button>
