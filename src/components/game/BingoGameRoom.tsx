@@ -1457,9 +1457,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     : dashboardLaw}
                 </div>}
               </div>
-              {(isSpecialGame || isWeekendGame) && <div className="shrink-0 self-start pt-2 text-right text-[8px] font-bold text-indigo-800">{isWeekendGame
-                ? `${currentGame.weekendDay === 'FRI' ? (language === 'am' ? 'ዓርብ' : 'Friday') : currentGame.weekendDay === 'SAT' ? (language === 'am' ? 'ቅዳሜ' : 'Saturday') : (language === 'am' ? 'እሑድ' : 'Sunday')} · 9:00 ${language === 'am' ? 'የኢትዮጵያ ሰዓት · 10 ደቂቃ ጨዋታ' : 'Ethiopia time · Play 10m'}`
-                : (language === 'am' ? 'Pick 4 · Play 12 ደቂቃ' : 'Pick 4m · Play 12m')}</div>}
             </div>
           )}
           {isSpecialGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && (

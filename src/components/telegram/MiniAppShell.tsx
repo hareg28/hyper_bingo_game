@@ -1026,29 +1026,6 @@ export default function MiniAppShell({
         </button>
 
         <button
-          onClick={() => {
-            if (categoryTab === 'FETAN') {
-              const fetanGame = games.find((game) =>
-                (game.category === 'HYPER_FETAN' || game.name?.includes('Fetan')) &&
-                game.category !== 'HYPER_SPECIAL' && !game.id.includes('special')
-              );
-              if (fetanGame) {
-                openFetanGame(fetanGame.id);
-                return;
-              }
-            }
-            setLotteryMode(categoryTab);
-            setActiveTab('lottery');
-          }}
-          className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-2 py-1 rounded-xl ${
-            activeTab === 'lottery' ? 'text-amber-600 font-black bg-amber-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <Sparkles className="w-5 h-5" />
-          <span>{language === 'am' ? 'ካርዶች / ሎተሪ' : 'Cards / Lottery'}</span>
-        </button>
-
-        <button
           onClick={() => setActiveTab('wallet')}
           className={`flex flex-col items-center gap-0.5 text-[11px] font-semibold transition cursor-pointer px-2 py-1 rounded-xl ${
             activeTab === 'wallet' ? 'text-amber-600 font-black bg-amber-50' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
