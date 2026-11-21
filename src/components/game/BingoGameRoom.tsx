@@ -1530,7 +1530,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                   {language === 'am' ? 'ደርሻ' : 'DERASH'}
                 </div>
-                <div className="text-base sm:text-lg font-black text-slate-900 font-mono leading-tight">
+                <div className="text-sm sm:text-lg font-black text-slate-900 font-mono leading-tight">
                   {formatETB(gamePrizeDisplay)}
                 </div>
               </div>
@@ -1542,6 +1542,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 </div>
                 <div className="text-base sm:text-lg font-black text-slate-900 font-mono leading-tight">
                   {currentGame.drawnNumbers.length}<span className="text-sm text-slate-400">/75</span>
+                </div>
+              </div>
+
+              {/* ENTRY PRICE */}
+              <div className="text-center">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  {language === 'am' ? 'ዋጋ' : 'PRICE'}
+                </div>
+                <div className="text-base sm:text-lg font-black text-emerald-600 font-mono leading-tight whitespace-nowrap">
+                  {formatETB(currentGame.entryPrice || 10)}
                 </div>
               </div>
 
@@ -1603,8 +1613,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   ? `ራስ-ሰር ${autoMarkEnabled ? 'አብራ' : 'ጠፍቷል'}`
                   : `Auto Mark ${autoMarkEnabled ? 'On' : 'Off'}`}
               </button>
-              <span className="ml-2 text-[10px] font-black text-emerald-600 whitespace-nowrap">{formatETB(currentGame.entryPrice || 10)}</span>
-
             </div>
 
             {/* ── Middle Area: Previous balls + Intermission timer ── */}
