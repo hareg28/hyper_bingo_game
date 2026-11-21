@@ -1232,6 +1232,10 @@ export function isWeekendLotteryDay(): boolean {
 
 export type WeekendDrawDay = 'FRI' | 'SAT' | 'SUN';
 export type WeekendDrawSlot = '3PM';
+export function getWeekendDayLabel(day: WeekendDrawDay | string | undefined): string {
+  return day === 'SAT' ? 'Saturday' : day === 'SUN' ? 'Sunday' : 'Friday';
+}
+
 export const WEEKEND_DRAW_SCHEDULE: Record<WeekendDrawDay, { slot: WeekendDrawSlot; hour: number }> = {
   FRI: { slot: '3PM', hour: 15 },
   SAT: { slot: '3PM', hour: 15 },

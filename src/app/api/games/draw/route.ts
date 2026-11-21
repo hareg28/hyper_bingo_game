@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { isAdminTelegramId } from '@/lib/authUtils';
 import { INITIAL_GAMES } from '@/lib/store';
-import { getWeekendRoundKey } from '@/lib/bingoUtils';
+import { getWeekendDayLabel, getWeekendRoundKey } from '@/lib/bingoUtils';
 import { FETAN_BALL_INTERVAL_MS, SPECIAL_BALL_INTERVAL_MS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS, generateSeededBingoCardMatrix, getBestWinningRule, checkOneAwayStatus } from '@/lib/bingoUtils';
 import { checkAndTriggerBotWin, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
 import { notifyUsersTelegram } from '@/lib/adminNotifications';
@@ -217,16 +217,19 @@ export async function POST(req: NextRequest) {
         forceNow
       );
       if (botWinner && isWeekend) {
+        const scheduledGame = INITIAL_GAMES.find((candidate) => candidate.id === gameId);
+        const dayLabel = getWeekendDayLabel(scheduledGame?.weekendDay);
         const [gRow] = await sql`SELECT winners, prize_pool FROM games WHERE id = ${gameId}`;
+        const derash = Number(gRow?.prize_pool || botWinner.prizeWon || 0);
         const gWinners = Array.isArray(gRow?.winners) ? gRow.winners : [];
         if (gWinners.length >= 2) {
           const namesStr = gWinners.map((w: any) => `@${w.username} (Card #${w.cardNumber})`).join(' & ');
           await notifyUsersTelegram(
-            `🏆 ${gWinners.length} WEEKEND BINGO WINNERS (SHARED DERASH)! ${namesStr} won and split ${gRow?.prize_pool || (gWinners[0]?.prizeWon * gWinners.length)} ETB (${gWinners[0]?.prizeWon} ETB each)! Open the Weekend game page to view the full result.`,
+            `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNERS (SHARED DERASH)! ${namesStr}. Derash: ${derash} ETB. Payout: ${gWinners[0]?.prizeWon} ETB each.`,
           );
         } else {
           await notifyUsersTelegram(
-            `🏆 WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber} and ${botWinner.prizeWon} ETB. Open the Weekend game page to view the full result.`,
+            `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber}. Derash: ${derash} ETB. Payout: ${botWinner.prizeWon} ETB.`,
           );
         }
       }

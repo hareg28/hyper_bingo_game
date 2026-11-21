@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { computeRegularPrizePool, INITIAL_GAMES } from '@/lib/store';
-import { computeWeekendPrizePool, getWeekendRoundKey } from '@/lib/bingoUtils';
+import { computeWeekendPrizePool, getWeekendDayLabel, getWeekendRoundKey } from '@/lib/bingoUtils';
 import { notifyUsersTelegram } from '@/lib/adminNotifications';
 import { checkAndTriggerBotWin, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
 
@@ -183,8 +183,10 @@ export async function POST(req: NextRequest) {
     `;
 
     if (isWeekend) {
+      const scheduledGame = INITIAL_GAMES.find((candidate) => candidate.id === gameId);
+      const dayLabel = getWeekendDayLabel(scheduledGame?.weekendDay);
       await notifyUsersTelegram(
-        `🏆 WEEKEND BINGO WINNER! ${username || 'A player'} won Card #${cardNumber} and ${awardedPrize} ETB. Open the Weekend game page to view the full result.`,
+        `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNER! ${username || 'A player'} won Card #${cardNumber}. Derash: ${awardedPrize} ETB. Payout: ${awardedPrize} ETB.`,
       );
     }
 
