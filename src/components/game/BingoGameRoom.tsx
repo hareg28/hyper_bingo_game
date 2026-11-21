@@ -1906,15 +1906,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           CARD 2: 75-Ball Master Table (Compact 1-Screen Layout)
           ================================================================ */}
         <div className="bingo-master-board bg-white rounded-xl p-1 sm:p-1.5 border border-slate-200/80 shadow-xs">
-          {/* Slim board title */}
-          <div className="flex items-center justify-between mb-1 px-0.5">
-            <span className="text-[9px] font-black text-slate-800 uppercase tracking-wider">
-              {language === 'am' ? 'የቢንጎ 75-ኳስ ሰንጠረዥ' : '75-Ball Master Board'}
-            </span>
-            <span className="text-[8px] font-mono font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200">
-              {currentGame.drawnNumbers.length} / 75 {language === 'am' ? 'የተጠሩ' : 'Drawn'}
-            </span>
-          </div>
 
           <button
             type="button"
@@ -1929,7 +1920,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           {showMasterBoard && <div className="space-y-px bg-slate-50/70 p-0.5 sm:p-1 rounded-lg border border-slate-100">
             {rows.map((row) => (
               <div key={row.letter} className="flex items-center gap-1">
-                <div className={`w-4 h-5 sm:w-6 sm:h-6 rounded text-[9px] sm:text-[10px] font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
+                <div className={`w-5 h-6 sm:w-7 sm:h-8 rounded text-[11px] sm:text-xs font-black flex items-center justify-center shrink-0 ${row.color} shadow-xs`}>
                   {row.letter}
                 </div>
                 <div className="grid grid-cols-[repeat(15,minmax(0,1fr))] gap-0.5 flex-1">
@@ -1939,7 +1930,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     return (
                       <div
                         key={num}
-                        className={`h-5 sm:h-6 rounded text-[9px] sm:text-[10px] font-bold flex items-center justify-center transition-all ${isCurrent
+                        className={`h-6 sm:h-8 rounded text-[11px] sm:text-xs font-bold flex items-center justify-center transition-all ${isCurrent
                             ? 'bg-yellow-300 text-slate-950 font-black scale-125 shadow-[0_0_12px_3px_rgba(250,204,21,0.85)] ring-2 ring-yellow-400 animate-pulse z-20 brightness-110'
                             : isDrawn
                               ? `${row.color} font-black shadow-xs`
