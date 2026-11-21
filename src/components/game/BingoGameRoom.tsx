@@ -1462,12 +1462,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
           {isSpecialGame && currentGame.status === 'RUNNING' && currentGame.roundStartedAt && (
             <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700">
               <span>{language === 'am' ? 'የዙሩ ቀሪ ጊዜ' : 'ROUND TIME LEFT'}</span>
-              <span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span>
               <SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + SPECIAL_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" />
             </div>
           )}
-          {(isFetanGame && fetanIsIntermission || isSpecialGame && specialIsIntermission) && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የመምረጫ ቀሪ ጊዜ' : 'PICK TIME LEFT'}</span><span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span><SharedCountdownText mode={isFetanGame ? 'FETAN' : 'SPECIAL'} deadline={currentGame.nextRoundStartsAt} status={currentGame.status} drawnCount={currentGame.drawnNumbers.length} className="font-mono text-slate-950" /></div>}
-          {isWeekendGame && currentGame.roundStartedAt && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የጨዋታው ቀሪ ጊዜ' : 'GAME TIME LEFT'}</span><span className="text-indigo-700">{language === 'am' ? 'ዋጋ፡ ' : 'Price: '}{formatETB(currentGame.entryPrice)}</span><SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + WEEKEND_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" /></div>}
+          {(isFetanGame && fetanIsIntermission || isSpecialGame && specialIsIntermission) && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የመምረጫ ቀሪ ጊዜ' : 'PICK TIME LEFT'}</span><SharedCountdownText mode={isFetanGame ? 'FETAN' : 'SPECIAL'} deadline={currentGame.nextRoundStartsAt} status={currentGame.status} drawnCount={currentGame.drawnNumbers.length} className="font-mono text-slate-950" /></div>}
+          {isWeekendGame && currentGame.roundStartedAt && <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-1 text-[9px] font-bold text-slate-700"><span>{language === 'am' ? 'የጨዋታው ቀሪ ጊዜ' : 'GAME TIME LEFT'}</span><SharedCountdownText mode="ROUND" deadline={currentGame.roundStartedAt + WEEKEND_ROUND_SECONDS * 1000} status={currentGame.status} className="font-mono text-slate-950" /></div>}
         </div>
 
         {/* ── Clean & Simple Weekend Bar (No Crowding, Single Slim Row) ── */}
@@ -1542,6 +1541,16 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 </div>
                 <div className="text-base sm:text-lg font-black text-slate-900 font-mono leading-tight">
                   {currentGame.drawnNumbers.length}<span className="text-sm text-slate-400">/75</span>
+                </div>
+              </div>
+
+              {/* ENTRY PRICE */}
+              <div className="text-center">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  {language === 'am' ? 'ዋጋ' : 'PRICE'}
+                </div>
+                <div className="text-sm sm:text-base font-black text-slate-900 font-mono leading-tight whitespace-nowrap">
+                  {formatETB(currentGame.entryPrice || 10)}
                 </div>
               </div>
 
