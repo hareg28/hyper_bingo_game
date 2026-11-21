@@ -29,9 +29,16 @@ export const ETHIOPIAN_GIRL_NAMES: string[] = [
 ];
 
 export const REALISTIC_NUMBER_SUFFIXES: string[] = [
-  '7', '9', '10', '11', '12', '14', '17', '19', '21', '22', '23', '24',
-  '25', '27', '33', '44', '55', '77', '80', '88', '89', '90', '95', '98', '99',
-  '01', '04', '07', '08', '2024', '2025'
+  '7', '9', '10', '11', '12', '14', '17', '18', '19', '21', '22', '23', '24',
+  '25', '27', '28', '33', '44', '55', '77', '80', '88', '89', '90', '95', '98', '99',
+  '01', '04', '07', '08', '2023', '2024', '2025'
+];
+
+export const REALISTIC_ALPHABET_SUFFIXES: string[] = [
+  'k', 't', 'g', 'm', 'b', 'h', 'a', 'd', 's', 'w', 'r', 'e', 'y', 'f', 'l', 'z', 'n', 'j',
+  'alex', 'pro', 'eth', 'ethio', 'star', 'king', 'vip', 'one', 'habesha', 'boss',
+  'gold', 'plus', 'top', 'real', 'best', 'jr', 'bro', 'tse', 'official', 'tg',
+  'boy', 'love', 'win', 'cool', 'max', 'fast', 'lion', 'hero'
 ];
 
 export const INITIAL_LETTERS: string[] = ['k', 't', 'g', 'm', 'b', 'h', 'a', 'd', 's', 'w', 'r', 'e', 'y', 'f', 'l'];
@@ -50,32 +57,46 @@ export function isGirlBotUsername(username: string): boolean {
 }
 
 /**
- * Generates realistic Telegram-style usernames mixed with numbers.
- * Enforces ~75% boy names and ~25% girl names.
+ * Generates realistic Telegram-style usernames:
+ * - ~40% after '_' use number (e.g. abebe_21, selam_88, yonas_99)
+ * - ~40% after '_' also alphabet/word (e.g. abebe_alex, selam_t, dawit_pro)
+ * - ~20% hasn't '_' (e.g. abebe, dani77, solomon, henok10)
+ * Enforces ~95% boy names and ~5% girl names (predominantly boys as requested).
  */
 export function generateRealisticBotUsername(index: number, seed: number): string {
-  // 95% Ethiopian boy names, 5% Ethiopian girl names (as requested: most of the time almost all boys)
+  // ~95% Ethiopian boy names, ~5% Ethiopian girl names
   const isBoy = ((index * 37 + Math.abs(seed)) % 100) < 95;
-  const nameBase = isBoy
-    ? ETHIOPIAN_BOY_NAMES[(index * 13 + Math.abs(seed % 97)) % ETHIOPIAN_BOY_NAMES.length].toLowerCase()
-    : ETHIOPIAN_GIRL_NAMES[(index * 17 + Math.abs(seed % 53)) % ETHIOPIAN_GIRL_NAMES.length].toLowerCase();
+  const rawName = isBoy
+    ? ETHIOPIAN_BOY_NAMES[(index * 13 + Math.abs(seed % 97)) % ETHIOPIAN_BOY_NAMES.length]
+    : ETHIOPIAN_GIRL_NAMES[(index * 17 + Math.abs(seed % 53)) % ETHIOPIAN_GIRL_NAMES.length];
+
+  // Natural mix of lowercase and capitalized first-letter handles
+  const shouldCapitalize = ((index * 19 + Math.abs(seed % 41)) % 10) < 4;
+  const nameBase = shouldCapitalize
+    ? rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase()
+    : rawName.toLowerCase();
 
   const num = REALISTIC_NUMBER_SUFFIXES[(index * 7 + Math.abs(seed % 31)) % REALISTIC_NUMBER_SUFFIXES.length];
-  const letter = INITIAL_LETTERS[(index * 11 + Math.abs(seed % 17)) % INITIAL_LETTERS.length];
-  const style = (index + Math.abs(seed)) % 4;
+  const alpha = REALISTIC_ALPHABET_SUFFIXES[(index * 11 + Math.abs(seed % 29)) % REALISTIC_ALPHABET_SUFFIXES.length];
 
-  if (style === 0) {
-    // e.g. abebe_21, yonas_99
+  // Distribution:
+  // style < 4 (40%): after '_' use number
+  // style < 8 (40%): after '_' use alphabet
+  // style >= 8 (20%): hasn't '_'
+  const style = Math.abs((index * 23 + seed * 17 + 5)) % 10;
+
+  if (style < 4) {
+    // 40%: After _ use number (e.g. abebe_21, selam_7, yonas_99)
     return `${nameBase}_${num}`;
-  } else if (style === 1) {
-    // e.g. dani77, samuel24
-    return `${nameBase}${num}`;
-  } else if (style === 2) {
-    // e.g. dawit_g24, henok_k7
-    return `${nameBase}_${letter}${num}`;
+  } else if (style < 8) {
+    // 40%: After _ use alphabet / word (e.g. abebe_alex, selam_t, dawit_pro)
+    return `${nameBase}_${alpha}`;
+  } else if (style === 8) {
+    // 10%: No underscore — pure name (e.g. abebe, solomon, selam)
+    return nameBase;
   } else {
-    // e.g. robel_07, selam_23
-    return `${nameBase}_${num}`;
+    // 10%: No underscore — name with number directly (e.g. dani77, henok24, selam88)
+    return `${nameBase}${num}`;
   }
 }
 
@@ -102,12 +123,14 @@ export function formatDisplayPlayerId(userId?: string | null): string {
  * Sanitizes a winner record so it is safe to send to clients:
  * - Strips any internal `bot_` prefix from userId
  * - Ensures username never contains the raw `bot_` userId
+ * - Fallbacks dynamically generate realistic mixed usernames
  */
 export function sanitizeWinnerForDisplay(winner: WinnerRecord): WinnerRecord {
-  let cleanUsername = String(winner.username || 'Abebe_21').trim();
+  let cleanUsername = String(winner.username || '').trim();
   cleanUsername = cleanUsername.replace(/^@?bot_/i, '').replace(/^@?bot/i, '');
   if (!cleanUsername || cleanUsername.toLowerCase() === 'player') {
-    cleanUsername = 'Abebe_21';
+    const seedVal = Math.abs(hashString(winner.userId || String(winner.cardNumber || 'winner')));
+    cleanUsername = generateRealisticBotUsername(seedVal % 300, seedVal);
   }
 
   let cleanUserId = formatDisplayPlayerId(winner.userId);
@@ -126,18 +149,18 @@ export function sanitizeWinnerForDisplay(winner: WinnerRecord): WinnerRecord {
 }
 
 export const ETHIOPIAN_BOT_NAMES: string[] = [
+  // 1: after _ use number
   'abebe_21', 'yonas_99', 'selam_07', 'dani_77', 'dawit_24',
   'samuel_11', 'meron_23', 'henok_88', 'biruk_12', 'natnael_04',
-  'tigist_19', 'eyob_7', 'fitsum_14', 'robel_27', 'sara_33',
-  'ermias_55', 'kidus_01', 'solomon_44', 'lidya_80', 'binyam_25',
-  'yared_95', 'ashenafi_17', 'zelalem_89', 'surafel_08', 'rahel_10',
-  'tewodros_24', 'kirubel_90', 'nahom_33', 'abel_07', 'kalab_55',
-  'leul_98', 'bereket_21', 'tariku_14', 'mikael_77', 'ruth_11',
-  'dagim_02', 'tedros_2024', 'alemu_88', 'kebede_44', 'bethel_25',
-  'muluken_99', 'fasil_17', 'abiy_01', 'amanuel_12', 'mikiyas_7',
-  'tadesse_23', 'sisay_80', 'haile_95', 'anteneh_33', 'eden_22',
-  'mengistu_55', 'kassahun_10', 'getachew_89', 'tadele_04', 'tsion_14',
-  'yohannes_27', 'desta_77', 'girma_19', 'tamirat_90', 'hiwot_08'
+  'eyob_7', 'fitsum_14', 'robel_27', 'solomon_44', 'yared_95',
+  // 2: after _ use alphabet / word
+  'abebe_alex', 'yonas_pro', 'selam_t', 'dani_eth', 'dawit_habesha',
+  'samuel_star', 'meron_k', 'henok_vip', 'biruk_ethio', 'natnael_gold',
+  'eyob_b', 'fitsum_top', 'robel_m', 'solomon_king', 'yared_official',
+  // 3: hasn't _
+  'Abebe', 'Yonas77', 'Selam', 'Dani99', 'Dawit',
+  'Samuel24', 'Meron', 'Henok10', 'Biruk', 'Natnael',
+  'Eyob88', 'Fitsum', 'Robel', 'Solomon2024', 'Yared'
 ];
 
 const SPECIAL_PRESET_CARDS = [
@@ -252,10 +275,18 @@ export function generateBotCards(
   const seed = roundSeed ?? Date.now();
 
   for (let i = 0; i < count; i++) {
-    // Pick realistic Telegram bot username mixed with numbers (~75% boy names, ~25% girl names)
+    // Pick realistic Telegram bot username with mixed styles
     let botName = generateRealisticBotUsername(i, seed);
     if (usedNames.has(botName)) {
-      botName = `${botName}_${(i % 89) + 10}`;
+      const collisionStyle = (i + Math.abs(seed)) % 3;
+      if (collisionStyle === 0) {
+        botName = `${botName}_${(i % 89) + 10}`;
+      } else if (collisionStyle === 1) {
+        const letter = INITIAL_LETTERS[(i + Math.abs(seed)) % INITIAL_LETTERS.length];
+        botName = `${botName}_${letter}`;
+      } else {
+        botName = `${botName}${(i % 89) + 10}`;
+      }
     }
     usedNames.add(botName);
     const botUserId = `bot_${botName.toLowerCase().replace(/[^a-z0-9_]/g, '')}`;
