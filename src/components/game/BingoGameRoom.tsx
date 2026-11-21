@@ -1545,16 +1545,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 </div>
               </div>
 
-              {/* ENTRY PRICE */}
-              <div className="text-center">
-                <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                  {language === 'am' ? 'ዋጋ' : 'PRICE'}
-                </div>
-                <div className="text-sm sm:text-base font-black text-slate-900 font-mono leading-tight whitespace-nowrap">
-                  {formatETB(currentGame.entryPrice || 10)}
-                </div>
-              </div>
-
               {/* PLAYERS */}
               <div className="text-center">
                 <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
