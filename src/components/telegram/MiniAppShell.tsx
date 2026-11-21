@@ -1536,23 +1536,23 @@ function WeekendLotteryNumberPicker({
       {/* Light top stats card: SOLD | AVAILABLE | STAKE | DERASH */}
       <div className="mx-2 mt-2 flex items-stretch rounded-2xl overflow-hidden bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100 text-slate-900 shadow-xs border border-amber-200 shrink-0">
         <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-200">
-          <span className="text-[9px] font-black uppercase tracking-widest text-rose-600 leading-none">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-950 leading-none">
             {isAm ? 'የተሸጠ' : 'Sold'}
           </span>
-          <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-rose-700">
+          <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-slate-950">
             {soldSet.size}
           </span>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-200">
-          <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 leading-none">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-950 leading-none">
             {isAm ? 'ነፃ' : 'Available'}
           </span>
-          <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-emerald-800">
+          <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-slate-950">
             {TOTAL_NUMBERS - soldSet.size}
           </span>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center py-2 px-1 border-r border-amber-200">
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 leading-none">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-950 leading-none">
             {isAm ? 'ዋጋ' : 'Stake'}
           </span>
           <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-slate-950">
