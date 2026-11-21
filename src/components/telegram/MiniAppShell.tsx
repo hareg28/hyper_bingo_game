@@ -1561,10 +1561,10 @@ function WeekendLotteryNumberPicker({
         </div>
         {showDerash && (
           <div className="flex-1 flex flex-col items-center justify-center py-2 px-1">
-            <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 leading-none">
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-950 leading-none">
               {isAm ? 'ደርሻ' : 'Derash'}
             </span>
-            <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-amber-800">
+            <span className="text-base font-black leading-tight mt-0.5 tabular-nums text-slate-950">
               {formatETB(derash)}
             </span>
           </div>
