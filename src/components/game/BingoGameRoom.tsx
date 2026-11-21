@@ -1523,17 +1523,6 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
               >
                 <ChevronLeft className="w-4.5 h-4.5" />
               </button>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black text-slate-900 tracking-tight">
-                  {isWeekendGame ? '🌟 ' : isSpecialGame ? '🎲 ' : '⚡ '}
-                  {isWeekendGame
-                    ? (language === 'am' ? 'ሃይፐር ዊክኤንድ' : 'HYPER WEEKEND')
-                    : isSpecialGame
-                      ? (language === 'am' ? 'ሃይፐር ስፔሻል' : 'HYPER SPECIAL')
-                      : (language === 'am' ? 'ሃይፐር ፈጣን' : 'HYPER FETAN')}{' '}
-                  <span className="tracking-widest">BINGO</span>
-                </span>
-              </div>
             </div>
             {/* Top row stats: DERASH | BALLS | PLAYERS */}
             <div className="flex items-center justify-between gap-1 sm:gap-2 px-1">
@@ -1615,6 +1604,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   ? `ራስ-ሰር ${autoMarkEnabled ? 'አብራ' : 'ጠፍቷል'}`
                   : `Auto Mark ${autoMarkEnabled ? 'On' : 'Off'}`}
               </button>
+              <span className="ml-auto text-[10px] font-black text-emerald-600 whitespace-nowrap">{formatETB(currentGame.entryPrice || 10)}</span>
 
             </div>
 
