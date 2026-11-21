@@ -60,7 +60,7 @@ export function isGirlBotUsername(username: string): boolean {
  * Generates realistic Telegram-style usernames:
  * - ~40% after '_' use number (e.g. abebe_21, selam_88, yonas_99)
  * - ~40% after '_' also alphabet/word (e.g. abebe_alex, selam_t, dawit_pro)
- * - ~20% hasn't '_' (e.g. abebe, dani77, solomon, henok10)
+ * - 20% without '_' just pure @name with NO numbers (e.g. abebe, solomon, selam, dawit, henok)
  * Enforces ~95% boy names and ~5% girl names (predominantly boys as requested).
  */
 export function generateRealisticBotUsername(index: number, seed: number): string {
@@ -82,7 +82,7 @@ export function generateRealisticBotUsername(index: number, seed: number): strin
   // Distribution:
   // style < 4 (40%): after '_' use number
   // style < 8 (40%): after '_' use alphabet
-  // style >= 8 (20%): hasn't '_'
+  // style >= 8 (20%): without '_' just pure name (NOT including numbers)
   const style = Math.abs((index * 23 + seed * 17 + 5)) % 10;
 
   if (style < 4) {
@@ -91,12 +91,9 @@ export function generateRealisticBotUsername(index: number, seed: number): strin
   } else if (style < 8) {
     // 40%: After _ use alphabet / word (e.g. abebe_alex, selam_t, dawit_pro)
     return `${nameBase}_${alpha}`;
-  } else if (style === 8) {
-    // 10%: No underscore — pure name (e.g. abebe, solomon, selam)
-    return nameBase;
   } else {
-    // 10%: No underscore — name with number directly (e.g. dani77, henok24, selam88)
-    return `${nameBase}${num}`;
+    // 20%: Without _ just name (NO numbers) (e.g. abebe, solomon, selam, dawit, henok)
+    return nameBase;
   }
 }
 
@@ -149,18 +146,18 @@ export function sanitizeWinnerForDisplay(winner: WinnerRecord): WinnerRecord {
 }
 
 export const ETHIOPIAN_BOT_NAMES: string[] = [
-  // 1: after _ use number
+  // 1: after _ use number (~40%)
   'abebe_21', 'yonas_99', 'selam_07', 'dani_77', 'dawit_24',
   'samuel_11', 'meron_23', 'henok_88', 'biruk_12', 'natnael_04',
   'eyob_7', 'fitsum_14', 'robel_27', 'solomon_44', 'yared_95',
-  // 2: after _ use alphabet / word
+  // 2: after _ use alphabet / word (~40%)
   'abebe_alex', 'yonas_pro', 'selam_t', 'dani_eth', 'dawit_habesha',
   'samuel_star', 'meron_k', 'henok_vip', 'biruk_ethio', 'natnael_gold',
   'eyob_b', 'fitsum_top', 'robel_m', 'solomon_king', 'yared_official',
-  // 3: hasn't _
-  'Abebe', 'Yonas77', 'Selam', 'Dani99', 'Dawit',
-  'Samuel24', 'Meron', 'Henok10', 'Biruk', 'Natnael',
-  'Eyob88', 'Fitsum', 'Robel', 'Solomon2024', 'Yared'
+  // 3: 20% without _ just @name not include number
+  'Abebe', 'Yonas', 'Selam', 'Dani', 'Dawit',
+  'Samuel', 'Meron', 'Henok', 'Biruk', 'Natnael',
+  'Eyob', 'Fitsum', 'Robel', 'Solomon', 'Yared'
 ];
 
 const SPECIAL_PRESET_CARDS = [
@@ -278,14 +275,27 @@ export function generateBotCards(
     // Pick realistic Telegram bot username with mixed styles
     let botName = generateRealisticBotUsername(i, seed);
     if (usedNames.has(botName)) {
-      const collisionStyle = (i + Math.abs(seed)) % 3;
-      if (collisionStyle === 0) {
-        botName = `${botName}_${(i % 89) + 10}`;
-      } else if (collisionStyle === 1) {
-        const letter = INITIAL_LETTERS[(i + Math.abs(seed)) % INITIAL_LETTERS.length];
-        botName = `${botName}_${letter}`;
+      if (!botName.includes('_')) {
+        // Pure name without underscore or number: pick another clean Ethiopian name
+        let alt = '';
+        for (let attempt = 1; attempt <= 20; attempt++) {
+          const candidate = (attempt % 2 === 0)
+            ? ETHIOPIAN_GIRL_NAMES[(i * 17 + attempt * 7 + Math.abs(seed)) % ETHIOPIAN_GIRL_NAMES.length]
+            : ETHIOPIAN_BOY_NAMES[(i * 13 + attempt * 11 + Math.abs(seed)) % ETHIOPIAN_BOY_NAMES.length];
+          if (!usedNames.has(candidate)) {
+            alt = candidate;
+            break;
+          }
+        }
+        botName = alt || `${botName}_${INITIAL_LETTERS[(i + Math.abs(seed)) % INITIAL_LETTERS.length]}`;
       } else {
-        botName = `${botName}${(i % 89) + 10}`;
+        const collisionStyle = (i + Math.abs(seed)) % 2;
+        if (collisionStyle === 0) {
+          botName = `${botName}_${(i % 89) + 10}`;
+        } else {
+          const letter = INITIAL_LETTERS[(i + Math.abs(seed)) % INITIAL_LETTERS.length];
+          botName = `${botName}_${letter}`;
+        }
       }
     }
     usedNames.add(botName);
