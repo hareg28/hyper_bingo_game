@@ -168,10 +168,17 @@
 }
 .tg-container.theme-dark .text-slate-900,
 .tg-container.theme-dark .text-slate-800 { color: #e2e8f0 !important; }
-.tg-container.theme-dark .game-room-back-button { color: #7c2d12 !important; }
+.tg-container.theme-dark .game-room-back-button { color: #fcd34d !important; }
 .tg-container.theme-dark .text-slate-700,
 .tg-container.theme-dark .text-slate-600,
 .tg-container.theme-dark .text-slate-500 { color: #c3d1e2 !important; }
+/* Accent text chosen for light cards needs a brighter shade on dark surfaces.
+   Preserve text on colored buttons and badges, where dark text is intentional. */
+.tg-container.theme-dark :is(.text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900, .text-orange-600, .text-orange-700, .text-orange-800, .text-orange-900):not([class*="bg-"]) { color: #fcd34d !important; }
+.tg-container.theme-dark :is(.text-emerald-600, .text-emerald-700, .text-emerald-800, .text-emerald-900, .text-green-600, .text-green-700, .text-green-800, .text-green-900, .text-teal-600, .text-teal-700, .text-teal-800, .text-teal-900):not([class*="bg-"]) { color: #6ee7b7 !important; }
+.tg-container.theme-dark :is(.text-blue-600, .text-blue-700, .text-blue-800, .text-blue-900, .text-indigo-600, .text-indigo-700, .text-indigo-800, .text-indigo-900):not([class*="bg-"]) { color: #93c5fd !important; }
+.tg-container.theme-dark :is(.text-purple-600, .text-purple-700, .text-purple-800, .text-purple-900, .text-violet-600, .text-violet-700, .text-violet-800, .text-violet-900):not([class*="bg-"]) { color: #d8b4fe !important; }
+.tg-container.theme-dark :is(.text-rose-600, .text-rose-700, .text-rose-800, .text-rose-900, .text-red-600, .text-red-700, .text-red-800, .text-red-900):not([class*="bg-"]) { color: #fda4af !important; }
 .tg-container.theme-dark .special-rule-header .text-indigo-700,
 .tg-container.theme-dark .special-rule-header .text-indigo-800 { color: #d8b4fe !important; }
 .tg-container.theme-dark .special-rule-header .text-slate-950 { color: #f1f5f9 !important; }
