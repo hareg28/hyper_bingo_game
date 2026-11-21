@@ -1603,7 +1603,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   ? `ራስ-ሰር ${autoMarkEnabled ? 'አብራ' : 'ጠፍቷል'}`
                   : `Auto Mark ${autoMarkEnabled ? 'On' : 'Off'}`}
               </button>
-              <span className="ml-auto text-[10px] font-black text-emerald-600 whitespace-nowrap">{formatETB(currentGame.entryPrice || 10)}</span>
+              <span className="ml-2 text-[10px] font-black text-emerald-600 whitespace-nowrap">{formatETB(currentGame.entryPrice || 10)}</span>
 
             </div>
 
