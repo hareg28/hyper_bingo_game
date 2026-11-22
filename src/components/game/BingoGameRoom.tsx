@@ -36,7 +36,7 @@ import confetti from 'canvas-confetti';
 import SharedCountdownText from './SharedCountdownText';
 import CardNumberSelector from './CardNumberSelector';
 import { isAdminTelegramId } from '../../lib/authUtils';
-import { formatDisplayPlayerId } from '../../lib/botPlayers';
+import { formatDisplayPlayerId, formatWinnerDisplayName } from '../../lib/botPlayers';
 import { audioManager } from '../../lib/audioManager';
 import { isMiniAppActive, subscribeToMiniAppActivity } from '../../lib/miniAppActivity';
 
@@ -671,9 +671,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       .map((winner) => Date.parse(winner.claimedAt || ''))
       .filter(Number.isFinite)
       .reduce((latest, claimedAt) => Math.max(latest, claimedAt), 0);
-    const weekendStart = isWeekendGame ? getWeekendScheduledStartAt(currentGame) : null;
     const deadline = isWeekendGame
-      ? (weekendStart ?? currentGame.roundStartedAt ?? Date.now()) + WEEKEND_ROUND_SECONDS * 1000
+      ? (latestClaim > 0 ? latestClaim + 30_000 : Date.now() + 30_000)
       : latestClaim > 0 ? latestClaim + 10_000 : Date.now() + 10_000;
     let completed = false;
     const update = () => {
@@ -685,7 +684,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
       completed = true;
       clearInterval(timer);
       setShowWinnerModal(false);
-      if (isWeekendGame) return;
+      if (isWeekendGame) {
+        if (openLotteryTabRef.current) {
+          openLotteryTabRef.current();
+        }
+        return;
+      }
       resetGameRoundRef.current(currentGame.id);
       if (isSpecialGame) {
         // Special card purchases stay on the room's plus picker during its
@@ -1979,11 +1983,11 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 <div className="text-xs font-black truncate leading-tight">
                   {currentGame.winners.length >= 2
                     ? (language === 'am'
-                      ? `${currentGame.winners.length} የጋራ አሸናፊዎች (ደራሽ ተካፍሏል): ${currentGame.winners.map(w => `@${w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}`).join(' እና ')} (${formatETB(currentGame.winners[0].prizeWon)} እያንዳንዳቸው)!`
-                      : `${currentGame.winners.length} Shared Winners (Split Derash): ${currentGame.winners.map(w => `@${w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}`).join(' & ')} (${formatETB(currentGame.winners[0].prizeWon)} each)!`)
+                      ? `${currentGame.winners.length} የጋራ አሸናፊዎች (ደራሽ ተካፍሏል): ${currentGame.winners.map(w => formatWinnerDisplayName(w.username)).join(' እና ')} (${formatETB(currentGame.winners[0].prizeWon)} እያንዳንዳቸው)!`
+                      : `${currentGame.winners.length} Shared Winners (Split Derash): ${currentGame.winners.map(w => formatWinnerDisplayName(w.username)).join(' & ')} (${formatETB(currentGame.winners[0].prizeWon)} each)!`)
                     : (language === 'am'
-                      ? `አሸናፊ: @${currentGame.winners[currentGame.winners.length - 1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} · የካርድ ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)} አሸንፏል!`
-                      : `Winner: @${currentGame.winners[currentGame.winners.length - 1].username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} · Card ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — WON ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)}!`)}
+                      ? `አሸናፊ: ${formatWinnerDisplayName(currentGame.winners[currentGame.winners.length - 1].username)} · የካርድ ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)} አሸንፏል!`
+                      : `Winner: ${formatWinnerDisplayName(currentGame.winners[currentGame.winners.length - 1].username)} · Card ID #${currentGame.winners[currentGame.winners.length - 1].cardNumber || ''} — WON ${formatETB(currentGame.winners[currentGame.winners.length - 1].prizeWon)}!`)}
                 </div>
               </div>
             </div>
@@ -2039,12 +2043,12 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       <span>
                         {currentGame.winners && currentGame.winners.length >= 2
                           ? (language === 'am'
-                            ? `🎉 ${currentGame.winners.length} የጋራ አሸናፊዎች (Shared): ${currentGame.winners.map(w => `@${w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${w.cardNumber})`).join(' & ')}!`
-                            : `🎉 ${currentGame.winners.length} SHARED WINNERS: ${currentGame.winners.map(w => `@${w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${w.cardNumber})`).join(' & ')}!`)
+                            ? `🎉 ${currentGame.winners.length} የጋራ አሸናፊዎች (Shared): ${currentGame.winners.map(w => `${formatWinnerDisplayName(w.username)} (ID #${w.cardNumber})`).join(' & ')}!`
+                            : `🎉 ${currentGame.winners.length} SHARED WINNERS: ${currentGame.winners.map(w => `${formatWinnerDisplayName(w.username)} (ID #${w.cardNumber})`).join(' & ')}!`)
                           : latestWinner
                             ? (language === 'am'
-                              ? `🎉 ቢንጎ አሸናፊ: @${latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`
-                              : `🎉 BINGO WINNER: @${latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`)
+                              ? `🎉 ቢንጎ አሸናፊ: ${formatWinnerDisplayName(latestWinner.username)} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`
+                              : `🎉 BINGO WINNER: ${formatWinnerDisplayName(latestWinner.username)} (ID #${latestWinner.cardNumber || formatDisplayPlayerId(latestWinner.userId).slice(-5)})!`)
                             : (isSpecialGame
                               ? (language === 'am' ? 'የስፔሻል ዙር ተጠናቋል!' : 'Hyper Special Round Finished!')
                               : (language === 'am' ? 'ዙሩ ተጠናቋል!' : 'Round Finished!'))
@@ -2061,7 +2065,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                       ) : null}
                       <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-mono font-black animate-pulse">
                         {isWeekendGame
-                          ? `⏳ ${announcementSecondsLeft}s ${language === 'am' ? 'ጨዋታው እስኪያልቅ...' : 'until weekend game ends...'}`
+                          ? `⏳ ${announcementSecondsLeft}s ${language === 'am' ? 'ወደ ካርድ መግዣ...' : 'to card purchasing...'}`
                           : `⏳ ${announcementSecondsLeft}s ${language === 'am' ? 'ወደ ካርድ መግዣ...' : 'to card board...'}`}
                       </span>
                     </div>
@@ -3061,7 +3065,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                           {language === 'am' ? `አሸናፊ #${idx + 1}` : `Winner #${idx + 1}`}
                         </div>
                         <div className="font-black text-white text-xs truncate">
-                          @{w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
+                          {formatWinnerDisplayName(w.username)}
                         </div>
                         <div className="text-[10px] text-slate-300 font-mono">
                           Card #{w.cardNumber}
@@ -3079,7 +3083,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     {language === 'am' ? '🎉 ቢንጎ አሸናፊ ይፋ ሆነ! 🎉' : '🎉 BINGO WINNER ANNOUNCED! 🎉'}
                   </h3>
                   <p className="text-2xl font-black text-white tracking-wide">
-                    @{latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}
+                    {formatWinnerDisplayName(latestWinner.username)}
                   </p>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-black">
                     <span>{language === 'am' ? 'የተጠቃሚ ID ቁጥር' : 'Winner ID #'}:</span>
@@ -3094,7 +3098,7 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                     <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                       <span className="text-slate-300 font-bold">{language === 'am' ? 'አሸናፊዎች (Winners):' : 'Winners:'}</span>
                       <span className="font-black text-amber-300 text-xs text-right truncate max-w-[200px]">
-                        {currentGame.winners.map(w => `@${w.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}`).join(' & ')}
+                        {currentGame.winners.map(w => formatWinnerDisplayName(w.username)).join(' & ')}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
@@ -3113,8 +3117,8 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                 ) : (
                   <>
                     <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
-                      <span className="text-slate-300 font-bold">{language === 'am' ? 'የተጠቃሚ ስም (Username):' : 'Username:'}</span>
-                      <span className="font-black text-amber-300 text-sm">@{latestWinner.username.replace(/^@?bot_/i, '').replace(/^@?bot/i, '')}</span>
+                      <span className="text-slate-300 font-bold">{language === 'am' ? 'የአሸናፊው ስም (Name):' : 'Winner Name:'}</span>
+                      <span className="font-black text-amber-300 text-sm">{formatWinnerDisplayName(latestWinner.username)}</span>
                     </div>
                     <div className="flex items-center justify-between text-xs border-b border-white/10 pb-1.5">
                       <span className="text-slate-300 font-bold">{language === 'am' ? 'የካርድ ID ቁጥር (Card ID #):' : 'Card ID #:'}</span>
@@ -3241,7 +3245,9 @@ export default function BingoGameRoom({ gameId, onBack, onChangeGameId, onOpenLo
                   className={`w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 font-black text-xs transition shadow-md flex items-center justify-center gap-1.5 ${isWeekendGame && announcementSecondsLeft > 0 ? 'opacity-70 cursor-not-allowed' : 'hover:brightness-105 cursor-pointer'}`}
                 >
                   <span>{isWeekendGame
-                    ? `⏳ ${language === 'am' ? `ካርድ ለመግዛት ${announcementSecondsLeft} ሰከንድ ይጠብቁ` : `Wait ${announcementSecondsLeft}s for card purchasing`}`
+                    ? (announcementSecondsLeft > 0
+                        ? `⏳ ${language === 'am' ? `ካርድ ለመግዛት ${announcementSecondsLeft} ሰከንድ ይጠብቁ` : `Wait ${announcementSecondsLeft}s for card purchasing`}`
+                        : `🎟️ ${language === 'am' ? 'ካርድ ይግዙ' : 'Purchase Cards'}`)
                     : `🎮 ${isSpecialGame ? (language === 'am' ? `ቀጣይ ዙር (${announcementSecondsLeft}s)` : `Play Next Round (${announcementSecondsLeft}s)`) : (language === 'am' ? `ቀጣይ ዙር ይጫወቱ (${announcementSecondsLeft}s)` : `Play Next Round (${announcementSecondsLeft}s)`)}`}</span>
                 </button>
                 <div className="flex items-center gap-2">

@@ -4,7 +4,7 @@ import { isAdminTelegramId } from '@/lib/authUtils';
 import { INITIAL_GAMES } from '@/lib/store';
 import { getWeekendDayLabel, getWeekendRoundKey } from '@/lib/bingoUtils';
 import { FETAN_BALL_INTERVAL_MS, SPECIAL_BALL_INTERVAL_MS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS, generateSeededBingoCardMatrix, getBestWinningRule, checkOneAwayStatus } from '@/lib/bingoUtils';
-import { checkAndTriggerBotWin, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
+import { checkAndTriggerBotWin, formatWinnerDisplayName, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
 import { notifyUsersTelegram } from '@/lib/adminNotifications';
 
 function parseIntegerArray(value: unknown): number[] {
@@ -205,10 +205,10 @@ export async function POST(req: NextRequest) {
       const fetanReached2Minutes = isFetan && (updatedDrawn.length >= 22 || elapsedMs >= 2 * 60 * 1000);
       // Special: plays up to ~8 minutes (~48 balls at 9.6s/ball) unless human is close to winning
       const specialReached8Minutes = isSpecial && (updatedDrawn.length >= 48 || elapsedMs >= 8 * 60 * 1000);
-      // Weekend: plays 6–7 minutes (~46 balls at 8s/ball) unless human is close to winning
-      const weekendReached6to7Minutes = isWeekend && (updatedDrawn.length >= 46 || elapsedMs >= 6 * 60 * 1000);
+      // Weekend: plays up to ~50 balls without announcing a winner if no human is close to winning
+      const weekendReached50Balls = isWeekend && updatedDrawn.length >= 50;
 
-      const forceNow = humanCloseToWin || fetanReached2Minutes || specialReached8Minutes || weekendReached6to7Minutes;
+      const forceNow = humanCloseToWin || fetanReached2Minutes || specialReached8Minutes || weekendReached50Balls;
       botWinner = await checkAndTriggerBotWin(
         sql,
         { ...game, drawn_numbers: updatedDrawn, current_ball: nextBall },
@@ -223,13 +223,13 @@ export async function POST(req: NextRequest) {
         const derash = Number(gRow?.prize_pool || botWinner.prizeWon || 0);
         const gWinners = Array.isArray(gRow?.winners) ? gRow.winners : [];
         if (gWinners.length >= 2) {
-          const namesStr = gWinners.map((w: any) => `@${w.username} (Card #${w.cardNumber})`).join(' & ');
+          const namesStr = gWinners.map((w: any) => `${formatWinnerDisplayName(w.username)} (Card #${w.cardNumber})`).join(' & ');
           await notifyUsersTelegram(
             `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNERS (SHARED DERASH)! ${namesStr}. Derash: ${derash} ETB. Payout: ${gWinners[0]?.prizeWon} ETB each.`,
           );
         } else {
           await notifyUsersTelegram(
-            `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber}. Derash: ${derash} ETB. Payout: ${botWinner.prizeWon} ETB.`,
+            `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNER! ${formatWinnerDisplayName(botWinner.username)} won Card #${botWinner.cardNumber}. Derash: ${derash} ETB. Payout: ${botWinner.prizeWon} ETB.`,
           );
         }
       }

@@ -98,6 +98,25 @@ export function generateRealisticBotUsername(index: number, seed: number): strin
 }
 
 /**
+ * Formats a raw bot or player username into a clean, proper Ethiopian first name
+ * for public winner announcements across all games (e.g. '@abel_1' -> 'Abel', '@Kidus_19' -> 'Kidus',
+ * '@tedros_s' -> 'Tedros', 'dani_eth' -> 'Dani', 'selam_07' -> 'Selam', 'dani77' -> 'Dani').
+ */
+export function formatWinnerDisplayName(rawName?: string | null): string {
+  if (!rawName) return 'Abel';
+  let clean = String(rawName).trim();
+  clean = clean.replace(/^@?bot_/i, '').replace(/^@/i, '').trim();
+  if (clean.includes('_')) {
+    clean = clean.split('_')[0].trim();
+  }
+  clean = clean.replace(/\d+$/, '').trim();
+  if (clean.length > 0) {
+    return clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
+  }
+  return 'Abel';
+}
+
+/**
  * Formats a player or bot user ID for public display, ensuring bot IDs
  * look like realistic 9-digit numeric Telegram user IDs (e.g. 682914023)
  * without ever exposing internal 'bot_' prefixes.
@@ -119,16 +138,17 @@ export function formatDisplayPlayerId(userId?: string | null): string {
 /**
  * Sanitizes a winner record so it is safe to send to clients:
  * - Strips any internal `bot_` prefix from userId
- * - Ensures username never contains the raw `bot_` userId
+ * - Displays clean Ethiopian first name (e.g. 'Abel', 'Kidus', 'Tedros') instead of usernames like '@abel_1'
  * - Fallbacks dynamically generate realistic mixed usernames
  */
 export function sanitizeWinnerForDisplay(winner: WinnerRecord): WinnerRecord {
   let cleanUsername = String(winner.username || '').trim();
-  cleanUsername = cleanUsername.replace(/^@?bot_/i, '').replace(/^@?bot/i, '');
+  cleanUsername = cleanUsername.replace(/^@?bot_/i, '').replace(/^@/i, '');
   if (!cleanUsername || cleanUsername.toLowerCase() === 'player') {
     const seedVal = Math.abs(hashString(winner.userId || String(winner.cardNumber || 'winner')));
     cleanUsername = generateRealisticBotUsername(seedVal % 300, seedVal);
   }
+  const displayUsername = formatWinnerDisplayName(cleanUsername);
 
   let cleanUserId = formatDisplayPlayerId(winner.userId);
   if (cleanUserId.startsWith('bot_')) {
@@ -139,7 +159,7 @@ export function sanitizeWinnerForDisplay(winner: WinnerRecord): WinnerRecord {
 
   return {
     ...winner,
-    username: cleanUsername,
+    username: displayUsername,
     userId: cleanUserId,
     pattern: cleanPattern,
   };
@@ -396,9 +416,8 @@ export function getTargetWinningBall(
     return 48 + (seed % 4);
   }
   if (isWeekend) {
-    // Hyper Weekend: plays for 6–7 minutes if no human is close to winning!
-    // With 8s ball draw interval, 6-7 minutes is 360-420 seconds / 8s = 45-52 balls.
-    return 46 + (seed % 6); // 46..51 balls (~6 to 7 minutes)
+    // Hyper Weekend: plays up to ~50 balls without announcing a winner if no human is close to winning!
+    return 50 + (seed % 4); // 50..53 balls
   }
   return 15 + (seed % 6);
 }
@@ -564,13 +583,13 @@ export async function checkAndTriggerBotWin(
     const targetBall = getTargetWinningBall(game.id, roundStartedAt, category, game.active_special_rule_index);
 
     // Minimum ball check (unless forced immediately, e.g. when human is about to say Bingo)
-    const minSafeBalls = isFetanGame ? 10 : isSpecialGame ? 13 : isWeekendGame ? 18 : 10;
+    const minSafeBalls = isFetanGame ? 10 : isSpecialGame ? 13 : isWeekendGame ? 50 : 10;
     if (!forceImmediate && drawnNumbers.length < minSafeBalls) {
       return null;
     }
 
     // If drawn balls haven't reached the target winning ball yet, continue playing
-    // (Fetan: ~2 min, Special: ~8 min, Weekend: ~6-7 min) UNLESS forced immediately
+    // (Fetan: ~2 min, Special: ~8 min, Weekend: up to ~50 balls) UNLESS forced immediately
     // because a human player is 1 away or completed a pattern (human can never win!).
     if (!forceImmediate && drawnNumbers.length < targetBall) {
       return null;

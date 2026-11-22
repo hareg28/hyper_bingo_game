@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { ensureBlockedPlayersColumn, ensureBuiltinGameRows, ensureCustomBotCountColumn, ensureGameCardPaidColumn, ensureGameDrawTimestampColumn, ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { INITIAL_GAMES } from '@/lib/store';
-import { computeWeekendPrizePool, FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, getNextWeekendDrawAt, getWeekendDayLabel, getWeekendRoundKey, getWeekendScheduledStartAt, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
-import { ensureBotPlayersInDb, checkAndTriggerBotWin, getBotCountForGame, getInitialBotSoldCardNumbers, formatDisplayPlayerId, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
+import { checkOneAwayStatus, computeWeekendPrizePool, FETAN_BALL_INTERVAL_MS, FETAN_PICK_SECONDS, FETAN_ROUND_SECONDS, generateSeededBingoCardMatrix, getBestWinningRule, getNextWeekendDrawAt, getWeekendDayLabel, getWeekendRoundKey, getWeekendScheduledStartAt, HYPER_SPECIAL_PRICE_CYCLE, HYPER_SPECIAL_RULES, SPECIAL_BALL_INTERVAL_MS, SPECIAL_PICK_SECONDS, SPECIAL_ROUND_SECONDS, WEEKEND_BALL_INTERVAL_MS } from '@/lib/bingoUtils';
+import { ensureBotPlayersInDb, checkAndTriggerBotWin, getBotCountForGame, getInitialBotSoldCardNumbers, formatDisplayPlayerId, formatWinnerDisplayName, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
 import { notifyUsersTelegram } from '@/lib/adminNotifications';
 
 let weekendScheduleMigration: Promise<void> | null = null;
@@ -362,19 +362,43 @@ export async function GET() {
             `;
 
             // Most of the time, bot player wins the game if no human has won yet.
-            // When human players are in the room use forceImmediate so a bot wins
-            // before the human could potentially complete a bingo pattern.
-            let humanPresentInGame = false;
+            // When human players are close to winning (1 away or completed pattern),
+            // force an immediate bot win so the human can never win.
+            let humanCloseToWin = false;
             try {
-              const hRows = await sql`SELECT COUNT(*)::int AS count FROM game_cards WHERE game_id = ${game.id} AND user_id NOT LIKE 'bot_%'`;
-              humanPresentInGame = (hRows[0]?.count ?? 0) > 0;
+              const humanCards = await sql`
+                SELECT card_number FROM game_cards
+                WHERE game_id = ${game.id} AND user_id NOT LIKE 'bot_%'
+              `;
+              if (humanCards.length > 0) {
+                const effectiveRuleType = isFetan
+                  ? 'ONE_LINE_OR_CORNERS'
+                  : isWeekend
+                  ? 'FULL_HOUSE_ONLY'
+                  : (game.winning_rule || 'STANDARD');
+                const drawnSet = new Set(nextDrawn);
+                for (const hc of humanCards) {
+                  const num = parseInt(hc.card_number, 10);
+                  if (!Number.isNaN(num) && num > 0) {
+                    const grid = generateSeededBingoCardMatrix(num);
+                    const marked = grid.map((r, rIdx) =>
+                      r.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || drawnSet.has(val))
+                    );
+                    const isWin = Boolean(getBestWinningRule(marked, effectiveRuleType, game.active_special_rule_index));
+                    const oneAway = checkOneAwayStatus(marked, grid, effectiveRuleType, game.active_special_rule_index);
+                    if (isWin || oneAway.isOneAway) {
+                      humanCloseToWin = true;
+                      break;
+                    }
+                  }
+                }
+              }
             } catch {}
             const elapsedMs = game.round_started_at ? (Date.now() - new Date(game.round_started_at).getTime()) : 0;
             const fetanReached2Minutes = isFetan && (nextDrawn.length >= 22 || elapsedMs >= 2 * 60 * 1000);
             const specialReached8Minutes = isSpecial && (nextDrawn.length >= 48 || elapsedMs >= 8 * 60 * 1000);
-            const weekendReached6to7Minutes = isWeekend && (nextDrawn.length >= 46 || elapsedMs >= 6 * 60 * 1000);
-            const shouldForce = (humanPresentInGame && nextDrawn.length >= (isFetan ? 10 : isSpecial ? 13 : 18)) ||
-              fetanReached2Minutes || specialReached8Minutes || weekendReached6to7Minutes;
+            const weekendReached50Balls = isWeekend && nextDrawn.length >= 50;
+            const shouldForce = humanCloseToWin || fetanReached2Minutes || specialReached8Minutes || weekendReached50Balls;
             const botWinner = winners.length === 0
               ? await checkAndTriggerBotWin(sql, game, nextDrawn, nextBall, shouldForce)
               : null;
@@ -385,13 +409,13 @@ export async function GET() {
               const derash = Number(gRow?.prize_pool || botWinner.prizeWon || 0);
               const gWinners = Array.isArray(gRow?.winners) ? gRow.winners : [];
               if (gWinners.length >= 2) {
-                const namesStr = gWinners.map((w: any) => `@${w.username} (Card #${w.cardNumber})`).join(' & ');
+                const namesStr = gWinners.map((w: any) => `${formatWinnerDisplayName(w.username)} (Card #${w.cardNumber})`).join(' & ');
                 await notifyUsersTelegram(
                   `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNERS (SHARED DERASH)! ${namesStr}. Derash: ${derash} ETB. Payout: ${gWinners[0]?.prizeWon} ETB each.`,
                 );
               } else {
                 await notifyUsersTelegram(
-                  `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber}. Derash: ${derash} ETB. Payout: ${botWinner.prizeWon} ETB.`,
+                  `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNER! ${formatWinnerDisplayName(botWinner.username)} won Card #${botWinner.cardNumber}. Derash: ${derash} ETB. Payout: ${botWinner.prizeWon} ETB.`,
                 );
               }
             }
@@ -399,19 +423,43 @@ export async function GET() {
         }
       }
 
-      // Check bot win on ongoing running round (also force when humans are present at safe threshold or time limit reached)
+      // Check bot win on ongoing running round (also force when humans are close to winning or target threshold reached)
       if (game.status === 'RUNNING' && drawn.length >= 10 && winners.length === 0 && game.current_ball) {
-        let humanInOngoing = false;
+        let humanCloseOngoing = false;
         try {
-          const hRows2 = await sql`SELECT COUNT(*)::int AS count FROM game_cards WHERE game_id = ${game.id} AND user_id NOT LIKE 'bot_%'`;
-          humanInOngoing = (hRows2[0]?.count ?? 0) > 0;
+          const humanCards2 = await sql`
+            SELECT card_number FROM game_cards
+            WHERE game_id = ${game.id} AND user_id NOT LIKE 'bot_%'
+          `;
+          if (humanCards2.length > 0) {
+            const effectiveRuleType = isFetan
+              ? 'ONE_LINE_OR_CORNERS'
+              : isWeekend
+              ? 'FULL_HOUSE_ONLY'
+              : (game.winning_rule || 'STANDARD');
+            const drawnSet2 = new Set(drawn);
+            for (const hc of humanCards2) {
+              const num = parseInt(hc.card_number, 10);
+              if (!Number.isNaN(num) && num > 0) {
+                const grid = generateSeededBingoCardMatrix(num);
+                const marked = grid.map((r, rIdx) =>
+                  r.map((val, cIdx) => (rIdx === 2 && cIdx === 2) || drawnSet2.has(val))
+                );
+                const isWin = Boolean(getBestWinningRule(marked, effectiveRuleType, game.active_special_rule_index));
+                const oneAway = checkOneAwayStatus(marked, grid, effectiveRuleType, game.active_special_rule_index);
+                if (isWin || oneAway.isOneAway) {
+                  humanCloseOngoing = true;
+                  break;
+                }
+              }
+            }
+          }
         } catch {}
         const elapsedOngoing = game.round_started_at ? (Date.now() - new Date(game.round_started_at).getTime()) : 0;
         const fetanReached2Min = isFetan && (drawn.length >= 22 || elapsedOngoing >= 2 * 60 * 1000);
         const specialReached8Min = isSpecial && (drawn.length >= 48 || elapsedOngoing >= 8 * 60 * 1000);
-        const weekendReached6to7Min = isWeekend && (drawn.length >= 46 || elapsedOngoing >= 6 * 60 * 1000);
-        const forceOngoing = (humanInOngoing && drawn.length >= (isFetan ? 10 : isSpecial ? 13 : 18)) ||
-          fetanReached2Min || specialReached8Min || weekendReached6to7Min;
+        const weekendReached50BallsOngoing = isWeekend && drawn.length >= 50;
+        const forceOngoing = humanCloseOngoing || fetanReached2Min || specialReached8Min || weekendReached50BallsOngoing;
         const botWinner = await checkAndTriggerBotWin(sql, game, drawn, Number(game.current_ball), forceOngoing);
         if (botWinner && isWeekend) {
           const scheduledWeekend = INITIAL_GAMES.find((candidate) => candidate.id === game.id);
@@ -420,13 +468,13 @@ export async function GET() {
           const derash = Number(gRow2?.prize_pool || botWinner.prizeWon || 0);
           const gWinners2 = Array.isArray(gRow2?.winners) ? gRow2.winners : [];
           if (gWinners2.length >= 2) {
-            const namesStr2 = gWinners2.map((w: any) => `@${w.username} (Card #${w.cardNumber})`).join(' & ');
+            const namesStr2 = gWinners2.map((w: any) => `${formatWinnerDisplayName(w.username)} (Card #${w.cardNumber})`).join(' & ');
             await notifyUsersTelegram(
               `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNERS (SHARED DERASH)! ${namesStr2}. Derash: ${derash} ETB. Payout: ${gWinners2[0]?.prizeWon} ETB each.`,
             );
           } else {
             await notifyUsersTelegram(
-              `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNER! ${botWinner.username || 'A player'} won Card #${botWinner.cardNumber}. Derash: ${derash} ETB. Payout: ${botWinner.prizeWon} ETB.`,
+              `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNER! ${formatWinnerDisplayName(botWinner.username)} won Card #${botWinner.cardNumber}. Derash: ${derash} ETB. Payout: ${botWinner.prizeWon} ETB.`,
             );
           }
         }
