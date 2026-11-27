@@ -5,7 +5,7 @@ import { useBingo } from '../../context/BingoContext';
 import { formatETB, LOTTERY_NUMBERS_TOTAL, LOTTERY_MAX_SLOTS, HYPER_SPECIAL_RULES, computeWeekendPrizePool, getFetanClock, getSpecialPickClock, formatCountdownClock, getNextWeekendDrawAt } from '../../lib/bingoUtils';
 import { 
   Wallet, User as UserIcon, Shield, 
-  Share2, Copy, Check, LogOut, Sparkles, 
+  Share2, Copy, Check, Sparkles,
   ChevronRight, ChevronLeft, Globe, X, Users,
   Gamepad2, Zap, Menu, Moon, Sun
 } from 'lucide-react';
@@ -62,7 +62,6 @@ export default function MiniAppShell({
     resetGameRound,
     promotions, 
     referrals, 
-    logout, 
     joinGame,
     language,
     setLanguage,
@@ -232,9 +231,8 @@ export default function MiniAppShell({
           <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl space-y-4">
             <div className="text-4xl">🔐</div>
             <h1 className="text-xl font-black text-slate-950">Register in the Hyper Bingo Bot</h1>
-            <p className="text-sm leading-relaxed text-slate-600">To access the Mini App, open the bot and tap “Share Contact” to create and verify your account. Already registered? Sign in with your registered phone or Telegram ID.</p>
+            <p className="text-sm leading-relaxed text-slate-600">To access the Mini App, open the bot and continue there. New players can tap “Share Contact” to create and verify an account.</p>
             <a href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'hyper_bingo_bot'}?start=register`} target="_blank" rel="noreferrer" className="block w-full rounded-xl bg-amber-500 px-4 py-3 font-black text-slate-950">Open Bot and Share Contact</a>
-            <button type="button" onClick={() => openAuthModal('login')} className="text-xs font-bold text-indigo-700 underline">Already registered? Sign In</button>
           </div>
         </div>
       )}
@@ -307,15 +305,7 @@ export default function MiniAppShell({
                 <button onClick={() => window.location.reload()} className="text-[10px] text-slate-500 hover:text-slate-700 font-bold block truncate text-left cursor-pointer" title="Tap to refresh app">{t('telegramMiniApp')} v4.1 🔄</button>
               </div>
             </div>
-          ) : (
-            <button
-              onClick={() => openAuthModal('login')}
-              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
-            >
-              <UserIcon className="w-3.5 h-3.5" />
-              <span>{language === 'am' ? 'ወደ አካውንት ግባ' : 'Sign In'}</span>
-            </button>
-          )}
+          ) : <div className="flex-1" />}
 
           <div className="flex items-center gap-1 shrink-0 ml-1">
             {/* Admin Header Shortcut (Only for Admins) */}
@@ -777,12 +767,6 @@ export default function MiniAppShell({
                     <Sparkles className="w-4 h-4" />
                     <span>{language === 'am' ? 'ወደ ቦቱ ይሂዱ • አካውንት ይመዝግቡ' : 'Register in Bot (Share Contact)'}</span>
                   </a>
-                  <button
-                    onClick={() => openAuthModal('login')}
-                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition border border-slate-300 cursor-pointer"
-                  >
-                    {language === 'am' ? 'አካውንት አለኝ • ግባ' : 'Already have an account? Sign In'}
-                  </button>
                   <div className="pt-2 text-center text-[11px] text-slate-500 space-y-0.5">
                     <div>📞 {language === 'am' ? 'የደንበኞች ድጋፍ:' : 'Customer Support:'}</div>
                     <div className="flex items-center justify-center gap-2 font-bold text-amber-600 flex-wrap">
@@ -971,17 +955,6 @@ export default function MiniAppShell({
                   </div>
                 </div>
 
-                {/* Keep sign-out available without the marked visible label. */}
-                <div className="pt-1 flex justify-end">
-                  <button
-                    onClick={logout}
-                    aria-label={language === 'am' ? 'ከአካውንት ውጣ / ቀይር' : 'Sign Out / Switch Account'}
-                    title={language === 'am' ? 'ከአካውንት ውጣ / ቀይር' : 'Sign Out / Switch Account'}
-                    className="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 transition flex items-center justify-center cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4 text-rose-500" />
-                  </button>
-                </div>
               </div>
             )}
           </div>

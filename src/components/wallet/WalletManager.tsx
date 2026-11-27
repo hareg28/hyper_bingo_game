@@ -561,28 +561,6 @@ export default function WalletManager() {
         </div>
       )}
 
-      {/* Sign-in prompt for returning users without an active session */}
-      {!user && (
-        <div className="p-3.5 rounded-2xl bg-amber-50 border-2 border-amber-300 flex items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-amber-200 border border-amber-400 flex items-center justify-center text-amber-900 shrink-0">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-black text-slate-900">Sign In to Your Account</div>
-              <div className="text-[11px] text-slate-600 font-medium">Use your registered phone number or Telegram ID to access your wallet</div>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => openAuthModal('login')}
-            className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-xs shrink-0 cursor-pointer"
-          >
-            Sign In
-          </button>
-        </div>
-      )}
-
       {/* Wallet Balance Card */}
       <div className="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-xs relative overflow-hidden">
         <div className="flex items-center justify-between">
