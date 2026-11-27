@@ -89,7 +89,7 @@ interface BingoContextType {
   submitPendingDeposit: (amount: number, provider: PaymentProvider, reference: string, transactionCode?: string) => Promise<boolean>;
   approveDeposit: (transactionId: string, adminName: string) => Promise<void>;
   rejectDeposit: (transactionId: string, adminName: string) => Promise<void>;
-  refreshWallet: () => Promise<void>;
+  refreshWallet: (userId?: string) => Promise<void>;
   requestWithdrawal: (amount: number, provider: PaymentProvider, accountNumber: string, accountName: string) => Promise<boolean>;
   approveWithdrawal: (withdrawalId: string, adminName: string, payoutReference?: string) => Promise<void>;
   rejectWithdrawal: (withdrawalId: string, adminName: string) => Promise<void>;
@@ -1144,22 +1144,67 @@ export function BingoProvider({ children }: { children: ReactNode }) {
   };
 
 
+  const refreshTelegramSession = React.useCallback(async (): Promise<User | null> => {
+    if (typeof window === 'undefined') return null;
+    const initData = (window as any).Telegram?.WebApp?.initData;
+    if (typeof initData !== 'string' || !initData) return null;
+    try {
+      const response = await fetch('/api/auth/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData }),
+      });
+      const result = await response.json();
+      const authenticatedUser = result.success ? result.data?.user as User | undefined : undefined;
+      if (!authenticatedUser) return null;
+      setUser(authenticatedUser);
+      localStorage.setItem('hyper_bingo_user', JSON.stringify(authenticatedUser));
+      if (result.data?.wallet) {
+        setWallet(result.data.wallet);
+        localStorage.setItem('hyper_bingo_wallet', JSON.stringify(result.data.wallet));
+      }
+      return authenticatedUser;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const resolveDepositUser = async (): Promise<User | null> => {
+    const telegramWebApp = typeof window !== 'undefined' ? (window as any).Telegram?.WebApp : null;
+    const hasTelegramContext = Boolean(telegramWebApp);
+    let depositUser = user;
+    if (hasTelegramContext) {
+      depositUser = telegramWebApp.initData ? await refreshTelegramSession() : null;
+    }
+    if (!depositUser || depositUser.id === 'usr_guest' || (hasTelegramContext && !depositUser.phone)) {
+      if (hasTelegramContext) {
+        addNotification(
+          'Telegram Account Verification',
+          'We could not verify your Telegram account. Reopen the Mini App from the Hyper Bingo bot and try again.',
+          'warning'
+        );
+      } else {
+        openAuthModal('register');
+        addNotification('Account Required', 'Please open an account or sign in to deposit funds.', 'warning');
+      }
+      return null;
+    }
+    return depositUser;
+  };
+
   // 1. DEPOSIT FLOW
   const depositWallet = async (amount: number, provider: PaymentProvider, reference: string): Promise<boolean> => {
-    if (!user) {
-      openAuthModal('register');
-      addNotification('Account Required', 'Please open an account or sign in to deposit funds.', 'warning');
-      return false;
-    }
+    const depositUser = await resolveDepositUser();
+    if (!depositUser) return false;
 
     // Never credit the client-side wallet directly. Every deposit must pass
     // through the server verifier or remain pending for administrator review.
     try {
       const response = await fetch('/api/payments/deposit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
         body: JSON.stringify({
-          userId: user.id,
+          userId: depositUser.id,
           amount,
           mode: 'manual',
           provider,
@@ -1171,7 +1216,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         addNotification('❌ Deposit Failed', data.error || 'The payment could not be verified.', 'error');
         return false;
       }
-      await refreshWallet();
+      await refreshWallet(depositUser.id);
       addNotification(
         data.data?.status === 'COMPLETED' ? '💳 Deposit Confirmed!' : '⏳ Deposit Submitted',
         data.message || `Your ${amount} ETB deposit is being verified.`,
@@ -1191,18 +1236,16 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     reference: string,
     transactionCode?: string
   ): Promise<boolean> => {
-    if (!user) {
-      openAuthModal('register');
-      return false;
-    }
+    const depositUser = await resolveDepositUser();
+    if (!depositUser) return false;
 
     const code = transactionCode || reference;
     try {
       const response = await fetch('/api/payments/deposit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
         body: JSON.stringify({
-          userId: user.id,
+          userId: depositUser.id,
           amount,
           mode: 'manual',
           provider,
@@ -1214,7 +1257,7 @@ export function BingoProvider({ children }: { children: ReactNode }) {
         addNotification('❌ Deposit Failed', data.error || 'The payment could not be verified.', 'error');
         return false;
       }
-      await refreshWallet();
+      await refreshWallet(depositUser.id);
       addNotification(
         data.data?.status === 'COMPLETED' ? '💳 Deposit Confirmed!' : '⏳ Deposit Submitted for Verification',
         data.message || `Your deposit of ${amount} ETB is being verified.`,
@@ -1454,45 +1497,20 @@ export function BingoProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshWallet = async () => {
-    if (!user?.id) return;
+  const refreshWallet = async (targetUserId = user?.id) => {
+    if (!targetUserId) return;
     try {
-      const res = await fetch(`/api/wallet?userId=${encodeURIComponent(user.id)}`, { cache: 'no-store', headers: getTelegramAuthHeaders() });
+      const res = await fetch(`/api/wallet?userId=${encodeURIComponent(targetUserId)}`, { cache: 'no-store', headers: getTelegramAuthHeaders() });
       const result = await res.json();
       if (result.success && result.data?.wallet) {
         setWallet(result.data.wallet);
         localStorage.setItem('hyper_bingo_wallet', JSON.stringify(result.data.wallet));
       }
-      await fetchTransactionHistory(user.id);
+      await fetchTransactionHistory(targetUserId);
     } catch {
       /* Keep the current balance if the refresh request fails. */
     }
   };
-
-  const refreshTelegramSession = React.useCallback(async (): Promise<User | null> => {
-    if (typeof window === 'undefined') return null;
-    const initData = (window as any).Telegram?.WebApp?.initData;
-    if (typeof initData !== 'string' || !initData) return null;
-    try {
-      const response = await fetch('/api/auth/telegram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ initData }),
-      });
-      const result = await response.json();
-      const authenticatedUser = result.success ? result.data?.user as User | undefined : undefined;
-      if (!authenticatedUser) return null;
-      setUser(authenticatedUser);
-      localStorage.setItem('hyper_bingo_user', JSON.stringify(authenticatedUser));
-      if (result.data?.wallet) {
-        setWallet(result.data.wallet);
-        localStorage.setItem('hyper_bingo_wallet', JSON.stringify(result.data.wallet));
-      }
-      return authenticatedUser;
-    } catch {
-      return null;
-    }
-  }, []);
 
   // 4b. ADMIN APPROVE DEPOSIT
   const approveDeposit = async (transactionId: string, adminName: string) => {

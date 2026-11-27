@@ -271,6 +271,39 @@ const db = {
     return [...usersMap.values()].find(u => u.phone.replace(/[\s-]/g, '') === cleanPhone) ?? null;
   },
 
+  /** Link a phone-verified Telegram account to an existing web-only account. */
+  async linkTelegramIdToPhone(telegramId: string, phone: string): Promise<User | null> {
+    const cleanPhone = phone.replace(/[\s-]/g, '');
+    const sql = getNeonSql();
+    if (sql) {
+      try {
+        const rows = await sql`
+          UPDATE users
+          SET telegram_id = ${String(telegramId)}
+          WHERE id = (
+            SELECT id FROM users
+            WHERE regexp_replace(phone, '[[:space:]-]', '', 'g') = ${cleanPhone}
+              AND (telegram_id = ${String(telegramId)} OR left(telegram_id, 4) = 'web_')
+            LIMIT 1
+          )
+          RETURNING *
+        `;
+        if (rows.length > 0) return rowToUser(rows[0]);
+        return await this.getUserByPhone(phone);
+      } catch (e) {
+        console.error('Neon linkTelegramIdToPhone error:', e);
+      }
+    }
+
+    const existing = [...usersMap.values()].find(
+      (user) => user.phone.replace(/[\s-]/g, '') === cleanPhone
+    );
+    if (existing && (existing.telegramId === String(telegramId) || existing.telegramId.startsWith('web_'))) {
+      existing.telegramId = String(telegramId);
+    }
+    return existing ?? null;
+  },
+
   async getUserByUsername(username: string): Promise<User | null> {
     const clean = username.trim().toLowerCase().replace(/^@/, '');
     const sql = getNeonSql();

@@ -3,7 +3,42 @@ import { ensureWeekendRoundKeyColumn, getNeonSql } from '@/lib/neon';
 import { computeRegularPrizePool, INITIAL_GAMES } from '@/lib/store';
 import { computeWeekendPrizePool, getWeekendDayLabel, getWeekendRoundKey } from '@/lib/bingoUtils';
 import { notifyUsersTelegram } from '@/lib/adminNotifications';
-import { checkAndTriggerBotWin, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
+import { checkAndTriggerBotWin, formatWinnerDisplayName, sanitizeWinnerForDisplay } from '@/lib/botPlayers';
+
+async function announceWeekendBotWinner(sql: any, gameId: string, botWinner: any) {
+  try {
+    const scheduledGame = INITIAL_GAMES.find((candidate) => candidate.id === gameId);
+    const dayLabel = getWeekendDayLabel(scheduledGame?.weekendDay);
+    const [gameRow] = await sql`SELECT winners, prize_pool FROM games WHERE id = ${gameId}`;
+    let winners: any[] = Array.isArray(gameRow?.winners) ? gameRow.winners : [];
+    if (!winners.length && typeof gameRow?.winners === 'string') {
+      try {
+        const parsed = JSON.parse(gameRow.winners);
+        if (Array.isArray(parsed)) winners = parsed;
+      } catch {
+        winners = [];
+      }
+    }
+    const derash = Number(gameRow?.prize_pool || botWinner.prizeWon || 0);
+
+    if (winners.length > 1) {
+      const winnerNames = winners
+        .map((winner) => `${formatWinnerDisplayName(winner.username)} (Card #${winner.cardNumber})`)
+        .join(' & ');
+      await notifyUsersTelegram(
+        `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNERS (SHARED DERASH)! ${winnerNames}. Derash: ${derash} ETB. Payout: ${winners[0]?.prizeWon} ETB each.`,
+      );
+      return;
+    }
+
+    const winner = winners[0] || botWinner;
+    await notifyUsersTelegram(
+      `🏆 ${dayLabel.toUpperCase()} WEEKEND BINGO WINNER! ${formatWinnerDisplayName(winner.username)} won Card #${winner.cardNumber}. Derash: ${derash} ETB. Payout: ${winner.prizeWon || derash} ETB.`,
+    );
+  } catch (error) {
+    console.error('[claim] Weekend winner announcement failed:', error);
+  }
+}
 
 /**
  * POST /api/games/claim
@@ -43,6 +78,7 @@ export async function POST(req: NextRequest) {
     if (!game) {
       return NextResponse.json({ success: false, error: 'Game not found' }, { status: 404 });
     }
+    const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY';
 
     // Check if already completed or has winners
     const currentWinners = Array.isArray(game.winners) ? game.winners
@@ -62,6 +98,7 @@ export async function POST(req: NextRequest) {
         const drawn: number[] = Array.isArray(game.drawn_numbers) ? game.drawn_numbers : [];
         const currentBall = Number(game.current_ball || winningBall || 75);
         botWinner = await checkAndTriggerBotWin(sql, game, drawn, currentBall, true);
+        if (botWinner && isWeekend) await announceWeekendBotWinner(sql, gameId, botWinner);
       } else if (currentWinners.length > 0) {
         botWinner = currentWinners[0];
       }
@@ -91,6 +128,7 @@ export async function POST(req: NextRequest) {
         const drawn2: number[] = Array.isArray(game.drawn_numbers) ? game.drawn_numbers : [];
         const currentBall2 = Number(game.current_ball || winningBall || 75);
         botWinner2 = await checkAndTriggerBotWin(sql, game, drawn2, currentBall2, true);
+        if (botWinner2 && isWeekend) await announceWeekendBotWinner(sql, gameId, botWinner2);
       } else if (currentWinners.length > 0) {
         botWinner2 = currentWinners[0];
       }
@@ -103,7 +141,6 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
-    const isWeekend = game.category === 'HYPER_WEEKEND' || game.game_type === 'WEEKEND_LOTTERY';
     let awardedPrize = Math.max(0, Number(prizeWon) || 0);
     const [playerCountRow] = await sql`
       SELECT COUNT(*)::integer AS player_count

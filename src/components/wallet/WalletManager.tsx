@@ -155,12 +155,21 @@ export default function WalletManager() {
     }
     setDepositError(null);
 
+    const telegramWebApp = window.Telegram?.WebApp;
     let depositUser = user;
-    if ((!depositUser || depositUser.id === 'usr_guest') && window.Telegram?.WebApp?.initData) {
-      depositUser = await refreshTelegramSession();
+    if (telegramWebApp) {
+      depositUser = telegramWebApp.initData ? await refreshTelegramSession() : null;
     }
-    if (!depositUser || depositUser.id === 'usr_guest') {
-      openAuthModal('register');
+    if (!depositUser || depositUser.id === 'usr_guest' || (telegramWebApp && !depositUser.phone)) {
+      if (telegramWebApp) {
+        const err = isAm
+          ? 'የቴሌግራም አካውንትዎን ማረጋገጥ አልተቻለም። ሚኒ አፑን ከHyper Bingo ቦት እንደገና ከፍተው ይሞክሩ።'
+          : 'We could not verify your Telegram account. Reopen the Mini App from the Hyper Bingo bot and try again.';
+        setDepositError(err);
+        showStatus('error', err);
+      } else {
+        openAuthModal('register');
+      }
       return;
     }
     const depositAmt = typeof amount === 'number' ? amount : Number(amount) || 0;
@@ -389,8 +398,28 @@ export default function WalletManager() {
 
 
   // ── Direct Pay handlers ──────────────────────────────────────────────────
+  const resolveDirectPayUser = async () => {
+    const telegramWebApp = window.Telegram?.WebApp;
+    let paymentUser = user;
+    if (telegramWebApp) {
+      paymentUser = telegramWebApp.initData ? await refreshTelegramSession() : null;
+    }
+    if (!paymentUser || paymentUser.id === 'usr_guest' || (telegramWebApp && !paymentUser.phone)) {
+      if (telegramWebApp) {
+        setDirectPayError(isAm
+          ? 'የቴሌግራም አካውንትዎን ማረጋገጥ አልተቻለም። ሚኒ አፑን ከHyper Bingo ቦት እንደገና ከፍተው ይሞክሩ።'
+          : 'We could not verify your Telegram account. Reopen the Mini App from the Hyper Bingo bot and try again.');
+      } else {
+        openAuthModal('register');
+      }
+      return null;
+    }
+    return paymentUser;
+  };
+
   const handleDirectPaySendOtp = async () => {
-    if (!user || user.id === 'usr_guest') { openAuthModal('register'); return; }
+    const paymentUser = await resolveDirectPayUser();
+    if (!paymentUser) return;
     const amt = typeof directPayAmount === 'number' ? directPayAmount : Number(directPayAmount) || 0;
     if (amt < 10) { setDirectPayError(isAm ? 'ዝቅተኛ ተቀማጭ 10 ብር ነው' : 'Minimum deposit is 10 ETB'); return; }
     if (!directPayPhone || directPayPhone.replace(/\D/g,'').length < 9) {
@@ -423,7 +452,7 @@ export default function WalletManager() {
       const res = await fetch('/api/payments/direct', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send_otp', userId: user.id, amount: amt, provider: directPayProvider, phone: directPayPhone }),
+        body: JSON.stringify({ action: 'send_otp', userId: paymentUser.id, amount: amt, provider: directPayProvider, phone: directPayPhone }),
       });
       const data = await res.json();
       if (data.success) {
@@ -456,7 +485,8 @@ export default function WalletManager() {
   };
 
   const handleDirectPayVerify = async () => {
-    if (!user || user.id === 'usr_guest') { openAuthModal('register'); return; }
+    const paymentUser = await resolveDirectPayUser();
+    if (!paymentUser) return;
     if (!directPayPasscode || directPayPasscode.trim().length < 4) {
       setDirectPayError(isAm ? 'ትክክለኛ የይለፍ ቃል ያስገቡ (ቢያንስ 4 ቁጥሮች)' : 'Enter your passcode (minimum 4 digits)'); return;
     }
@@ -466,7 +496,7 @@ export default function WalletManager() {
       const res = await fetch('/api/payments/direct', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify_passcode', userId: user.id, passcode: directPayPasscode, otpToken: directPayOtpToken }),
+        body: JSON.stringify({ action: 'verify_passcode', userId: paymentUser.id, passcode: directPayPasscode, otpToken: directPayOtpToken }),
       });
       const data = await res.json();
       if (data.success) {

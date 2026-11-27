@@ -354,7 +354,28 @@ export async function POST(req: NextRequest) {
         }
         const existingPhone = await db.getUserByPhone(cleanPhone).catch(() => null);
         const existingTelegram = await db.getUserByTelegramId(String(userId)).catch(() => null);
-        if (existingPhone || existingTelegram?.phone) {
+        if (existingTelegram?.phone) {
+          await sendMessage({
+            chat_id: chatId,
+            parse_mode: 'HTML',
+            text:
+              `${announcementHeader}🎮 <b>Welcome back to Hyper Bingo Ethiopia</b>\n\n` +
+              `${gameListText}\n\n` +
+              `<b>👇 Tap a game button below to start playing!</b>`,
+            reply_markup: buildPersistentKeyboard(isAdmin, true),
+          });
+          return NextResponse.json({ ok: true });
+        }
+        if (existingPhone) {
+          const linkedUser = await db.linkTelegramIdToPhone(String(userId), cleanPhone);
+          if (!linkedUser || linkedUser.telegramId !== String(userId)) {
+            await sendMessage({
+              chat_id: chatId,
+              text: 'This phone number is already linked to another Telegram account. Please contact support so we can help connect your account.',
+            });
+            return NextResponse.json({ ok: true });
+          }
+          await db.getOrCreateWallet(linkedUser.id);
           await sendMessage({
             chat_id: chatId,
             parse_mode: 'HTML',
